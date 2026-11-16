@@ -1,0 +1,24 @@
+# Claude/agent files (local only, kept in the Vault)
+.claude/
+CLAUDE.md
+AGENTS.md
+.mcp.json
+.loki/
+
+# Private: plans, design work, changelog, personal save (kept in the Vault)
+design/
+CHANGELOG.md
+tetris_save.json
+*.tetris
+
+# Third-party material that must never be published
+# (ripped music: to be replaced; unused community skins and FX pack)
+assets/music/*.mp3
+images/
+Effect and FX Pixel All Free/
+
+# OS / editor leftovers
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
