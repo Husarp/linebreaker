@@ -6927,6 +6927,7 @@
             const tierBadge = a._newTierNum ? ` <span style="font-size:0.5rem;opacity:0.8;">TIER ${a._newTierNum}</span>` : '';
             const toast = document.createElement('div');
             toast.className = 'ach-menu-toast';
+            toast.setAttribute('role', 'status');
             toast.style.cssText = `
                 position:fixed;top:${16 + (stackOffset + idx * 82)}px;left:50%;transform:translateX(-50%) translateY(-70px);
                 z-index:9990;opacity:0;

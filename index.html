@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="lb-game-root">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Linebreaker</title>
+    <link rel="preload" href="assets/fonts/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="ui/tokens.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -31,7 +33,7 @@
 <canvas id="bg-canvas"></canvas>
 
 <!-- CUSTOM ALERT MODAL -->
-<div id="custom-alert" class="overlay hidden" style="z-index: 1100;">
+<div id="custom-alert" role="dialog" aria-modal="true" aria-labelledby="alert-title" class="overlay hidden" style="z-index: 1100;">
     <div class="modal-box" id="alert-box">
         <div class="modal-title" id="alert-title">NOTICE</div>
         <div class="modal-text" id="alert-text">Message goes here.</div>
@@ -50,9 +52,9 @@
 </div>
 
 <!-- CUSTOM CONFIRM MODAL -->
-<div id="custom-confirm" class="overlay hidden" style="z-index: 1101;">
+<div id="custom-confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" class="overlay hidden" style="z-index: 1101;">
     <div class="modal-box" style="border-color: var(--error);">
-        <div class="modal-title" style="color: var(--error);">WARNING</div>
+        <div class="modal-title" id="confirm-title" style="color: var(--error);">WARNING</div>
         <div class="modal-text" id="confirm-text">Message goes here.</div>
         <div class="modal-btn-group">
             <button class="btn-secondary" id="confirm-no">CANCEL</button>
@@ -214,7 +216,7 @@
 </div>
 
 <!-- STATS & LEADERBOARD SCREEN -->
-<div id="stats-overlay" class="overlay hidden" style="z-index: 1002; background: #050510; backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="stats-overlay" class="overlay hidden lb-fullscreen" style="z-index: 1002;">
     <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
         <button class="btn-back" onclick="window.closeStats()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="color:var(--primary); font-family:var(--ui-font); font-size:0.58rem;">STATISTICS</span>
@@ -270,7 +272,7 @@
 </div>
 
 <!-- INVENTORY SCREEN -->
-<div id="inventory-overlay" class="overlay hidden" style="z-index: 1004; background: rgba(5,5,16,0.92); backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="inventory-overlay" class="overlay hidden lb-fullscreen" style="z-index: 1004;">
     <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
         <button class="btn-back" onclick="window.closeInventory()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary);">INVENTORY</span>
@@ -321,7 +323,7 @@
 </div>
 
 <!-- MISSIONS SCREEN -->
-<div id="missions-overlay" class="overlay hidden" onclick="window._mqOverlayClick(event)" style="z-index:1004;background:#050510;backdrop-filter:none;justify-content:flex-start;align-items:stretch;padding:0;overflow:hidden;flex-direction:column;text-align:left;">
+<div id="missions-overlay" class="overlay hidden lb-fullscreen" onclick="window._mqOverlayClick(event)" style="z-index:1004; overflow:hidden; text-align:left;">
     <div style="display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;background:rgba(5,5,16,0.97);z-index:20;position:relative;">
         <button class="btn-back" onclick="window.closeMissions()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <!-- V4 Pill+Disk tabs -->
@@ -365,7 +367,7 @@
 </div>
 
 <!-- SETTINGS SCREEN -->
-<div id="settings-overlay" class="overlay hidden" style="z-index: 1004; background: #050510; backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="settings-overlay" class="overlay hidden lb-fullscreen" style="z-index: 1004;">
     <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:20;">
         <button class="btn-back" onclick="window.closeSettings()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary);">SETTINGS</span>
@@ -381,7 +383,7 @@
                         <div class="c-pill-track">
                             <div class="c-pill-fill" id="sfx-pill-fill" style="width:50%;"></div>
                             <div class="c-pill-knob" id="sfx-pill-knob" style="left:50%;"></div>
-                            <input type="range" class="c-pill-input" id="setting-sfx-vol" min="0" max="100" step="5" value="50"
+                            <input type="range" class="c-pill-input" id="setting-sfx-vol" aria-label="SFX volume" min="0" max="100" step="5" value="50"
                                 oninput="_cPillSync('sfx',this.value);window.onSettingChange('sfxVol',this.value)">
                         </div>
                         <button id="sfx-mute-btn" onclick="window.toggleMute('sfx')" style="background:none;border:1px solid #444;border-radius:6px;cursor:pointer;color:#aaa;padding:4px 7px;line-height:1;flex-shrink:0;display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
@@ -395,7 +397,7 @@
                         <div class="c-pill-track">
                             <div class="c-pill-fill" id="music-pill-fill" style="width:30%;"></div>
                             <div class="c-pill-knob" id="music-pill-knob" style="left:30%;"></div>
-                            <input type="range" class="c-pill-input" id="setting-music-vol" min="0" max="100" step="5" value="30"
+                            <input type="range" class="c-pill-input" id="setting-music-vol" aria-label="Music volume" min="0" max="100" step="5" value="30"
                                 oninput="_cPillSync('music',this.value);window.onSettingChange('musicVol',this.value)">
                         </div>
                         <button id="music-mute-btn" onclick="window.toggleMute('music')" style="background:none;border:1px solid #444;border-radius:6px;cursor:pointer;color:#aaa;padding:4px 7px;line-height:1;flex-shrink:0;display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
@@ -422,7 +424,7 @@
                             <div class="d-step-dot" data-v="200"></div>
                             <div class="d-step-dot" data-v="250"></div>
                             <div class="d-step-dot" data-v="300"></div>
-                            <input type="range" class="d-steps-input" id="slider-das" min="50" max="300" step="10" value="160"
+                            <input type="range" class="d-steps-input" id="slider-das" aria-label="DAS delay" min="50" max="300" step="10" value="160"
                                 oninput="window.onSettingChange('das',this.value);_dStepsSync('das-dtrack','',this,50,300)">
                         </div>
                         <span class="d-steps-val" id="setting-das-val">160ms</span>
@@ -438,7 +440,7 @@
                             <div class="d-step-dot cur" data-v="50"></div>
                             <div class="d-step-dot" data-v="75"></div>
                             <div class="d-step-dot" data-v="100"></div>
-                            <input type="range" class="d-steps-input" id="slider-arr" min="0" max="100" step="5" value="50"
+                            <input type="range" class="d-steps-input" id="slider-arr" aria-label="ARR speed" min="0" max="100" step="5" value="50"
                                 oninput="window.onSettingChange('arr',this.value);_dStepsSync('arr-dtrack','',this,0,100)">
                         </div>
                         <span class="d-steps-val" id="setting-arr-val">50ms</span>
@@ -453,7 +455,7 @@
                             <div class="d-step-dot on" data-v="1"></div>
                             <div class="d-step-dot cur" data-v="2"></div>
                             <div class="d-step-dot" data-v="3"></div>
-                            <input type="range" class="d-steps-input" id="slider-shake" min="0" max="3" step="1" value="2"
+                            <input type="range" class="d-steps-input" id="slider-shake" aria-label="Screen shake" min="0" max="3" step="1" value="2"
                                 oninput="window.onSettingChange('shakeStrength',this.value);_dStepsSync('shake-dtrack','',this,0,3)">
                         </div>
                         <span class="d-steps-val" id="setting-shake-val">Medium</span>
@@ -470,7 +472,7 @@
                             <div class="d-step-dot cur" data-v="3"></div>
                             <div class="d-step-dot" data-v="4"></div>
                             <div class="d-step-dot" data-v="5"></div>
-                            <input type="range" class="d-steps-input" id="slider-lineclear" min="0" max="5" step="1" value="3"
+                            <input type="range" class="d-steps-input" id="slider-lineclear" aria-label="Line clear speed" min="0" max="5" step="1" value="3"
                                 oninput="window.onSettingChange('lineClearMs',this.value);_dStepsSync('lineclear-dtrack','',this,0,5)">
                         </div>
                         <span class="d-steps-val" id="setting-lineclear-val">150ms</span>
@@ -506,7 +508,7 @@
                             <div class="d-step-dot cur" data-v="50"></div>
                             <div class="d-step-dot" data-v="75"></div>
                             <div class="d-step-dot" data-v="100"></div>
-                            <input type="range" class="d-steps-input" id="setting-hard-drop-lock-ms" min="0" max="100" step="5" value="50"
+                            <input type="range" class="d-steps-input" id="setting-hard-drop-lock-ms" aria-label="Hard drop lock delay" min="0" max="100" step="5" value="50"
                                 oninput="window.onSettingChange('hardDropLockMs',this.value);_dStepsSync('hdl-dtrack','',this,0,100)">
                         </div>
                         <span class="d-steps-val" id="setting-hard-drop-lock-ms-val">50ms</span>
@@ -522,7 +524,7 @@
                             <div class="d-step-dot" data-v="60"></div>
                             <div class="d-step-dot" data-v="80"></div>
                             <div class="d-step-dot" data-v="100"></div>
-                            <input type="range" class="d-steps-input" min="0" max="100" step="10" value="30" id="slider-grid"
+                            <input type="range" class="d-steps-input" min="0" max="100" step="5" value="30" id="slider-grid" aria-label="Grid opacity"
                                 oninput="window.onSettingChange('gridOpacity',this.value);_dStepsSync('grid-dtrack','',this,0,100)">
                         </div>
                         <span class="d-steps-val" id="setting-grid-val">30%</span>
@@ -541,7 +543,7 @@
                             <span class="e-step-val" id="fontsize-step-val">5</span>
                             <button class="e-step-btn" onclick="window._eStepChange('fontsize',1)">+</button>
                         </div>
-                        <input type="range" min="1" max="10" step="1" value="5" id="slider-fontsize" style="display:none;"
+                        <input type="range" min="1" max="10" step="1" value="5" id="slider-fontsize" aria-label="Font size" style="display:none;"
                             oninput="window.onSettingChange('fontSize', this.value)">
                     </div>
                 </div>
@@ -554,7 +556,7 @@
                             <span class="e-step-val" id="gamescale-step-val">5</span>
                             <button class="e-step-btn" onclick="window._eStepChange('gamescale',1)">+</button>
                         </div>
-                        <input type="range" min="1" max="10" step="1" value="5" id="slider-gamescale" style="display:none;"
+                        <input type="range" min="1" max="10" step="1" value="5" id="slider-gamescale" aria-label="Game scale" style="display:none;"
                             oninput="window.onSettingChange('gameScale', this.value)">
                     </div>
                 </div>
@@ -565,7 +567,7 @@
                             <div class="d-step-dot cur" data-v="1"></div>
                             <div class="d-step-dot" data-v="2"></div>
                             <div class="d-step-dot" data-v="3"></div>
-                            <input type="range" class="d-steps-input" id="slider-heavybg" min="1" max="3" step="1" value="1"
+                            <input type="range" class="d-steps-input" id="slider-heavybg" aria-label="Background intensity" min="1" max="3" step="1" value="1"
                                 oninput="window.onSettingChange('heavyBg',this.value);_dStepsSync('heavybg-dtrack','',this,1,3)">
                         </div>
                         <span class="d-steps-val" id="setting-heavybg-val" style="min-width:52px;">Light</span>
@@ -673,15 +675,15 @@
             <div style="font-size:0.55rem; color:#665500; letter-spacing:2px; margin-bottom:10px;">FUN MODE CONFIG</div>
             <div class="fun-cfg-row">
                 <span>Columns: <b id="fun-cols-val">10</b></span>
-                <input type="range" id="fun-cols" min="6" max="16" value="10" oninput="window.updateFunConfigDisplay()" style="width:120px;">
+                <input type="range" id="fun-cols" aria-label="Board columns" min="6" max="16" value="10" oninput="window.updateFunConfigDisplay()" style="width:120px;">
             </div>
             <div class="fun-cfg-row">
                 <span>Rows: <b id="fun-rows-val">20</b></span>
-                <input type="range" id="fun-rows" min="15" max="30" value="20" oninput="window.updateFunConfigDisplay()" style="width:120px;">
+                <input type="range" id="fun-rows" aria-label="Board rows" min="15" max="30" value="20" oninput="window.updateFunConfigDisplay()" style="width:120px;">
             </div>
             <div class="fun-cfg-row">
                 <span>Start Speed: <b id="fun-speed-val">1</b></span>
-                <input type="range" id="fun-speed" min="1" max="15" value="1" oninput="window.updateFunConfigDisplay()" style="width:120px;">
+                <input type="range" id="fun-speed" aria-label="Starting speed" min="1" max="15" value="1" oninput="window.updateFunConfigDisplay()" style="width:120px;">
             </div>
         </div>
     </div>
@@ -696,7 +698,7 @@
 </div>
 
 <!-- PLAYLIST PANEL -->
-<div id="playlist-overlay" class="overlay hidden" style="z-index: 1010; background: rgba(5,5,16,0.97); backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="playlist-overlay" class="overlay hidden lb-fullscreen" style="z-index: 1010;">
     <div style="display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
         <div style="display:flex;align-items:center;gap:8px;">
             <button class="btn-back" onclick="window.closePlaylistPanel()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
@@ -729,7 +731,7 @@
 </div>
 
 <!-- RULES SCREEN -->
-<div id="rules-overlay" class="overlay hidden" style="z-index:1006;background:#050510;backdrop-filter:none;justify-content:flex-start;padding:0;overflow-y:auto;align-items:stretch;">
+<div id="rules-overlay" class="overlay hidden lb-fullscreen" style="z-index:1006;">
     <!-- Sticky header -->
     <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0;background:rgba(5,5,16,0.98);position:sticky;top:0;z-index:10;">
         <button class="btn-back" onclick="window.closeRules()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
@@ -1079,7 +1081,7 @@
 
 
 <!-- ACHIEVEMENTS OVERLAY -->
-<div id="achievements-overlay" class="overlay hidden" style="z-index: 1003; background: rgba(5,5,16,0.92); backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="achievements-overlay" class="overlay hidden lb-fullscreen" style="z-index: 1003;">
     <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
         <button class="btn-back" onclick="window.closeAchievements()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:'Press Start 2P'; font-size:0.58rem; color:var(--primary); display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4H4v5c0 1.65 1.35 3 3 3"/><path d="M17 4h3v5c0 1.65-1.35 3-3 3"/><path d="M7 12c0 2.76 2.24 5 5 5s5-2.24 5-5V4H7v8z"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="9 21 12 21 15 21"/></svg>ACHIEVEMENTS</span>
@@ -1105,7 +1107,7 @@
 </div>
 
 <!-- TUTORIAL OVERLAY -->
-<div id="tutorial-overlay" class="overlay hidden" style="z-index: 1008; background: rgba(5,5,16,0.95); backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="tutorial-overlay" class="overlay hidden lb-fullscreen" style="z-index: 1008;">
     <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
         <button class="btn-back" onclick="window.closeTutorial()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary); display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polygon points="10 8 16 11 10 14 10 8" fill="currentColor" opacity="0.7"/></svg>TUTORIALS</span>
@@ -1120,7 +1122,7 @@
 </div>
 
 <!-- CREDITS OVERLAY -->
-<div id="credits-overlay" class="overlay hidden" style="z-index:1010;align-items:flex-start;overflow-y:auto;background:rgba(5,5,16,0.97);">
+<div id="credits-overlay" class="overlay hidden lb-fullscreen" style="z-index:1010; align-items:flex-start;">
     <div style="max-width:520px;width:100%;margin:0 auto;padding:24px 16px 48px;box-sizing:border-box;">
         <!-- Header -->
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:28px;position:sticky;top:0;background:rgba(5,5,16,0.97);padding:12px 0;z-index:1;">

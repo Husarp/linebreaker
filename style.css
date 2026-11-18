@@ -1787,3 +1787,59 @@ body[data-pack="pixel"] .mt-enable-btn {
 #start-text-container { font-size: clamp(1rem, 4vw, 1.5rem); }
 
 .mq-swap-disabled { background: #11111a !important; color: #555 !important; border-color: #292933 !important; opacity: 1 !important; box-shadow: none !important; }
+
+/* R1 foundations: opt in without touching menu/rank/XP/missions/HUD looks. */
+:root { --accent: var(--primary); }
+.overlay.lb-fullscreen {
+    background: #050510; backdrop-filter: none; justify-content: flex-start;
+    align-items: stretch; padding: 0; overflow-y: auto;
+}
+:is(#custom-alert, #custom-confirm) .modal-box {
+    background: var(--surface-1); backdrop-filter: none; border-radius: var(--radius-md);
+    border-color: var(--border); color: var(--text); font-family: var(--font-body);
+    max-height: calc(100dvh - 32px); overflow-y: auto;
+}
+:is(#custom-alert, #custom-confirm) .modal-title { font-family: var(--font-display); }
+:is(#custom-alert, #custom-confirm) .modal-text { color: var(--text); }
+:is(#custom-alert, #custom-confirm) button {
+    min-height: var(--target); min-width: var(--target); border-radius: var(--radius-button);
+    font-family: var(--font-body); clip-path: none; transition: transform 120ms, opacity 120ms;
+}
+:is(#custom-alert, #custom-confirm) button:focus-visible,
+input[type="range"]:focus-visible { outline: 3px solid var(--accent-bright); outline-offset: 3px; }
+.ach-menu-toast, #lb-tooltip-global, #mode-opt-tooltip,
+#block-preview-tip, #skin-preview-tip, #theme-preview-tip, #grid-preview-tip,
+#ach-tip, #pl-row-tip {
+    background: var(--surface-1) !important; color: var(--text) !important;
+    font-family: var(--font-body) !important; border-radius: var(--radius-md) !important;
+}
+/* Native sliders supply the visible control and keyboard focus, including settings. */
+input[type="range"] {
+    appearance: none; min-height: var(--target); background: transparent;
+    border-radius: 0; accent-color: var(--accent); touch-action: pan-y;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+    height: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 2px;
+}
+input[type="range"]::-moz-range-track {
+    height: 6px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+    appearance: none; width: 22px; height: 24px; margin-top: -9px;
+    background: var(--accent); border: 2px solid var(--accent-bright); border-radius: 3px;
+}
+input[type="range"]::-moz-range-thumb {
+    width: 18px; height: 20px; background: var(--accent);
+    border: 2px solid var(--accent-bright); border-radius: 3px;
+}
+.c-pill-track, .d-steps-flex { height: 44px; background: transparent; flex: 1; margin-right: 0; padding: 0; }
+.c-pill-fill, .c-pill-knob, .d-step-dot { display: none; }
+input.c-pill-input, input.d-steps-input {
+    position: relative !important; left: 0 !important; top: 0 !important;
+    width: 100% !important; height: 44px !important; opacity: 1 !important;
+}
+.c-pill-wrap button { min-width: 44px; min-height: 44px; }
+.c-pill-wrap span, .d-steps-val { font-family: var(--font-body) !important; color: var(--text-muted); }
+@media (prefers-reduced-motion: reduce) {
+    :is(#custom-alert, #custom-confirm) button, .ach-menu-toast { transition: none !important; }
+}
