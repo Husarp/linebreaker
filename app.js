@@ -750,9 +750,8 @@
     const SPEED_MULTIPLIERS =[1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8];
     const LINES_PER_SPEED = 10;
 
-    let particles =[], shockwaves =[], floatingTexts =[], shakeIntensity = 0;
-    class Particle{constructor(x,y,c){this.x=x;this.y=y;this.vx=(Math.random()-.5)*8;this.vy=(Math.random()-.5)*8;this.c=c;this.s=Math.random()*5+2;this.l=1}update(dt=1000/60){const f=dt*60/1000;this.x+=this.vx*f;this.y+=this.vy*f+.2*f*(f-1);this.vy+=.4*f;this.l-=.04*f}draw(c){c.save();c.globalAlpha=Math.max(0,this.l);c.fillStyle=this.c;c.fillRect(this.x,this.y,this.s,this.s);c.restore()}}
-    class Shockwave{constructor(y,s){this.y=y;this.s=s;this.r=0;this.l=1}update(dt=1000/60){const f=dt*60/1000;this.r+=this.s*2*f;this.l-=.04*f}draw(c){c.save();c.globalAlpha=Math.max(0,this.l);c.strokeStyle="#fff";c.lineWidth=3;c.beginPath();c.arc(c.canvas._logicalWidth/2,this.y,this.r,0,Math.PI*2);c.stroke();c.restore()}}
+    let floatingTexts =[], shakeIntensity = 0;
+    const lineClear = LBLineClear.create();
     
     class FloatingText{
         constructor(x,y,txt,c,sz,startL){this.x=x+(Math.random()-0.5)*20;this.y=y;this.txt=txt;this.c=c;this.l=startL!==undefined?startL:1.0;this.vy=-1.5;this.sz=sz||22;this.paused=false;this.punchT=1;}
@@ -912,6 +911,8 @@
     defaultSettings.themeBackground = 'image';
     let settings = { ...defaultSettings };
     const _themeBackgroundSelect = document.getElementById('setting-theme-background');
+    defaultSettings.lineClearEffect = 'default';
+    const _lineClearEffectSelect = document.getElementById('setting-line-clear-effect');
     const _bgBlockMotionSelect = document.getElementById('setting-bg-block-motion');
     const _runMissionsSelect = document.getElementById('setting-run-missions');
     const _musicFollowsSpeedToggle = document.getElementById('setting-music-follows-speed');
@@ -919,9 +920,11 @@
     _bgBlockMotionSelect.addEventListener('change', () => onSettingChange('bgBlockMotion', _bgBlockMotionSelect.value));
     _runMissionsSelect.addEventListener('change', () => onSettingChange('showRunMissions', _runMissionsSelect.value === 'on'));
     _musicFollowsSpeedToggle.addEventListener('change', () => onSettingChange('musicFollowsSpeed', _musicFollowsSpeedToggle.checked));
+    _lineClearEffectSelect.addEventListener('change', () => onSettingChange('lineClearEffect', _lineClearEffectSelect.value));
     function loadSettings() {
         try { settings = { ...defaultSettings, ...LBSave.cleanSettings(JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}')) }; } catch(e) {}
         if (!settings.gridStyle) settings.gridStyle = 'lines';
+        settings.lineClearEffect = LBLineClear.normalizeMode(settings.lineClearEffect);
         settings.keyBindings = LBControls.normalizeBindings(settings.keyBindings);
     }
     function saveSettings() { localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings)); saveDataToFile(); }
@@ -2319,7 +2322,10 @@
             const fileSettings = data._settings;
             const useFileSettings = fileSettings && !localStorage.getItem('tetrisRPG_settings');
             saveData = { ...JSON.parse(JSON.stringify(defaultSaveData)), ...data };
-            if (useFileSettings) Object.assign(settings, defaultSettings, fileSettings);
+            if (useFileSettings) {
+                Object.assign(settings, defaultSettings, fileSettings);
+                settings.lineClearEffect = LBLineClear.normalizeMode(settings.lineClearEffect);
+            }
             if (data.stats) saveData.stats = { ...defaultSaveData.stats, ...data.stats };
             if (!saveData.ownedThemes) saveData.ownedThemes = [];
             if (!saveData.boosters) saveData.boosters = {};
@@ -3925,7 +3931,7 @@
                     isActive, isOwned, parts,
                     `window.applyBlockSkin('${s}')`,
                     `window.playerUnlockItem('skin','${s}')`,
-                    '', s
+                    escapeHtml(LBLineClear.description(s)), s
                 );
             }).join('');
             ownedSkinContainer.innerHTML = rows;
@@ -4574,6 +4580,7 @@
         const lcSlider = document.getElementById('slider-lineclear');
         if (lcSlider) { lcSlider.value = lcIdx; _dStepsSync('lineclear-dtrack','',lcSlider,0,5); }
         const lcVal = document.getElementById('setting-lineclear-val'); if (lcVal) lcVal.innerText = lcMs === 0 ? 'Instant' : lcMs + 'ms';
+        _lineClearEffectSelect.value = settings.lineClearEffect;
         // Heavy fall D-step
         const hbV = parseInt(settings.heavyBg) || 1;
         const hbSlider = document.getElementById('slider-heavybg');
@@ -4772,6 +4779,10 @@
             const lbl = document.getElementById('setting-shake-label');
             if (lbl) lbl.innerText = ['Off','Light','Medium','Strong'][settings.shakeStrength] || '';
             const sv2 = document.getElementById('setting-shake-val'); if (sv2) sv2.innerText = ['None','Light','Medium','Strong'][parseInt(value)] || value;
+            saveSettingsDebounced(); return;
+        }
+        if (key === 'lineClearEffect') {
+            settings.lineClearEffect = LBLineClear.normalizeMode(value);
             saveSettingsDebounced(); return;
         }
         if (key === 'lineClearMs') {
@@ -7283,7 +7294,7 @@
     const heldMoves = new Map(), softDropSources = new Set();
     const DAS_DELAY=160, ARR_DELAY=50; let dasTimer, arrTimer;
     let board=[], score=0, gameTime=0, dropInterval=1000, dropCounter=0, lastTime=0, currentScoreMultiplier=1.0;
-    let isPaused=true, isGameOver=false, isAnimating=false, animatingLines=[];
+    let isPaused=true, isGameOver=false, isAnimating=false;
     let _hardDropAnimating=false;
     let _quadraKillThisGame = false;
     let _nextPieceType = 0, _currentPieceType = 0;
@@ -7395,6 +7406,7 @@
         isPaused = false;
         resumeMusic();
         lastTime = performance.now();
+        _effectTime = lastTime;
         requestAnimationFrame(update);
         _animateOut(document.getElementById('pause-overlay'), 'anim-out-down');
     }
@@ -7570,7 +7582,7 @@
         }
     }
     const SPAWN_ROWS = 2;
-    let _gridCache = null, _lineFlash = null;
+    let _gridCache = null;
     function _paintGrid(ctx) {
         const _gOp = (settings.gridOpacity ?? 40) / 100;
         const _gStyle = settings.gridStyle || 'lines';
@@ -7655,8 +7667,10 @@
     let _effectTime = null;
     function drawGame() {
         const now = performance.now();
-        const effectDt = _effectTime === null || isPaused ? 0 : Math.min(100, now - _effectTime);
+        const elapsed = _effectTime === null || isPaused ? 0 : now - _effectTime;
+        const effectDt = Math.min(100, elapsed);
         _effectTime = now;
+        lineClear.advance(elapsed);
         ctx.save();
         if(shakeIntensity>0){ctx.translate((Math.random()-.5)*shakeIntensity,(Math.random()-.5)*shakeIntensity);shakeIntensity*=Math.pow(.9,effectDt*60/1000);if(shakeIntensity<.5)shakeIntensity=0;}
         ctx.fillStyle='#000';ctx.fillRect(-10,-10,canvas._logicalWidth+20,canvas._logicalHeight+20);
@@ -7671,27 +7685,17 @@
         }
         ctx.drawImage(_gridCache.tile,0,0,COLS*BLOCK,ROWS*BLOCK);
         
-        board.forEach((r,y)=>r.forEach((v,x)=>{if(v)drawGameBlock(ctx,x,y,v,BLOCK)}));
-        if(player.matrix){
+        board.forEach((values, row) => {
+            if (isAnimating && lineClear.drawRow(ctx, row, values, BLOCK, drawGameBlock)) return;
+            values.forEach((value, column) => { if (value) drawGameBlock(ctx, column, row, value, BLOCK); });
+        });
+        if(player.matrix && !isAnimating){
             if(settings.optGhost){let gY=player.pos.y; while(!collide(board,{matrix:player.matrix,pos:{x:player.pos.x,y:gY}}))gY++; gY--;
             player.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v)drawGameBlock(ctx,player.pos.x+x,gY+y,v,BLOCK,true)}));}
             player.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v)drawGameBlock(ctx,player.pos.x+x,player.pos.y+y,v,BLOCK)}));
         }
-        for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.update(effectDt); p.draw(ctx); if (p.l <= 0) particles.splice(i, 1); }
-        for (let i = shockwaves.length - 1; i >= 0; i--) { const s = shockwaves[i]; s.update(effectDt); s.draw(ctx); if (s.l <= 0) shockwaves.splice(i, 1); }
+        lineClear.drawParticles(ctx, BLOCK);
         for (let i = floatingTexts.length - 1; i >= 0; i--) { const ft = floatingTexts[i]; ft.update(effectDt); ft.draw(ctx); if (ft.l <= 0) floatingTexts.splice(i, 1); }
-
-        if(isAnimating&&animatingLines.length){
-            const key=[COLS,BLOCK,window.devicePixelRatio].join('|');
-            if (!_lineFlash || _lineFlash.key!==key) {
-                const tile=document.createElement('canvas'), dpr=Math.min(2,window.devicePixelRatio||1);
-                tile.width=Math.ceil((COLS*BLOCK+80)*dpr);tile.height=Math.ceil((BLOCK+80)*dpr);
-                const fc=tile.getContext('2d');fc.scale(dpr,dpr);
-                fc.fillStyle='rgba(255,255,255,.8)';fc.shadowBlur=20*dpr;fc.shadowColor='#fff';
-                fc.fillRect(40,40,COLS*BLOCK,BLOCK);_lineFlash={key,tile,dpr};
-            }
-            animatingLines.forEach(y=>ctx.drawImage(_lineFlash.tile,-40,y*BLOCK-40,_lineFlash.tile.width/_lineFlash.dpr,_lineFlash.tile.height/_lineFlash.dpr));
-        }
         ctx.restore()
     }
     function drawCenteredPiece(c,p){
@@ -7971,8 +7975,6 @@
         let rows=[];for(let y=ROWS-1;y>=0;--y){let full=true;for(let x=0;x<COLS;++x)if(board[y][x]===0){full=false;break;}if(full)rows.push(y)}
         if(rows.length){
             nativeHaptic(true);
-            const midY=(rows[0]+rows[rows.length-1])/2*BLOCK+BLOCK/2; const str=rows.length; triggerShake(str*3); shockwaves.push(new Shockwave(midY,str));
-            rows.forEach(y=>{for(let x=0;x<COLS;x++){const v=board[y][x];if(v){const c=COLORS[v];for(let i=0;i<str*2;i++)particles.push(new Particle(x*BLOCK+BLOCK/2,y*BLOCK+BLOCK/2,c))}}});
             if (rows.length >= 4) { _quadraKillThisGame = true; _quadrasThisGame++; }
             if (rows.length <= 2) _surgeonLinesThisGame += rows.length;
             // Single line clears tracking (One at a Time)
@@ -8019,7 +8021,10 @@
             const _comboCountBefore = _comboCount;
             _comboCount += rows.length;
             if (_comboCount > _maxComboThisGame) _maxComboThisGame = _comboCount;
-            isAnimating=true;animatingLines=rows;clearTimeout(dasTimer);clearInterval(arrTimer);drawGame();
+            const clearMs = settings.lineClearMs ?? 150;
+            lineClear.start({ skin: _renderSkin(), mode: settings.lineClearEffect, rows, board, colors: COLORS, duration: clearMs });
+            _effectTime = performance.now();
+            isAnimating=true;clearTimeout(dasTimer);clearInterval(arrTimer);drawGame();
             setTimeout(()=>{
                 let newB=board.filter((r,y)=>!rows.includes(y));let lR=ROWS-newB.length;
                 for(let i=0;i<lR;i++)newB.unshift(Array(COLS).fill(0));board=newB;
@@ -8038,7 +8043,6 @@
                     _tSpinsThisGame++;
                     floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, ftY, 'T-SPIN!', '#ff44ff', 28));
                     ftY += 24;
-                    triggerShake(6);
                     if (lR === 3) { saveData.stats.tSpinTriples = (saveData.stats.tSpinTriples || 0) + 1; if (!saveData.achievements?.['clutch']?.unlocked) unlockAchievement('clutch'); }
                 }
                 // Multi-line label
@@ -8063,7 +8067,6 @@
                     floatingTexts.push(ft);
                     ftY += 24;
                     floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, ftY, `+${comboBonus}`, cColor));
-                    if (_comboCount >= 5) triggerShake(Math.min(15, _comboCount * 2));
                 }
 
                 const oldSpeed = speedLevel;
@@ -8087,9 +8090,10 @@
                 dropInterval = Math.floor(1000 / speedLevel);
                 // Board clear check (after removing lines)
                 if (board.every(row => row.every(v => v === 0))) _boardClearedThisGame = true;
-                updateUI();isAnimating=false;animatingLines=[];lastTime=performance.now();resetPlayer();if(_bufferedMove){playerMove(_bufferedMove);_bufferedMove=0;}
+                lineClear.finish();
+                updateUI();isAnimating=false;lastTime=performance.now();resetPlayer();if(_bufferedMove){playerMove(_bufferedMove);_bufferedMove=0;}
                 _checkMidGameAchievements();
-            }, settings.lineClearMs ?? 150);return true
+            }, clearMs);return true
         }return false
     }
     function playerMove(d){_lastMoveWasRotation=false;const _md=settings.optMirror?-d:d;player.pos.x+=_md;if(collide(board,player))player.pos.x-=_md;
@@ -8209,7 +8213,8 @@
         _gameInProgress = false; // allow saves again — score and achievements saved together below
         isGameOver=true; isPaused=true;
         _syncRunMissions();
-        isAnimating=false; animatingLines=[]; _hardDropAnimating=false; // safety: clear all animation locks
+        isAnimating=false; _hardDropAnimating=false; // safety: clear all animation locks
+        lineClear.reset();
         _boosterUsedThisRound = false;
         try {
         const _gcGO = document.getElementById('game-container');
@@ -8587,6 +8592,7 @@
         document.getElementById('menu-overlay').classList.add('hidden');
         const _goEl = document.getElementById('go-overlay');
         _goEl.classList.add('hidden'); _goEl.style.pointerEvents = '';
+        lineClear.reset();
         board=Array.from({length:ROWS},()=>Array(COLS).fill(0)); drawGame();
         const _achFeed = document.getElementById('game-ach-feed');
         if (_achFeed) _achFeed.innerHTML = '';
@@ -8594,7 +8600,7 @@
         // Mirror mode visual flip
         const _gc = document.getElementById('game-container');
         if (_gc) _gc.style.transform = settings.optMirror ? 'scaleY(-1)' : '';
-        isPaused=true;isGameOver=false; score=0;gameTime=0;particles=[];shockwaves=[];pieceBag=[];_nextQueue=[];floatingTexts=[];lastPieceColor=0;
+        isPaused=true;isGameOver=false; score=0;gameTime=0;pieceBag=[];_nextQueue=[];floatingTexts=[];lastPieceColor=0;
         currentScoreMultiplier = currentGameMode === 'fun' ? 1.0 : Math.max(0.1, _calcModeXpMult());
         speedLevel=1;linesClearedThisGame=0;blocksPlacedThisGame=0; _surgeonLinesThisGame=0; _highStackBlocksThisGame=0; xpFromBlocksThisGame=0; xpFromLinesThisGame=0; rawGameplayXPThisGame=0; dropInterval=1000;
         _quadraKillThisGame = false;
@@ -11577,6 +11583,7 @@
                 score = 0; linesClearedThisGame = 0; rawGameplayXPThisGame = 0; speedLevel = speed; dropInterval = Math.floor(1000 / speed);
                 dropCounter = 0; lastTime = performance.now(); currentScoreMultiplier = scoreMultiplier;
                 isPaused = false; isGameOver = false; isAnimating = false; _hardDropAnimating = false;
+                lineClear.reset();
                 holdPiece = null; holdUsed = false; _comboCount = 0; _lastMoveWasRotation = false;
                 settings.optHold = true; settings.hardDropLock = false;
                 document.getElementById('go-overlay').classList.add('hidden');

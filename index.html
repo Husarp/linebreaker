@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="27-help-info.css">
     <link rel="stylesheet" href="32-small-notes.css">
     <link rel="stylesheet" href="44-art-pack.css">
+    <link rel="stylesheet" href="42-line-clear.css">
 </head>
 <body>
 
@@ -511,8 +512,15 @@
                         </div>
                         <span class="d-steps-val" id="setting-lineclear-val">150ms</span>
                     </div>
-                    <div class="settings-tip">How long the line clear animation lasts. Instant = 0ms, Slow = 300ms.</div>
+                    <div class="settings-tip">How long rows take to clear. Instant = 0ms, Slow = 300ms.</div>
                 </div>
+                <label class="settings-row lb-line-clear-setting" for="setting-line-clear-effect">
+                    <span>Line-clear effect</span>
+                    <select class="lb-select" id="setting-line-clear-effect">
+                        <option value="skin">Skin</option>
+                        <option value="default" selected>Default</option>
+                    </select>
+                </label>
                 <div class="settings-row">
                     <span>Speed Up text</span>
                     <div style="display:flex;align-items:center;justify-content:flex-end;min-width:190px;">
@@ -1028,6 +1036,7 @@
 <script src="color-picker.js"></script>
 <script src="assets/skins/catalog.js"></script>
 <script src="44-art-pack.js"></script>
+<script src="42-line-clear.js"></script>
 <script src="app.js"></script>
 <script src="touch.js"></script>
 <script src="desktop.js"></script>
