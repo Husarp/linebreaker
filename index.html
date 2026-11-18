@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="30-color-picker.css">
     <link rel="stylesheet" href="29-stats.css">
     <link rel="stylesheet" href="27-help-info.css">
+    <link rel="stylesheet" href="32-small-notes.css">
 </head>
 <body>
 
@@ -555,6 +556,13 @@
                     </div>
                     <div class="settings-tip">Controls how visible the grid lines are during gameplay (0% = invisible). Helps see where pieces will land.</div>
                 </div>
+                <label class="settings-row" for="setting-run-missions">
+                    <span>Show daily missions in gameplay</span>
+                    <select class="lb-select" id="setting-run-missions">
+                        <option value="off">Off</option>
+                        <option value="on">On</option>
+                    </select>
+                </label>
             </div>
             <div class="settings-section">
                 <div class="settings-title lb-help-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>DISPLAY <button type="button" class="lb-info-btn" data-help-section="display" aria-label="About display settings" title="About display settings"></button></div>
@@ -596,8 +604,15 @@
                         </div>
                         <span class="d-steps-val" id="setting-heavybg-val" style="min-width:52px;">Light</span>
                     </div>
-                    <div class="settings-tip">Intensity of falling blocks in the background. Light = a few slow blocks, Heavy = many fast blocks.</div>
+                    <div class="settings-tip">Intensity of background blocks. Light = fewer blocks, Heavy = more blocks. In spinning mode, higher intensity also makes them faster.</div>
                 </div>
+                <label class="settings-row" for="setting-bg-block-motion">
+                    <span>Background blocks</span>
+                    <select class="lb-select" id="setting-bg-block-motion">
+                        <option value="spinning">Spinning</option>
+                        <option value="falling">Falling like real pieces</option>
+                    </select>
+                </label>
             </div>
             <div id="notification-settings" class="settings-section" hidden>
                 <div class="settings-title">REMINDERS</div>
@@ -858,6 +873,13 @@
         </div>
         <div id="game-ach-feed" style="display:flex;flex-direction:column;gap:0;margin-top:4px;"></div>
     </div>
+    <aside id="run-missions" class="lb-run-missions" aria-label="Daily missions" hidden>
+        <button type="button" class="lb-btn lb-btn--ghost" id="run-missions-toggle" aria-controls="run-missions-body" aria-expanded="false">Daily missions</button>
+        <div id="run-missions-body" class="lb-card" hidden>
+            <p id="run-missions-note"></p>
+            <ul id="run-missions-list"></ul>
+        </div>
+    </aside>
     
 </div>
 

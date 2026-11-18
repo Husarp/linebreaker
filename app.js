@@ -81,8 +81,29 @@
         heavy_rain: { count: 28, sizeMin:15, sizeMax:38, speedMin:1.5, speedMax:4.5, glow:false, alpha:0.55 },
     };
 
+    function _setBgBlockRotation(block, falling, initialRotation = 0, spinRange = 0.025) {
+        block.rot = falling ? 0 : initialRotation;
+        block.vRot = falling ? 0 : (Math.random() - 0.5) * spinRange;
+        block.turnInterval = falling && block.shape.length !== 2 ? 16000 + Math.random() * 20000 : 0;
+        block.turnIn = block.turnInterval;
+    }
+    function _moveBgBlock(block, dt) {
+        const frames = dt * 60 / 1000;
+        block.y += block.vy * frames;
+        if (!block.turnInterval) {
+            block.rot += block.vRot * frames;
+            return;
+        }
+        block.turnIn -= dt;
+        if (block.turnIn <= 0) {
+            const turns = 1 + Math.floor(-block.turnIn / block.turnInterval);
+            block.rot = (block.rot + turns * Math.PI / 2) % (2 * Math.PI);
+            block.turnIn += turns * block.turnInterval;
+        }
+    }
+
     class BgBlock {
-        constructor(style) { this.style = style || BG_STYLES.default; this.reset(true); }
+        constructor(style, falling = false) { this.style = style || BG_STYLES.default; this.falling = falling; this.reset(true); }
         reset(randomY = false) {
             this.sprite = null;
             this.shape = BASE_PIECES[Math.floor(Math.random() * 7) + 1];
@@ -92,13 +113,11 @@
             const margin = this.size * 2;
             this.x = Math.random() * (bgCanvas.width - margin * 2) + margin;
             this.y = randomY ? Math.random() * bgCanvas.height : -this.size * 4;
-            this.vy = Math.random() * (this.style.speedMax - this.style.speedMin) + this.style.speedMin;
-            this.rot = Math.random() * Math.PI * 2;
-            this.vRot = (Math.random() - 0.5) * 0.025;
+            this.vy = this.falling ? 0.32 + Math.random() * 0.23 : Math.random() * (this.style.speedMax - this.style.speedMin) + this.style.speedMin;
+            _setBgBlockRotation(this, this.falling, this.falling ? 0 : Math.random() * Math.PI * 2);
         }
         update(dt=1000/60) {
-            const f=dt*60/1000;
-            this.y += this.vy*f; this.rot += this.vRot*f;
+            _moveBgBlock(this, dt);
             if (this.y > bgCanvas.height + this.size * 4) this.reset();
         }
         draw() {
@@ -146,8 +165,9 @@
     function _rebuildBgBlocks() {
         const v = settings && settings.heavyBg ? parseInt(settings.heavyBg) : 1;
         const style = v >= 3 ? BG_STYLES.heavy_rain : v >= 2 ? BG_STYLES.medium : BG_STYLES.default;
+        const falling = settings.bgBlockMotion === 'falling';
         bgBlocks = [];
-        for (let i = 0; i < style.count; i++) bgBlocks.push(new BgBlock(style));
+        for (let i = 0; i < style.count; i++) bgBlocks.push(new BgBlock(style, falling));
     }
     // Initialize background with default style at startup (settings not yet loaded)
     { const _s = BG_STYLES.default; for (let i = 0; i < _s.count; i++) bgBlocks.push(new BgBlock(_s)); }
@@ -158,25 +178,23 @@
     function _spawnSpecialBlock() {
         if (_specialBlock) return;
         _specialBlockLastSpawn = Date.now();
-        const style = BG_STYLES.default;
+        const falling = settings.bgBlockMotion === 'falling';
         _specialBlock = {
             shape: BASE_PIECES[Math.floor(Math.random() * 7) + 1],
             size: 32,
             x: Math.random() * (bgCanvas.width - 200) + 100,
             y: -130,
-            vy: 0.8,
-            rot: 0,
-            vRot: (Math.random() - 0.5) * 0.015,
+            vy: falling ? 0.55 : 0.8,
             _colorPhase: 0,
         };
+        _setBgBlockRotation(_specialBlock, falling, 0, 0.015);
     }
 
     function _updateSpecialBlock(dt=1000/60) {
         if (!_specialBlock) return;
         const b = _specialBlock;
         const f=dt*60/1000;
-        b.y += b.vy*f;
-        b.rot += b.vRot*f;
+        _moveBgBlock(b, dt);
         b._colorPhase += 0.03*f;
         // Remove if off screen
         if (b.y > bgCanvas.height + b.size * 4) {
@@ -255,11 +273,9 @@
             } else {
                 // 95% chance: normal part for a random item
                 const _rItem = _items[Math.floor(Math.random() * _items.length)];
-                if (!saveData.parts) saveData.parts = {};
-                saveData.parts[_rItem.key] = (saveData.parts[_rItem.key] || 0) + 1;
-                const _iName = _rItem.key === 'ghostColor' ? 'Colored Ghost' : _rItem.key.charAt(0).toUpperCase() + _rItem.key.slice(1);
-                rewardText = `+1 Part: ${_iName}`;
-                rewardColor = '#4499ff';
+                const converted = _grantRewardPart(_rItem.key);
+                rewardText = converted ? _rewardLabel(_partConversion(_rItem.key, 1)) : escapeHtml(`+1 Part: ${_partItemName(_rItem.key)}`);
+                rewardColor = converted ? '#ffd700' : '#4499ff';
             }
 
             checkProgressAchievements();
@@ -268,7 +284,7 @@
 
             // Floating text — modern style, stays longer
             const flyEl = document.createElement('div');
-            flyEl.innerHTML = `<div style="font-size:0.85rem;font-weight:bold;color:${rewardColor};text-shadow:0 0 10px ${rewardColor}66;letter-spacing:0.5px;">${escapeHtml(rewardText)}</div><div style="font-size:0.6rem;color:rgba(255,255,255,0.5);margin-top:2px;">Airdrop caught!</div>`;
+            flyEl.innerHTML = `<div style="font-size:0.85rem;font-weight:bold;color:${rewardColor};text-shadow:0 0 10px ${rewardColor}66;letter-spacing:0.5px;">${rewardText}</div><div style="font-size:0.6rem;color:rgba(255,255,255,0.5);margin-top:2px;">Airdrop caught!</div>`;
             flyEl.style.cssText = `position:fixed;left:${b.x}px;top:${b.y}px;transform:translateX(-50%);z-index:2600;pointer-events:none;text-align:center;background:rgba(0,0,0,0.7);padding:6px 14px;border-radius:8px;border:1px solid ${rewardColor}44;transition:all 2s ease-out;opacity:1;`;
             document.body.appendChild(flyEl);
             requestAnimationFrame(() => { flyEl.style.top = (b.y - 80) + 'px'; flyEl.style.opacity = '0'; });
@@ -885,7 +901,12 @@
 
     // Settings
     const defaultSettings = { musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: 'neon', fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
+    Object.assign(defaultSettings, { bgBlockMotion: 'spinning', showRunMissions: false });
     let settings = { ...defaultSettings };
+    const _bgBlockMotionSelect = document.getElementById('setting-bg-block-motion');
+    const _runMissionsSelect = document.getElementById('setting-run-missions');
+    _bgBlockMotionSelect.addEventListener('change', () => onSettingChange('bgBlockMotion', _bgBlockMotionSelect.value));
+    _runMissionsSelect.addEventListener('change', () => onSettingChange('showRunMissions', _runMissionsSelect.value === 'on'));
     function loadSettings() {
         try { settings = { ...defaultSettings, ...LBSave.cleanSettings(JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}')) }; } catch(e) {}
         if (!settings.gridStyle) settings.gridStyle = 'lines';
@@ -2326,6 +2347,7 @@
             if (data._settings && !localStorage.getItem('tetrisRPG_settings')) {
                 Object.assign(settings, { ...defaultSettings, ...data._settings });
                 localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
+                _rebuildBgBlocks();
                 _doApplyTheme(settings.theme || 'default');
                 applyFontSize(settings.fontSize || '5');
                 applyGameScale(settings.gameScale || '5');
@@ -2554,6 +2576,31 @@
     }
     function addUniversalParts(count) {
         saveData.universalParts = Math.round(((saveData.universalParts || 0) + count) * 10) / 10;
+    }
+    function _partItemName(key) {
+        return key === 'ghostColor' ? 'Colored Ghost' : key.charAt(0).toUpperCase() + key.slice(1);
+    }
+    const PARTS_PER_UNIVERSAL = 5;
+    function _partConversion(key, amount) {
+        return { type: 'converted_parts', key, amount, icon: '⭐', desc: 'Duplicate converted', rarity: 'rare' };
+    }
+    function _rewardLabel(reward) {
+        if (reward.type !== 'converted_parts') return escapeHtml(reward.label);
+        const { key, amount } = reward;
+        const universal = amount / PARTS_PER_UNIVERSAL;
+        const item = key === 'dragon' ? 'Golden' : key.startsWith('sfx') ? `${key.slice(3)} SFX`
+            : GRID_STYLES[key]?.name || BLOCK_PALETTES[key]?.name || _partItemName(key);
+        const original = `+${amount} part${amount === 1 ? '' : 's'} (${item})`;
+        const converted = `+${universal} universal part${universal === 1 ? '' : 's'}`;
+        return `<s>${escapeHtml(original)}</s> → ${escapeHtml(converted)}`;
+    }
+    function _grantRewardPart(key) {
+        if ((saveData.parts?.[key] || 0) < _getItemCost(key) && _getAllPartsItems().some(item => item.key === key)) {
+            addPartsToItem(key, 1);
+            return false;
+        }
+        addUniversalParts(1 / PARTS_PER_UNIVERSAL);
+        return true;
     }
     function giveItemDirectly(cat, key) {
         if (cat === 'skin' && !_skinAvailable(key)) return;
@@ -2903,7 +2950,7 @@
             card.className = 'lb-reward-card';
             const rc = hexColor(RARITY_COLS[r.rarity], '#aaaaaa');
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(r.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${escapeHtml(r.label)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(r.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${_rewardLabel(r)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);
@@ -2940,10 +2987,12 @@
         const allItems = _getAllPartsItems();
         const picks = _weightedPickParts(allItems, Math.min(10, allItems.length));
         picks.forEach(item => {
-            addPartsToItem(item.key, 1);
+            if (_grantRewardPart(item.key)) {
+                rewards.push(_partConversion(item.key, 1));
+                return;
+            }
             const partCount = saveData.parts[item.key] || 0;
-            const displayKey = item.key === 'ghostColor' ? 'Colored Ghost' : item.key.charAt(0).toUpperCase() + item.key.slice(1);
-            rewards.push({ icon: '🧩', label: `+1 Part: ${displayKey}`, desc: `${partCount}/10 parts`, rarity: item.cat === 'ghostColor' ? 'epic' : 'common' });
+            rewards.push({ icon: '🧩', label: `+1 Part: ${_partItemName(item.key)}`, desc: `${partCount}/${_getItemCost(item.key)} parts`, rarity: item.cat === 'ghostColor' ? 'epic' : 'common' });
         });
         // Pad with universal parts if fewer than 10 unique items available
         const partsGiven = picks.length;
@@ -3089,7 +3138,7 @@
             card.className = 'lb-reward-card';
             const rc = hexColor(RARITY_COLS[r.rarity], '#aaaaaa');
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(r.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${escapeHtml(r.label)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(r.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${_rewardLabel(r)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);
@@ -4517,6 +4566,8 @@
         const hbSlider = document.getElementById('slider-heavybg');
         if (hbSlider) { hbSlider.value = hbV; _dStepsSync('heavybg-dtrack','',hbSlider,1,3); }
         const hbVal = document.getElementById('setting-heavybg-val'); if (hbVal) hbVal.innerText = ['','Light','Medium','Heavy'][hbV] || '';
+        _bgBlockMotionSelect.value = settings.bgBlockMotion === 'falling' ? 'falling' : 'spinning';
+        _runMissionsSelect.value = settings.showRunMissions === true ? 'on' : 'off';
         const _pauseVisible = !document.getElementById('pause-overlay').classList.contains('hidden');
         window._settingsFromPause = _pauseVisible;
         if (!_pauseVisible) document.getElementById('menu-overlay').classList.add('hidden');
@@ -4623,6 +4674,7 @@
         } else if (key === 'gameScale') {
             settings.gameScale = value;
             applyGameScale(value);
+            _syncRunMissions();
             const gsSl = document.getElementById('slider-gamescale'); if (gsSl) gsSl.value = value;
             const gsVEl = document.getElementById('gamescale-step-val'); if (gsVEl) gsVEl.innerText = value;
             const gsFEl = document.getElementById('gamescale-step-fill'); if (gsFEl) gsFEl.style.width = ((parseInt(value)-1)/9*100).toFixed(1)+'%';
@@ -4633,6 +4685,17 @@
             const _hbLabels = ['','Light','Medium','Heavy'];
             const hbVal = document.getElementById('setting-heavybg-val'); if (hbVal) hbVal.innerText = _hbLabels[settings.heavyBg] || '';
             _dStepsSync('heavybg-dtrack','',document.getElementById('slider-heavybg'),1,3);
+        } else if (key === 'bgBlockMotion') {
+            settings.bgBlockMotion = value === 'falling' ? 'falling' : 'spinning';
+            _rebuildBgBlocks();
+            if (_specialBlock) {
+                const falling = settings.bgBlockMotion === 'falling';
+                _specialBlock.vy = falling ? 0.55 : 0.8;
+                _setBgBlockRotation(_specialBlock, falling, _specialBlock.rot, 0.015);
+            }
+        } else if (key === 'showRunMissions') {
+            settings.showRunMissions = value === true;
+            _syncRunMissions(true);
         } else if (key === 'ghostColor') {
             if (value === 'colored' && !saveData.ghostColorUnlocked) return;
             settings.ghostColor = value;
@@ -8061,6 +8124,10 @@
             dropCounter += dt * softBonus;
         }
         if(dropCounter>dropInterval) playerDrop();
+        if (!_runMissionsPanel.hidden && t >= _runMissionsNextUpdate) {
+            _runMissionsNextUpdate = t + 200;
+            _renderRunMissions();
+        }
         drawGame(); requestAnimationFrame(update);
     }
     function _buildSpeedTapes() {
@@ -8133,6 +8200,7 @@
     function gameOver(){
         _gameInProgress = false; // allow saves again — score and achievements saved together below
         isGameOver=true; isPaused=true;
+        _syncRunMissions();
         isAnimating=false; animatingLines=[]; _hardDropAnimating=false; // safety: clear all animation locks
         _boosterUsedThisRound = false;
         try {
@@ -8205,8 +8273,7 @@
             if(Math.round(score) > previousBest && score > 0){
                 playSFX('newrecord');
                 if (previousBest > 0) (saveData.highscoreHistory ||= []).push({ ...saveData.leaderboard[0] });
-                const diffPts = Math.round(score) - previousBest;
-                const bonusPct = Math.floor(diffPts / 100) * 10;
+                const bonusPct = _gamePersonalBestBonusPercent(previousBest);
                 pbBonus = Math.round(score * bonusPct / 100);
                 document.getElementById('go-pb-row').style.display='flex';
                 document.getElementById('go-pb-xp').innerText="+"+pbBonus+" XP";
@@ -8443,6 +8510,7 @@
             if (thisAnim !== _animId || isGameOver) return;
             overlay.classList.add('hidden');
             document.getElementById('app').classList.add('active-game');
+            _syncRunMissions(true);
             _refreshGameDPR();
             isPaused=false;
             if(timeInterval)clearInterval(timeInterval);
@@ -9357,7 +9425,19 @@
     }
 
     function _updateGameMissionProgress(totalXP) {
-        _updateMissionProgress({
+        _updateMissionProgress(_runMissionMetrics(totalXP));
+    }
+
+    function _gamePersonalBestBonusPercent(previousBest = _bestScore()) {
+        return Math.max(0, Math.floor((Math.round(score) - previousBest) / 100)) * 10;
+    }
+
+    function _runMissionMetrics(totalXP) {
+        if (totalXP === undefined) {
+            const pbBonus = Math.round(score * _gamePersonalBestBonusPercent() / 100);
+            totalXP = Math.round(Math.round(score + pbBonus) * _getMissionStreakXPMult());
+        }
+        return {
             rawXP: rawGameplayXPThisGame, totalXP,
             blocksPlaced: blocksPlacedThisGame, linesCleared: linesClearedThisGame,
             score: Math.round(score), gameTime, maxSpeed: speedLevel,
@@ -9385,8 +9465,88 @@
             gamesWithCombo4: _maxComboThisGame >= 4 ? 1 : 0,
             // niceBonus/doubleCompletion computed after other quests run
             niceBonus: 0, doubleCompletion: 0,
-        });
+        };
     }
+
+    function _missionRunProgress(quest, value, cumulative = quest.cumulative) {
+        const previous = quest.progress || 0;
+        return Math.min(quest.target, cumulative ? previous + value : Math.max(previous, value));
+    }
+
+    function _secretMissionValue(quest, metrics, allDailyDone, completions) {
+        if (quest.metric === 'niceBonus') return Number(allDailyDone);
+        if (quest.metric === 'doubleCompletion') return Number(completions >= 2);
+        return metrics[quest.metric] ?? 0;
+    }
+
+    function _previewRunMissions(missions, metrics) {
+        const daily = missions.daily;
+        const project = quest => quest.completed ? quest.target : _missionRunProgress(quest, metrics?.[quest.metric] ?? 0);
+        const progress = daily.quests.map(project);
+        const rows = daily.quests.map((quest, index) => ({ title: quest.title, value: progress[index], target: quest.target, metric: quest.metric }));
+        if (daily.secret) {
+            const secret = daily.secret;
+            const allDailyDone = rows.length > 0 && rows.every(row => row.value >= row.target);
+            const completions = metrics && secret.metric === 'doubleCompletion'
+                ? daily.quests.filter((quest, index) => !quest.completed && progress[index] >= quest.target).length
+                    + missions.weekly.missions.filter(quest => !quest.completed && project(quest) >= quest.target).length
+                : 0;
+            const value = metrics ? _secretMissionValue(secret, metrics, allDailyDone, completions) : 0;
+            rows.push({ title: secret.completed ? secret.title : 'Secret mission', value: secret.completed ? secret.target : _missionRunProgress(secret, value, false), target: secret.target });
+        }
+        return rows;
+    }
+
+    const _runMissionsPanel = document.getElementById('run-missions');
+    const _runMissionsToggle = document.getElementById('run-missions-toggle');
+    const _runMissionsBody = document.getElementById('run-missions-body');
+    const _runMissionsNote = document.getElementById('run-missions-note');
+    const _runMissionsList = document.getElementById('run-missions-list');
+    const _runMissionsHud = document.querySelector('#app .portrait-right');
+    let _runMissionsSnapshot = '';
+    let _runMissionsNextUpdate = 0;
+
+    function _setRunMissionsOpen(open) {
+        _runMissionsBody.hidden = !open;
+        _runMissionsToggle.setAttribute('aria-expanded', String(open));
+        if (open) _renderRunMissions();
+    }
+
+    function _syncRunMissions(reset = false) {
+        _runMissionsPanel.hidden = settings.showRunMissions !== true || currentGameMode === 'fun' || isGameOver || !_bgApp.classList.contains('active-game');
+        if (_runMissionsPanel.hidden) return;
+        const beside = window.innerWidth > window.innerHeight && window.innerWidth - _runMissionsHud.getBoundingClientRect().right >= 230;
+        const changed = _runMissionsPanel.classList.contains('is-beside') !== beside;
+        _runMissionsPanel.classList.toggle('is-beside', beside);
+        if (reset || changed) _setRunMissionsOpen(beside);
+    }
+
+    function _renderRunMissions() {
+        if (_runMissionsPanel.hidden || _runMissionsBody.hidden || isGameOver) return;
+        const eligible = linesClearedThisGame > 0;
+        const missions = saveData.missions;
+        const rows = missions ? _previewRunMissions(missions, eligible ? _runMissionMetrics() : null) : [];
+        const note = !rows.length ? 'No daily missions available.' : eligible ? 'Progress saves at game over.' : 'Clear a line for this run to count.';
+        const snapshot = JSON.stringify([note, rows]);
+        if (snapshot === _runMissionsSnapshot) return;
+        _runMissionsSnapshot = snapshot;
+        _runMissionsNote.textContent = note;
+        _runMissionsList.replaceChildren(...rows.map(({ title, value, target, metric }) => {
+            const row = document.createElement('li');
+            const name = document.createElement('span');
+            const progress = document.createElement('span');
+            name.textContent = title;
+            progress.textContent = metric === 'gameTime' ? `${_fmtMissionTime(value)} / ${_fmtMissionTime(target)}` : `${value} / ${target}`;
+            row.append(name, progress);
+            return row;
+        }));
+    }
+
+    _runMissionsToggle.addEventListener('click', () => _setRunMissionsOpen(_runMissionsBody.hidden));
+    _runMissionsToggle.addEventListener('keydown', event => {
+        if (event.code === 'Space' || event.code === 'Enter') event.stopPropagation();
+    });
+    window.addEventListener('resize', () => _syncRunMissions());
 
     function _updateMissionProgress(metrics) {
         if (!saveData.missions || currentGameMode === 'fun' || linesClearedThisGame === 0) return;
@@ -9397,11 +9557,7 @@
         m.daily.quests.forEach(q => {
             const val = metrics[q.metric];
             if (q.completed || val === undefined) return;
-            if (q.cumulative) {
-                q.progress = Math.min(q.target, (q.progress || 0) + val);
-            } else {
-                q.progress = Math.min(q.target, Math.max(q.progress || 0, val));
-            }
+            q.progress = _missionRunProgress(q, val);
             if (q.progress >= q.target) {
                 q.completed = true;
                 m.daily.completedToday = true;
@@ -9423,9 +9579,7 @@
         m.weekly.missions.forEach(wm => {
             const val = metrics[wm.metric];
             if (wm.completed || val === undefined) return;
-            wm.progress = wm.cumulative
-                ? Math.min(wm.target, (wm.progress || 0) + val)
-                : Math.min(wm.target, Math.max(wm.progress || 0, val));
+            wm.progress = _missionRunProgress(wm, val);
             if (wm.progress >= wm.target) {
                 wm.completed = true;
                 m.weekly.anyCompleted = true;
@@ -9437,13 +9591,8 @@
         // Secret quest — compute special metrics now
         if (m.daily.secret && !m.daily.secret.completed) {
             const sq = m.daily.secret;
-            let val = metrics[sq.metric] ?? 0;
-            if (sq.metric === 'niceBonus') {
-                val = (m.daily.quests.length > 0 && m.daily.quests.every(q => q.completed)) ? 1 : 0;
-            } else if (sq.metric === 'doubleCompletion') {
-                val = _completedThisCall >= 2 ? 1 : 0;
-            }
-            sq.progress = Math.min(sq.target, Math.max(sq.progress || 0, val));
+            const val = _secretMissionValue(sq, metrics, m.daily.quests.length > 0 && m.daily.quests.every(q => q.completed), _completedThisCall);
+            sq.progress = _missionRunProgress(sq, val, false);
             if (sq.progress >= sq.target) {
                 sq.completed = true;
                 m.daily.completedToday = true;
@@ -10189,12 +10338,10 @@
                     continue;
                 }
                 const item = items[Math.floor(Math.random() * items.length)];
-                if ((saveData.parts?.[item.key] || 0) >= _getItemCost(item.key)) {
-                    addUniversalParts(0.2);
-                    rewards.push({ icon:'⭐', label:'+0.2 Universal Parts', desc:`Duplicate: ${item.key}`, rarity:'rare' });
+                if (_grantRewardPart(item.key)) {
+                    rewards.push(_partConversion(item.key, 1));
                 } else {
-                    addPartsToItem(item.key, 1);
-                    rewards.push({ icon:'🧩', label:`+1 Part: ${item.key}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
+                    rewards.push({ icon:'🧩', label:`+1 Part: ${_partItemName(item.key)}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
                 }
             }
         }
@@ -10416,7 +10563,7 @@
             card.className = 'lb-reward-card';
             const rc = hexColor(RARITY_COLS[rw.rarity], '#aaaaaa');
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;opacity:0;transform:scale(0.8);transition:opacity 0.25s, transform 0.25s;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(rw.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${escapeHtml(rw.label)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(rw.desc)}</div><div class="lb-reward-rarity">${escapeHtml(rw.rarity)}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(rw.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${_rewardLabel(rw)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(rw.desc)}</div><div class="lb-reward-rarity">${escapeHtml(rw.rarity)}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);
@@ -11431,6 +11578,9 @@
             hold: doHold, drop: playerDrop, sweep: arenaSweep, tick(dtMs) { update(lastTime + dtMs); },
             nextPiece: getNextPiece, gameOver, getLevelInfo, drawRankBadge,
             missionWeekKey: _missionWeekKey, missionDateKey: _missionDateKey,
+            moveBgBlock: _moveBgBlock, makeBgBlock: falling => new BgBlock(BG_STYLES.default, falling),
+            rewardLabel: _rewardLabel, grantRewardPart: _grantRewardPart, generateLevelBoxRewards: _generateLevelBoxRewards,
+            spawnSpecialBlock: _spawnSpecialBlock, previewRunMissions: _previewRunMissions,
             achievementOverview: _achievementOverview, selectAchievementCards: _selectAchievementCards,
             encSave: _encSave, decSave: _decSave,
             defaultMissions: _defaultMissions, refreshMissions: _checkMissionsRefresh,
