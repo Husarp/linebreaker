@@ -776,7 +776,7 @@
 
     let saveData = {}; let gainedXPThisRound = 0; let _boosterUsedThisRound = false; let _leveledUpThisGame = false;
     let _gameInProgress = false; // true between startGame and gameOver — blocks mid-game file saves
-    const defaultSaveData = { totalXP: 0, highscore: 0, parts: {}, universalParts: 0, ownedSkins: ['neon'], ownedFonts: ['Orbitron'], ownedThemes: [], ownedBtnStyles: [], ownedBlockShapes: [], ownedBgStyles: ['default'], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, dailyGiftUnlockReq: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, seenMasterRules: false, pendingLevelBox: null, missions: null, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, dailyStreak: 0, highestDailyStreak: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
+    const defaultSaveData = { schemaVersion: LBSave.version, totalXP: 0, parts: {}, universalParts: 0, ownedSkins: ['neon'], ownedThemes: [], ownedBtnStyles: [], ownedBlockShapes: [], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, pendingLevelBox: null, missions: null, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, dailyStreak: 0, highestDailyStreak: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
 
     // --- FILE SYSTEM ACCESS API ---
     const _nativeAdapter = window.Capacitor?.isNativePlatform()
@@ -860,7 +860,7 @@
     let _pendingSaveJSON = null;
     function writeSaveFile(data) {
         if (_desktopSave && !_desktopSaveReady) return Promise.resolve();
-        _pendingSaveJSON = JSON.stringify(data, null, 2);
+        _pendingSaveJSON = JSON.stringify(LBSave.serializeSave(data, WEEKLY_MISSION_POOL), null, 2);
         if (!_saveWritePromise) {
             _saveWritePromise = (async () => {
                 while (_pendingSaveJSON !== null) {
@@ -884,10 +884,10 @@
     }
 
     // Settings
-    const defaultSettings = { classicColors: false, musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: 'neon', fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
+    const defaultSettings = { musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: 'neon', fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
     let settings = { ...defaultSettings };
     function loadSettings() {
-        try { settings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}') }; } catch(e) {}
+        try { settings = { ...defaultSettings, ...LBSave.cleanSettings(JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}')) }; } catch(e) {}
         if (!settings.gridStyle) settings.gridStyle = 'lines';
         settings.keyBindings = LBControls.normalizeBindings(settings.keyBindings);
     }
@@ -2281,6 +2281,7 @@
 
     function applyLoadedData(data) {
         data = sanitizeSave(data, { ...defaultSaveData, _settings: defaultSettings }, { palettes: BLOCK_PALETTES, boosters: BOOSTER_INFO, ranks: [...RANKS, CELESTITE_RANK], missionDefaults: _defaultMissions(), items: _getAllPartsItems() });
+        if (data.missions) _restoreMissionDefinitions(data.missions);
         if (data && typeof data.totalXP === 'number') {
             saveData = { ...JSON.parse(JSON.stringify(defaultSaveData)), ...data };
             if (data.stats) saveData.stats = { ...defaultSaveData.stats, ...data.stats };
@@ -2289,7 +2290,6 @@
             if (!saveData.boosters) saveData.boosters = {};
             if (!saveData.parts) saveData.parts = {};
             if (saveData.universalParts == null) saveData.universalParts = 0;
-            if (!saveData.ownedFonts) saveData.ownedFonts = ['Orbitron'];
             if (!saveData.ownedBtnStyles) saveData.ownedBtnStyles = [];
             if (saveData.ghostColorUnlocked == null) saveData.ghostColorUnlocked = false;
             if (!saveData.ownedSfxPacks) saveData.ownedSfxPacks = ['default'];
@@ -2356,7 +2356,6 @@
             if (!saveData.pinnedScores) saveData.pinnedScores = [];
             if (!saveData.achievements) saveData.achievements = {};
         }
-        updateDailyGiftBtn();
         checkTimeManipulation();
         setTimeout(_checkGlowNotifications, 100);
         _checkMissionsRefresh();
@@ -2365,6 +2364,7 @@
     }
 
     async function showFileSetup(existingHandle) {
+        await _missionCatalogReady;
         _dismissLoadingScreen();
         const overlay = document.getElementById('file-setup-overlay');
         const text = document.getElementById('file-setup-text');
@@ -2478,14 +2478,6 @@
         return writeSaveFile({ ...saveData, _settings: { ...settings } });
     }
 
-    function _getDailyGiftReq() {
-        const info = getLevelInfo(saveData.totalXP);
-        if (info.isCelestite) return 450;
-        if (info.isDiamond) return 400;
-        const rankIdx = info.level === 0 ? 0 : RANKS.indexOf(info.rank);
-        return (rankIdx + 1) * 50; // Bronze=50, Silver=100, ..., Amethyst=350
-    }
-    function updateDailyGiftBtn() { /* daily gift button removed from menu */ }
     function checkTimeManipulation() {
         if (!saveData.lastDailyGift) return;
         const today = new Date().toISOString().slice(0, 10);
@@ -2504,14 +2496,6 @@
         '1.5x_game':  { label:'1.5x Score Booster',  icon:'⚡', rarity:'rare',     mult:1.5  },
         '2xp_game':   { label:'2x Score Booster',     icon:'⚡', rarity:'rare',     mult:2.0  },
     };
-    const DAILY_MILESTONES = [
-        { day:  3, label:'3-Day Streak',   rewards:[{ type:'booster', key:'1.25x_game' }] },
-        { day:  7, label:'Weekly Streak',  rewards:[{ type:'booster', key:'1.5x_game' }, { type:'universal_parts', amount:2 }] },
-        { day: 14, label:'2-Week Streak',  rewards:[{ type:'booster', key:'2xp_game'  }, { type:'universal_parts', amount:3 }] },
-        { day: 21, label:'3-Week Streak',  rewards:[{ type:'booster', key:'1.5x_game' }, { type:'booster', key:'1.5x_game' }] },
-        { day: 30, label:'Monthly Streak', rewards:[{ type:'booster', key:'2xp_game'  }, { type:'universal_parts', amount:5 }] },
-    ];
-    let _dgCountdownInterval = null;
 
     function getBoosterMult() { return 1; }
     function updateBoosterHUD() {
@@ -2575,7 +2559,6 @@
         if (cat === 'skin' && !_skinAvailable(key)) return;
         if (cat === 'skin') { if (!saveData.ownedSkins) saveData.ownedSkins = ['neon']; if (!saveData.ownedSkins.includes(key)) saveData.ownedSkins.push(key); }
         else if (cat === 'theme') { if (!saveData.ownedThemes) saveData.ownedThemes = []; if (!saveData.ownedThemes.includes(key)) saveData.ownedThemes.push(key); }
-        else if (cat === 'font') { if (!saveData.ownedFonts) saveData.ownedFonts = ['Orbitron']; if (!saveData.ownedFonts.includes(key)) saveData.ownedFonts.push(key); }
         else if (cat === 'ghostColor') { saveData.ghostColorUnlocked = true; }
         else if (cat === 'btnStyle') { if (!saveData.ownedBtnStyles) saveData.ownedBtnStyles = []; if (!saveData.ownedBtnStyles.includes(key)) saveData.ownedBtnStyles.push(key); }
         else if (cat === 'gridStyle') { if (!saveData.ownedGridStyles) saveData.ownedGridStyles = []; if (!saveData.ownedGridStyles.includes(key)) saveData.ownedGridStyles.push(key); }
@@ -2863,258 +2846,6 @@
     }
 
     const RARITY_COLORS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
-    const RARITY_LABELS = { common:'COMMON', rare:'RARE', epic:'EPIC', legendary:'LEGENDARY', mythic:'MYTHIC' };
-
-    // Daily gift pools (separate rolls, cash is always guaranteed)
-    const _DAILY_BOOSTER_POOL = [
-        { w:70, type:'booster', v:'1.25x_game', rarity:'common'   },
-        { w:20, type:'booster', v:'1.5x_game',  rarity:'uncommon' },
-        { w:10, type:'booster', v:'2xp_game',   rarity:'rare'     },
-    ];
-    function _rollPool(pool) {
-        const tw = pool.reduce((s,r) => s+r.w, 0);
-        let rand = Math.random() * tw;
-        for (const r of pool) { rand -= r.w; if (rand <= 0) return r; }
-        return pool[0];
-    }
-
-    function openDailyGiftInfo() {
-        const row = (label, val, rar) => {
-            const col = RARITY_COLORS[rar] || '#ccc';
-            return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1a1a1a;font-size:0.72rem;"><span>${label}</span><span style="color:${col};font-weight:bold;">${val}</span></div>`;
-        };
-        const html = `
-            <div style="font-size:0.65rem;color:#888;margin-bottom:8px;">Parts are given to unowned/incomplete items. Boosters are a bonus roll.</div>
-            <div style="font-size:0.65rem;color:#aaa;margin-bottom:4px;font-weight:bold;">Parts:</div>
-            ${row('1 part', '8%', 'common')}
-            ${row('2 parts', '22%', 'common')}
-            ${row('3 parts', '50%', 'common')}
-            ${row('4 parts', '15%', 'uncommon')}
-            ${row('5 parts', '5%', 'rare')}
-            ${row('Universal Part', '3% chance', 'epic')}
-            <div style="font-size:0.65rem;color:#888;margin:6px 0 2px;">Booster bonus (50% total):</div>
-            ${row('1.25× Booster', '35%', 'common')}
-            ${row('1.5× Booster', '10%', 'uncommon')}
-            ${row('2× Booster', '5%', 'rare')}
-            <div style="font-size:0.65rem;color:#888;margin-top:6px;">Collect 10 parts for an item to unlock it manually from Inventory.</div>
-        `;
-        customAlert(html, 'REWARD CHANCES', false);
-    }
-
-    function openDailyGift() {
-        const today = new Date().toISOString().slice(0, 10);
-        // gift_ignore: check if 3+ days since last gift
-        if (saveData.lastDailyGift && !saveData.achievements?.['gift_ignore']?.unlocked) {
-            const _lastGiftDate = new Date(saveData.lastDailyGift);
-            const _daysSince = Math.floor((new Date(today) - _lastGiftDate) / 86400000);
-            if (_daysSince >= 3) { unlockAchievement('gift_ignore'); saveDataToFile(); }
-        }
-        const overlay = document.getElementById('daily-gift-overlay');
-        ['dg-ready','dg-result','dg-claimed'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
-        const req = _getDailyGiftReq();
-        const xpEarned = saveData.xpEarnedSinceLastGift || 0;
-        // Check if already claimed today FIRST (before XP check, since xpEarnedSinceLastGift resets after claim)
-        if (saveData.lastDailyGift === today) {
-            const el = document.getElementById('dg-claimed');
-            if (el) {
-                el.style.display = '';
-                const streak = saveData.dailyGiftStreak || 1;
-                const nextMilestone = DAILY_MILESTONES.find(m => m.day > streak);
-                const daysToNext = nextMilestone ? nextMilestone.day - streak : null;
-                const milestoneInfo = nextMilestone
-                    ? `<div style="font-size:0.68rem;color:#888;margin:8px 0;">✨ Better reward in <span style="color:var(--gold);font-weight:bold;">${daysToNext} day${daysToNext!==1?'s':''}</span></div>`
-                    : `<div style="font-size:0.68rem;color:var(--gold);margin:8px 0;">Max streak reached!</div>`;
-                el.innerHTML = `
-                    <div style="margin-bottom:10px;"><svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="#22cc55" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 13 9 18 20 7"></polyline></svg></div>
-                    <div style="font-weight:bold;font-size:0.85rem;margin-bottom:12px;">Already claimed today!</div>
-                    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
-                        <span style="font-size:1.4rem;">🔥</span>
-                        <div style="text-align:left;">
-                            <div style="font-size:1.1rem;font-weight:bold;color:#fff;">${escapeHtml(streak)} day${streak!==1?'s':''}</div>
-                            <div style="font-size:0.58rem;color:#666;">current streak</div>
-                        </div>
-                    </div>
-                    <div style="margin:8px auto;padding:8px 12px;background:rgba(0,255,255,0.05);border:1px solid rgba(0,255,255,0.15);border-radius:8px;max-width:200px;">
-                        <div style="font-size:0.5rem;color:#555;letter-spacing:2px;margin-bottom:4px;">NEXT GIFT IN</div>
-                        <div id="dg-countdown" style="font-size:1.3rem;font-weight:bold;font-family:'Orbitron',sans-serif;color:var(--primary);">--:--:--</div>
-                    </div>
-                    ${milestoneInfo}
-                    <button class="btn-secondary" style="margin-top:10px;border:none;" onclick="window.closeDailyGift()">CLOSE</button>`;
-                if (_dgCountdownInterval) clearInterval(_dgCountdownInterval);
-                _dgCountdownInterval = setInterval(() => {
-                    const cdEl = document.getElementById('dg-countdown');
-                    if (!cdEl) { clearInterval(_dgCountdownInterval); return; }
-                    const now = new Date(), midnight = new Date(now);
-                    midnight.setHours(24, 0, 0, 0);
-                    const diff = midnight - now;
-                    if (diff <= 0) { cdEl.textContent = '00:00:00'; return; }
-                    const h = Math.floor(diff/3600000), m = Math.floor((diff%3600000)/60000), s = Math.floor((diff%60000)/1000);
-                    cdEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-                }, 1000);
-                // Trigger once immediately
-                const cdEl = document.getElementById('dg-countdown');
-                if (cdEl) {
-                    const now = new Date(), midnight = new Date(now); midnight.setHours(24,0,0,0);
-                    const diff = midnight - now;
-                    const h=Math.floor(diff/3600000), m=Math.floor((diff%3600000)/60000), s=Math.floor((diff%60000)/1000);
-                    cdEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-                }
-            }
-        } else if (xpEarned < req) {
-            // Not enough XP earned yet
-            const el = document.getElementById('dg-claimed');
-            if (el) {
-                el.style.display = '';
-                const pct = Math.round(Math.min(100, xpEarned / req * 100));
-                const progressBar = `<div style="width:100%;max-width:180px;margin:12px auto 0;">
-                        <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:#666;margin-bottom:4px;"><span>${escapeHtml(xpEarned)} / ${req} XP earned</span></div>
-                        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--primary);border-radius:3px;"></div></div>
-                      </div>`;
-                el.innerHTML = `<div style="margin-bottom:8px;"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></div><span style="color:#aaa;font-size:0.8rem;">Earn <b style="color:#fff;">${req - xpEarned} more XP</b> to unlock today's gift.</span>${progressBar}<br><button class="btn-secondary" style="margin-top:12px;border:none;" onclick="window.closeDailyGift()">CLOSE</button>`;
-            }
-        } else {
-            const el = document.getElementById('dg-ready');
-            if (el) {
-                el.style.display = '';
-                const openBtn = el.querySelector('.btn-main');
-                if (openBtn) openBtn.disabled = false;
-            }
-            const giftBox = document.getElementById('dg-gift-box');
-            if (giftBox) giftBox.classList.remove('dg-opening');
-        }
-        overlay.classList.remove('hidden');
-    }
-
-    function claimDailyGift() {
-        const today = new Date().toISOString().slice(0, 10);
-        if (saveData.lastDailyGift === today) return;
-        playSFX('gift');
-
-        // Streak tracking
-        const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().slice(0, 10);
-        if (saveData.lastDailyGift === yesterdayStr) {
-            saveData.dailyGiftStreak = (saveData.dailyGiftStreak || 0) + 1;
-        } else {
-            saveData.dailyGiftStreak = 1;
-        }
-        const currentStreak = saveData.dailyGiftStreak;
-        saveData.lastDailyGift = today;
-        saveData.xpEarnedSinceLastGift = 0;
-
-        const rewards = [];
-
-        // 1. Parts: 1-5 weighted random (most common=3; 4&5 rarer than 1&2)
-        const _partsRoll = () => { const r=Math.random()*100; return r<8?1:r<30?2:r<80?3:r<95?4:5; };
-        const eligible = _getPartsEligibleItems();
-        const allUnowned = _getAllPartsItems();
-        if (allUnowned.length > 0) {
-            // Pick items (allow same item multiple times)
-            const numParts = _partsRoll();
-            const partMap = {};
-            for (let i = 0; i < numParts; i++) {
-                const pool = eligible.length > 0 ? eligible : allUnowned;
-                const pick = pool[Math.floor(Math.random() * pool.length)];
-                const key = pick.key;
-                const isOwned = !eligible.find(e => e.key === key);
-                if (isOwned) {
-                    // Duplicate part for owned item → 0.2 universal parts
-                    if (!saveData.universalParts) saveData.universalParts = 0;
-                    saveData.universalParts = Math.round((saveData.universalParts + 0.2) * 10) / 10;
-                    partMap[key] = partMap[key] || { count: 0, dupCount: 0, cat: pick.cat };
-                    partMap[key].dupCount++;
-                } else {
-                    addPartsToItem(key, 1);
-                    partMap[key] = partMap[key] || { count: 0, dupCount: 0, cat: pick.cat };
-                    partMap[key].count++;
-                }
-            }
-            Object.entries(partMap).forEach(([key, info]) => {
-                const displayKey = key === 'ghostColor' ? 'Colored Ghost' : key.charAt(0).toUpperCase() + key.slice(1);
-                const cost = _getItemCost(key);
-                if (info.count > 0) {
-                    const partCount = saveData.parts[key] || 0;
-                    rewards.push({ icon:'🧩', label:`+${info.count} Part${info.count>1?'s':''}: ${displayKey}`, desc:`${partCount}/${cost} parts collected`, rarity:'common' });
-                }
-                if (info.dupCount > 0) {
-                    const uniGain = Math.round(info.dupCount * 0.2 * 10) / 10;
-                    rewards.push({ icon:'⭐', label:`<s style="color:#666;font-weight:normal;">${displayKey}</s> → +${uniGain} Universal Part${uniGain!==1?'s':''}`, desc:`duplicate converted`, rarity:'rare' });
-                }
-            });
-        } else {
-            // All items owned — give XP instead
-            const numParts = _partsRoll();
-            const xpGain = numParts * 1000;
-            _grantXP(xpGain);
-            rewards.push({ icon:'✨', label:`+${xpGain.toLocaleString()} XP`, desc:'All items collected! Parts converted to XP.', rarity:'epic' });
-        }
-
-        // 2. Universal part: 3% chance
-        if (Math.random() < 0.03) {
-            if (_getAllPartsItems().length === 0) {
-                // All items owned — convert universal part to XP
-                const uniXp = 5000;
-                _grantXP(uniXp);
-                rewards.push({ icon:'✨', label:`+${uniXp.toLocaleString()} XP`, desc:'Universal Part converted to XP!', rarity:'epic' });
-            } else {
-                addUniversalParts(1);
-                rewards.push({ icon:'⭐', label:'+1 Universal Part', desc:'Can be used for any item!', rarity:'epic' });
-            }
-        }
-
-        // 3. Booster: 50% chance
-        if (Math.random() < 0.5) {
-            const b = _rollPool(_DAILY_BOOSTER_POOL);
-            addBoosterToSave(b.v);
-            const info = BOOSTER_INFO[b.v];
-            rewards.push({ type:'booster', icon:info.icon, label:info.label, desc:'Booster added to inventory', rarity:b.rarity });
-        }
-
-        // 4. Milestone bonus rewards
-        const milestone = DAILY_MILESTONES.find(m => m.day === currentStreak);
-        if (milestone) {
-            milestone.rewards.forEach(r => {
-                if (r.type === 'booster') {
-                    addBoosterToSave(r.key);
-                    rewards.push({ type:'booster', icon:'⚡', label:`MILESTONE: ${BOOSTER_META[r.key].label}`, desc:`${currentStreak}-day streak reward! 🔥`, rarity:'epic' });
-                } else if (r.type === 'universal_parts') {
-                    addUniversalParts(r.amount);
-                    rewards.push({ icon:'⭐', label:`MILESTONE: +${r.amount} Universal Parts`, desc:`${currentStreak}-day streak reward! 🔥`, rarity:'rare' });
-                }
-            });
-        }
-
-        rewards.forEach(r => { if (['rare','epic','legendary'].includes(r.rarity)) { saveData.stats.rareItemsFromDailyBox = (saveData.stats.rareItemsFromDailyBox||0) + 1; } });
-        const _dgNewAch = checkProgressAchievements();
-        if (_dgNewAch.length) setTimeout(() => _showAchievementToast(_dgNewAch), 1500);
-        const readyBox = document.getElementById('dg-gift-box');
-        if (readyBox) readyBox.classList.add('dg-opening');
-        const openBtn = document.querySelector('#dg-ready .btn-main');
-        if (openBtn) openBtn.disabled = true;
-
-        setTimeout(() => {
-            ['dg-ready','dg-claimed'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
-            const resultEl = document.getElementById('dg-result');
-            if (!resultEl) return;
-            resultEl.style.display = 'block';
-            const rewardsHtml = rewards.map(rw => {
-                const col = hexColor(RARITY_COLORS[rw.rarity], '#cccccc');
-                return `<div class="dg-item-reveal" style="border-color:${col};box-shadow:0 0 14px ${col}40;margin-bottom:8px;padding:8px 12px;">
-                    <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
-                        <span style="font-size:1.5rem;">${escapeHtml(rw.icon)}</span>
-                        <div>
-                            <div style="font-size:0.9rem;font-weight:bold;color:${col};">${escapeHtml(rw.label)}</div>
-                            <div style="font-size:0.65rem;color:#aaa;">${escapeHtml(rw.desc)}</div>
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
-            resultEl.innerHTML = rewardsHtml + `<button class="btn-secondary" style="margin-top:10px;border:none;" onclick="window.closeDailyGift()">AWESOME!</button>`;
-        }, 700);
-        saveDataToFile();
-        setTimeout(_checkGlowNotifications, 800);
-    }
-
     function _checkMilestoneBoxes() {
         if ((!saveData.pendingMilestoneReward && !saveData.pendingMilestoneBoxes?.length) || _levelBoxShowing) return;
         const lv = saveData.pendingMilestoneReward?.level || saveData.pendingMilestoneBoxes[0];
@@ -3430,12 +3161,10 @@
     }
     function devResetDailyGift() {
         saveData.lastDailyGift = null;
-        updateDailyGiftBtn();
         customAlert('Daily gift reset! Gift is now available.', 'DEV');
     }
     function devResetStore() {
         saveData.ownedSkins = ['neon'];
-        saveData.ownedFonts = ['Orbitron'];
         saveData.ownedThemes = [];
         saveData.ownedBtnStyles = [];
         saveData.ownedBlockShapes = [];
@@ -3469,9 +3198,7 @@
         ];
         entries.forEach(([score, lines, blocks, time, maxSpeed, xp, maxCombo], i) => {
             const d = new Date(now - i * 8.64e7 * (1 + Math.random()));
-            const dd=String(d.getDate()).padStart(2,'0'), mm=String(d.getMonth()+1).padStart(2,'0');
-            const hh=String(d.getHours()).padStart(2,'0'), mn=String(d.getMinutes()).padStart(2,'0');
-            saveData.leaderboard.push({ score, date:`${dd}.${mm}.${d.getFullYear()} ${hh}:${mn}`, lines, blocks, time, maxSpeed, xp, maxCombo });
+            saveData.leaderboard.push({ score, ..._scoreDate(d), lines, blocks, time, maxSpeed, xp, maxCombo });
         });
         saveData.leaderboard.sort((a,b) => b.score - a.score);
         saveDataToFile();
@@ -3480,7 +3207,6 @@
     function devResetScores() {
         if (!confirm('Reset ALL leaderboard scores? This cannot be undone.')) return;
         saveData.leaderboard = [];
-        saveData.highscore = 0;
         saveData.pinnedScores = [];
         saveDataToFile();
         customAlert('Leaderboard scores reset!', 'DEV');
@@ -3559,18 +3285,13 @@
         for (let i = 0; i < 300; i++) {
             const ts = now - Math.random() * twoYearsMs;
             const d = new Date(ts);
-            const dd = String(d.getDate()).padStart(2,'0');
-            const mm = String(d.getMonth()+1).padStart(2,'0');
-            const yy = d.getFullYear();
-            const hh = String(d.getHours()).padStart(2,'0');
-            const mi = String(d.getMinutes()).padStart(2,'0');
             const score = Math.floor(Math.random() * 8000) + 100;
             const lines = Math.floor(Math.random() * 40);
             const blocks = Math.floor(lines * 3 + Math.random() * 30);
             const time = Math.floor(Math.random() * 600) + 30;
             const maxSpeed = Math.min(15, Math.floor(lines / 10) + 1);
-            saveData.leaderboard.push({ score, date:`${dd}.${mm}.${yy} ${hh}:${mi}`, lines, blocks, time, maxSpeed, xp: score });
-            const key = `${yy}-${mm}-${dd}`;
+            saveData.leaderboard.push({ score, ..._scoreDate(d), lines, blocks, time, maxSpeed, xp: score });
+            const key = LBSave.localDate(d);
             if (!saveData.stats.playHistory) saveData.stats.playHistory = {};
             saveData.stats.playHistory[key] = (saveData.stats.playHistory[key] || 0) + 1;
         }
@@ -3595,7 +3316,7 @@
     function drawGeneralStats() {
         const { stats, leaderboard } = saveData;
         const averageScore = stats.gamesPlayed > 0 ? (stats.totalScore || 0) / stats.gamesPlayed : 0;
-        const bestScore = leaderboard.reduce((best, entry) => Math.max(best, entry.score || 0), saveData.highscore || 0);
+        const bestScore = _bestScore();
         let bestXP = stats.bestEarnedXP || 0;
         let recordedXP = 0;
         let xpRuns = 0;
@@ -3643,22 +3364,12 @@
         if (!container) return;
 
         // Build history: start from playHistory, add leaderboard entries
-        const history = {};
-        const ph = saveData.stats.playHistory || {};
-        Object.keys(ph).forEach(k => { history[k] = ph[k] || 0; });
-        // Migrate old playDates array
-        if (saveData.stats.playDates && Array.isArray(saveData.stats.playDates)) {
-            saveData.stats.playDates.forEach(d => { history[d] = (history[d] || 0) + 1; });
-            saveData.stats.playHistory = Object.assign({}, ph, history);
-            delete saveData.stats.playDates;
-        }
+        const history = { ...saveData.stats.playHistory };
         // Supplement from leaderboard for historical data (before playHistory was tracked)
         const lbCounted = {};
         (saveData.leaderboard || []).forEach(entry => {
-            if (!entry.date) return;
-            const m = entry.date.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
-            if (!m) return;
-            const key = `${m[3]}-${m[2]}-${m[1]}`;
+            const key = LBSave.date(entry.date);
+            if (!key) return;
             lbCounted[key] = (lbCounted[key] || 0) + 1;
         });
         // Use max(playHistory[d], lbCounted[d]) — playHistory is accurate for new games,
@@ -3671,9 +3382,6 @@
         const nowYear = now.getFullYear();
         const yearSet = new Set([nowYear]);
         Object.keys(history).forEach(d => { const y = parseInt(d.split('-')[0]); if (!isNaN(y)) yearSet.add(y); });
-        (saveData.leaderboard || []).forEach(entry => {
-            if (entry.date) { const m2 = entry.date.match(/\d{4}$/m); if (m2) yearSet.add(parseInt(m2[0])); }
-        });
         const years = Array.from(yearSet).sort((a, b) => a - b);
         if (year === undefined || year === null) year = parseInt(container.dataset.calYear) || nowYear;
         if (!years.includes(year)) year = years[years.length - 1];
@@ -3782,9 +3490,7 @@
         // --- TODAY's stats section ---
         const todayKey = _ldk(now);
         const todayGames = history[todayKey] || 0;
-        const [tY, tM, tD] = todayKey.split('-');
-        const todayDatePrefix = `${tD}.${tM}.${tY}`;
-        const todayEntries = (saveData.leaderboard || []).filter(e => e.date && e.date.startsWith(todayDatePrefix));
+        const todayEntries = (saveData.leaderboard || []).filter(entry => LBSave.date(entry.date) === todayKey);
         const todayBestScore = todayEntries.length > 0 ? Math.max(...todayEntries.map(e => e.score || 0)) : 0;
         const todayAvgScore = todayEntries.length > 0 ? todayEntries.reduce((s, e) => s + (e.score || 0), 0) / todayEntries.length : 0;
         const todayBestPercent = statsPercentOfAverage(todayBestScore, todayAvgScore);
@@ -3953,7 +3659,7 @@
                 const rankColor = i === 0 ? '#ffd700' : i < 3 ? '#c0c0c0' : i < 10 ? '#9b59b6' : '#666';
                 const configStr = `${e.cols||10}×${e.rows||20}` + (e.startSpeed && e.startSpeed > 1 ? ` · spd ${e.startSpeed}` : '');
                 const details = `<span class="lb-detail">${escapeHtml(configStr)}</span><span class="lb-detail">${lbFmt(e.time||0)}</span><span class="lb-detail">${escapeHtml(e.lines||0)} lines</span>`;
-                div.innerHTML = `<span class="lb-rank" style="font-size:0.85rem;font-weight:bold;color:${rankColor};min-width:52px;text-align:center;">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
+                div.innerHTML = `<span class="lb-rank" style="font-size:0.85rem;font-weight:bold;color:${rankColor};min-width:52px;text-align:center;">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock))}</span>`;
                 container.appendChild(div);
             }
             if (max < fl.length) {
@@ -4094,7 +3800,6 @@
             if (ly < 8) ly = 8;
             tip.style.left = lx + 'px'; tip.style.top = ly + 'px';
         }
-        const _ccEl = document.getElementById('setting-classic-colors'); if (_ccEl) _ccEl.checked = settings.classicColors;
         // Color palette dropdown sync
         const _palSelInv = document.getElementById('setting-color-palette');
         if (_palSelInv) {
@@ -4884,8 +4589,7 @@
         document.getElementById('instr-arrow').innerText = hidden ? '▶' : '▼';
     }
     function onSettingChange(key, value) {
-        if (key === 'classicColors') { settings.classicColors = value; }
-        else if (key === 'musicVol') {
+        if (key === 'musicVol') {
             settings.musicVol = parseInt(value);
             _cPillSync('music', value);
             const mvEl = document.getElementById('setting-music-val'); if (mvEl) mvEl.innerText = value + '%';
@@ -5025,7 +4729,7 @@
 
     async function startExportProcess() {
         try {
-            const saveFile = _encSave(JSON.stringify({ version: 3, data: saveData }, null, 2));
+            const saveFile = _encSave(JSON.stringify({ version: 3, data: LBSave.serializeSave({ ...saveData, _settings: settings }, WEEKLY_MISSION_POOL) }, null, 2));
             downloadFile('Linebreaker_Save.lbsave', saveFile);
             customAlert('Save file (.lbsave) downloaded. Your progress was NOT reset.', 'EXPORT SUCCESS', false);
         } catch(e) {
@@ -5061,11 +4765,12 @@
         reader.readAsText(file);
     }
     
+    function _scoreDate(date = new Date()) {
+        return { date: LBSave.localDate(date), clock: LBSave.localClock(date) };
+    }
+    function _bestScore() { return saveData.leaderboard?.[0]?.score || 0; }
     function saveToLeaderboard(score, lines, blocks, time, maxSpeed, xp, maxCombo) {
-        const now = new Date();
-        const d=String(now.getDate()).padStart(2,'0'), m=String(now.getMonth()+1).padStart(2,'0'), y=now.getFullYear();
-        const hh=String(now.getHours()).padStart(2,'0'), mm=String(now.getMinutes()).padStart(2,'0');
-        saveData.leaderboard.push({ score, date:`${d}.${m}.${y} ${hh}:${mm}`, lines, blocks, time, maxSpeed, xp, maxCombo: maxCombo || 0 });
+        saveData.leaderboard.push({ score, ..._scoreDate(), lines, blocks, time, maxSpeed, xp, maxCombo: maxCombo || 0 });
         saveData.leaderboard.sort((a,b) => b.score - a.score);
     }
 
@@ -5073,13 +4778,10 @@
 
     function pinScore(score, lines, blocks, time, maxSpeed, xp, note) {
         if (!saveData.pinnedScores) saveData.pinnedScores = [];
-        const now = new Date();
-        const d=String(now.getDate()).padStart(2,'0'), m=String(now.getMonth()+1).padStart(2,'0'), y=now.getFullYear();
-        const hh=String(now.getHours()).padStart(2,'0'), mm=String(now.getMinutes()).padStart(2,'0');
-        saveData.pinnedScores.push({ score, date:`${d}.${m}.${y}, ${hh}:${mm}`, lines, blocks, time, maxSpeed, xp, note: note || '' });
+        saveData.pinnedScores.push({ score, ..._scoreDate(), lines, blocks, time, maxSpeed, xp, note: note || '' });
         if (saveData.pinnedScores.length > 50) saveData.pinnedScores = saveData.pinnedScores.slice(-50);
         // pin_record achievement — pinned score equals the top leaderboard score (works with dev-added scores too)
-        const _effectiveHS = (saveData.leaderboard?.length > 0 ? saveData.leaderboard[0].score : null) ?? saveData.highscore;
+        const _effectiveHS = _bestScore();
         if (score === _effectiveHS && _effectiveHS > 0 && !saveData.achievements?.['pin_record']?.unlocked) unlockAchievement('pin_record');
         // pin_collector tracking
         saveData.stats.pinnedCount = (saveData.stats.pinnedCount || 0) + 1;
@@ -5153,7 +4855,7 @@
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
             const noteHtml = e.note ? `<span class="lb-stats-meta">${escapeHtml(e.note)}</span>` : '';
-            div.innerHTML = `<span class="lb-rank" style="color:#ffd700;min-width:24px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffd700" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
+            div.innerHTML = `<span class="lb-rank" style="color:#ffd700;min-width:24px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffd700" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock, true))}</span>`;
             div.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 _showScorePinPopup(ev, '📌 Unpin', () => unpinScore(realIdx));
@@ -5176,10 +4878,7 @@
         const history = saveData.highscoreHistory || [];
         // Build full list: history + current highscore
         const all = [...history];
-        if (saveData.highscore > 0) {
-            const _hsd = saveData.highscoreData;
-            all.push({ score: saveData.highscore, date: 'Current', isCurrent: true, lines: _hsd?.lines, time: _hsd?.time, maxSpeed: _hsd?.maxSpeed });
-        }
+        if (_bestScore() > 0) all.push({ ...saveData.leaderboard[0], isCurrent: true });
         const records = statsHighscoresBySpeed([...all, ...saveData.leaderboard]);
         document.getElementById('highscores-by-speed').innerHTML = records.length
             ? `<table class="lb-stats-table" aria-label="Records by speed level"><thead><tr><th scope="col">Speed level</th><th scope="col">Best score</th></tr></thead><tbody>${records.map(([speed, score]) => `<tr><th scope="row">${speed}</th><td>${score.toLocaleString()}</td></tr>`).join('')}</tbody></table>`
@@ -5197,7 +4896,7 @@
             const details = e.lines != null
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}spd ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
-            div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(isCur ? '⭐ CURRENT' : e.date)}</span>`;
+            div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(isCur ? '⭐ CURRENT' : LBSave.displayDate(e.date))}</span>`;
             container.appendChild(div);
         });
     }
@@ -5240,7 +4939,7 @@
                     if (e.maxCombo > 1) tipHtml += `<span>🔥 combo x${escapeHtml(e.maxCombo)}</span>`;
                     tipHtml += `</div>`;
                 }
-                tipHtml += `<div style="color:#555;font-size:0.6rem;margin-top:4px;">${escapeHtml(e.date)}</div>`;
+                tipHtml += `<div style="color:#555;font-size:0.6rem;margin-top:4px;">${escapeHtml(LBSave.displayDate(e.date, e.clock))}</div>`;
                 tipEl.innerHTML = tipHtml;
                 tipEl.style.display = 'block';
                 const tx = Math.min(ev.clientX + 14, window.innerWidth - 190);
@@ -5268,7 +4967,7 @@
                 const details = e.lines != null
                     ? `<span class="lb-detail">${ico.time}${lbFmt(e.time)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed)}</span>`
                     : '';
-                div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
+                div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock))}</span>`;
                 div.addEventListener('click', (ev) => {
                     ev.stopPropagation();
                     _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(i));
@@ -5699,11 +5398,11 @@
     {
         id: 'music_listener', cat: 'basic', name: 'In the Zone', type: 'tiered',
         svgIcon: `<path d="M3 18V11a9 9 0 0118 0v7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="3" y="15" width="4" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="17" y="15" width="4" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>`,
-        counter: { path:'stats.musicTracksListened', label:'Tracks Listened' },
+        counter: { path:'_computed.musicTracksListened', label:'Tracks Listened' },
         tiers: [
-            { rarity:'common', name:'Background Music', desc:'Listen to 25 music tracks',  progress:{ path:'stats.musicTracksListened', target:25  } },
-            { rarity:'rare',   name:'Listener',         desc:'Listen to 50 music tracks',  progress:{ path:'stats.musicTracksListened', target:50  } },
-            { rarity:'epic',   name:'Tuned In',         desc:'Listen to 100 music tracks', progress:{ path:'stats.musicTracksListened', target:100 } },
+            { rarity:'common', name:'Background Music', desc:'Listen to 25 music tracks',  progress:{ path:'_computed.musicTracksListened', target:25  } },
+            { rarity:'rare',   name:'Listener',         desc:'Listen to 50 music tracks',  progress:{ path:'_computed.musicTracksListened', target:50  } },
+            { rarity:'epic',   name:'Tuned In',         desc:'Listen to 100 music tracks', progress:{ path:'_computed.musicTracksListened', target:100 } },
         ],
     },
     {
@@ -6154,6 +5853,7 @@
     })();
 
     function _getProgressVal(path) {
+        if (path === '_computed.musicTracksListened') return LBSave.musicCounts(saveData.stats.songPlayCounts).total;
         if (path === '_computed.itemsCollected') {
             const _os = (saveData.ownedSkins || ['neon']).length;
             const _ot = (saveData.ownedThemes || []).length + 1;
@@ -6221,9 +5921,7 @@
             return true;
         }
         if (saveData.achievements[id]?.unlocked) return false;
-        const now = new Date();
-        const d = String(now.getDate()).padStart(2,'0'), m = String(now.getMonth()+1).padStart(2,'0'), y = now.getFullYear();
-        saveData.achievements[id] = { unlocked: true, unlockedAt: `${d}.${m}.${y}` };
+        saveData.achievements[id] = { unlocked: true, unlockedAt: LBSave.localDate(new Date()) };
         // Add pending claim for single achievement
         const xp = _ACH_XP[ach.rarity] || 500;
         saveData.pendingAchievementClaims.push({ id, rarity: ach.rarity, xp, name: ach.name });
@@ -6270,7 +5968,7 @@
                         saveData.achievements[ach.id].tier = i + 1;
                         if (!saveData.achievements[ach.id].tierDates) saveData.achievements[ach.id].tierDates = {};
                         if (!saveData.achievements[ach.id].tierDates[i+1]) {
-                            const _nd = new Date(); saveData.achievements[ach.id].tierDates[i+1] = `${String(_nd.getDate()).padStart(2,'0')}.${String(_nd.getMonth()+1).padStart(2,'0')}.${_nd.getFullYear()}`;
+                            saveData.achievements[ach.id].tierDates[i+1] = LBSave.localDate(new Date());
                         }
                         // Add pending claim for this tier
                         const xp = _ACH_XP[tier.rarity] || 500;
@@ -6318,7 +6016,7 @@
                         maxSpeed: Math.max(best.maxSpeed, e.maxSpeed || 0),
                         lines: Math.max(best.lines, e.lines || 0),
                         time: Math.max(best.time, e.time || 0),
-                    }), { score: saveData.highscore || 0, maxSpeed: 0, lines: 0, time: 0 });
+                    }), { score: 0, maxSpeed: 0, lines: 0, time: 0 });
                     if (tier.check({ ..._lbBest, mode: 'normal', blocks: 0, quadraKill: false, boardCleared: false, maxLineStreak: 0, maxBlocksIn60s: 0, iPieceLines: 0, clearedTopLine: false, highPlacer: 0, noRotate: false, equalPieces: false, luckySevenCount: 0, waitedTetris: false, noHardDrop: false, allHardDrop: false, bigFont: false, exactBlocks100: false, speedrunner: 9999, earlyBird: false })) {
                         if (!saveData.achievements[ach.id]) saveData.achievements[ach.id] = {};
                         saveData.achievements[ach.id].tier = i + 1;
@@ -6340,7 +6038,7 @@
         if (!saveData.pendingAchievementClaims) saveData.pendingAchievementClaims = [];
         const newlyUnlocked = [];
         // Backfill missing tierDates for already-unlocked tiers (set when first observed)
-        const _today = (() => { const n = new Date(); return `${String(n.getDate()).padStart(2,'0')}.${String(n.getMonth()+1).padStart(2,'0')}.${n.getFullYear()}`; })();
+        const _today = LBSave.localDate(new Date());
         for (const ach of ACHIEVEMENTS_DEF) {
             if (ach.type !== 'tiered') continue;
             const _curT = saveData.achievements?.[ach.id]?.tier || 0;
@@ -6363,7 +6061,7 @@
                     saveData.achievements[ach.id].tier = i + 1;
                     if (!saveData.achievements[ach.id].tierDates) saveData.achievements[ach.id].tierDates = {};
                     if (!saveData.achievements[ach.id].tierDates[i+1]) {
-                        const _nd = new Date(); saveData.achievements[ach.id].tierDates[i+1] = `${String(_nd.getDate()).padStart(2,'0')}.${String(_nd.getMonth()+1).padStart(2,'0')}.${_nd.getFullYear()}`;
+                        saveData.achievements[ach.id].tierDates[i+1] = LBSave.localDate(new Date());
                     }
                     // Add pending claim for this tier
                     const xp = _ACH_XP[tier.rarity] || 500;
@@ -6560,15 +6258,11 @@
     }
 
     function _selectAchievementCards(items, tab, sort) {
-        const dateKey = date => {
-            const parts = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(date || '');
-            return parts ? Number(parts[3] + parts[2] + parts[1]) : 0;
-        };
         const comparators = {
             rarity: (left, right) => _ACH_RARITIES.indexOf(right.tier.rarity) - _ACH_RARITIES.indexOf(left.tier.rarity),
             progress: (left, right) => right.progress - left.progress,
             name: () => 0,
-            recent: (left, right) => Number(right.unlocked) - Number(left.unlocked) || dateKey(right.date) - dateKey(left.date)
+            recent: (left, right) => Number(right.unlocked) - Number(left.unlocked) || LBSave.date(right.date).localeCompare(LBSave.date(left.date))
         };
         return items.filter(item => tab === 'locked' ? !item.unlocked : tab === 'unlocked' ? item.unlocked : true)
             .sort((left, right) => (comparators[sort] || comparators.rarity)(left, right) || left.name.localeCompare(right.name));
@@ -6672,7 +6366,8 @@
             progress.setAttribute('aria-label', `${name} progress`);
             body.append(progress, _achievementElement('p', '', `${value.toLocaleString()} of ${goal.target.toLocaleString()}`));
         }
-        if (showDates && date) body.appendChild(_achievementElement('p', '', `Unlocked on ${date}`));
+        const displayedDate = showDates && LBSave.displayDate(date);
+        if (displayedDate) body.appendChild(_achievementElement('p', '', `Unlocked on ${displayedDate}`));
         if (ach.type === 'tiered' && !secretLocked) {
             body.appendChild(_achievementElement('p', '', `${ach.name} · ${curTier} of ${ach.tiers.length} tiers unlocked`));
             if (unlocked && curTier > 1) {
@@ -6680,7 +6375,7 @@
                 const earlier = _achievementElement('ul');
                 const dates = saveData.achievements[ach.id].tierDates;
                 ach.tiers.slice(0, curTier - 1).forEach((earnedTier, index) => {
-                    const earlierDate = showDates && dates?.[index + 1];
+                    const earlierDate = showDates && LBSave.displayDate(dates?.[index + 1]);
                     earlier.appendChild(_achievementElement('li', '', `${RARITY_ACH[earnedTier.rarity].label} · ${earnedTier.name} — ${earnedTier.desc}${earlierDate ? ` · ${earlierDate}` : ''}`));
                 });
                 details.append(_achievementElement('summary', '', 'Earlier unlocked tiers'), earlier);
@@ -8462,7 +8157,7 @@
             if (_maxBlocksUnderHalfThisGame > (saveData.stats.bestHighPlacer || 0)) saveData.stats.bestHighPlacer = _maxBlocksUnderHalfThisGame;
             if (score > (saveData.stats.bestFunScore || 0)) saveData.stats.bestFunScore = score;
             // Save to fun leaderboard (skip zero scores)
-            if (Math.round(score) > 0) { const _fnow = new Date(); const _fd = String(_fnow.getDate()).padStart(2,'0'); const _fm = String(_fnow.getMonth()+1).padStart(2,'0'); const _fy = _fnow.getFullYear(); const _fhh = String(_fnow.getHours()).padStart(2,'0'); const _fmm = String(_fnow.getMinutes()).padStart(2,'0'); if (!saveData.funLeaderboard) saveData.funLeaderboard = []; saveData.funLeaderboard.push({ score: Math.round(score), date:`${_fd}.${_fm}.${_fy} ${_fhh}:${_fmm}`, lines: linesClearedThisGame, time: gameTime, maxSpeed: speedLevel, cols: funModeConfig.cols, rows: funModeConfig.rows, startSpeed: funModeConfig.startSpeed }); saveData.funLeaderboard.sort((a,b) => b.score - a.score); if (saveData.funLeaderboard.length > 200) saveData.funLeaderboard = saveData.funLeaderboard.slice(0, 200); }
+            if (Math.round(score) > 0) { if (!saveData.funLeaderboard) saveData.funLeaderboard = []; saveData.funLeaderboard.push({ score: Math.round(score), ..._scoreDate(), lines: linesClearedThisGame, time: gameTime, maxSpeed: speedLevel, cols: funModeConfig.cols, rows: funModeConfig.rows, startSpeed: funModeConfig.startSpeed }); saveData.funLeaderboard.sort((a,b) => b.score - a.score); if (saveData.funLeaderboard.length > 200) saveData.funLeaderboard = saveData.funLeaderboard.slice(0, 200); }
             // Check achievements even in fun mode (score-based ones apply)
             saveData.stats.luckySevenCount = (saveData.stats.luckySevenCount || 0) + _sec7CountThisGame;
             const funNewAch = checkAchievements({ score, lines: linesClearedThisGame, blocks: blocksPlacedThisGame, time: gameTime, maxSpeed: speedLevel, mode: currentGameMode, mirror: !!settings.optMirror, quadraKill: _quadraKillThisGame, boardCleared: _boardClearedThisGame, maxLineStreak: _maxLineStreakThisGame, maxBlocksIn60s: _maxBlocksIn60sThisGame, iPieceLines: _iPieceLinesThisGame, clearedTopLine: _clearedTopLineThisGame, highPlacer: _maxBlocksUnderHalfThisGame, noRotate: !_rotatedThisGame, equalPieces: false, luckySevenCount: saveData.stats.luckySevenCount, waitedTetris: _waitedTetrisThisGame, noHardDrop: _hardDropsThisGame === 0, allHardDrop: _piecesThisGame >= 20 && _piecesThisGame === _piecesHardDroppedThisGame, bigFont: _bigFontGameFlag, exactBlocks100: blocksPlacedThisGame === 100, speedrunner: linesClearedThisGame >= 10 ? gameTime : 9999, earlyBird: _earlyBirdThisGame, nice69: _nice69Triggered, boardSymmetric: _boardSymmetricAchieved });
@@ -8491,6 +8186,7 @@
         }
 
         let finalXP=0, pbBonus=0;
+        const previousBest = _bestScore();
         const m = Math.floor(gameTime/60); const s = gameTime%60;
         document.getElementById('go-time-played').innerText = (m<10?"0"+m:m)+":"+(s<10?"0"+s:s);
         document.getElementById('go-max-speed').innerText = speedLevel;
@@ -8506,25 +8202,12 @@
             document.getElementById('go-lines-cnt').innerText = linesClearedThisGame;
             document.getElementById('go-lines-xp').innerText = Math.round(xpFromLinesThisGame) + " XP";
 
-            if(Math.round(score) > saveData.highscore && score > 0){
+            if(Math.round(score) > previousBest && score > 0){
                 playSFX('newrecord');
-                const oldHS = saveData.highscore;
-                // Track highscore history
-                if (!saveData.highscoreHistory) saveData.highscoreHistory = [];
-                if (oldHS > 0) {
-                    const _d = new Date();
-                    // Archive old highscore: use its saved stats if available, otherwise just date
-                    const _oldEntry = saveData.highscoreData
-                        ? { ...saveData.highscoreData }
-                        : { score: oldHS, date: `${String(_d.getDate()).padStart(2,'0')}.${String(_d.getMonth()+1).padStart(2,'0')}.${_d.getFullYear()}` };
-                    saveData.highscoreHistory.push(_oldEntry);
-                }
-                const _d2 = new Date();
-                saveData.highscoreData = { score: Math.round(score), date: `${String(_d2.getDate()).padStart(2,'0')}.${String(_d2.getMonth()+1).padStart(2,'0')}.${_d2.getFullYear()}`, lines: linesClearedThisGame, time: Math.floor(gameTime), maxSpeed: speedLevel };
-                const diffPts = Math.round(score) - (oldHS > 0 ? oldHS : 0);
+                if (previousBest > 0) (saveData.highscoreHistory ||= []).push({ ...saveData.leaderboard[0] });
+                const diffPts = Math.round(score) - previousBest;
                 const bonusPct = Math.floor(diffPts / 100) * 10;
                 pbBonus = Math.round(score * bonusPct / 100);
-                saveData.highscore = Math.round(score);
                 document.getElementById('go-pb-row').style.display='flex';
                 document.getElementById('go-pb-xp').innerText="+"+pbBonus+" XP";
                 document.getElementById('go-pb-pct').innerText=`(+${bonusPct}% BONUS)`;
@@ -8585,7 +8268,6 @@
           } }
         const _lvlBefore = getLevelInfo(saveData.totalXP).level;
         saveData.totalXP += finalXP;
-        saveData.xpEarnedSinceLastGift = (saveData.xpEarnedSinceLastGift || 0) + finalXP;
         const _lvlAfter = getLevelInfo(saveData.totalXP).level;
 
         // Level-up sound effects
@@ -8617,7 +8299,6 @@
         if (_maxBlocksIn60sThisGame > (saveData.stats.bestBlocksIn60s || 0)) saveData.stats.bestBlocksIn60s = _maxBlocksIn60sThisGame;
         if (_iPieceLinesThisGame > (saveData.stats.bestIPieceLines || 0)) saveData.stats.bestIPieceLines = _iPieceLinesThisGame;
         if (_maxBlocksUnderHalfThisGame > (saveData.stats.bestHighPlacer || 0)) saveData.stats.bestHighPlacer = _maxBlocksUnderHalfThisGame;
-        if (score > (saveData.stats.bestNormalScore || 0)) saveData.stats.bestNormalScore = score;
         if (finalXP > (saveData.stats.bestEarnedXP || 0)) saveData.stats.bestEarnedXP = finalXP;
         if (linesClearedThisGame >= 10 && gameTime < (saveData.stats.bestSpeedrunnerTime || 9999)) saveData.stats.bestSpeedrunnerTime = gameTime;
         // streak_lost: must check BEFORE daily streak gets reset
@@ -8643,7 +8324,7 @@
         if (_prevGameScore >= 0 && Math.round(score) === _prevGameScore && Math.round(score) >= 100 && !saveData.achievements?.['back_to_back']?.unlocked) unlockAchievement('back_to_back');
         _prevGameScore = Math.round(score);
         // third_charm: score within 10% of record 3 times, then beat it
-        { const _hs = saveData.highscore || 0; if (_hs > 0 && Math.round(score) >= _hs * 0.9 && Math.round(score) < _hs) { saveData.stats.nearMissCount = (saveData.stats.nearMissCount || 0) + 1; } else if (Math.round(score) > _hs && _hs > 0) { if ((saveData.stats.nearMissCount || 0) >= 2 && !saveData.achievements?.['third_charm']?.unlocked) unlockAchievement('third_charm'); saveData.stats.nearMissCount = 0; } }
+        { const _hs = previousBest; if (_hs > 0 && Math.round(score) >= _hs * 0.9 && Math.round(score) < _hs) { saveData.stats.nearMissCount = (saveData.stats.nearMissCount || 0) + 1; } else if (Math.round(score) > _hs && _hs > 0) { if ((saveData.stats.nearMissCount || 0) >= 2 && !saveData.achievements?.['third_charm']?.unlocked) unlockAchievement('third_charm'); saveData.stats.nearMissCount = 0; } }
         // prosperity: 20+ boosters saved
         { let _totalBoosters = 0; if (saveData.boosters) { for (const k in saveData.boosters) _totalBoosters += (saveData.boosters[k] || 0); } if (_totalBoosters >= 20 && !saveData.achievements?.['prosperity']?.unlocked) unlockAchievement('prosperity'); }
         // mirror_score tracking
@@ -8847,7 +8528,7 @@
         _hardDropsThisGame = 0; _pendingHardDrop = false; _piecesThisGame = 0; _piecesHardDroppedThisGame = 0;
         _rotationsThisGame = 0; _doublesThisGame = 0; _triplesThisGame = 0; _tSpinsThisGame = 0;
         _bottomTwoRowsThisGame = 0; _softDropUsedThisGame = false;
-        _quadrasThisGame = 0; _comboCount = 0; _maxComboThisGame = 0; _lastMoveWasRotation = false; _prevHighscore = saveData.highscore || 0;
+        _quadrasThisGame = 0; _comboCount = 0; _maxComboThisGame = 0; _lastMoveWasRotation = false; _prevHighscore = _bestScore();
         _bigFontGameFlag = (settings.fontSize === '10' && settings.gameScale === '10');
         _nice69Triggered = false;
         _maxBlocksUnderHalfThisGame = 0; _currentBlocksUnderHalf = 0;
@@ -9065,41 +8746,23 @@
         const dur = _currentTrackDuration30s;
         return dur > 0 ? Math.max(dur * 0.8, 10) * 1000 : 30000;
     }
+    function _recordTrackListen() {
+        if (!_currentTrackName30s || !_musicTrackStartTime30s || Date.now() - _musicTrackStartTime30s < _trackListenThresholdMs()) return;
+        const counts = saveData.stats.songPlayCounts ||= {};
+        counts[_currentTrackName30s] = (counts[_currentTrackName30s] || 0) + 1;
+        checkProgressAchievements();
+        if (LBSave.musicCounts(counts).mostPlayed >= 5 && !saveData.achievements?.fav_track?.unlocked) unlockAchievement('fav_track');
+        saveDataToFile();
+    }
     function updateNowPlaying(name, artist) {
         // music_listener: track when a new track starts playing
         if (name && name !== _currentTrackName30s) {
-            // Check if previous track was listened to enough
-            if (_currentTrackName30s && _musicTrackStartTime30s) {
-                const elapsed = Date.now() - _musicTrackStartTime30s;
-                if (elapsed >= _trackListenThresholdMs()) {
-                    saveData.stats.musicTracksListened = (saveData.stats.musicTracksListened || 0) + 1;
-                    checkProgressAchievements();
-                    // song play count tracking
-                    if (!saveData.stats.songPlayCounts) saveData.stats.songPlayCounts = {};
-                    saveData.stats.songPlayCounts[_currentTrackName30s] = (saveData.stats.songPlayCounts[_currentTrackName30s] || 0) + 1;
-                    const _maxPlays = Math.max(...Object.values(saveData.stats.songPlayCounts));
-                    if (_maxPlays > (saveData.stats.mostPlayedSongCount || 0)) saveData.stats.mostPlayedSongCount = _maxPlays;
-                    if (_maxPlays >= 5 && !saveData.achievements?.['fav_track']?.unlocked) { unlockAchievement('fav_track'); }
-                    saveDataToFile();
-                }
-            }
+            _recordTrackListen();
             _currentTrackName30s = name;
             _musicTrackStartTime30s = Date.now();
             _currentTrackDuration30s = _trackDuration || 0;
         } else if (!name) {
-            // Music stopped - check if last track counted
-            if (_currentTrackName30s && _musicTrackStartTime30s) {
-                const elapsed = Date.now() - _musicTrackStartTime30s;
-                if (elapsed >= _trackListenThresholdMs()) {
-                    saveData.stats.musicTracksListened = (saveData.stats.musicTracksListened || 0) + 1;
-                    if (!saveData.stats.songPlayCounts) saveData.stats.songPlayCounts = {};
-                    saveData.stats.songPlayCounts[_currentTrackName30s] = (saveData.stats.songPlayCounts[_currentTrackName30s] || 0) + 1;
-                    const _maxPlays = Math.max(...Object.values(saveData.stats.songPlayCounts));
-                    if (_maxPlays > (saveData.stats.mostPlayedSongCount || 0)) saveData.stats.mostPlayedSongCount = _maxPlays;
-                    if (_maxPlays >= 5 && !saveData.achievements?.['fav_track']?.unlocked) { unlockAchievement('fav_track'); }
-                    saveDataToFile();
-                }
-            }
+            _recordTrackListen();
             _currentTrackName30s = '';
             _musicTrackStartTime30s = null;
             _currentTrackDuration30s = 0;
@@ -9298,7 +8961,7 @@
         _renderPlaylistPanel();
     };
     // ===== MISSIONS SYSTEM =====
-    const DAILY_QUEST_POOL = [
+    const FALLBACK_DAILY_QUESTS = [
         // EASY (pts: 2)
         { id: 'blocks_175',     tier: 'easy',   title: 'Block Layer',       desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 175,  pts: 2 },
         { id: 'blocks_200',     tier: 'easy',   title: 'Block Flood',       desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 200,  pts: 2 },
@@ -9376,7 +9039,7 @@
         { id: 'double_completion',tier: 'secret', title: 'Double Completion', desc: 'Complete any 2 missions (daily or weekly) in one run',        metric: 'doubleCompletion', target: 1, pts: 5 },
     ];
     // Weekly missions — 3E+2N+1H drawn per week
-    const WEEKLY_MISSION_POOL = [
+    const FALLBACK_WEEKLY_MISSIONS = [
         // EASY (pts: 10)
         { id: 'w_lines_100',    tier: 'easy',   title: 'Line Week',         desc: 'Clear {n} lines total',                  metric: 'linesCleared',      target: 100,  pts: 10, cumulative: true  },
         { id: 'w_blocks_800',   tier: 'easy',   title: 'Block Flood',       desc: 'Place {n} blocks total',                 metric: 'blocksPlaced',      target: 800,  pts: 10, cumulative: true  },
@@ -9411,6 +9074,42 @@
         { id: 'w_raw_xp_hard',    tier: 'hard',   title: 'Weekly XP Grinder',  desc: 'Earn {n} raw XP in games',                      metric: 'rawXP',    target: 4000, pts: 25, cumulative: true },
         { id: 'w_total_xp_hard',  tier: 'hard',   title: 'Weekly XP Surge',    desc: 'Earn {n} total XP in games (with multipliers)', metric: 'totalXP',  target: 5500, pts: 25, cumulative: true },
     ];
+    let DAILY_QUEST_POOL = FALLBACK_DAILY_QUESTS;
+    let WEEKLY_MISSION_POOL = FALLBACK_WEEKLY_MISSIONS;
+    async function _loadMissionCatalog() {
+        try {
+            const response = await fetch('data/missions.json', { signal: globalThis.AbortSignal?.timeout?.(3000) });
+            if (!response.ok) return;
+            const { daily, weekly } = await response.json();
+            const validPool = (pool, tiers) => Array.isArray(pool) && tiers.every(tier => pool.some(def => def?.tier === tier)) &&
+                new Set(pool.map(def => def?.id)).size === pool.length && pool.every(def => ['id', 'title', 'desc', 'metric'].every(key => typeof def?.[key] === 'string') &&
+                    tiers.includes(def.tier) && Number.isFinite(def.target) && def.target > 0 && Number.isFinite(def.pts));
+            if (!validPool(daily, ['easy', 'normal', 'hard', 'secret']) || !validPool(weekly, ['easy', 'normal', 'hard'])) return;
+            DAILY_QUEST_POOL = daily;
+            WEEKLY_MISSION_POOL = weekly;
+        } catch {}
+    }
+    function _restoreMissionDefinitions(missions) {
+        const restore = (state, def, weekly = false) => {
+            if (!state || !def) return null;
+            const promoted = weekly && ((def.tier === 'easy' && state.tier === 'normal') || (def.tier === 'normal' && state.tier === 'hard'));
+            const target = state.target || def.target;
+            return {
+                ...def, ...state, target, tier: promoted ? state.tier : def.tier,
+                pts: promoted ? (state.tier === 'normal' ? 15 : 25) : def.pts,
+                desc: def.tier === 'secret' ? def.desc : _makeMissionDesc(def.metric, def.desc, target),
+            };
+        };
+        const daily = new Map(DAILY_QUEST_POOL.map(def => [def.id, def]));
+        const weekly = new Map(WEEKLY_MISSION_POOL.map(def => [def.id, def]));
+        missions.daily.quests = missions.daily.quests.map(state => {
+            const def = daily.get(state.id);
+            return def?.tier === 'secret' ? null : restore(state, def);
+        }).filter(Boolean);
+        const secret = daily.get(missions.daily.secret?.id);
+        missions.daily.secret = secret?.tier === 'secret' ? restore(missions.daily.secret, secret) : null;
+        missions.weekly.missions = missions.weekly.missions.map(state => restore(state, weekly.get(state.id), true)).filter(Boolean);
+    }
     const MISSION_TIER_COLORS = { easy: '#44ff88', normal: '#4499ff', hard: '#ff3355' };
     const MQ_DAILY_MILESTONES = [
         { pts: 6,  reward: { type: 'parts', amount: 1 }, label: '+1 Part'  },
@@ -9431,17 +9130,17 @@
     function _defaultMissions() {
         return {
             daily:   { quests: [], secret: null, lastRefreshDate: '', changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: false, rawXPToday: 0 },
-            weekly:  { missions: [], weekKey: '', changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, daysPlayedThisWeek: {}, dailyPtsLog: {}, newVisit: false, pendingUniversalParts: 0, universalPtsTracked: 0, hitAnyMilestone: false, dailyAllCompleteCount: 0, dailyAllCompleteDate: '' },
+            weekly:  { missions: [], weekKey: '', changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, dailyPtsLog: {}, newVisit: false, pendingUniversalParts: 0, universalPtsTracked: 0, hitAnyMilestone: false, dailyAllCompleteCount: 0, dailyAllCompleteDate: '' },
             streaks: { daily: 0 },
             stats:   { totalCompleted: 0, byTier: { easy: 0, normal: 0, hard: 0, secret: 0 }, weeklyCompleted: 0, totalPts: 0, completionHistory: {} },
             specialBox: { pts: 0 },
         };
     }
-    function _missionDateKey() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+    function _missionDateKey() { return LBSave.localDate(new Date()); }
     function _legacyMissionWeekKey() {
         const d = new Date(); const jan1 = new Date(d.getFullYear(), 0, 1);
         const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
-        return `${d.getFullYear()}-W${week}`;
+        return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`;
     }
     function _missionWeekKey(date = new Date()) {
         const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -9584,40 +9283,12 @@
         if (!m.specialBox) m.specialBox = { pts: 0 };
         if (m.stats.totalPts === undefined) m.stats.totalPts = 0;
         if (!m.stats.completionHistory) m.stats.completionHistory = {};
-        // Migration: recompute descriptions from pool templates (so scaled rank targets show correctly)
-        { const _poolById = Object.fromEntries([...DAILY_QUEST_POOL, ...WEEKLY_MISSION_POOL].map(p => [p.id, p]));
-          const _reDesc = (arr) => arr && arr.forEach(q => { const p = _poolById[q.id]; if (p && p.tier !== 'secret') q.desc = _makeMissionDesc(p.metric, p.desc, q.target); });
-          _reDesc(m.daily.quests); _reDesc(m.weekly.missions); }
-        // Migration: fix corrupted weekly missions (invalid tiers)
-        if (m.weekly.missions && m.weekly.missions.some(wm => !['easy','normal','hard'].includes(wm.tier))) {
-            m.weekly.missions = _generateWeeklyMissions();
-        }
-        // Migration: fix old inflated daily quest pts (10/20/40/60 → 2/3/4/5)
-        const _ptsFix = { 10: 2, 20: 3, 40: 4, 60: 5 };
-        if (m.daily.quests && m.daily.quests.some(q => _ptsFix[q.pts])) {
-            m.daily.quests.forEach(q => { if (_ptsFix[q.pts]) q.pts = _ptsFix[q.pts]; });
-            if (m.daily.secret && _ptsFix[m.daily.secret.pts]) m.daily.secret.pts = _ptsFix[m.daily.secret.pts];
-            m.daily.pointsToday = 0;
-            m.daily.claimedMilestones = [];
-        }
         // Migration: add golden zone tracking fields
         if (m.weekly.pendingUniversalParts === undefined) m.weekly.pendingUniversalParts = 0;
         if (m.weekly.universalPtsTracked === undefined) m.weekly.universalPtsTracked = 0;
         if (m.weekly.hitAnyMilestone === undefined) m.weekly.hitAnyMilestone = false;
         if (m.weekly.dailyAllCompleteCount === undefined) m.weekly.dailyAllCompleteCount = 0;
         if (m.weekly.dailyAllCompleteDate === undefined) m.weekly.dailyAllCompleteDate = '';
-        // Migration: add ptsClaimed field — completed quests get true (pts already in bar from old system), new ones false
-        if (m.daily.quests) m.daily.quests.forEach(q => { if (q.ptsClaimed === undefined) q.ptsClaimed = !!q.completed; });
-        if (m.daily.secret && m.daily.secret.ptsClaimed === undefined) m.daily.secret.ptsClaimed = !!m.daily.secret.completed;
-        if (m.weekly.missions) m.weekly.missions.forEach(wm => { if (wm.ptsClaimed === undefined) wm.ptsClaimed = !!wm.completed; });
-        // Migration: hard daily pts 4→5, hard weekly pts 20→25
-        if (m.daily.quests && m.daily.quests.some(q => q.tier === 'hard' && q.pts === 4)) {
-            m.daily.quests.forEach(q => { if (q.tier === 'hard' && q.pts === 4) q.pts = 5; });
-        }
-        if (m.daily.secret && m.daily.secret.tier === 'hard' && m.daily.secret.pts === 4) m.daily.secret.pts = 5;
-        if (m.weekly.missions && m.weekly.missions.some(wm => wm.tier === 'hard' && wm.pts === 20)) {
-            m.weekly.missions.forEach(wm => { if (wm.tier === 'hard' && wm.pts === 20) wm.pts = 25; });
-        }
         const today = _missionDateKey();
         const thisWeek = _missionWeekKey();
         let changed = false;
@@ -9627,16 +9298,15 @@
             m.weekly.isoWeekKey = true;
             changed = true;
         }
-        if (m.daily.lastRefreshDate !== today) {
+        const previousDay = LBSave.date(m.daily.lastRefreshDate);
+        if (previousDay !== today) {
             recovered = _autoClaimMissions(false) || recovered;
             // Check "Lazy or Lucky?" badge before daily reset
             { const _tryU = id => { if (!saveData.achievements?.[id]?.unlocked) unlockAchievement(id); };
               const _regDone = m.daily.quests?.filter(q => q.completed).length || 0;
               if ((m.daily.secret?.completed) && _regDone === 0) _tryU('mq_lazy_lucky'); }
             // Streak: only increment if enough raw XP earned on previous day
-            const prev = new Date(m.daily.lastRefreshDate || 0); prev.setHours(0,0,0,0);
-            const now = new Date(); now.setHours(0,0,0,0);
-            const diff = Math.round((now - prev) / 86400000);
+            const diff = previousDay ? (Date.parse(today) - Date.parse(previousDay)) / 86400000 : Infinity;
             const _xpThresh = _dailyStreakXPThreshold();
             if (diff === 1 && (m.daily.rawXPToday || 0) >= _xpThresh) {
                 m.streaks.daily++;
@@ -9664,7 +9334,7 @@
               if (_allWeeklyDone && (m.weekly.dailyAllCompleteCount || 0) >= 7) _tryU('mq_all_cleared');
             }
             const missions = _generateWeeklyMissions();
-            m.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, daysPlayedThisWeek: {}, dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0, hitAnyMilestone: false, dailyAllCompleteCount: 0, dailyAllCompleteDate: '' };
+            m.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0, hitAnyMilestone: false, dailyAllCompleteCount: 0, dailyAllCompleteDate: '' };
             changed = true;
         }
         if (changed) saveDataToFile();
@@ -9749,9 +9419,7 @@
           } }
         // Weekly missions (run before secret so doubleCompletion can count them)
         const today = _missionDateKey();
-        if (!m.weekly.daysPlayedThisWeek) m.weekly.daysPlayedThisWeek = {};
         if (!m.weekly.dailyPtsLog) m.weekly.dailyPtsLog = {};
-        if (metrics.gamesPlayed) m.weekly.daysPlayedThisWeek[today] = true;
         m.weekly.missions.forEach(wm => {
             const val = metrics[wm.metric];
             if (wm.completed || val === undefined) return;
@@ -10069,11 +9737,10 @@
         for (let i = 0; i < 7; i++) {
             const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
             const key = _ldk(d);
-            const ptsKey = d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
             const isFuture = key > todayStr;
             const isToday = key === todayStr;
             const count = hist[key] || 0;
-            const pts = ptsLog[ptsKey] || ptsLog[key] || 0;
+            const pts = ptsLog[key] || 0;
             weekDays.push({ key, d, isFuture, isToday, count, pts });
         }
 
@@ -11106,8 +10773,8 @@
             const maxSpeed = Math.min(15, Math.floor(lines / 10) + 1);
             const combo = Math.floor(Math.random() * 8);
             const d = new Date(Date.now() - Math.random() * 30 * 86400000);
-            const date = `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-            saveData.leaderboard.push({ score, date, lines, blocks, time, maxSpeed, xp: score, maxCombo: combo });
+            const scoreDate = _scoreDate(d);
+            saveData.leaderboard.push({ score, ...scoreDate, lines, blocks, time, maxSpeed, xp: score, maxCombo: combo });
         }
         saveData.leaderboard.sort((a, b) => b.score - a.score);
         saveDataToFile();
@@ -11283,9 +10950,6 @@
     window.applyTheme = applyTheme;
     window.applyBlockSkin = applyBlockSkin;
     window.applyFont = applyFont;
-    window.openDailyGift = openDailyGift;
-    window.openDailyGiftInfo = openDailyGiftInfo;
-    window.claimDailyGift = claimDailyGift;
     window._doExchange = function(fromKey, toKey, type) {
         const slider = document.getElementById('exc-slider');
         const sets = parseInt(slider?.value || 1);
@@ -11304,10 +10968,6 @@
         const meta = BOOSTER_META[fromKey];
         const metaTo = BOOSTER_META[toKey];
         customAlert(`Exchanged ${sets * 3}× ${meta.label} → ${sets}× ${metaTo.label}`, 'EXCHANGED');
-    };
-    window.closeDailyGift = () => {
-        document.getElementById('daily-gift-overlay').classList.add('hidden');
-        if (_dgCountdownInterval) { clearInterval(_dgCountdownInterval); _dgCountdownInterval = null; }
     };
     window.useScoreBooster = useScoreBooster;
     window.playerUnlockItem = playerUnlockItem;
@@ -11367,7 +11027,7 @@
         if (!saveData.missions) saveData.missions = _defaultMissions();
         const missions = _generateWeeklyMissions();
         const thisWeek = _missionWeekKey();
-        saveData.missions.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, daysPlayedThisWeek: {}, dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
+        saveData.missions.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
         saveDataToFile();
         if (!document.getElementById('missions-overlay').classList.contains('hidden')) renderMissionsOverlay('weekly');
         customAlert('Weekly missions reset!', 'DEV MODE');
@@ -11740,6 +11400,7 @@
         applyStylePack(settings.stylePack || 'modern', { persist: false });
     } catch(e) { console.error('Startup error:', e); }
     _setLoadProgress(40, 'Applying theme…');
+    const _missionCatalogReady = _loadMissionCatalog();
     loadData();
     window.addEventListener('resize', () => applyGameScale(settings.gameScale || '5'));
 

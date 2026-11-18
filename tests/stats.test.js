@@ -37,7 +37,6 @@ it('opens on general stats and switches exactly four panels by click or keyboard
 it('shows best counts alongside percentages of unrounded, comparable averages', () => {
   const save = game.api.save;
   Object.assign(save.stats, { gamesPlayed: 120, totalScore: 12000, maxCombo: 6 });
-  save.highscore = 11975;
   save.leaderboard = [score(11975, 8, 300), score(8, 1, 100), score(5, 1)];
   game.api.setSave(save);
   game.w.openStats();
@@ -58,9 +57,8 @@ it('shows best counts alongside percentages of unrounded, comparable averages', 
 
 it('keeps raw records visible when legacy saves lack a positive average', () => {
   const save = game.api.save;
-  save.highscore = 125;
   save.stats.bestEarnedXP = 500;
-  game.api.setSave(save);
+  game.api.applyLoadedData({ ...save, schemaVersion: 0, highscore: 125 });
   game.w.openStats();
   expect(byId('stat-best-score').textContent).toBe('125');
   expect(byId('stat-best-xp').textContent).toBe('500');
@@ -70,10 +68,8 @@ it('keeps raw records visible when legacy saves lack a positive average', () => 
 
 it('shows one best score per known speed in numeric order without rewriting history', () => {
   const save = game.api.save;
-  save.highscore = 900;
-  save.highscoreData = score(900, 10);
   save.highscoreHistory = [score(500, 2), score(850), score(720, 4)];
-  save.leaderboard = [score(799, 2), score(600, 2), score(715, 4), score(22, 1), score(5, 0), score(0, 3)];
+  save.leaderboard = [score(900, 10), score(799, 2), score(715, 4), score(600, 2), score(22, 1), score(5, 0), score(0, 3)];
   game.api.setSave(save);
   game.w.openStats();
   byId('stats-tab-hs').click();

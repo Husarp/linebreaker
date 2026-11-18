@@ -1,0 +1,38 @@
+{
+  "highscore": 1500,
+  "highscoreData": { "score": 1500, "date": "7.2.2026", "lines": 20, "maxSpeed": 5 },
+  "leaderboard": [{ "score": 800, "date": "18.11.2026 12:30" }, { "score": 1000, "date": "19.5.2025 15:10" }],
+  "highscoreHistory": [{ "score": 1000, "date": "19.5.2025" }],
+  "pinnedScores": [{ "score": 800, "date": "18.11.2026, 12:30", "note": "Keep this" }],
+  "stats": {
+    "bestNormalScore": 1500.2, "musicTracksListened": 27, "mostPlayedSongCount": 12,
+    "songPlayCounts": { "Track B": 4, "Track A": 5 },
+    "lastPlayDate": "2026-2-7", "dailyXPDate": "18.11.2026", "dailyXPAmount": 60,
+    "playHistory": { "2026-2-7": 1, "2026-02-07": 2 }, "playDates": ["7.2.2026", "2026-2-8"]
+  },
+  "missions": {
+    "daily": {
+      "lastRefreshDate": "18.11.2026",
+      "quests": [{ "id": "games_7", "tier": "easy", "title": "Old title", "desc": "Old description", "metric": "oldMetric", "target": 8, "pts": 2, "progress": 2 }],
+      "secret": { "id": "hat_trick", "tier": "secret", "target": 1, "progress": 1, "completed": true, "displayTier": "hard" }
+    },
+    "weekly": {
+      "weekKey": "2026-W47", "isoWeekKey": true,
+      "missions": [
+        { "id": "w_games_35", "tier": "normal", "title": "Warm-Up", "target": 30, "pts": 15, "progress": 16 },
+        { "id": "w_games_75", "tier": "hard", "target": 70, "pts": 20 }
+      ],
+      "daysPlayedThisWeek": { "2026-11-17": true }, "dailyPtsLog": { "17.11.2026": 2 }, "dailyAllCompleteDate": "2026-11-7"
+    },
+    "streaks": { "daily": 3, "weekly": 7, "bestWeekly": 10, "dailyLastDate": "2026-11-7" },
+    "stats": { "completionHistory": { "2026-11-7": 2 } }
+  },
+  "achievements": { "music_listener": { "tier": 1, "tierDates": { "1": "7.2.2026" } }, "legacy_badge": { "unlocked": true, "unlockedAt": "18.11.2026" } },
+  "pendingAchievementClaims": [{ "id": "music_listener", "tierNum": 1, "name": "Background Music", "rarity": "common", "xp": 500 }],
+  "seenMasterRules": true, "dailyGiftUnlockReq": 100, "dailyGiftStreak": 3, "xpEarnedSinceLastGift": 80, "lastDailyGift": "7.2.2026",
+  "ownedFonts": ["Orbitron"], "ownedBgStyles": ["default"], "ownedBtnStyles": ["legacy"],
+  "ownedThemes": ["ocean"],
+  "parts": { "shadow": 3, "classic": 2 },
+  "totalXP": 5000,
+  "_settings": { "classicColors": true, "actionMusicMode": "old", "bgStyle": "old", "theme": "ocean", "heavyBg": 2 }
+}

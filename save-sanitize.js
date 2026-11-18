@@ -2,86 +2,237 @@
 (function () {
     'use strict';
     const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
-    const safeKey = k => /^[\w .:-]{1,100}$/.test(k) && !['__proto__', 'constructor', 'prototype'].includes(k);
+    const notReserved = k => !['__proto__', 'constructor', 'prototype'].includes(k);
+    const safeKey = k => /^[\w .:-]{1,100}$/.test(k) && notReserved(k);
+    const trackName = v => typeof v === 'string' && /^[^<>\u0000-\u001f]{1,200}$/.test(v) && notReserved(v);
     const number = (v, fallback = 0, max = 1e12) => typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, v)) : fallback;
     const string = v => typeof v === 'string' ? v.replace(/[&<>"'`\\\u0000-\u001f]/g, '').slice(0, 200) : '';
     const colour = (v, fallback = '#ffffff') => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v : fallback;
-    const date = v => typeof v === 'string' && /^(?:\d{4}-(?:0?[1-9]|1[0-2])-(?:0?[1-9]|[12]\d|3[01])|(?:0[1-9]|[12]\d|3[01])\.(?:0[1-9]|1[0-2])\.\d{4}(?:,? (?:[01]\d|2[0-3]):[0-5]\d)?|\d{4}-W(?:0?[1-9]|[1-4]\d|5[0-3]))$/.test(v) ? v : '';
+    const version = 1;
+    const scoreKeys = ['highscoreHistory', 'pinnedScores', 'funLeaderboard', 'leaderboard'];
+    const keyGroups = [
+        ['schemaVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'levelRewardsThrough', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
+        ['parts', 'universalParts', 'boosters', 'boxes', 'ghostColorUnlocked', 'ownedSkins', 'ownedThemes', 'ownedBtnStyles', 'ownedBlockShapes', 'ownedGridStyles', 'ownedSfxPacks', 'ownedPalettes', 'customPaletteOverrides', 'customPickerColors', 'customThemeColor', '_cpmBaseColor', '_cpmMode', 'menuPlaylist', 'gamePlaylist', 'actionPlaylist'],
+        ['missions'], ['achievements', 'pendingAchievementClaims'], ['stats'], scoreKeys,
+    ];
+    const saveKeys = keyGroups.flat();
+    const day = v => String(v).padStart(2, '0');
+    const localDate = value => `${String(value.getFullYear()).padStart(4, '0')}-${day(value.getMonth() + 1)}-${day(value.getDate())}`;
+    const localClock = value => `${day(value.getHours())}:${day(value.getMinutes())}`;
+    const clock = v => typeof v === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : '';
+    function date(v) {
+        if (typeof v !== 'string') return '';
+        const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(v);
+        const legacy = /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:,? ((?:[01]\d|2[0-3]):[0-5]\d))?$/.exec(v);
+        if (!iso && !legacy) return '';
+        const year = iso ? iso[1] : legacy[3];
+        const month = day(Number((iso || legacy)[2]));
+        const dateOfMonth = day(Number(iso ? iso[3] : legacy[1]));
+        const key = `${year}-${month}-${dateOfMonth}`;
+        const epoch = Date.parse(key + 'T00:00:00Z');
+        return Number.isFinite(epoch) && new Date(epoch).toISOString().startsWith(key) ? key : '';
+    }
+    function displayDate(value, time = '', comma = false) {
+        const [year, month, dateOfMonth] = date(value).split('-');
+        return year ? `${dateOfMonth}.${month}.${year}${time ? `${comma ? ',' : ''} ${time}` : ''}` : '';
+    }
+    function weekKey(v) {
+        const match = typeof v === 'string' && /^(\d{4})-W(0?[1-9]|[1-4]\d|5[0-3])$/.exec(v);
+        return match ? `${match[1]}-W${day(Number(match[2]))}` : '';
+    }
     const list = v => Array.isArray(v) ? v.slice(0, 2000) : [];
-    const entries = v => object(v) ? Object.entries(v).filter(([k]) => safeKey(k)).slice(0, 10000) : [];
-    const numericMap = v => Object.fromEntries(entries(v).map(([k, n]) => [k, number(n)]));
+    const entries = (v, validKey = safeKey) => object(v) ? Object.entries(v).filter(([k]) => validKey(k)).slice(0, 10000) : [];
+    const numericMap = (v, validKey) => Object.fromEntries(entries(v, validKey).map(([k, n]) => [k, number(n)]));
+    function dateCounts(value) {
+        const counts = {};
+        for (const [key, count] of entries(value)) {
+            const normalized = date(key);
+            if (normalized) counts[normalized] = Math.max(counts[normalized] || 0, number(count));
+        }
+        return counts;
+    }
+    function cleanSettings(value) {
+        const { bgStyle, actionMusicMode, classicColors, ...settings } = object(value) ? value : {};
+        return settings;
+    }
+    const legacyListens = 'legacy:unattributed';
+    function musicCounts(counts) {
+        let total = 0, mostPlayed = 0;
+        for (const [track, count] of entries(counts, trackName)) {
+            total += number(count);
+            if (track !== legacyListens) mostPlayed = Math.max(mostPlayed, number(count));
+        }
+        return { total, mostPlayed };
+    }
+    function missionProgress(quest, weekly = false) {
+        if (!object(quest) || typeof quest.id !== 'string' || !safeKey(quest.id)) return null;
+        const progress = {
+            id: quest.id,
+            target: number(quest.target),
+            progress: number(quest.progress),
+            completed: quest.completed === true,
+            ptsClaimed: typeof quest.ptsClaimed === 'boolean' ? quest.ptsClaimed : quest.completed === true,
+        };
+        if (weekly && ['normal', 'hard'].includes(quest.tier)) progress.tier = quest.tier;
+        if (['normal', 'hard'].includes(quest.displayTier)) progress.displayTier = quest.displayTier;
+        return progress;
+    }
+    function cleanScore(entry) {
+        const score = {};
+        for (const key of ['score','lines','blocks','time','maxSpeed','xp','maxCombo','cols','rows','startSpeed']) {
+            if (Object.hasOwn(entry, key)) score[key] = number(entry[key]);
+        }
+        score.date = date(entry.date);
+        score.note = string(entry.note);
+        const savedClock = clock(entry.clock) || (score.date ? clock(entry.date.slice(-5)) : '');
+        if (savedClock) score.clock = savedClock;
+        return score;
+    }
+    function cleanAchievements(value) {
+        return Object.fromEntries(entries(value).map(([key, entry]) => {
+            const achievement = { unlocked: entry?.unlocked === true, unlockedAt: date(entry?.unlockedAt) };
+            if (typeof entry?.tier === 'number') achievement.tier = Math.floor(number(entry.tier, 0, 100));
+            if (object(entry?.tierDates)) achievement.tierDates = Object.fromEntries(entries(entry.tierDates).filter(([tier]) => /^[1-9]\d?$/.test(tier)).map(([tier, when]) => [tier, date(when)]).filter(([, when]) => when));
+            return [key, achievement];
+        }));
+    }
+    function sorted(value) {
+        if (Array.isArray(value)) return value.map(sorted);
+        if (!object(value)) return value;
+        return Object.fromEntries(Object.keys(value).sort().map(key => [key, sorted(value[key])]));
+    }
+    function serializeSave(data, weeklyDefinitions = []) {
+        const out = { ...data, schemaVersion: version };
+        if (object(data._settings)) out._settings = cleanSettings(data._settings);
+        if (object(data.achievements)) out.achievements = cleanAchievements(data.achievements);
+        for (const key of scoreKeys) if (Array.isArray(data[key])) out[key] = data[key].filter(object).map(cleanScore);
+        if (object(data.missions)) {
+            const { daily, weekly, streaks } = data.missions;
+            const { daysPlayedThisWeek, ...weeklyState } = weekly;
+            const tiers = new Map(weeklyDefinitions.map(def => [def.id, def.tier]));
+            const weeklyProgress = quest => {
+                const progress = missionProgress(quest, true);
+                if (progress && progress.tier === tiers.get(progress.id)) delete progress.tier;
+                return progress;
+            };
+            out.missions = {
+                ...data.missions,
+                daily: { ...daily, quests: daily.quests.map(quest => missionProgress(quest)).filter(Boolean), secret: missionProgress(daily.secret) },
+                weekly: { ...weeklyState, missions: weekly.missions.map(weeklyProgress).filter(Boolean) },
+                streaks: { daily: streaks.daily, bestDaily: streaks.bestDaily },
+            };
+        }
+        return Object.fromEntries(saveKeys.filter(key => Object.hasOwn(out, key)).map(key => [key, sorted(out[key])]));
+    }
+    function migrateLegacy(data) {
+        const stats = object(data.stats) ? { ...data.stats } : {};
+        const songPlayCounts = numericMap(stats.songPlayCounts, trackName);
+        const untracked = number(stats.musicTracksListened) - musicCounts(songPlayCounts).total;
+        if (untracked > 0) songPlayCounts[legacyListens] = untracked;
+        stats.songPlayCounts = songPlayCounts;
+        stats.playHistory = dateCounts(stats.playHistory);
+        for (const value of list(stats.playDates)) {
+            const key = date(value);
+            if (key) stats.playHistory[key] = (stats.playHistory[key] || 0) + 1;
+        }
+        const leaderboard = list(data.leaderboard).filter(object).slice();
+        const bestListed = leaderboard.reduce((best, entry) => Math.max(best, number(entry.score)), 0);
+        const record = Math.max(number(data.highscore), number(data.highscoreData?.score));
+        const legacyBest = record || (!bestListed ? Math.round(number(stats.bestNormalScore)) : 0);
+        const recordDetails = object(data.highscoreData) && (!number(data.highscoreData.score) || number(data.highscoreData.score) === legacyBest) ? data.highscoreData : {};
+        if (legacyBest > bestListed) leaderboard.unshift({ ...recordDetails, score: legacyBest });
+        else if (record && record === bestListed) {
+            const index = leaderboard.findIndex(entry => number(entry.score) === record);
+            leaderboard[index] = { ...recordDetails, ...leaderboard[index] };
+        }
+        return { ...data, stats, leaderboard };
+    }
     function structured(value, schema) {
         value = object(value) ? value : {};
         return Object.fromEntries(Object.entries(schema).map(([k, fallback]) => {
             const v = value[k];
             if (typeof fallback === 'number') return [k, number(v, fallback)];
             if (typeof fallback === 'boolean') return [k, typeof v === 'boolean' ? v : fallback];
-            if (typeof fallback === 'string') return [k, /date|unlockedAt|weekKey/i.test(k) ? date(v) : string(v)];
+            if (typeof fallback === 'string') return [k, k === 'weekKey' ? weekKey(v) : /date/i.test(k) ? date(v) : string(v)];
             if (Array.isArray(fallback)) return [k, list(v).filter(n => typeof n === 'number').map(n => number(n))];
             return [k, Object.keys(fallback || {}).length ? structured(v, fallback) : numericMap(v)];
         }));
     }
-    window.sanitizeSave = function sanitizeSave(data, defaults, definitions = {}) {
+    function sanitizeSave(data, defaults, definitions = {}) {
         data = object(data) ? data : {};
+        const legacy = number(data.schemaVersion) < version;
+        if (legacy) data = migrateLegacy(data);
         const out = JSON.parse(JSON.stringify(defaults));
-        const allowed = new Set([...Object.keys(defaults), ...('actionPlaylist boxes _cpmBaseColor _cpmMode customPaletteOverrides customPickerColors customThemeColor dailyGiftStreak funLeaderboard gamePlaylist highscoreData highscoreHistory levelRewardsThrough menuPlaylist ownedGridStyles pendingLevelBoxes pendingMilestoneBoxes pendingMilestoneReward xpEarnedSinceLastGift').split(' ')]);
+        out.schemaVersion = version;
+        const allowed = new Set(saveKeys);
+        for (const key of Object.keys(out)) if (!allowed.has(key)) delete out[key];
         for (const [key, value] of entries(data)) {
-            if (!allowed.has(key)) continue;
-            if (typeof defaults[key] === 'number' || ['dailyGiftStreak','levelRewardsThrough','xpEarnedSinceLastGift','dailyGiftUnlockReq'].includes(key)) out[key] = number(value, defaults[key] || 0);
+            if (!allowed.has(key) || key === 'schemaVersion') continue;
+            if (typeof defaults[key] === 'number' || key === 'levelRewardsThrough') out[key] = number(value, defaults[key] || 0);
             else if (typeof defaults[key] === 'boolean') out[key] = value === true;
-            else if (/^owned|Playlist$|^pendingAchievementClaims$/.test(key)) out[key] = Array.isArray(value) ? list(value).filter(x => typeof x === 'string').map(string).filter(Boolean) : (defaults[key] || []);
+            else if (key.endsWith('Playlist')) out[key] = Array.isArray(value) ? list(value).filter(trackName) : (defaults[key] || []);
+            else if (key.startsWith('owned')) out[key] = Array.isArray(value) ? list(value).filter(x => typeof x === 'string').map(string).filter(Boolean) : (defaults[key] || []);
             else if (['parts','boosters','boxes'].includes(key)) out[key] = numericMap(value);
             else if (key === 'lastDailyGift') out[key] = date(value) || null;
             else if (/Color$/.test(key)) out[key] = colour(value, '#00ffff');
             else if (['_cpmMode'].includes(key)) out[key] = string(value);
         }
-        const score = v => {
-            const r = {};
-            for (const k of ['score','lines','blocks','time','maxSpeed','xp','maxCombo','cols','rows','startSpeed']) if (object(v) && k in v) r[k] = number(v[k]);
-            r.date = date(v?.date); r.note = string(v?.note);
-            return r;
-        };
-        for (const k of ['leaderboard','funLeaderboard','pinnedScores','highscoreHistory']) out[k] = list(data[k]).filter(object).map(score);
-        if (object(data.highscoreData)) out.highscoreData = score(data.highscoreData);
+        for (const k of scoreKeys) out[k] = list(data[k]).filter(object).map(cleanScore);
+        out.leaderboard.sort((first, second) => (second.score || 0) - (first.score || 0));
         out.stats = { ...defaults.stats };
-        for (const k of ['_lastSkin', 'bestBlocksIn60s', 'bestDailyXP', 'bestEarnedXP', 'bestFunScore', 'bestHighPlacer', 'bestIPieceLines', 'bestLineStreak', 'bestLoyalPiece', 'bestMaxSpeed', 'bestMirrorScore', 'bestNormalScore', 'bestSpeedrunnerTime', 'bestSurvivalTime', 'blockTypeUsage', 'dailyStreak', 'dailyXPAmount', 'dailyXPDate', 'funGamesPlayed', 'gamesAborted', 'gamesPlayed', 'highStackBlocks', 'highestDailyStreak', 'lastPlayDate', 'luckySevenCount', 'maxCombo', 'menuIdleTime', 'mostPlayedSongCount', 'musicTracksListened', 'muteCount', 'nearMissCount', 'noLineStreak', 'noSpinBlocks', 'parachuteDropsCaught', 'pinnedCount', 'playDates', 'playHistory', 'rareItemsFromDailyBox', 'rulesOpened', 'sameSkinStreak', 'seenTitleAnims', 'singleLineClears', 'songPlayCounts', 'surgeonLines', 'tSpinTriples', 'totalBlocksPlaced', 'totalBoostersUsed', 'totalLinesCleared', 'totalQuads', 'totalRotations', 'totalScore', 'totalTimePlayed']) if (Object.hasOwn(data.stats || {}, k)) out.stats[k] = data.stats[k];
+        for (const k of ['_lastSkin', 'bestBlocksIn60s', 'bestDailyXP', 'bestEarnedXP', 'bestFunScore', 'bestHighPlacer', 'bestIPieceLines', 'bestLineStreak', 'bestLoyalPiece', 'bestMaxSpeed', 'bestMirrorScore', 'bestSpeedrunnerTime', 'bestSurvivalTime', 'blockTypeUsage', 'dailyStreak', 'dailyXPAmount', 'dailyXPDate', 'funGamesPlayed', 'gamesAborted', 'gamesPlayed', 'highStackBlocks', 'highestDailyStreak', 'lastPlayDate', 'luckySevenCount', 'maxCombo', 'menuIdleTime', 'muteCount', 'nearMissCount', 'noLineStreak', 'noSpinBlocks', 'parachuteDropsCaught', 'pinnedCount', 'playHistory', 'rareItemsFromDailyBox', 'rulesOpened', 'sameSkinStreak', 'seenTitleAnims', 'singleLineClears', 'songPlayCounts', 'surgeonLines', 'tSpinTriples', 'totalBlocksPlaced', 'totalBoostersUsed', 'totalLinesCleared', 'totalQuads', 'totalRotations', 'totalScore', 'totalTimePlayed']) if (Object.hasOwn(data.stats || {}, k)) out.stats[k] = data.stats[k];
         for (const [k, v] of Object.entries(out.stats)) {
             if (['lastPlayDate','dailyXPDate'].includes(k)) out.stats[k] = date(v);
             else if (k === '_lastSkin') out.stats[k] = string(v);
             else if (k === 'seenTitleAnims') out.stats[k] = list(v).filter(n => Number.isInteger(n) && n >= 0 && n < 6);
-            else if (k === 'playDates') out.stats[k] = list(v).map(date).filter(Boolean);
-            else if (['playHistory','blockTypeUsage','songPlayCounts'].includes(k)) out.stats[k] = numericMap(v);
+            else if (k === 'playHistory') out.stats[k] = dateCounts(v);
+            else if (k === 'songPlayCounts') out.stats[k] = numericMap(v, trackName);
+            else if (k === 'blockTypeUsage') out.stats[k] = numericMap(v);
             else out.stats[k] = number(v);
         }
-        out.achievements = Object.fromEntries(entries(data.achievements).map(([k,v]) => [k, { unlocked: v?.unlocked === true, unlockedAt: date(v?.unlockedAt) }]));
+        out.achievements = cleanAchievements(data.achievements);
+        out.pendingAchievementClaims = list(data.pendingAchievementClaims).filter(claim => object(claim) && typeof claim.id === 'string' && safeKey(claim.id)).map(claim => ({
+            id: claim.id, name: string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common', xp: number(claim.xp, 0, 100000),
+            ...(claim.tierNum ? { tierNum: Math.floor(number(claim.tierNum, 0, 100)) } : {}),
+        }));
         out.missions = null;
         if (object(data.missions)) {
             const missionDefaults = definitions.missionDefaults || {
                 daily:{quests:[],secret:null,lastRefreshDate:'',changeUsed:false,pointsToday:0,claimedMilestones:[],completedToday:false,newVisit:false,rawXPToday:0},
-                weekly:{missions:[],weekKey:'',changeUsed:false,points:0,claimedMilestones:[],anyCompleted:false,daysPlayedThisWeek:{},dailyPtsLog:{},newVisit:false,pendingUniversalParts:0,universalPtsTracked:0,hitAnyMilestone:false,dailyAllCompleteCount:0,dailyAllCompleteDate:''},
+                weekly:{missions:[],weekKey:'',changeUsed:false,points:0,claimedMilestones:[],anyCompleted:false,dailyPtsLog:{},newVisit:false,pendingUniversalParts:0,universalPtsTracked:0,hitAnyMilestone:false,dailyAllCompleteCount:0,dailyAllCompleteDate:''},
                 streaks:{daily:0},stats:{totalCompleted:0,byTier:{easy:0,normal:0,hard:0,secret:0},weeklyCompleted:0,totalPts:0,completionHistory:{}},specialBox:{pts:0}
             };
             out.missions = structured(data.missions, missionDefaults);
             for (const [section, key] of [['daily','ptsTrackedForWeekly'],['specialBox','excessTracked'],['streaks','bestDaily']]) out.missions[section][key] = number(data.missions[section]?.[key]);
-            const questSchema = { id:'', tier:'', title:'', desc:'', metric:'', target:0, pts:0, progress:0, completed:false, ptsClaimed:false, displayTier:'' };
             for (const [section, key] of [['daily','quests'], ['weekly','missions']]) {
-                out.missions[section][key] = list(data.missions[section]?.[key]).filter(object).map(q => structured(q, questSchema));
+                out.missions[section][key] = list(data.missions[section]?.[key]).map(quest => missionProgress(quest, section === 'weekly')).filter(Boolean);
             }
-            out.missions.daily.secret = object(data.missions.daily?.secret) ? structured(data.missions.daily.secret, questSchema) : null;
-            out.missions.weekly.daysPlayedThisWeek = Object.fromEntries(entries(data.missions.weekly?.daysPlayedThisWeek).filter(([k]) => date(k)).map(([k,v]) => [k, v === true]));
+            out.missions.daily.secret = missionProgress(data.missions.daily?.secret);
+            out.missions.weekly.dailyPtsLog = dateCounts(data.missions.weekly?.dailyPtsLog);
+            out.missions.stats.completionHistory = dateCounts(data.missions.stats?.completionHistory);
+            out.missions.streaks.bestDaily = number(data.missions.streaks?.bestDaily, out.missions.streaks.daily);
+            if (legacy && list(data.missions.daily?.quests).some(quest => [10, 20, 40, 60].includes(quest?.pts))) {
+                out.missions.daily.pointsToday = 0;
+                out.missions.daily.claimedMilestones = [];
+            }
             out.missions.weekly.isoWeekKey = data.missions.weekly?.isoWeekKey === true;
         }
         if (object(data._settings)) {
-            out._settings = { ...defaults._settings };
-            for (const [k,v] of Object.entries(defaults._settings || {})) {
+            out._settings = cleanSettings(defaults._settings);
+            for (const [k,v] of Object.entries(out._settings)) {
                 const input = data._settings[k];
                 if (k === 'colorHistory') out._settings[k] = LBColorPicker.colorHistory(input);
                 else if (k === 'colorPalette') {
                     const valid = typeof input === 'string' && (['_custom_picker', '_random'].includes(input) || Object.hasOwn(definitions.palettes || {}, input));
                     out._settings[k] = valid ? input : v;
                 }
+                else if (k === 'ghostColor') out._settings[k] = ['white', 'colored'].includes(input) ? input : v;
                 else out._settings[k] = typeof v === 'number' ? number(input, v, 10000) : typeof v === 'boolean' ? (typeof input === 'boolean' ? input : v) : typeof input === 'string' ? (/color/i.test(k) ? colour(input, v) : string(input)) : v;
             }
+            if (typeof data._settings._lastPalette === 'string' && Object.hasOwn(definitions.palettes || {}, data._settings._lastPalette)) out._settings._lastPalette = data._settings._lastPalette;
+            if (object(data._settings.keyBindings) && window.LBControls) out._settings.keyBindings = window.LBControls.normalizeBindings(data._settings.keyBindings);
+            if (object(data._settings.reminders)) out._settings.reminders = Object.fromEntries(['enabled', 'daily', 'streak', 'weekly']
+                .filter(key => typeof data._settings.reminders[key] === 'boolean').map(key => [key, data._settings.reminders[key]]));
         }
         const palettes = definitions.palettes || {};
         const classic = palettes.classic?.colors || ['#00ffff','#3388ff','#ff9900','#ffff33','#33ff33','#cc33ff','#ff3366'];
@@ -122,5 +273,7 @@
         out.pendingLevelBoxes = list(data.pendingLevelBoxes).map(box).filter(Boolean);
         out.pendingMilestoneBoxes = list(data.pendingMilestoneBoxes).filter(n => typeof n === 'number' && Number.isFinite(n) && n > 0).map(n => Math.floor(number(n, 0, 100000)));
         return out;
-    };
+    }
+    window.sanitizeSave = sanitizeSave;
+    window.LBSave = { version, serializeSave, cleanSettings, localDate, localClock, date, displayDate, musicCounts };
 })();

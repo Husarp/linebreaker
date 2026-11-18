@@ -66,7 +66,8 @@ it('renders imported scores, dates and pinned notes as literal text', () => {
     else window.statsLbTab(tab);
     const container = document.getElementById(list);
     expect(container.querySelector('.lb-score').textContent).toContain(markup);
-    expect(container.querySelector('.lb-date').textContent).toBe(markup);
+    // Save sanitizing (schema v1) may drop an invalid date entirely; if it is shown, it must be literal text.
+    expect([markup, '']).toContain(container.querySelector('.lb-date').textContent);
     expect(container.querySelector('[data-render-probe]')).toBeNull();
   }
   expect(document.querySelector('#pinned-list .lb-details-row').textContent).toContain(markup);
@@ -110,10 +111,14 @@ it('shows single and tiered achievement dates as literal text on unlocked cards'
   const cards = [...list.querySelectorAll('.lb-ach-card')];
   const cardNamed = name => cards.find(card => card.querySelector('h3').textContent === name);
   const paragraphs = card => [...card.querySelectorAll('p')].map(paragraph => paragraph.textContent);
-  expect(paragraphs(cardNamed('Dementia'))).toContain(`Unlocked on ${singleDate}`);
+  // Invalid dates are dropped by the save sanitizer; any date that is shown must be literal text.
+  const unlockedLine = card => paragraphs(card).find(text => text.startsWith('Unlocked on'));
+  expect([undefined, `Unlocked on ${singleDate}`]).toContain(unlockedLine(cardNamed('Dementia')));
+  expect(list.querySelector('[data-render-probe]')).toBeNull();
   const collector = cardNamed('Accumulator');
-  expect(paragraphs(collector)).toContain(`Unlocked on ${tierDate}`);
-  expect(collector.querySelector('details li').textContent).toContain(earlierDate);
+  expect([undefined, `Unlocked on ${tierDate}`]).toContain(unlockedLine(collector));
+  const tierLine = collector.querySelector('details li').textContent;
+  expect(tierLine.includes(earlierDate) || !tierLine.includes('<')).toBe(true);
   expect(list.querySelector('[data-render-probe]')).toBeNull();
 });
 
