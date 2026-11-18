@@ -2573,6 +2573,7 @@
         checkTimeManipulation();
         setTimeout(_checkGlowNotifications, 100);
         _checkMissionsRefresh();
+            _reminders?.refresh();
         _initTrackCatalog(); // re-run now that saveData is loaded
     }
 
@@ -4998,6 +4999,7 @@
 
     function openSettings() {
         controlsEditor.render();
+        _reminders?.render();
         const mv = settings.musicVol, sv = settings.sfxVol;
         document.getElementById('setting-music-vol').value = mv;
         document.getElementById('setting-sfx-vol').value = sv;
@@ -9158,6 +9160,7 @@
         } catch (error) {
             console.error('Game-over bookkeeping failed:', error);
         } finally {
+            _reminders?.refresh();
             document.getElementById('go-overlay').classList.remove('hidden');
             _gameOverProtect = true;
             if (document.activeElement) document.activeElement.blur();
@@ -9501,6 +9504,7 @@
             }
         }).catch(error => console.error('Android back button setup failed', error));
         nativeApp.addListener('appStateChange', ({ isActive }) => {
+            if (isActive) _reminders?.refresh();
             if (!isActive && !isPaused && !isGameOver
                 && document.getElementById('app').classList.contains('active-game')) togglePause();
         }).catch(error => console.error('Android lifecycle setup failed', error));
@@ -10798,16 +10802,7 @@
         if (!el) return;
         const tab = document.getElementById('missions-overlay')?._mTab || 'daily';
         const now = new Date();
-        let ms;
-        if (tab === 'daily') {
-            const midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
-            ms = midnight - now;
-        } else {
-            const dayOfWeek = now.getDay();
-            const daysUntil = dayOfWeek === 1 ? 7 : ((1 - dayOfWeek + 7) % 7);
-            const nextMon = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntil);
-            ms = nextMon - now;
-        }
+        const ms = window.LBNotifications.nextReset(now, tab !== 'daily') - now;
         if (ms <= 0) {
             _checkMissionsRefresh();
             const _ovEl = document.getElementById('missions-overlay');
@@ -12107,6 +12102,14 @@
     const controlsEditor = LBControls.createEditor(document.getElementById('controls-settings'),
         () => settings.keyBindings, bindings => { settings.keyBindings = bindings; saveSettings(); });
     LBGamepad.start({ press: pressGameInput, release: releaseGameInput, back: backFromOverlay });
+    const _reminders = window.LBNotifications.mount({
+        getSettings: () => settings,
+        saveSettings,
+        streakRequirementMet: () => {
+            const daily = saveData.missions?.daily;
+            return daily?.lastRefreshDate === _missionDateKey() && (daily.rawXPToday || 0) >= _dailyStreakXPThreshold();
+        }
+    });
     _musicMuted = settings.musicMuted || false;
     _sfxMuted = settings.sfxMuted || false;
     // Sync mute button icons on load

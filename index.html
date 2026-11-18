@@ -590,6 +590,26 @@
                     <div class="settings-tip">Intensity of falling blocks in the background. Light = a few slow blocks, Heavy = many fast blocks.</div>
                 </div>
             </div>
+            <div id="notification-settings" class="settings-section" hidden>
+                <div class="settings-title">REMINDERS</div>
+                <label class="settings-row">
+                    <span>Enable reminders</span>
+                    <span class="toggle"><input type="checkbox" data-reminder="enabled"><span class="toggle-slider"></span></span>
+                </label>
+                <label class="settings-row">
+                    <span>Daily mission refresh</span>
+                    <span class="toggle"><input type="checkbox" data-reminder="daily"><span class="toggle-slider"></span></span>
+                </label>
+                <label class="settings-row">
+                    <span>Streak ending tonight</span>
+                    <span class="toggle"><input type="checkbox" data-reminder="streak"><span class="toggle-slider"></span></span>
+                </label>
+                <label class="settings-row">
+                    <span>Weekly mission refresh</span>
+                    <span class="toggle"><input type="checkbox" data-reminder="weekly"><span class="toggle-slider"></span></span>
+                </label>
+                <div role="status"></div>
+            </div>
             <div class="settings-section" style="border-bottom:none;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
                     <button class="btn-secondary" style="font-size:0.68rem;display:flex;align-items:center;justify-content:center;gap:5px;padding:11px 8px;border-radius:10px;" onclick="window.openRules()"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>RULES</button>
@@ -1205,6 +1225,7 @@
 <script src="controls.js"></script>
 <script src="gamepad.js"></script>
 <script src="music-synth.js"></script>
+<script src="notifications.js"></script>
 <script src="app.js"></script>
 <script src="touch.js"></script>
 <script src="desktop.js"></script>
