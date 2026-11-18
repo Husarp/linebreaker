@@ -8551,7 +8551,7 @@
             (saveData.missions.weekly.missions || []).filter(wm => wm.completed).map(wm => wm.id)
         ) : null;
         // Update mission progress at game end
-        _updateMissionProgress();
+        _updateGameMissionProgress(finalXP);
         // Show mission summary on game-over screen
         { const _goMR = document.getElementById('go-mission-row');
           if (_goMR && saveData.missions && _preCompD !== null) {
@@ -8708,6 +8708,7 @@
         const bonus = Math.round(originalXP * (mult - 1));
         gainedXPThisRound += bonus;
         _grantXP(bonus);
+        if (bonus > 0) _updateMissionProgress({ totalXP: bonus });
         document.getElementById('go-total-xp').innerText = gainedXPThisRound + ' XP';
         _renderGoBoostRow(gainedXPThisRound);
         animateXPGain();
@@ -9302,6 +9303,8 @@
         { id: 'rotations_300',  tier: 'easy',   title: 'Spin Cycle',        desc: 'Rotate pieces {n} times',                    metric: 'rotations',      target: 300,  pts: 2, cumulative: true },
         { id: 'doubles_3',      tier: 'easy',   title: 'Double Trouble',    desc: 'Clear {n} doubles',         metric: 'doubles',        target: 3,    pts: 2, cumulative: true },
         { id: 'triples_2',      tier: 'easy',   title: 'Triple Threat',     desc: 'Clear {n} triples',         metric: 'triples',        target: 2,    pts: 2, cumulative: true },
+        { id: 'raw_xp_easy',    tier: 'easy',   title: 'XP Warm-Up',        desc: 'Earn {n} raw XP in games',                         metric: 'rawXP',          target: 150,  pts: 2, cumulative: true },
+        { id: 'total_xp_easy',  tier: 'easy',   title: 'XP Kickstart',      desc: 'Earn {n} total XP in games (with multipliers)',    metric: 'totalXP',        target: 200,  pts: 2, cumulative: true },
         // NORMAL (pts: 3)
         { id: 'blocks_300',     tier: 'normal', title: 'Block Builder',     desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 300,  pts: 3 },
         { id: 'blocks_350',     tier: 'normal', title: 'Production Run',    desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 350,  pts: 3 },
@@ -9319,7 +9322,9 @@
         { id: 'doubles_5',      tier: 'normal', title: 'Double Trouble',    desc: 'Clear {n} doubles',         metric: 'doubles',        target: 5,    pts: 3, cumulative: true },
         { id: 'triples_4',      tier: 'normal', title: 'Triple Threat',     desc: 'Clear {n} triples',         metric: 'triples',        target: 4,    pts: 3, cumulative: true },
         { id: 'rotations_450',  tier: 'normal', title: 'Spin Cycle',        desc: 'Rotate pieces {n} times',                    metric: 'rotations',      target: 450,  pts: 3, cumulative: true },
-        { id: 't_spin_1',       tier: 'normal', title: 'T-Spinner',         desc: 'Perform {n} T-spin clear in one game',             metric: 'tSpins',         target: 1,    pts: 3 },
+        { id: 't_spin_1',       tier: 'normal', title: 'T-Spinner',         desc: 'T-spin clears in one game: {n}',                   metric: 'tSpins',         target: 1,    pts: 3 },
+        { id: 'raw_xp_normal',  tier: 'normal', title: 'XP Builder',        desc: 'Earn {n} raw XP in games',                         metric: 'rawXP',          target: 350,  pts: 3, cumulative: true },
+        { id: 'total_xp_normal', tier: 'normal', title: 'XP Momentum',      desc: 'Earn {n} total XP in games (with multipliers)',    metric: 'totalXP',        target: 450,  pts: 3, cumulative: true },
         // HARD (pts: 5)
         { id: 'blocks_450',     tier: 'hard',   title: 'Stack Veteran',     desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 450,  pts: 5 },
         { id: 'blocks_500',     tier: 'hard',   title: 'Block Storm',       desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 500,  pts: 5 },
@@ -9338,7 +9343,9 @@
         { id: 'doubles_8',      tier: 'hard',   title: 'Double Mania',      desc: 'Clear {n} doubles',         metric: 'doubles',        target: 8,    pts: 5, cumulative: true },
         { id: 'triples_6',      tier: 'hard',   title: 'Triple Threat',     desc: 'Clear {n} triples',         metric: 'triples',        target: 6,    pts: 5, cumulative: true },
         { id: 'rotations_700',  tier: 'hard',   title: 'Spin Master',       desc: 'Rotate pieces {n} times',                    metric: 'rotations',      target: 700,  pts: 5, cumulative: true },
-        { id: 't_spin_2',       tier: 'hard',   title: 'T-Spin Expert',     desc: 'Perform {n} T-spins in one game',                  metric: 'tSpins',         target: 2,    pts: 5 },
+        { id: 't_spin_2',       tier: 'hard',   title: 'T-Spin Expert',     desc: 'T-spin clears in one game: {n}',                   metric: 'tSpins',         target: 1,    pts: 5 },
+        { id: 'raw_xp_hard',    tier: 'hard',   title: 'XP Grinder',        desc: 'Earn {n} raw XP in games',                         metric: 'rawXP',          target: 600,  pts: 5, cumulative: true },
+        { id: 'total_xp_hard',  tier: 'hard',   title: 'XP Surge',          desc: 'Earn {n} total XP in games (with multipliers)',    metric: 'totalXP',        target: 800,  pts: 5, cumulative: true },
         // SECRET pool (pts: 5) — title/desc hidden until completed; displayTier assigned on generation
         { id: 'hat_trick',        tier: 'secret', title: 'Hat Trick',         desc: 'Clear lines on 3 consecutive placements',                    metric: 'hatTrick',       target: 1,  pts: 5 },
         { id: 'narrow_escape',    tier: 'secret', title: 'Narrow Escape',     desc: 'Survive 20 seconds with blocks in the top 4 rows',           metric: 'narrowEscape',   target: 1,  pts: 5 },
@@ -9366,25 +9373,31 @@
         { id: 'w_survive_1200', tier: 'easy',   title: 'Short Session',     desc: 'Play for {n} total',                     metric: 'gameTime',          target: 1200, pts: 10, cumulative: true  },
         { id: 'w_speed2_5',     tier: 'easy',   title: 'Getting Faster',    desc: 'Reach speed 2 in {n} separate games',    metric: 'gamesReachedSpeed2',target: 5,    pts: 10, cumulative: true  },
         { id: 'w_score_1500',   tier: 'easy',   title: 'Score Sprint',      desc: 'Score {n} points total',                 metric: 'score',             target: 1500, pts: 10, cumulative: true  },
+        { id: 'w_raw_xp_easy',    tier: 'easy',   title: 'Weekly XP Warm-Up', desc: 'Earn {n} raw XP in games',                      metric: 'rawXP',    target: 1250, pts: 10, cumulative: true },
+        { id: 'w_total_xp_easy',  tier: 'easy',   title: 'Weekly XP Kickstart', desc: 'Earn {n} total XP in games (with multipliers)', metric: 'totalXP',  target: 1750, pts: 10, cumulative: true },
         // NORMAL (pts: 15)
         { id: 'w_lines_150',    tier: 'normal', title: 'Line Machine',      desc: 'Clear {n} lines total',                  metric: 'linesCleared',      target: 150,  pts: 15, cumulative: true  },
         { id: 'w_blocks_1400',  tier: 'normal', title: 'Block Mountain',    desc: 'Place {n} blocks total',                 metric: 'blocksPlaced',      target: 1400, pts: 15, cumulative: true  },
         { id: 'w_score_3000',   tier: 'normal', title: 'Weekly Scorer',     desc: 'Score {n} points total',                 metric: 'score',             target: 3000, pts: 15, cumulative: true  },
         { id: 'w_games_50',     tier: 'normal', title: 'Grinder',           desc: 'Complete {n} games',                     metric: 'gamesPlayed',       target: 50,   pts: 15, cumulative: true  },
         { id: 'w_quads_10',     tier: 'normal', title: 'Quad Collector',    desc: 'Get {n} quad clears',  metric: 'quads',             target: 10,   pts: 15, cumulative: true  },
-        { id: 'w_tspin_3',      tier: 'normal', title: 'Spin Doctor',       desc: 'Perform {n} T-spins',                    metric: 'tSpins',            target: 3,    pts: 15, cumulative: true  },
+        { id: 'w_tspin_3',      tier: 'normal', title: 'Spin Doctor',       desc: 'Perform {n} T-spins',                    metric: 'tSpins',            target: 2,    pts: 15, cumulative: true  },
         { id: 'w_combo4_4',     tier: 'normal', title: 'Weekly Combo',      desc: 'Get a 4+ combo in {n} separate games',   metric: 'gamesWithCombo4',   target: 4,    pts: 15, cumulative: true  },
         { id: 'w_speed3_5',     tier: 'normal', title: 'Weekly Speed',      desc: 'Reach speed 3 in {n} separate games',    metric: 'gamesReachedSpeed3',target: 5,    pts: 15, cumulative: true  },
+        { id: 'w_raw_xp_normal',  tier: 'normal', title: 'Weekly XP Builder',  desc: 'Earn {n} raw XP in games',                      metric: 'rawXP',    target: 2500, pts: 15, cumulative: true },
+        { id: 'w_total_xp_normal', tier: 'normal', title: 'Weekly XP Momentum', desc: 'Earn {n} total XP in games (with multipliers)', metric: 'totalXP', target: 3500, pts: 15, cumulative: true },
         // HARD (pts: 25)
         { id: 'w_lines_250',    tier: 'hard',   title: 'Line God',          desc: 'Clear {n} lines total',                  metric: 'linesCleared',      target: 250,  pts: 25, cumulative: true  },
         { id: 'w_blocks_2000',  tier: 'hard',   title: 'Unstoppable Force', desc: 'Place {n} blocks total',                 metric: 'blocksPlaced',      target: 2000, pts: 25, cumulative: true  },
         { id: 'w_score_4500',   tier: 'hard',   title: 'Score Legend',      desc: 'Score {n} points total',                 metric: 'score',             target: 4500, pts: 25, cumulative: true  },
         { id: 'w_games_75',     tier: 'hard',   title: 'No Life',           desc: 'Complete {n} games',                     metric: 'gamesPlayed',       target: 75,   pts: 25, cumulative: true  },
         { id: 'w_quads_15',     tier: 'hard',   title: 'Quad Legend',       desc: 'Get {n} quad clears',  metric: 'quads',             target: 15,   pts: 25, cumulative: true  },
-        { id: 'w_tspin_5',      tier: 'hard',   title: 'T-Spin Streak',     desc: 'Perform {n} T-spins',                    metric: 'tSpins',            target: 5,    pts: 25, cumulative: true  },
+        { id: 'w_tspin_5',      tier: 'hard',   title: 'T-Spin Streak',     desc: 'Perform {n} T-spins',                    metric: 'tSpins',            target: 3,    pts: 25, cumulative: true  },
         { id: 'w_survive_2400', tier: 'hard',   title: 'Weekly Warrior',    desc: 'Play for {n} total',                     metric: 'gameTime',          target: 2400, pts: 25, cumulative: true  },
         { id: 'w_speed4_5',     tier: 'hard',   title: 'Speed Week',        desc: 'Reach speed 4 in {n} separate games',    metric: 'gamesReachedSpeed4',target: 5,    pts: 25, cumulative: true  },
         { id: 'w_combo4_5',     tier: 'hard',   title: 'Weekly Combo',      desc: 'Get a 4+ combo in {n} separate games',   metric: 'gamesWithCombo4',   target: 5,    pts: 25, cumulative: true  },
+        { id: 'w_raw_xp_hard',    tier: 'hard',   title: 'Weekly XP Grinder',  desc: 'Earn {n} raw XP in games',                      metric: 'rawXP',    target: 4000, pts: 25, cumulative: true },
+        { id: 'w_total_xp_hard',  tier: 'hard',   title: 'Weekly XP Surge',    desc: 'Earn {n} total XP in games (with multipliers)', metric: 'totalXP',  target: 5500, pts: 25, cumulative: true },
     ];
     const MISSION_TIER_COLORS = { easy: '#44ff88', normal: '#4499ff', hard: '#ff3355' };
     const MQ_DAILY_MILESTONES = [
@@ -9465,6 +9478,16 @@
         const rankMult = ['maxSpeed', 'maxCombo'].includes(q.metric) ? 1 : mult;
         return _applyVariation(q.target * rankMult);
     }
+    function _missionMetricKey({ metric }) {
+        if (['speedRun', 'speedQueen', 'gamesReachedSpeed2', 'gamesReachedSpeed3', 'gamesReachedSpeed4'].includes(metric)) return 'maxSpeed';
+        return metric;
+    }
+    function _missionSwapPool(pool, missions, index, secret = null) {
+        const current = missions[index];
+        const usedMetrics = new Set(missions.filter((_, slot) => slot !== index).map(_missionMetricKey));
+        if (secret) usedMetrics.add(_missionMetricKey(secret));
+        return pool.filter(m => m.tier === current.tier && m.id !== current.id && !usedMetrics.has(_missionMetricKey(m)));
+    }
     function _generateDailyQuests() {
         const mult = _missionRankMult();
         const byTier = t => DAILY_QUEST_POOL.filter(q => q.tier === t);
@@ -9473,15 +9496,13 @@
         tiers = tiers.map(t => { const r = Math.random(); if (t==='easy' && r<0.2) return 'normal'; if (t==='normal' && r<0.2) return 'hard'; return t; });
         const pools = { easy: _shuffleArr(byTier('easy')), normal: _shuffleArr(byTier('normal')), hard: _shuffleArr(byTier('hard')) };
         const idx = { easy:0, normal:0, hard:0 };
-        const used = new Set();
         const usedMetrics = new Set();
         const quests = [];
         for (const tier of tiers) {
-            while (idx[tier] < pools[tier].length && (used.has(pools[tier][idx[tier]].id) || usedMetrics.has(pools[tier][idx[tier]].metric))) idx[tier]++;
+            while (idx[tier] < pools[tier].length && usedMetrics.has(_missionMetricKey(pools[tier][idx[tier]]))) idx[tier]++;
             if (idx[tier] < pools[tier].length) {
                 const q = pools[tier][idx[tier]++];
-                used.add(q.id);
-                usedMetrics.add(q.metric);
+                usedMetrics.add(_missionMetricKey(q));
                 const scaled = _missionTarget(q, mult);
                 quests.push({ ...q, target: scaled, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(q.metric, q.desc, scaled) });
             }
@@ -9489,7 +9510,7 @@
         // Secret quest: 30% chance; assign a display tier (normal or hard) — title/desc hidden
         let secret = null;
         if (Math.random() < 0.3) {
-            const sq = _shuffleArr(byTier('secret'))[0];
+            const sq = _shuffleArr(byTier('secret').filter(q => !usedMetrics.has(_missionMetricKey(q))))[0];
             if (sq) {
                 const displayTier = Math.random() < 0.5 ? 'normal' : 'hard';
                 // Secret quest targets are mostly 1 (binary), apply variation only to non-binary
@@ -9506,15 +9527,13 @@
         const baseTiers = ['easy','easy','easy','normal','normal','hard'];
         const pools = { easy: _shuffleArr(byTier('easy')), normal: _shuffleArr(byTier('normal')), hard: _shuffleArr(byTier('hard')) };
         const idx = { easy:0, normal:0, hard:0 };
-        const used = new Set();
         const usedMetrics = new Set();
         const missions = [];
         for (const tier of baseTiers) {
-            while (idx[tier] < pools[tier].length && (used.has(pools[tier][idx[tier]].id) || usedMetrics.has(pools[tier][idx[tier]].metric))) idx[tier]++;
+            while (idx[tier] < pools[tier].length && usedMetrics.has(_missionMetricKey(pools[tier][idx[tier]]))) idx[tier]++;
             if (idx[tier] < pools[tier].length) {
                 const m = pools[tier][idx[tier]++];
-                used.add(m.id);
-                usedMetrics.add(m.metric);
+                usedMetrics.add(_missionMetricKey(m));
                 const _scaledT = _missionTarget(m, mult);
                 missions.push({ ...m, target: _scaledT, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(m.metric, m.desc, _scaledT) });
             }
@@ -9658,15 +9677,9 @@
         return 1.0;
     }
 
-    function _updateMissionProgress() {
-        if (!saveData.missions) return;
-        // Fun Mode doesn't count toward quests/missions
-        if (currentGameMode === 'fun') return;
-        // Games with 0 lines cleared don't count
-        if (linesClearedThisGame === 0) return;
-        _checkMissionsRefresh();
-        const m = saveData.missions;
-        const metrics = {
+    function _updateGameMissionProgress(totalXP) {
+        _updateMissionProgress({
+            rawXP: rawGameplayXPThisGame, totalXP,
             blocksPlaced: blocksPlacedThisGame, linesCleared: linesClearedThisGame,
             score: Math.round(score), gameTime, maxSpeed: speedLevel,
             hardDrops: _hardDropsThisGame, maxCombo: _maxComboThisGame, quads: _quadrasThisGame,
@@ -9693,12 +9706,18 @@
             gamesWithCombo4: _maxComboThisGame >= 4 ? 1 : 0,
             // niceBonus/doubleCompletion computed after other quests run
             niceBonus: 0, doubleCompletion: 0,
-        };
+        });
+    }
+
+    function _updateMissionProgress(metrics) {
+        if (!saveData.missions || currentGameMode === 'fun' || linesClearedThisGame === 0) return;
+        _checkMissionsRefresh();
+        const m = saveData.missions;
         let _completedThisCall = 0;
         // Daily quests — best single-game OR cumulative across games today
         m.daily.quests.forEach(q => {
-            if (q.completed) return;
-            const val = metrics[q.metric] ?? 0;
+            const val = metrics[q.metric];
+            if (q.completed || val === undefined) return;
             if (q.cumulative) {
                 q.progress = Math.min(q.target, (q.progress || 0) + val);
             } else {
@@ -9723,10 +9742,10 @@
         const today = _missionDateKey();
         if (!m.weekly.daysPlayedThisWeek) m.weekly.daysPlayedThisWeek = {};
         if (!m.weekly.dailyPtsLog) m.weekly.dailyPtsLog = {};
-        m.weekly.daysPlayedThisWeek[today] = true;
+        if (metrics.gamesPlayed) m.weekly.daysPlayedThisWeek[today] = true;
         m.weekly.missions.forEach(wm => {
-            if (wm.completed) return;
-            const val = metrics[wm.metric] ?? 0;
+            const val = metrics[wm.metric];
+            if (wm.completed || val === undefined) return;
             wm.progress = wm.cumulative
                 ? Math.min(wm.target, (wm.progress || 0) + val)
                 : Math.min(wm.target, Math.max(wm.progress || 0, val));
@@ -10420,10 +10439,7 @@
                     if (!eligible.length) return;
                     const idx = (typeof index === 'number' && index >= 0 && index < missions.length && !missions[index].completed)
                         ? index : eligible[Math.floor(Math.random() * eligible.length)];
-                    const tier = missions[idx].tier;
-                    const existingIds = new Set(missions.map(wm => wm.id));
-                    existingIds.delete(missions[idx].id);
-                    const pool = _shuffleArr(WEEKLY_MISSION_POOL.filter(p => p.tier === tier && !existingIds.has(p.id)));
+                    const pool = _shuffleArr(_missionSwapPool(WEEKLY_MISSION_POOL, missions, idx));
                     if (!pool.length) return;
                     const mult = _missionRankMult();
                     const _ct = _niceRound(pool[0].target * (['maxSpeed', 'maxCombo'].includes(pool[0].metric) ? 1 : mult));
@@ -10436,10 +10452,7 @@
                     if (!eligible.length) return;
                     const idx = (typeof index === 'number' && index >= 0 && index < quests.length && !quests[index].completed)
                         ? index : eligible[Math.floor(Math.random() * eligible.length)];
-                    const tier = quests[idx].tier;
-                    const existingIds = new Set(quests.map(q => q.id));
-                    existingIds.delete(quests[idx].id);
-                    const pool = _shuffleArr(DAILY_QUEST_POOL.filter(p => p.tier === tier && !existingIds.has(p.id)));
+                    const pool = _shuffleArr(_missionSwapPool(DAILY_QUEST_POOL, quests, idx, m.daily.secret));
                     if (!pool.length) return;
                     const mult = _missionRankMult();
                     const _ct = _niceRound(pool[0].target * (['maxSpeed', 'maxCombo'].includes(pool[0].metric) ? 1 : mult));
@@ -11656,13 +11669,13 @@
             get state() { return copy({board, player, score, lines: linesClearedThisGame, level: speedLevel, holdPiece, holdUsed, combo: _comboCount, isGameOver, dropInterval}); },
             get save() { return copy(saveData); },
             get pieces() { return copy(BASE_PIECES); },
-            setup({cells, type = 6, x = 3, y = 0, speed = 1, save} = {}) {
+            setup({cells, type = 6, x = 3, y = 0, speed = 1, scoreMultiplier = 1, save} = {}) {
                 board = cells ? copy(cells) : Array.from({length: ROWS}, () => Array(COLS).fill(0));
                 saveData = Object.assign(copy(defaultSaveData), save || {});
                 player = {pos: {x,y}, matrix: BASE_PIECES[type].map(r => r.map(v => v ? type : 0)), next: null};
                 _currentPieceType = type; pieceBag = []; _nextQueue = [];
-                score = 0; linesClearedThisGame = 0; speedLevel = speed; dropInterval = Math.floor(1000 / speed);
-                dropCounter = 0; lastTime = performance.now(); currentScoreMultiplier = 1;
+                score = 0; linesClearedThisGame = 0; rawGameplayXPThisGame = 0; speedLevel = speed; dropInterval = Math.floor(1000 / speed);
+                dropCounter = 0; lastTime = performance.now(); currentScoreMultiplier = scoreMultiplier;
                 isPaused = false; isGameOver = false; isAnimating = false; _hardDropAnimating = false;
                 holdPiece = null; holdUsed = false; _comboCount = 0; _lastMoveWasRotation = false;
                 settings.optHold = true; settings.hardDropLock = false;
@@ -11678,6 +11691,8 @@
             achievementOverview: _achievementOverview, selectAchievementCards: _selectAchievementCards,
             encSave: _encSave, decSave: _decSave,
             defaultMissions: _defaultMissions, refreshMissions: _checkMissionsRefresh,
+            generateDailyQuests: _generateDailyQuests, generateWeeklyMissions: _generateWeeklyMissions,
+            missionSwapPool: _missionSwapPool,
             autoClaimMissions: _autoClaimMissions, streakMultiplier: _getMissionStreakXPMult,
             streakThreshold: _dailyStreakXPThreshold,
             showLevelBox: _showLevelBox
