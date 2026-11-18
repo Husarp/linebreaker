@@ -17,7 +17,7 @@ it('rebuilds hostile save fields and ignores unrecognised top-level data', () =>
   pendingLevelBoxes:[{level:21,rewards:[{label:'+1 Part: Shadow', icon:attack, desc:attack}]}]
  };
  const clean = game.w.sanitizeSave(input, a.save, {boosters:{'1.5x_game':{icon:'⚡',label:'1.5x Score Booster',rarity:'rare'}}});
- expect(clean.totalXP).toBe(0); expect(clean.highscore).toBe(0); expect(clean).not.toHaveProperty('unknown');
+ expect(clean.totalXP).toBe(0); expect(clean).not.toHaveProperty('highscore'); expect(clean).not.toHaveProperty('unknown');
  expect(clean.pinnedScores[0].note).not.toMatch(/[<>"'`]/);
  expect(clean.pinnedScores[0].date).toBe(''); expect(clean.lastDailyGift).toBeNull();
  expect(clean.customThemeColor).toBe('#00ffff'); expect(clean.customPickerColors[0]).toBe('#00ffff');
@@ -40,8 +40,8 @@ it('loads a defaults-based real save with progress, dates, missions and legacy b
  fixture.missions.weekly.weekKey = a.missionWeekKey(); fixture.missions.weekly.isoWeekKey=true;
  fixture.missions.stats.totalPts=25;
  a.applyLoadedData(fixture);
- expect(a.save).toMatchObject({totalXP:12345,highscore:5000,parts:{shadow:4},universalParts:2.4,boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
- expect(a.save.leaderboard[0].date).toBe('18.11.2026 12:30');
+ expect(a.save).toMatchObject({totalXP:12345,parts:{shadow:4},universalParts:2.4,boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
+ expect(a.save.leaderboard[0]).toMatchObject({score:5000,date:'2026-11-18',clock:'12:30'});
  expect(a.save.pinnedScores[0].note).toBe('Nice run');
  expect(a.save.pendingLevelBox.rewards).toHaveLength(2);
 });
@@ -75,7 +75,7 @@ it('repairs malformed nested structures, clamps numbers, and blocks entity paylo
  expect(clean.totalXP).toBe(1e12);
  expect(clean.stats.gamesPlayed).toBe(0); expect(clean.stats.seenTitleAnims).toEqual([0,5]);
  expect(clean.missions.daily.quests).toEqual([]);
- expect(clean.missions.weekly.missions[0]).toMatchObject({target:0,completed:false});
+ expect(clean.missions.weekly.missions).toEqual([]);
  expect(clean.customPaletteOverrides.classic.slice(0,2)).toEqual(['#00ffff','#abcdef']);
  expect(clean.ownedSkins).toEqual(['neon']);
  expect(clean.pendingLevelBoxes[0].rewards).toHaveLength(1);
