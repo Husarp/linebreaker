@@ -1,0 +1,14 @@
+.lb-line-clear-setting {
+    min-height: var(--target);
+    font-family: var(--font-body);
+}
+
+.lb-line-clear-setting select {
+    min-width: 6rem;
+    font: inherit;
+}
+
+.lb-line-clear-setting select:focus-visible {
+    outline: var(--focus-width) solid var(--accent-bright);
+    outline-offset: var(--focus-offset);
+}
