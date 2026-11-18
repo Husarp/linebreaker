@@ -122,5 +122,5 @@
         return { capture, cancel, render };
     }
 
-    globalThis.LBControls = { normalizeBindings, actionForKey, rebind, createEditor };
+    globalThis.LBControls = { actions, keyLabel, normalizeBindings, actionForKey, rebind, createEditor };
 })();
