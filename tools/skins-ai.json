@@ -150,6 +150,66 @@
     "prompt": "stained glass tile with a symmetrical lead-line star pattern"
   },
   {
+    "key": "v-aztec-gold",
+    "name": "V Aztec Gold",
+    "src": "../design/skins-ai/v-aztec-gold.png",
+    "prompt": "stepped Aztec glyph carved in gold leaf over the tile colour, symmetrical, warm highlights"
+  },
+  {
+    "key": "v-clay-stamp",
+    "name": "V Clay Stamp",
+    "src": "../design/skins-ai/v-clay-stamp.png",
+    "prompt": "soft matte clay tile with a symmetrical stamped geometric pattern pressed in the centre"
+  },
+  {
+    "key": "v-copper-brushed",
+    "name": "V Copper Brushed",
+    "src": "../design/skins-ai/v-copper-brushed.png",
+    "prompt": "brushed copper/bronze metal plate tinted by the tile colour, chamfered edges, four tiny corner rivets"
+  },
+  {
+    "key": "v-jade-dragon",
+    "name": "V Jade Dragon",
+    "src": "../design/skins-ai/v-jade-dragon.png",
+    "prompt": "pale green carved jade tile with a symmetrical coiled dragon relief in the centre, soft translucent depth"
+  },
+  {
+    "key": "v-lava-glass",
+    "name": "V Lava Glass",
+    "src": "../design/skins-ai/v-lava-glass.png",
+    "prompt": "glossy glass cube with glowing molten core in the tile colour, symmetrical"
+  },
+  {
+    "key": "v-neon-pixel",
+    "name": "V Neon Pixel",
+    "src": "../design/skins-ai/v-neon-pixel.png",
+    "prompt": "8-bit pixel art neon tile: dark centre, glowing pixelated outline in the tile colour"
+  },
+  {
+    "key": "v-obsidian-carved",
+    "name": "V Obsidian Carved",
+    "src": "../design/skins-ai/v-obsidian-carved.png",
+    "prompt": "dark obsidian carved stone with a raised centre square whose bevel edges glow in the tile colour"
+  },
+  {
+    "key": "v-phoenix",
+    "name": "V Phoenix",
+    "src": "../design/skins-ai/v-phoenix.png",
+    "prompt": "red-gold lacquer tile with a symmetrical golden phoenix emblem, ornate gold corner details"
+  },
+  {
+    "key": "v-porcelain-gold",
+    "name": "V Porcelain Gold",
+    "src": "../design/skins-ai/v-porcelain-gold.png",
+    "prompt": "white-glazed porcelain tile with the tile colour as a symmetrical hand-painted border and a thin gold rim"
+  },
+  {
+    "key": "v-silver-dragon",
+    "name": "V Silver Dragon",
+    "src": "../design/skins-ai/v-silver-dragon.png",
+    "prompt": "dark lacquer tile with a symmetrical coiled SILVER dragon emblem, fine silver border"
+  },
+  {
     "key": "wood-inlay",
     "name": "Wood Inlay",
     "src": "../design/skins-ai/wood-inlay.png",
