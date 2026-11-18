@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" data-theme="default">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Visual options review · Linebreaker</title>
+    <link rel="stylesheet" href="../ui/tokens.css">
+    <style>
+        :root { color-scheme: dark; }
+        body { background: var(--surface-0); }
+        main { max-width: 1760px; margin: auto; padding: clamp(16px, 3vw, 48px); }
+        .review-header, .review-section { margin-bottom: var(--space-8); }
+        .review-header { padding: clamp(16px, 3vw, 40px); background: var(--background); }
+        .review-header h1 { margin-block: var(--space-2); }
+        .review-header nav { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+        .review-header a { color: var(--accent-bright); }
+        .review-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+        .review-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 275px), 1fr)); }
+        .review-grid--skins { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+        .review-grid--concepts { grid-template-columns: repeat(auto-fill, minmax(min(100%, 450px), 1fr)); }
+        .review-card { display: flex; flex-direction: column; align-items: stretch; min-width: 0; gap: var(--space-3); }
+        .review-card h3, .review-card p, .review-card figure { margin: 0; }
+        .review-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+        .review-card[data-decision="keep"] { --tone: var(--success); }
+        .review-card[data-decision="redesign"] { --tone: var(--warning); }
+        .review-card[data-decision="remove"] { --tone: var(--danger); }
+        .review-controls { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: auto; padding-top: var(--space-1); }
+        .review-controls .lb-btn { padding-inline: var(--space-2); }
+        .review-controls [aria-pressed="true"] { border-color: var(--tone, var(--accent-bright)); }
+        .review-controls .review-like[aria-pressed="true"] { color: var(--warning); border-color: var(--warning); }
+        .review-note { display: grid; gap: var(--space-1); }
+        .review-note textarea, #review-json { width: 100%; resize: vertical; font: inherit; }
+        .review-specimens { display: grid; gap: var(--space-3); align-items: start; }
+        .review-specimens figure { min-width: 0; }
+        .review-specimens figcaption { margin-bottom: var(--space-1); }
+        .review-card canvas, .review-card img { display: block; max-width: 100%; height: auto; }
+        .review-card canvas { background: var(--surface-0); }
+        .review-card img { width: 100%; aspect-ratio: 3 / 2; object-fit: contain; background: var(--surface-0); }
+        .review-menu { display: grid; position: relative; isolation: isolate; overflow: hidden; place-content: center; justify-items: center; gap: var(--space-2); min-height: 156px; border: 1px solid var(--border); text-align: center; }
+        .review-menu strong { color: var(--accent); font-family: var(--font-display); text-shadow: 0 1px 8px #000; }
+        .review-menu .lb-btn { min-height: 32px; padding: var(--space-1) var(--space-4); }
+        .review-menu canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; background: transparent; }
+        .review-colors { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+        .review-colors input[type="color"] { width: 36px; height: 36px; padding: 2px; border: 1px solid var(--border); background: var(--surface-0); }
+        .review-audio { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+        @media (min-width: 1520px) {
+            .review-grid--skins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .review-specimens { grid-template-columns: 3fr 5fr; }
+        }
+    </style>
+    <script type="module" src="visual-review.js"></script>
+</head>
+<body>
+    <main>
+        <header class="lb-card review-header">
+            <div class="lb-eyebrow">Linebreaker · Owner review</div>
+            <h1>Visual options review</h1>
+            <p>Compare what’s in the game with new skin concepts. Mark each option Keep, Redesign, or Remove and leave a note. Choices stay in this browser until you copy them.</p>
+            <nav aria-label="Review sections" id="review-nav"></nav>
+            <p class="review-toolbar">
+                <button type="button" class="lb-btn lb-btn--primary" id="review-copy" disabled>Copy my choices</button>
+                <span id="review-status" role="status">Loading previews…</span>
+            </p>
+            <textarea id="review-json" class="lb-select" aria-label="Choices JSON" rows="8" readonly hidden></textarea>
+        </header>
+        <div id="review-sections"></div>
+    </main>
+</body>
+</html>
