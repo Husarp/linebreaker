@@ -8903,6 +8903,7 @@
         if (controlsEditor.cancel()) return;
         switch (overlay.id) {
             case 'pause-overlay': pauseFromInput(overlay); return;
+            case 'mode-select-overlay': closeModeSelect(); return;
             case 'go-overlay': resetGameToMenu(); return;
             case 'custom-alert': closeAlert(); return;
             case 'custom-confirm': document.getElementById('confirm-no').click(); return;
@@ -9022,6 +9023,8 @@
                 document.getElementById('confirm-no').click();
             } else if (top?.id === 'custom-alert') {
                 closeAlert();
+            } else if (top?.id === 'mode-select-overlay') {
+                closeModeSelect();
             } else if (top) {
                 const close = top.querySelector('.btn-back, [onclick*="close"], [onclick*="_closeModal"]');
                 if (close) close.click();
@@ -10894,242 +10897,170 @@
         saveSettings();
     }
 
+    const playOverlay = document.getElementById('mode-select-overlay');
+    const playModifiers = [
+        { key: 'optMirror', name: 'Mirror', icon: '⇄', percent: 20, level: 11, rank: 'Silver I', description: 'Reverses left and right controls and flips the board vertically.' },
+        { key: 'optNoNext', name: 'No Next', icon: '⊘', percent: 10, level: 31, rank: 'Emerald I', description: 'Hides the next piece preview.' },
+        { key: 'optHold', name: 'Hold', icon: 'Ⅱ', percent: -20, level: 21, rank: 'Gold I', description: 'Stores a piece for later and lets you swap it back in.' },
+        { key: 'opt3Next', name: '3 Next', icon: '▤', percent: -10, level: 31, rank: 'Emerald I', description: 'Previews the next three pieces instead of one.' },
+        { key: 'optGhost', name: 'Ghost', icon: '◇', percent: -20, level: 11, rank: 'Silver I', description: 'Shows where the current piece would land.' },
+    ];
+
     function openModeSelect() {
         if (window._timeBlocked) return;
-        const _msEl = document.getElementById('mode-select-overlay');
-        _msEl.classList.remove('hidden');
-        _animateIn(_msEl, 'anim-in-up');
-        const fc = document.getElementById('fun-cols'); if (fc) fc.value = funModeConfig.cols;
-        const fr = document.getElementById('fun-rows'); if (fr) fr.value = funModeConfig.rows;
-        const _speedMap2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-        const fs = document.getElementById('fun-speed'); if (fs) fs.value = _speedMap2.indexOf(funModeConfig.startSpeed) + 1 || 1;
-        updateFunConfigDisplay();
-
-        // Check unlock levels
         const playerLevel = getLevelInfo(saveData.totalXP).level;
-        const funCard = document.querySelector('.mode-card[data-mode="fun"]');
-        if (funCard) {
-            const locked = playerLevel < 11;
-            funCard.style.pointerEvents = locked ? 'none' : '';
-            funCard.style.position = 'relative';
-            funCard.style.overflow = locked ? 'hidden' : '';
-            // Hide children content when locked so nothing leaks through
-            Array.from(funCard.children).forEach(child => {
-                if (!child.classList.contains('lock-overlay')) {
-                    child.style.visibility = locked ? 'hidden' : '';
-                }
-            });
-            funCard.style.boxShadow = locked ? 'inset 0 0 0 1px rgba(255,255,255,0.12)' : '';
-            let lockOv = funCard.querySelector('.lock-overlay');
-            if (locked) {
-                if (!lockOv) {
-                    lockOv = document.createElement('div');
-                    lockOv.className = 'lock-overlay';
-                    lockOv.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-start;padding-left:16px;gap:5px;pointer-events:none;';
-                    lockOv.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg><span style="font-size:0.65rem;color:rgba(255,255,255,0.7);font-weight:bold;margin-left:4px;">Unlocks at <span style="color:#e0e0e0">Silver I</span></span>`;
-                    funCard.appendChild(lockOv);
-                }
-            } else if (lockOv) { lockOv.remove(); funCard.style.boxShadow = ''; funCard.style.overflow = ''; }
-        }
+        const funTab = playOverlay.querySelector('[data-mode="fun"]');
+        funTab.disabled = playerLevel < 11;
+        document.getElementById('play-fun-lock').hidden = !funTab.disabled;
+        if (!funTab.disabled) funTab.removeAttribute('aria-describedby');
+        else funTab.setAttribute('aria-describedby', 'play-fun-lock');
 
-        // Set up options panel checkboxes and lock states
-        _updateModeOptionsPanel(playerLevel);
-
-        // If current mode is locked, fall back to normal
-        if (currentGameMode === 'fun' && playerLevel < 21) currentGameMode = 'normal';
-        if (currentGameMode === 'advanced') currentGameMode = 'normal'; // advanced removed
+        document.getElementById('fun-cols').value = funModeConfig.cols;
+        document.getElementById('fun-rows').value = funModeConfig.rows;
+        const speed = funModeConfig.startSpeed;
+        document.getElementById('fun-speed').value = Number.isInteger(speed) && speed >= 1 && speed <= 15 ? speed : 1;
+        updateFunConfigDisplay();
+        updatePlayModifiers(playerLevel);
+        if (currentGameMode === 'advanced' || (currentGameMode === 'fun' && playerLevel < 21)) currentGameMode = 'normal';
         selectMode(currentGameMode || 'normal');
+
+        playOverlay.classList.remove('hidden');
+        playOverlay.scrollTop = 0;
+        _animateIn(playOverlay, 'anim-in-up');
+        playOverlay.querySelector('[data-mode][aria-pressed="true"]').focus({ preventScroll: true });
     }
+
     function closeModeSelect() {
-        _animateOut(document.getElementById('mode-select-overlay'), 'anim-out-down');
+        if (playOverlay.classList.contains('anim-out-down')) return;
+        _animateOut(playOverlay, 'anim-out-down', () => document.getElementById('btn-play').focus({ preventScroll: true }));
     }
+
     function selectMode(mode) {
+        const tabs = [...playOverlay.querySelectorAll('.play-tabs [data-mode]')];
+        if (!tabs.some(tab => tab.dataset.mode === mode && !tab.disabled)) return;
         currentGameMode = mode;
-        document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('selected', c.dataset.mode === mode));
-        const funConfig = document.getElementById('fun-mode-config');
-        if (funConfig) funConfig.style.display = mode === 'fun' ? '' : 'none';
-        const optPanel = document.getElementById('mode-options-panel');
-        if (optPanel) optPanel.style.display = '';
-        // Hide multiplier box in fun mode (keep space so layout doesn't shift)
-        const multBox = document.getElementById('mode-xp-mult-box');
-        if (multBox) multBox.style.visibility = mode === 'fun' ? 'hidden' : 'visible';
-        // Hide/show only the percentage text (not option names)
-        document.querySelectorAll('.opt-pct').forEach(el => {
-            el.style.visibility = mode === 'fun' ? 'hidden' : 'visible';
-        });
-        _updateModeXpMultDisplay();
+        for (const tab of tabs) tab.setAttribute('aria-pressed', tab.dataset.mode === mode);
+        const isFun = mode === 'fun';
+        playOverlay.dataset.mode = mode;
+        document.getElementById('fun-mode-config').hidden = !isFun;
+        document.getElementById('play-board-preview').hidden = !isFun;
+        document.getElementById('play-fun-note').hidden = !isFun;
+        updatePlaySummary();
     }
+
     function updateFunConfigDisplay() {
-        const _speedMap = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-        const fc = document.getElementById('fun-cols'); const fr = document.getElementById('fun-rows'); const fs = document.getElementById('fun-speed');
-        if (fc) { funModeConfig.cols = parseInt(fc.value); document.getElementById('fun-cols-val').textContent = fc.value; }
-        if (fr) { funModeConfig.rows = parseInt(fr.value); document.getElementById('fun-rows-val').textContent = fr.value; }
-        if (fs) {
-            const idx = parseInt(fs.value) - 1;
-            funModeConfig.startSpeed = _speedMap[Math.min(idx, _speedMap.length - 1)];
-            const spd = funModeConfig.startSpeed;
-            document.getElementById('fun-speed-val').textContent = spd;
-        }
+        funModeConfig.cols = document.getElementById('fun-cols').valueAsNumber;
+        funModeConfig.rows = document.getElementById('fun-rows').valueAsNumber;
+        funModeConfig.startSpeed = document.getElementById('fun-speed').valueAsNumber;
+        document.getElementById('fun-cols-val').value = funModeConfig.cols;
+        document.getElementById('fun-rows-val').value = funModeConfig.rows;
+        document.getElementById('fun-speed-val').value = funModeConfig.startSpeed;
         localStorage.setItem('tetrisRPG_funConfig', JSON.stringify(funModeConfig));
+
+        const board = document.getElementById('play-board-preview');
+        board.style.setProperty('--play-cols', funModeConfig.cols);
+        board.style.setProperty('--play-rows', funModeConfig.rows);
+        document.getElementById('play-board-size').textContent = `${funModeConfig.cols} × ${funModeConfig.rows} board`;
     }
-    const MODE_XP_MODIFIERS = [
-        ['optMirror', 'mirror', 0.2], ['optNoNext', 'nonext', 0.1], ['optHold', 'hold', -0.2],
-        ['opt3Next', '3next', -0.1], ['optGhost', 'ghost', -0.2]
-    ];
+
     function _calcModeXpMult(activeSettings = settings) {
-        return Math.max(0.1, MODE_XP_MODIFIERS.reduce((mult, [setting, , change]) => activeSettings[setting] ? mult + change : mult, 1));
-    }
-    function _updateModeXpMultDisplay() {
-        const val = document.getElementById('mode-xp-mult-val');
-        const tags = document.getElementById('mode-xp-mult-tags');
-        if (!val) return;
-        const m = currentGameMode === 'fun' ? 1.0 : _calcModeXpMult();
-        const pct = Math.round(m * 100);
-        val.innerText = pct + '%';
-        val.style.color = m > 1 ? '#66ff99' : m < 1 ? '#ff8866' : '#00ffc8';
-        if (tags) {
-            const lines = [];
-            if (currentGameMode !== 'fun') {
-                if (settings.optMirror) lines.push('Mirror +20%');
-                if (settings.optNoNext) lines.push('No Next +10%');
-                if (settings.optHold)   lines.push('Hold −20%');
-                if (settings.opt3Next)  lines.push('3-Next −10%');
-                if (settings.optGhost)  lines.push('Ghost −20%');
-            }
-            tags.innerText = lines.join('\n');
+        let multiplier = 1;
+        for (const { key, percent } of playModifiers) {
+            if (activeSettings[key]) multiplier += percent / 100;
         }
+        return Math.max(0.1, multiplier);
     }
-    function _updateModeOptionsPanel(playerLevel) {
-        const lvl = playerLevel !== undefined ? playerLevel : getLevelInfo(saveData.totalXP).level;
-        // Force-off options that are locked by level
-        let _changed = false;
-        if (lvl < 11  && settings.optGhost)  { settings.optGhost  = false; _changed = true; }
-        if (lvl < 11  && settings.optMirror) { settings.optMirror = false; _changed = true; }
-        if (lvl < 21  && settings.optHold)   { settings.optHold   = false; _changed = true; }
-        if (lvl < 31  && settings.opt3Next)  { settings.opt3Next  = false; _changed = true; }
-        if (lvl < 31  && settings.optNoNext) { settings.optNoNext = false; _changed = true; }
-        if (_changed) saveSettings();
-        // Sync checkbox states
-        const mirrorEl  = document.getElementById('opt-mirror');
-        const holdEl    = document.getElementById('opt-hold');
-        const nextEl    = document.getElementById('opt-3next');
-        const ghostEl   = document.getElementById('opt-ghost');
-        const noNextEl  = document.getElementById('opt-nonext');
-        if (mirrorEl)  mirrorEl.checked  = !!settings.optMirror;
-        if (holdEl)    holdEl.checked    = !!settings.optHold;
-        if (nextEl)    nextEl.checked    = !!settings.opt3Next;
-        if (ghostEl)   ghostEl.checked   = !!settings.optGhost;
-        if (noNextEl)  noNextEl.checked  = !!settings.optNoNext;
-        // Apply opacity+overlay for locked rows
-        const lockDefs = [
-            { id:'opt-row-mirror', locked: lvl < 11,  text:'Silver I' },
-            { id:'opt-row-ghost',  locked: lvl < 11,  text:'Silver I' },
-            { id:'opt-row-hold',   locked: lvl < 21,  text:'Gold I' },
-            { id:'opt-row-3next',  locked: lvl < 31,  text:'Emerald I' },
-            { id:'opt-row-nonext', locked: lvl < 31,  text:'Emerald I' },
-        ];
-        lockDefs.forEach(({ id, locked, text }) => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            el.style.pointerEvents = locked ? 'none' : '';
-            // Hide children content when locked — no blurred text visible
-            Array.from(el.children).forEach(child => {
-                if (!child.classList.contains('lock-overlay')) {
-                    child.style.visibility = locked ? 'hidden' : '';
-                }
-            });
-            el.style.boxShadow = locked ? 'inset 0 0 0 1px rgba(255,255,255,0.1)' : '';
-            let ov = el.querySelector('.lock-overlay');
-            if (locked) {
-                if (!ov) {
-                    ov = document.createElement('div');
-                    ov.className = 'lock-overlay';
-                    ov.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-start;padding-left:12px;gap:5px;pointer-events:none;background:rgba(10,10,20,0.85);border-radius:8px;';
-                    const _rc = text.startsWith('Silver') ? '#e0e0e0' : text.startsWith('Gold') ? '#ffd700' : text.startsWith('Emerald') ? '#50c878' : 'rgba(255,255,255,0.7)';
-                    ov.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg><span style="font-size:0.65rem;color:rgba(255,255,255,0.7);font-weight:bold;margin-left:4px;">Unlocks at <span style="color:${_rc}">${text}</span></span>`;
-                    el.appendChild(ov);
-                }
-            } else if (ov) {
-                ov.remove();
-                el.style.boxShadow = '';
-            }
+
+    function updatePlaySummary() {
+        const multiplier = currentGameMode === 'fun' ? 1 : _calcModeXpMult();
+        const score = document.getElementById('mode-xp-mult-val');
+        score.textContent = `${Math.round(multiplier * 100)}%`;
+        score.dataset.effect = multiplier > 1 ? 'bonus' : multiplier < 1 ? 'penalty' : 'base';
+
+        const active = playModifiers.filter(({ key }) => settings[key]);
+        const list = document.getElementById('play-active-modifiers');
+        const items = active.map(({ name, icon }) => {
+            const item = document.createElement('li');
+            const symbol = document.createElement('span');
+            symbol.setAttribute('aria-hidden', 'true');
+            symbol.textContent = icon;
+            item.append(symbol, name);
+            return item;
         });
-        // Sort options: unlocked positive first, unlocked negative, then locked by unlock level asc, within same level by pct desc
-        const _optContainer = document.querySelector('#mode-options-panel > div:last-child');
-        if (_optContainer) {
-            const _optRows = Array.from(_optContainer.querySelectorAll('.mode-opt-row'));
-            _optRows.sort((a, b) => {
-                const aL = !!a.querySelector('.lock-overlay');
-                const bL = !!b.querySelector('.lock-overlay');
-                if (aL !== bL) return aL ? 1 : -1;
-                if (aL && bL) {
-                    // Both locked: sort by unlock level ascending
-                    const aLvl = parseInt(a.dataset.unlockLvl || '99');
-                    const bLvl = parseInt(b.dataset.unlockLvl || '99');
-                    if (aLvl !== bLvl) return aLvl - bLvl;
-                }
-                // Same lock status (or same level): sort by pct descending
-                const aP = parseFloat(a.querySelector('.opt-pct')?.textContent) || 0;
-                const bP = parseFloat(b.querySelector('.opt-pct')?.textContent) || 0;
-                return bP - aP;
-            });
-            _optRows.forEach(r => _optContainer.appendChild(r));
-        }
-        // Bind hover tooltips for all rows
-        document.querySelectorAll('.mode-opt-row[data-opt-info]').forEach(row => {
-            if (!row._tipBound) {
-                row._tipBound = true;
-                const tip = document.getElementById('mode-opt-tooltip');
-                if (!tip) return;
-                row.addEventListener('mouseenter', ev => {
-                    const info = row.getAttribute('data-opt-info');
-                    if (!info) return;
-                    tip.textContent = info;
-                    tip.style.display = 'block';
-                    const tw = tip.offsetWidth || 200, th = tip.offsetHeight || 50;
-                    let tx = ev.clientX + 14, ty = ev.clientY - 10;
-                    if (tx + tw > window.innerWidth - 10) tx = ev.clientX - tw - 10;
-                    if (ty + th > window.innerHeight - 10) ty = window.innerHeight - th - 10;
-                    if (ty < 10) ty = 10;
-                    tip.style.left = tx + 'px'; tip.style.top = ty + 'px';
-                });
-                row.addEventListener('mousemove', ev => {
-                    const tw = tip.offsetWidth || 200, th = tip.offsetHeight || 50;
-                    let tx = ev.clientX + 14, ty = ev.clientY - 10;
-                    if (tx + tw > window.innerWidth - 10) tx = ev.clientX - tw - 10;
-                    if (ty + th > window.innerHeight - 10) ty = window.innerHeight - th - 10;
-                    if (ty < 10) ty = 10;
-                    tip.style.left = tx + 'px'; tip.style.top = ty + 'px';
-                });
-                row.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
-            }
-        });
-        _updateModeXpMultDisplay();
+        list.replaceChildren(...items);
+        list.hidden = !items.length;
+        document.getElementById('play-no-modifiers').hidden = !!items.length;
     }
-    window.onModeOptionChange = function() {
-        const mirrorEl  = document.getElementById('opt-mirror');
-        const holdEl    = document.getElementById('opt-hold');
-        const nextEl    = document.getElementById('opt-3next');
-        const ghostEl   = document.getElementById('opt-ghost');
-        const noNextEl  = document.getElementById('opt-nonext');
-        if (mirrorEl)  settings.optMirror  = mirrorEl.checked;
-        if (holdEl)    settings.optHold    = holdEl.checked;
-        if (ghostEl)   settings.optGhost   = ghostEl.checked;
-        // Mutual exclusivity: optNoNext and opt3Next
-        if (noNextEl && nextEl) {
-            const noNextJustEnabled = noNextEl.checked && !settings.optNoNext;
-            const nextJustEnabled   = nextEl.checked   && !settings.opt3Next;
-            if (noNextJustEnabled && nextEl.checked)   { nextEl.checked = false; }
-            if (nextJustEnabled   && noNextEl.checked) { noNextEl.checked = false; }
+
+    function syncPlayModifierRows() {
+        for (const row of playOverlay.querySelectorAll('[data-play-modifier]')) {
+            const enabled = !!settings[row.dataset.playModifier];
+            row.setAttribute('aria-pressed', enabled);
+            row.querySelector('.play-modifier-mark').textContent = enabled ? '✓' : '×';
         }
-        if (nextEl)    settings.opt3Next   = nextEl.checked;
-        if (noNextEl)  settings.optNoNext  = noNextEl.checked;
-        saveSettings();
-        _updateModeXpMultDisplay();
-    };
+    }
+
+    function updatePlayModifiers(playerLevel) {
+        let changed = false;
+        for (const { key, level } of playModifiers) {
+            if (playerLevel < level && settings[key]) {
+                settings[key] = false;
+                changed = true;
+            }
+        }
+        if (changed) saveSettings();
+
+        const ordered = [...playModifiers].sort((first, second) => {
+            const firstLocked = playerLevel < first.level;
+            const secondLocked = playerLevel < second.level;
+            if (firstLocked !== secondLocked) return firstLocked ? 1 : -1;
+            if (firstLocked && first.level !== second.level) return first.level - second.level;
+            return second.percent - first.percent || first.level - second.level;
+        });
+        const rows = ordered.map(({ key, name, icon, percent, level, rank, description }) => {
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'lb-btn play-modifier';
+            row.dataset.playModifier = key;
+            row.disabled = playerLevel < level;
+            row.innerHTML = `
+                <span class="play-modifier-icon" aria-hidden="true">${icon}</span>
+                <span class="play-modifier-copy">
+                    <strong>${name}</strong>
+                    <span class="play-modifier-description">${description}</span>
+                    ${row.disabled ? `<span class="play-lock">Locked · ${rank}</span>` : ''}
+                </span>
+                <span class="play-modifier-meta">
+                    <span class="play-modifier-score" data-effect="${percent > 0 ? 'bonus' : 'penalty'}">${percent > 0 ? '+' : '−'}${Math.abs(percent)}%</span>
+                    <span class="play-modifier-mark" aria-hidden="true"></span>
+                </span>`;
+            row.addEventListener('click', () => {
+                settings[key] = !settings[key];
+                if (settings[key] && key === 'optNoNext') settings.opt3Next = false;
+                if (settings[key] && key === 'opt3Next') settings.optNoNext = false;
+                saveSettings();
+                syncPlayModifierRows();
+                updatePlaySummary();
+            });
+            return row;
+        });
+        document.getElementById('mode-options-panel').replaceChildren(...rows);
+        syncPlayModifierRows();
+    }
+
     function startSelectedMode() {
-        _animateOut(document.getElementById('mode-select-overlay'), 'anim-out-down');
+        _animateOut(playOverlay, 'anim-out-down');
         startGame();
+    }
+
+    document.getElementById('play-back').addEventListener('click', closeModeSelect);
+    document.getElementById('play-rules').addEventListener('click', () => window.openRules());
+    document.getElementById('play-start').addEventListener('click', startSelectedMode);
+    for (const tab of playOverlay.querySelectorAll('.play-tabs [data-mode]')) {
+        tab.addEventListener('click', () => selectMode(tab.dataset.mode));
+    }
+    for (const input of playOverlay.querySelectorAll('#fun-mode-config input')) {
+        input.addEventListener('input', updateFunConfigDisplay);
     }
 
     window.closeAlert = closeAlert;
@@ -11514,14 +11445,12 @@
             name, `Levels ${(RANKS[index - 1]?.maxLvl || 0) + 1}–${maxLvl} · ${number(_RANK_XP_PER_LEVEL[index])} XP per level`
         ]);
         rankRows.push([CELESTITE_RANK.name, `Level ${RANKS.at(-1).maxLvl + 1} onward · ${number(CELESTITE_XP_PER_LEVEL)} XP per level`]);
-        const modifiers = MODE_XP_MODIFIERS.map(([, id, change]) => {
-            const row = document.getElementById(`opt-row-${id}`);
-            const label = row.querySelector(':scope > div > div').textContent.trim();
-            const description = id === 'hold'
+        const modifiers = playModifiers.map(({ key, name, percent, level, description }) => {
+            const text = key === 'optHold'
                 ? 'Store a piece or swap it back in with your Hold binding. Each piece can only be held once per turn.'
-                : row.dataset.optInfo;
-            const percent = `${change > 0 ? '+' : '−'}${Math.round(Math.abs(change) * 100)}%`;
-            return [label, `${description} Unlocks at level ${row.dataset.unlockLvl}. ${percent} in Normal.`];
+                : description;
+            const pct = `${percent > 0 ? '+' : '−'}${Math.abs(percent)}%`;
+            return [name, `${text} Unlocks at level ${level}. ${pct} in Normal.`];
         });
         const sections = [
             ['basics', 'Basics & controls', `

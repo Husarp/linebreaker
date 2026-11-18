@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="touch.css">
     <link rel="stylesheet" href="portrait.css">
+    <link rel="stylesheet" href="31-play-screen.css">
     <link rel="stylesheet" href="controls.css">
     <link rel="stylesheet" href="28-achievements.css">
     <link rel="stylesheet" href="30-color-picker.css">
@@ -649,95 +650,66 @@
 </div>
 
 <!-- MODE SELECT -->
-<div id="mode-select-overlay" class="overlay hidden" style="z-index: 1005; overflow-y: auto; justify-content: flex-start; padding: 24px 12px;">
-    <div style="display:flex; gap:14px; justify-content:center; align-items:flex-start; flex-wrap:wrap; width:100%;">
-    <div class="transfer-box" style="width:95%; max-width:380px; gap:0; padding:20px; flex-shrink:0;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; gap:16px;">
-            <h2 style="color:var(--primary); font-family:'Press Start 2P'; font-size:0.68rem; margin:0;">SELECT MODE</h2>
-            <button type="button" class="btn-secondary" data-help-section="modes">GAME HELP</button>
+<div id="mode-select-overlay" class="overlay hidden" role="dialog" aria-labelledby="play-title">
+    <div class="play-layout">
+        <header class="lb-header play-header">
+            <button type="button" class="lb-btn lb-btn--ghost" id="play-back"><span aria-hidden="true">←</span> Back</button>
+            <h1 id="play-title">Play</h1>
+            <button type="button" class="lb-btn lb-btn--ghost" id="play-rules">Rules</button>
+        </header>
+        <div class="lb-tabs play-tabs" role="group" aria-label="Game mode">
+            <button type="button" class="lb-btn" data-mode="normal" aria-pressed="true">Normal</button>
+            <button type="button" class="lb-btn" data-mode="fun" aria-label="Fun" aria-pressed="false" aria-describedby="play-fun-lock" disabled>
+                Fun <span id="play-fun-lock" class="play-lock">Locked · Silver I</span>
+            </button>
         </div>
-        <div style="display:flex; flex-direction:column; gap:10px; width:100%;">
-            <!-- Normal Mode -->
-            <div class="mode-card selected" data-mode="normal" onclick="window.selectMode('normal')">
-                <div class="mode-card-title"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><rect x="1" y="8" width="6" height="6" rx="1" fill="currentColor" stroke="none" opacity="0.9"/><rect x="8" y="8" width="6" height="6" rx="1" fill="currentColor" stroke="none" opacity="0.9"/><rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" stroke="none" opacity="0.9"/><rect x="8" y="1" width="6" height="6" rx="1" fill="currentColor" stroke="none" opacity="0.3"/><rect x="15" y="8" width="4" height="4" rx="1" fill="currentColor" stroke="none" opacity="0.55"/></svg>NORMAL</div>
-                <div class="mode-card-desc">Classic mode</div>
-            </div>
-            <!-- Fun Mode -->
-            <div class="mode-card" data-mode="fun" onclick="window.selectMode('fun')">
-                <div class="mode-card-title"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><polygon points="10,2 12.4,7.2 18,7.6 13.8,11.6 15.1,17 10,14 4.9,17 6.2,11.6 2,7.6 7.6,7.2" fill="currentColor" stroke="none" opacity="0.85"/></svg>FUN</div>
-                <div class="mode-card-desc">Sandbox mode — no ranking, no XP, no achievements. Customize the board and speed.</div>
-            </div>
+        <div class="lb-card play-setup">
+            <section aria-labelledby="play-modifiers-title">
+                <h2 id="play-modifiers-title">Modifiers</h2>
+                <div id="mode-options-panel" class="play-modifiers"></div>
+            </section>
+            <section id="fun-mode-config" aria-labelledby="play-board-title" hidden>
+                <h2 id="play-board-title">Fun setup</h2>
+                <div class="play-range">
+                    <label for="fun-cols">Board columns</label>
+                    <output id="fun-cols-val" for="fun-cols">10</output>
+                    <input type="range" class="lb-slider" id="fun-cols" min="6" max="16" value="10">
+                </div>
+                <div class="play-range">
+                    <label for="fun-rows">Board rows</label>
+                    <output id="fun-rows-val" for="fun-rows">20</output>
+                    <input type="range" class="lb-slider" id="fun-rows" min="15" max="30" value="20">
+                </div>
+                <div class="play-range">
+                    <label for="fun-speed">Starting speed</label>
+                    <output id="fun-speed-val" for="fun-speed">1</output>
+                    <input type="range" class="lb-slider" id="fun-speed" min="1" max="15" value="1">
+                </div>
+            </section>
         </div>
-        <button class="btn-main" data-lb-drift="accent" style="margin-top:18px; width:100%;" onclick="window.startSelectedMode()">▶ START</button>
-        <button class="btn-secondary" style="margin-top:8px; border:none; font-size:0.8rem;" onclick="window.closeModeSelect()">CANCEL</button>
-
-        <!-- Options panel (Normal mode only) -->
-        <div id="mode-options-panel" style="margin-top:16px; border-top:1px solid rgba(255,255,255,0.07); padding-top:14px;">
-            <div class="lb-help-label" style="font-size:0.55rem; color:#666; letter-spacing:2px; margin-bottom:10px;">OPTIONS <button type="button" class="lb-info-btn" data-help-section="modes" aria-label="About mode modifiers" title="About mode modifiers"></button></div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-                <div class="mode-opt-row" id="opt-row-mirror" data-opt-info="Controls are reversed (L/R swapped) and the board is flipped vertically — pieces fall from the bottom." data-unlock-lvl="11">
-                    <div style="flex:1; display:grid; grid-template-columns:1fr 52px; align-items:center; gap:8px;">
-                        <div style="font-size:0.68rem; color:#ccc;">Mirror</div>
-                        <div class="opt-pct" style="font-size:0.56rem; color:#66bb66; letter-spacing:0.3px; text-align:right;">+20%</div>
-                    </div>
-                    <label class="toggle"><input type="checkbox" id="opt-mirror" onchange="window.onModeOptionChange()"><span class="toggle-slider"></span></label>
+        <section class="lb-card play-summary" aria-labelledby="play-summary-title">
+            <div class="lb-card play-summary-card">
+                <h2 id="play-summary-title">Run summary</h2>
+                <div class="play-score" aria-live="polite" aria-atomic="true">
+                    <div class="lb-eyebrow">Score multiplier</div>
+                    <strong class="lb-number" id="mode-xp-mult-val">100%</strong>
                 </div>
-                <div class="mode-opt-row" id="opt-row-nonext" data-opt-info="Hides the next piece preview completely. You won't know what's coming next!" data-unlock-lvl="31">
-                    <div style="flex:1; display:grid; grid-template-columns:1fr 52px; align-items:center; gap:8px;">
-                        <div style="font-size:0.68rem; color:#ccc;">No Next</div>
-                        <div class="opt-pct" style="font-size:0.56rem; color:#66bb66; letter-spacing:0.3px; text-align:right;">+10%</div>
-                    </div>
-                    <label class="toggle"><input type="checkbox" id="opt-nonext" onchange="window.onModeOptionChange()"><span class="toggle-slider"></span></label>
-                </div>
-                <div class="mode-opt-row" id="opt-row-ghost" data-opt-info="A transparent shadow shows exactly where your piece will land. Makes it easier to aim." data-unlock-lvl="11">
-                    <div style="flex:1; display:grid; grid-template-columns:1fr 52px; align-items:center; gap:8px;">
-                        <div style="font-size:0.68rem; color:#ccc;">Ghost Piece</div>
-                        <div class="opt-pct" style="font-size:0.56rem; color:#bb6666; letter-spacing:0.3px; text-align:right;">−20%</div>
-                    </div>
-                    <label class="toggle"><input type="checkbox" id="opt-ghost" onchange="window.onModeOptionChange()"><span class="toggle-slider"></span></label>
-                </div>
-                <div class="mode-opt-row" id="opt-row-hold" data-opt-info="Press H to store the current piece and swap it back in later. Each piece can only be held once per turn." data-unlock-lvl="21">
-                    <div style="flex:1; display:grid; grid-template-columns:1fr 52px; align-items:center; gap:8px;">
-                        <div style="font-size:0.68rem; color:#ccc;">Hold</div>
-                        <div class="opt-pct" style="font-size:0.56rem; color:#bb6666; letter-spacing:0.3px; text-align:right;">−20%</div>
-                    </div>
-                    <label class="toggle"><input type="checkbox" id="opt-hold" onchange="window.onModeOptionChange()"><span class="toggle-slider"></span></label>
-                </div>
-                <div class="mode-opt-row" id="opt-row-3next" data-opt-info="Shows the next 3 upcoming pieces instead of just 1. Lets you plan further ahead." data-unlock-lvl="31">
-                    <div style="flex:1; display:grid; grid-template-columns:1fr 52px; align-items:center; gap:8px;">
-                        <div style="font-size:0.68rem; color:#ccc;">3 Next</div>
-                        <div class="opt-pct" style="font-size:0.56rem; color:#bb6666; letter-spacing:0.3px; text-align:right;">−10%</div>
-                    </div>
-                    <label class="toggle"><input type="checkbox" id="opt-3next" onchange="window.onModeOptionChange()"><span class="toggle-slider"></span></label>
+                <p class="play-mode-note" id="play-fun-note" hidden>Modifiers don’t affect score in Fun.</p>
+                <figure class="play-board-preview" id="play-board-preview" hidden>
+                    <div class="play-board-grid" aria-hidden="true"></div>
+                    <figcaption id="play-board-size">10 × 20 board</figcaption>
+                </figure>
+                <div class="play-preview">
+                    <h3>Active modifiers</h3>
+                    <p class="play-mode-note" id="play-no-modifiers">None active</p>
+                    <ul id="play-active-modifiers" class="play-active-modifiers" hidden></ul>
                 </div>
             </div>
-        </div>
-
-        <!-- Fun mode config (shown when fun mode selected) -->
-        <div id="fun-mode-config" style="display:none; margin-top:14px; border-top:1px solid rgba(255,204,0,0.15); padding-top:12px;">
-            <div style="font-size:0.55rem; color:#665500; letter-spacing:2px; margin-bottom:10px;">FUN MODE CONFIG</div>
-            <div class="fun-cfg-row">
-                <span>Columns: <b id="fun-cols-val">10</b></span>
-                <input type="range" id="fun-cols" aria-label="Board columns" min="6" max="16" value="10" oninput="window.updateFunConfigDisplay()" style="width:120px;">
+            <div class="play-start-bar">
+                <button type="button" class="lb-btn lb-btn--primary" id="play-start" data-lb-drift="accent"><span aria-hidden="true">▶</span> START</button>
             </div>
-            <div class="fun-cfg-row">
-                <span>Rows: <b id="fun-rows-val">20</b></span>
-                <input type="range" id="fun-rows" aria-label="Board rows" min="15" max="30" value="20" oninput="window.updateFunConfigDisplay()" style="width:120px;">
-            </div>
-            <div class="fun-cfg-row">
-                <span>Start Speed: <b id="fun-speed-val">1</b></span>
-                <input type="range" id="fun-speed" aria-label="Starting speed" min="1" max="15" value="1" oninput="window.updateFunConfigDisplay()" style="width:120px;">
-            </div>
-        </div>
+        </section>
     </div>
-
-    <!-- XP Multiplier box -->
-    <div id="mode-xp-mult-box" style="background:rgba(0,255,200,0.04); border:1px solid rgba(0,255,200,0.15); border-radius:12px; padding:16px 20px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; min-width:110px; align-self:flex-start; margin-top:0;">
-        <div style="font-size:0.5rem; color:#555; letter-spacing:2px; white-space:nowrap;">SCORE MULTIPLIER</div>
-        <div id="mode-xp-mult-val" style="font-size:1.6rem; font-weight:bold; font-family:var(--ui-font); color:#00ffc8; line-height:1;">100%</div>
-        <div id="mode-xp-mult-tags" style="font-size:0.52rem; color:#555; text-align:center; line-height:1.6; min-height:1em;"></div>
-    </div>
-    </div><!-- end flex wrapper -->
 </div>
 
 <!-- PLAYLIST PANEL -->
@@ -1030,7 +1002,6 @@
 </div>
 
 <div id="lb-tooltip-global" style="display:none; position:fixed; z-index:2000; background:rgba(5,5,20,0.97); border:1px solid color-mix(in srgb, var(--primary) 30%, transparent); border-radius:8px; padding:8px 10px; font-size:0.68rem; color:#bbb; line-height:1.5; gap:12px; flex-wrap:wrap; pointer-events:none; font-family:inherit;"></div>
-<div id="mode-opt-tooltip" style="display:none;position:fixed;z-index:9999;background:rgba(5,5,20,0.97);border:1px solid color-mix(in srgb, var(--primary) 30%, transparent);border-radius:8px;padding:8px 12px;font-size:0.62rem;color:#bbb;line-height:1.6;pointer-events:none;max-width:220px;font-family:inherit;"></div>
 <script src="native-save.js"></script>
 <script src="save-sanitize.js"></script>
 <script src="controls.js"></script>
