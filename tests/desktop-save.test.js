@@ -17,10 +17,10 @@ it('loads native saves without a file setup overlay and serializes pending write
   const first = game.api.writeSaveFile({ totalXP: 1 });
   game.api.writeSaveFile({ totalXP: 2 });
   game.api.writeSaveFile({ totalXP: 3 });
-  expect(calls).toEqual([{ totalXP: 1 }]);
+  expect(calls).toEqual([{ schemaVersion: 1, totalXP: 1 }]);
   release();
   await first;
-  expect(calls).toEqual([{ totalXP: 1 }, { totalXP: 3 }]);
+  expect(calls).toEqual([{ schemaVersion: 1, totalXP: 1 }, { schemaVersion: 1, totalXP: 3 }]);
 });
 it('does not overwrite native saves after a failed boot read', async () => {
   const invoke = vi.fn(async command => {

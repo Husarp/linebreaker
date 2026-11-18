@@ -73,7 +73,7 @@ describe('achievement screen', () => {
     filter('categories');
     expect([...game.w.document.querySelectorAll('#ach-list h2')].map(node => node.textContent)).toEqual(['Basic', 'Secret']);
     game.api.setup({ save: { achievements: {
-      sec_symmetric_board: { unlocked: true, unlockedAt: '01.02.2026' },
+      sec_symmetric_board: { unlocked: true, unlockedAt: '2026-02-01' },
       sec_nice: { unlocked: true, unlockedAt: '31.01.2026' },
     } } });
     filter('unlocked');

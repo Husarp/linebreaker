@@ -29,6 +29,8 @@ Cały kod JS to jeden IIFE. Brak modułów, brak bundlera — jeden plik działa
 **Persystencja:**
 - `saveData` — postęp gracza (XP, rangi, osiągnięcia, ekwipunek, misje, leaderboard) — zapisywany do `.tetris` przez Web File System API (XOR-szyfrowany + Base64)
 - `settings` — ustawienia UI/audio — w `localStorage`
+- Zapis JSON ma pole `schemaVersion`; stare zapisy są migrowane przy odczycie. Daty są zapisane jako `yyyy-mm-dd`.
+- `data/missions.json` — katalog misji ładowany przy starcie. Zapis zawiera tylko identyfikatory i stan misji. Przy zmianie katalogu zaktualizuj też kopię awaryjną w `app.js`.
 
 ---
 

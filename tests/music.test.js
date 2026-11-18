@@ -121,10 +121,12 @@ it('does not ship local MP3s or catalogue entries without the private build flag
     mkdirSync(path('assets/music'), { recursive: true });
     mkdirSync(path('assets/fonts'));
     mkdirSync(path('ui'));
+    mkdirSync(path('data'));
     for (const file of ['index.html', 'app.js', 'music-synth.js', 'style.css', 'desktop.js', 'native-save.js', 'touch.js', 'touch.css', 'portrait.css', 'ui/tokens.css']) {
       writeFileSync(path(file), 'test fixture');
     }
     for (const file of ['music.json', 'music.release.json']) cpSync(new URL('../assets/' + file, import.meta.url), path('assets/' + file));
+    cpSync(new URL('../data/missions.json', import.meta.url), path('data/missions.json'));
     writeFileSync(path('assets/music/Rest Area.mp3'), 'test fixture');
     writeFileSync(path('assets/music/unlisted.mp3'), 'test fixture');
 
@@ -137,5 +139,6 @@ it('does not ship local MP3s or catalogue entries without the private build flag
     expect(packagedCatalog()).toEqual(original);
     expect(existsSync(path('dist-web/assets/music'))).toBe(false);
     expect(existsSync(path('dist-web/music-synth.js'))).toBe(true);
+    expect(readFileSync(path('dist-web/data/missions.json'), 'utf8')).toBe(readFileSync(path('data/missions.json'), 'utf8'));
   } finally { rmSync(fixture, { recursive: true, force: true }); }
 });
