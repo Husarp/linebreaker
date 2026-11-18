@@ -1132,20 +1132,21 @@
         const presets = ['#00ffff','#0099ff','#00dd55','#ff3300','#ffcc00','#cc44ff','#ff7722','#88ddff','#aa77ff','#ff88cc','#ff0055','#44ff88','#ffff00','#ff8800','#8844ff','#00ff99'];
         const ov = document.createElement('div');
         ov.id = 'color-picker-modal';
+        ov.className = 'lb-r3 lb-r3-picker';
         ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;';
         ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:24px;width:min(320px,88vw);position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.9);">
-            <button onclick="window._closeModal('color-picker-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">✕</button>
+            <button aria-label="Close" onclick="window._closeModal('color-picker-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">✕</button>
             <div style="font-size:0.6rem;letter-spacing:2px;color:#888;margin-bottom:14px;">CUSTOM THEME COLOR</div>
             <div id="cp-preview" style="width:100%;height:40px;border-radius:8px;background:${cur};margin-bottom:14px;box-shadow:0 0 20px ${cur}44;transition:background 0.2s,box-shadow 0.2s;"></div>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
                 <span style="font-size:0.7rem;color:#666;min-width:28px;height:36px;display:flex;align-items:center;">HEX</span>
-                <input type="text" id="cp-hex-input" value="${cur}" maxlength="7" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:10px 10px 0;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.85rem;letter-spacing:1px;outline:none;height:36px;box-sizing:border-box;" oninput="window._cpUpdateFromHex(this.value)">
+                <input type="text" id="cp-hex-input" aria-label="Theme hex color" value="${cur}" maxlength="7" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:10px 10px 0;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.85rem;letter-spacing:1px;outline:none;height:36px;box-sizing:border-box;" oninput="window._cpUpdateFromHex(this.value)">
                 <div style="position:relative;width:36px;height:36px;flex-shrink:0;">
-                    <input type="color" id="cp-native" value="${cur}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="window._cpUpdateFromNative(this.value)">
+                    <input type="color" id="cp-native" aria-label="Theme color" value="${cur}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="window._cpUpdateFromNative(this.value)">
                     <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);pointer-events:none;">${_SVG_EYEDROPPER}</div>
                 </div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">${presets.map(c => `<div onclick="window._cpSelectPreset('${c}')" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c === cur ? '#fff' : 'transparent'};box-shadow:0 0 6px ${c}44;transition:border-color 0.2s;"></div>`).join('')}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">${presets.map(c => `<button type="button" class="lb-color-preset" aria-label="Use ${c}" onclick="window._cpSelectPreset('${c}')" style="--preset:${c};"></button>`).join('')}</div>
             <button onclick="window._cpApply()" style="width:100%;padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;cursor:pointer;font-weight:bold;letter-spacing:1px;">APPLY</button>
         </div>`;
         ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('color-picker-modal'); });
@@ -1263,6 +1264,7 @@
 
         const ov = document.createElement('div');
         ov.id = 'pal-edit-modal';
+        ov.className = 'lb-r3 lb-r3-picker';
         ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;';
 
         let pickersHtml = '';
@@ -1271,17 +1273,17 @@
             pickersHtml += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
                 <span style="font-size:0.72rem;color:#ccc;font-weight:bold;min-width:16px;">${lbl}</span>
                 <div style="position:relative;width:34px;height:34px;flex-shrink:0;">
-                    <input type="color" id="pe-c${i}-native" value="${c}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="window._palEditChange(${i},this.value)">
+                    <input type="color" id="pe-c${i}-native" aria-label="Piece ${i + 1} native color" value="${c}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="window._palEditChange(${i},this.value)">
                     <div style="width:100%;height:100%;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:${c};pointer-events:none;box-sizing:border-box;"></div>
                 </div>
-                <input type="text" id="pe-c${i}-hex" value="${c}" maxlength="7" style="width:80px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 8px;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.78rem;letter-spacing:1px;outline:none;height:34px;box-sizing:border-box;" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
+                <input type="text" id="pe-c${i}-hex" aria-label="Piece ${i + 1} hex color" value="${c}" maxlength="7" style="width:80px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 8px;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.78rem;letter-spacing:1px;outline:none;height:34px;box-sizing:border-box;" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
                 <button onclick="window._palEditEyedrop(${i})" title="Eyedropper" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${_SVG_EYEDROPPER}</button>
                 <button onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" title="Copy hex" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${_SVG_COPY}</button>
             </div>`;
         });
 
         ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:24px;width:min(420px,92vw);max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.9);">
-            <button onclick="window._closeModal('pal-edit-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">&#10005;</button>
+            <button aria-label="Close" onclick="window._closeModal('pal-edit-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">&#10005;</button>
             <div style="font-size:0.6rem;letter-spacing:2px;color:#888;margin-bottom:6px;">EDIT PALETTE</div>
             <div style="font-size:0.82rem;color:#fff;margin-bottom:14px;font-weight:bold;">${pal.name}</div>
             ${pickersHtml}
@@ -1395,9 +1397,10 @@
 
         const ov = document.createElement('div');
         ov.id = 'palette-view-modal';
+        ov.className = 'lb-r3 lb-r3-picker';
         ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;';
         ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:24px;width:min(340px,88vw);position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.9);">
-            <button onclick="window._closeModal('palette-view-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">&#10005;</button>
+            <button aria-label="Close" onclick="window._closeModal('palette-view-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">&#10005;</button>
             <div style="font-size:0.6rem;letter-spacing:2px;color:#888;margin-bottom:14px;">${pal.name.toUpperCase()} PALETTE</div>
             ${rowsHtml}
             <button onclick="window._closeModal('palette-view-modal')" style="width:100%;margin-top:14px;padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#888;cursor:pointer;letter-spacing:1px;">CLOSE</button>
@@ -1433,9 +1436,9 @@
                     const _btnStyle = 'border:1px solid rgba(255,255,255,0.15);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(255,255,255,0.05);';
                     bodyHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                         ${_swatchHtml(i, c)}
-                        <input type="text" id="cpm-hex-${i}" value="${c}" maxlength="7" style="width:90px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 8px;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.75rem;letter-spacing:0.5px;outline:none;height:34px;box-sizing:border-box;" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._cpmChange(${i},this.value)">
+                        <input type="text" id="cpm-hex-${i}" aria-label="Piece ${i + 1} hex color" value="${c}" maxlength="7" style="width:90px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 8px;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.75rem;letter-spacing:0.5px;outline:none;height:34px;box-sizing:border-box;" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._cpmChange(${i},this.value)">
                         <div style="position:relative;width:34px;height:34px;flex-shrink:0;">
-                            <input type="color" id="cpm-native-${i}" value="${c}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="window._cpmChange(${i},this.value)">
+                            <input type="color" id="cpm-native-${i}" aria-label="Piece ${i + 1} color" value="${c}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="window._cpmChange(${i},this.value)">
                             <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);pointer-events:none;">${_SVG_EYEDROPPER}</div>
                         </div>
                         <button onclick="window._cpmRandom(${i})" title="Random color" style="${_btnStyle}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></button>
@@ -1448,9 +1451,9 @@
                 for (let i = 0; i < 7; i++) COLORS[i + 1] = shades[i];
                 bodyHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
                     <span style="font-size:0.7rem;color:#666;min-width:60px;height:34px;display:flex;align-items:center;">Base color</span>
-                    <input type="text" id="cpm-shade-hex" value="${_cpmBaseColor}" maxlength="7" style="width:90px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 8px;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.75rem;outline:none;height:34px;box-sizing:border-box;" oninput="window._cpmShadeChange(this.value)">
+                    <input type="text" id="cpm-shade-hex" aria-label="Base hex color" value="${_cpmBaseColor}" maxlength="7" style="width:90px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 8px;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.75rem;outline:none;height:34px;box-sizing:border-box;" oninput="window._cpmShadeChange(this.value)">
                     <div style="position:relative;width:34px;height:34px;flex-shrink:0;">
-                        <input type="color" id="cpm-shade-native" value="${_cpmBaseColor}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="(function(v){const h=document.getElementById('cpm-shade-hex');if(h)h.value=v;})(this.value)" onchange="window._cpmShadeChange(this.value)">
+                        <input type="color" id="cpm-shade-native" aria-label="Base color" value="${_cpmBaseColor}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="(function(v){const h=document.getElementById('cpm-shade-hex');if(h)h.value=v;})(this.value)" onchange="window._cpmShadeChange(this.value)">
                         <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);pointer-events:none;">${_SVG_EYEDROPPER}</div>
                     </div>
                     <button onclick="window._cpmShadeChange('#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0'))" title="Random color" style="border:1px solid rgba(255,255,255,0.15);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(255,255,255,0.05);"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></button>
@@ -1490,9 +1493,10 @@
 
         const ov = document.createElement('div');
         ov.id = 'custom-palette-modal';
+        ov.className = 'lb-r3 lb-r3-picker';
         ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;';
         ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:24px;width:min(420px,92vw);max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.9);">
-            <button onclick="window._closeModal('custom-palette-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">&#10005;</button>
+            <button aria-label="Close" onclick="window._closeModal('custom-palette-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">&#10005;</button>
             <div style="font-size:0.6rem;letter-spacing:2px;color:#888;margin-bottom:14px;">CUSTOM BLOCK PALETTE</div>
             <div id="cpm-body">${_buildContent()}</div>
             <div style="margin-top:14px;">
@@ -3510,6 +3514,10 @@
         }
         const rewards = box.rewards;
         const overlay = document.createElement('div');
+        overlay.className = 'lb-reward-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-box-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;z-index:3100;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
         const color = '#ffd700';
@@ -3538,13 +3546,15 @@
         rewardsDiv.id = 'lb-rewards-grid';
         rewardsDiv.style.cssText = 'display:none;';
         const grid = document.createElement('div');
+        grid.className = 'lb-reward-grid';
         grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
         const RARITY_COLS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
         rewards.forEach(r => {
             const card = document.createElement('div');
+            card.className = 'lb-reward-card';
             const rc = RARITY_COLS[r.rarity] || '#aaa';
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${r.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${r.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${r.desc}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${r.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${r.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${r.desc}</div><div class="lb-reward-rarity">${r.rarity}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);
@@ -3682,6 +3692,10 @@
         const { level, rankName, rankColor, rewards } = saveData.pendingLevelBox;
 
         const overlay = document.createElement('div');
+        overlay.className = 'lb-reward-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-box-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;z-index:3100;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
 
@@ -3693,7 +3707,7 @@
         // Title
         panel.innerHTML = `
             <div style="font-size:0.55rem;letter-spacing:3px;color:#666;margin-bottom:4px;font-family:var(--ui-font);">MILESTONE REWARD</div>
-            <div style="font-size:1rem;font-weight:bold;color:${rankColor};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">${rankName}</div>
+            <div class="lb-rank-identity" style="font-size:1rem;font-weight:bold;color:${rankColor};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">${rankName}</div>
             <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">Level ${level} — New rank reached!</div>
         `;
 
@@ -3718,12 +3732,14 @@
         rewardsDiv.id = 'lb-rewards-grid';
         rewardsDiv.style.cssText = 'display:none;';
         const grid = document.createElement('div');
+        grid.className = 'lb-reward-grid';
         grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
         rewards.forEach(r => {
             const card = document.createElement('div');
+            card.className = 'lb-reward-card';
             const rc = RARITY_COLS[r.rarity] || '#aaa';
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${r.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${r.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${r.desc}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${r.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${r.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${r.desc}</div><div class="lb-reward-rarity">${r.rarity}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);
@@ -4438,21 +4454,20 @@
         const svgCheck = `<svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 8 6 12 13 4"/></svg>`;
         let rightSide;
         if (isOwned && isActive) {
-            rightSide = `<span style="display:flex;align-items:center;gap:4px;font-size:0.68rem;font-weight:bold;color:#22cc55;flex-shrink:0;">${svgCheck} Enabled</span>`;
+            rightSide = `<span style="display:flex;align-items:center;gap:4px;font-size:0.68rem;font-weight:bold;color:#22cc55;flex-shrink:0;">${svgCheck} Equipped</span>`;
         } else if (isOwned) {
             rightSide = `<button onclick="event.stopPropagation();${onEnableJs}" style="font-size:0.65rem;padding:6px 16px;border-radius:8px;border:1px solid #444;background:rgba(255,255,255,0.05);color:#aaa;cursor:pointer;font-family:inherit;flex-shrink:0;">Enable</button>`;
         } else {
             const _cost = _getItemCost(itemKey);
             if (partCount >= _cost) {
             rightSide = `<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                <div style="font-size:0.6rem;color:#ffd700;font-weight:bold;">${_cost}/${_cost}</div>
+                <div style="font-size:0.6rem;color:#ffd700;font-weight:bold;">${_cost}/${_cost} parts</div>
                 <button onclick="${onUnlockJs}" style="font-size:0.65rem;padding:4px 12px;border-radius:8px;border:1px solid #ffd700;background:rgba(255,215,0,0.12);color:#ffd700;cursor:pointer;font-family:inherit;font-weight:bold;box-shadow:0 0 8px rgba(255,215,0,0.45);animation:pulse-glow-gold 1.8s ease-in-out infinite;">Unlock</button>
             </div>`;
             } else {
-            const pct = Math.round((partCount / _cost) * 100);
             rightSide = `<div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
-                <div style="width:60px;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:#4477ff;border-radius:3px;transition:width 0.3s;"></div></div>
-                <span style="font-size:0.6rem;color:#555;min-width:36px;text-align:right;font-family:inherit;">${partCount}/${_cost}</span>
+                <progress class="lb-progress lb-progress--pattern" aria-label="${label} parts" max="${_cost}" value="${partCount}"></progress>
+                <span style="font-size:0.6rem;color:#555;min-width:36px;text-align:right;font-family:inherit;">${partCount}/${_cost} parts</span>
             </div>`;
             }
         }
@@ -4461,9 +4476,10 @@
         const _rowCursor = _rowClickable ? 'cursor:pointer;' : '';
         const _rowClick = _rowClickable ? ` onclick="${onEnableJs}"` : '';
         const _labelCursor = isOwned && onEnableJs ? 'cursor:pointer;' : '';
-        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} class="inv-row${_glowReady ? ' glow-notify' : ''}" style="display:flex;align-items:center;padding:7px 4px;gap:8px;border-radius:6px;${_rowCursor}"${_rowClick}>
+        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${isActive}" class="inv-row${_glowReady ? ' glow-notify' : ''}" style="display:flex;align-items:center;padding:7px 4px;gap:8px;border-radius:6px;${_rowCursor}"${_rowClick}>
             <div style="flex:1;text-align:left;${_labelCursor}">
                 <div style="font-size:0.8rem;color:${isOwned?'#fff':'#666'};">${label}</div>
+                <div class="lb-item-state">${isActive ? 'Equipped' : isOwned ? 'Owned' : 'Locked · Collect parts to unlock'}</div>
                 ${extraHtml ? `<div style="font-size:0.62rem;color:#666;margin-top:2px;">${extraHtml}</div>` : ''}
             </div>
             <div style="min-width:130px;display:flex;align-items:center;justify-content:flex-end;">${rightSide}</div>
@@ -4533,6 +4549,23 @@
                 );
             }).join('');
             ownedSkinContainer.innerHTML = rows;
+            // Persistent previews use the same renderer as the game, including locked skins.
+            ownedSkinContainer.querySelectorAll('[data-item-key]').forEach(row => {
+                const canvas = document.createElement('canvas');
+                canvas.className = 'lb-inventory-preview';
+                canvas.width = 96; canvas.height = 64;
+                canvas.setAttribute('role', 'img');
+                canvas.setAttribute('aria-label', `${skinNames[row.dataset.itemKey]} block preview`);
+                const ctx = canvas.getContext('2d');
+                const previousSkin = settings.skin;
+                try {
+                    settings.skin = row.dataset.itemKey;
+                    BASE_PIECES[6].forEach((cells, y) => cells.forEach((cell, x) => {
+                        if (cell) drawGameBlock(ctx, x, y, 6, 30);
+                    }));
+                } finally { settings.skin = previousSkin; }
+                row.prepend(canvas);
+            });
             // Hover preview for owned skins
             let skinTip = document.getElementById('skin-preview-tip');
             if (!skinTip) {
@@ -4637,6 +4670,11 @@
                 const key = row.dataset.itemKey;
                 const col = _THEME_COLORS[key];
                 if (!col) return;
+                const sample = document.createElement('div');
+                sample.className = 'lb-theme-sample';
+                sample.style.setProperty('--sample', col);
+                sample.textContent = col;
+                row.prepend(sample);
                 row.onclick = (e) => {
                     if (e.target.closest('button')) return; // let Enable/Unlock button clicks through
                     navigator.clipboard?.writeText(col).catch(() => {});
@@ -4660,7 +4698,7 @@
                 const parts = saveData.parts?.[k] || 0;
                 const displayColors = (saveData.customPaletteOverrides?.[k]) ? saveData.customPaletteOverrides[k] : p.colors;
                 const swatches = displayColors.slice(0,7).map(c => `<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${c};"></span>`).join('');
-                let extra = `<div style="display:flex;gap:2px;margin-top:2px;">${swatches}</div>`;
+                let extra = `<div class="lb-palette-preview" aria-label="${p.name} block colors">${displayColors.slice(0,7).map(c => `<span style="--piece-color:${c}"></span>`).join('')}</div><div style="display:flex;gap:2px;margin-top:2px;">${swatches}</div>`;
                 // Palette name click opens color view popup (handled via data attribute below)
                 const enableJs = `window.onSettingChange('colorPalette','${k}')`;
                 return _makeTrackRow(p.name, isActive, isOwned, parts,
@@ -6933,6 +6971,7 @@
             const tierBadge = a._newTierNum ? ` <span style="font-size:0.5rem;opacity:0.8;">TIER ${a._newTierNum}</span>` : '';
             const toast = document.createElement('div');
             toast.className = 'ach-menu-toast';
+            toast.setAttribute('role', 'status');
             toast.style.cssText = `
                 position:fixed;top:${16 + (stackOffset + idx * 82)}px;left:50%;transform:translateX(-50%) translateY(-70px);
                 z-index:9990;opacity:0;
@@ -9842,18 +9881,22 @@
         const levelStr = li.isCelestite ? (' ' + _toRoman(li.level)) : (_liLvlInRank === 0 ? '' : (' ' + _toRoman(_liLvlInRank)));
         document.getElementById('level-up-popup-overlay')?.remove();
         const overlay = document.createElement('div');
+        overlay.className = 'lb-reward-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-up-popup-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1300;display:flex;align-items:center;justify-content:center;font-family:inherit;';
         const rewardsHtml = rewards.map(r => {
             const col = RARITY_COLORS[r.rarity] || '#ccc';
             return `<div style="border:1px solid ${col};border-radius:10px;padding:8px 12px;margin-bottom:7px;box-shadow:0 0 10px ${col}30;display:flex;align-items:center;gap:8px;">
                 <span style="font-size:1.4rem;">${r.icon}</span>
-                <div><div style="font-size:0.85rem;font-weight:bold;color:${col};">${r.label}</div><div style="font-size:0.62rem;color:#aaa;">${r.desc}</div></div>
+                <div><div style="font-size:0.85rem;font-weight:bold;color:${col};">${r.label}</div><div style="font-size:0.62rem;color:#aaa;">${r.desc}</div><div class="lb-reward-rarity">${r.rarity}</div></div>
             </div>`;
         }).join('');
         overlay.innerHTML = `<div style="background:rgba(6,6,20,0.98);border:1px solid var(--primary);border-radius:16px;padding:24px 22px;max-width:340px;width:90%;text-align:center;box-shadow:0 0 40px var(--primary)30;">
             <div style="font-size:0.55rem;letter-spacing:3px;color:var(--primary);margin-bottom:6px;">LEVEL UP!</div>
-            <div style="font-size:1.1rem;font-weight:bold;color:#fff;margin-bottom:16px;">${rankName}${levelStr}</div>
+            <div class="lb-rank-identity" style="font-size:1.1rem;font-weight:bold;color:#fff;margin-bottom:16px;">${rankName}${levelStr}</div>
             <div style="text-align:left;max-height:280px;overflow-y:auto;">${rewardsHtml}</div>
             <button onclick="document.getElementById('level-up-popup-overlay').remove()" style="margin-top:16px;padding:10px 24px;background:linear-gradient(45deg,var(--primary)33,var(--primary)18);border:1px solid var(--primary);border-radius:10px;color:var(--primary);cursor:pointer;font-family:inherit;font-weight:bold;font-size:0.8rem;box-shadow:0 0 10px var(--primary)30;">AWESOME!</button>
         </div>`;
@@ -11352,6 +11395,10 @@
         const bgColor = isWeekly ? 'rgba(255,153,0,0.1)' : 'rgba(68,255,136,0.1)';
         const RARITY_COLS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
         const overlay = document.createElement('div');
+        overlay.className = 'lb-reward-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.style.cssText = 'position:fixed;inset:0;z-index:3200;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
         const panel = document.createElement('div');
         panel.style.cssText = `background:rgba(5,5,20,0.98);border:1px solid ${color}44;border-radius:16px;padding:24px 20px;max-width:380px;width:100%;text-align:center;max-height:90vh;overflow-y:auto;`;
@@ -11377,12 +11424,14 @@
         const rewardsDiv = document.createElement('div');
         rewardsDiv.style.display = 'none';
         const grid = document.createElement('div');
+        grid.className = 'lb-reward-grid';
         grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
         rewards.forEach(rw => {
             const card = document.createElement('div');
+            card.className = 'lb-reward-card';
             const rc = RARITY_COLS[rw.rarity] || '#aaa';
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;opacity:0;transform:scale(0.8);transition:opacity 0.25s, transform 0.25s;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${rw.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${rw.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${rw.desc}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${rw.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${rw.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${rw.desc}</div><div class="lb-reward-rarity">${rw.rarity}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);
@@ -11443,7 +11492,7 @@
         const mkCb = (on, color, ctx, name) => {
             const border = on ? color : '#333';
             const bg = on ? color + '22' : 'transparent';
-            return `<div onclick="window.moveTrack('${ctx}','${esc(name)}',${!on})" style="width:20px;height:20px;border-radius:4px;border:1.5px solid ${border};background:${bg};cursor:pointer;display:flex;align-items:center;justify-content:center;color:${on?color:'transparent'};flex-shrink:0;">${on?svgCheck:''}</div>`;
+            return `<button type="button" aria-label="${ctx} playlist: ${name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}','${esc(name)}',${!on})" style="width:20px;height:20px;border-radius:4px;border:1.5px solid ${border};background:${bg};cursor:pointer;display:flex;align-items:center;justify-content:center;color:${on?color:'transparent'};flex-shrink:0;">${on?svgCheck:''}</button>`;
         };
         const header = `<div data-pl-row style="position:relative;display:grid;${COL}${GAP}align-items:center;padding:0 0 8px 0;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:2px;cursor:default;">
             <div style="font-size:0.5rem;color:#444;letter-spacing:1.5px;">TRACK</div>

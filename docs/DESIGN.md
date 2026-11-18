@@ -12,6 +12,31 @@ A precision game interface: deep solid panels, clean typography and electric edg
 6. Use one component for each job, with consistent spacing and touch behaviour.
 7. Celebrate briefly; keep play responsive and motion inexpensive.
 
+## Protected elements
+
+These owner-approved elements override the shared component rules below:
+
+- Main menu buttons: retain their look and fonts; only small spacing, position and alignment adjustments are allowed.
+- Level progress, XP and level statistics (rank, level and XP bar area): retain their appearance and typography; never apply patterned progress styles here.
+- Rank badges and identities: preserve shapes, colours, Celestite and the rank badge canvas drawing. Gallery geometric rank samples are illustrative, never replacement artwork.
+- Missions screen: keep as is, including `.mq-*` and mission step bars. R3 may propose finishing touches in a document only.
+- In-game HUD: preserve the current `index.html` structure and look. Only font consistency, alignment/centring and solid panels may be corrected. The gallery copies this structure with prefixed IDs and static canvas content, without game handlers.
+- Background: preserve the existing configurable background/theme setting. Gallery decoration is not a proposed replacement background.
+
+Protected fonts that form part of an element's identity stay in place. Outside these exceptions use only Orbitron (display) and Inter (UI/body). Integration must scope new rules away from protected elements.
+
+## R0 component rules
+
+Buttons are rounded rectangles with an 8px button radius (6–10px acceptable), never pills. Pills belong only to tags, chips and badges. Keep 44px minimum targets, visible focus, persistent state cues and 8px minimum action gaps.
+
+Sliders use a rectangular track and square-ish thumb with a small radius. Percentage sliders have min 0, max 100, step 5 and an adjacent live percentage output; retain native keyboard support. Later integration preserves stored-value compatibility.
+
+Non-protected progress bars use cheap static CSS segments/notches or subtle diagonal stripes, like game HP bars. Opt in with `lb-progress--pattern`; never apply it to XP/level bars or mission step bars. Values change immediately without width animation.
+
+Pause has one large RESUME action and one centred row beneath it containing icon-only Restart (circular arrow), Main menu (house) and Settings (present in today's pause). Each icon has an accessible name and tooltip. Production focus handling belongs to the later overlay implementation.
+
+Inventory cards show a rendered block preview in the item's skin/palette, explicit Equipped/Owned/Locked text and clear parts cost/progress. Colour or hover alone never communicates ownership.
+
 ## Colour system
 
 All names below are CSS properties prefixed `--`. The gallery inventories every property and displays live colour samples.
@@ -55,7 +80,7 @@ Body line height `leading` 1.5; title `leading-title` 1.25; eyebrow `tracking` .
 
 ## Geometry and elevation
 
-Spacing tokens space-1/2/3/4/6/8/12 = 4/8/12/16/24/32/48px. Use 8px internal gaps, 16px card padding, 24px between groups, 32–48px between major regions. Radius-sm/md/lg/pill = 6/12/20/999px for controls/cards/reveals/pills. Borders use border-width 1px; selected and rarity frames may use 2px. Focus uses focus-width 3px and focus-offset 3px.
+Spacing tokens space-1/2/3/4/6/8/12 = 4/8/12/16/24/32/48px. Use 8px internal gaps, 16px card padding, 24px between groups, 32–48px between major regions. Radius-button/sm/md/lg/pill = 8/6/12/20/999px for controls/cards/reveals/pills. Borders use border-width 1px; selected and rarity frames may use 2px. Focus uses focus-width 3px and focus-offset 3px.
 
 `shadow` = 0 12px 32px #0006, reserved for floating dialogs. `glow` = 0 0 16px at 18% accent, reserved for interactive accent edges on hover or brief emphasis. Never glow paragraphs, every card, or full-screen backgrounds. No layered blur stacks.
 
@@ -97,7 +122,7 @@ One SVG stroke system: 24 × 24 viewBox, icon-size 20px, icon-stroke 1.8, no fil
 | Toggle | lb-toggle; one native checkbox, track/knob and visible setting label | Introduce another switch implementation or use for one-off commands |
 | Checkbox/tick | lb-check; native checkbox and 44px label; tick for completion | Confuse an earned tick with an editable checkbox |
 | Slider | lb-slider; explicit label/value and native range input | Hide value or remove keyboard adjustment |
-| XP / mission points / step progress | lb-progress native progress + label/value; lb-steps discrete marks + spoken summary | Animate width or show an unlabelled colour strip |
+| Non-protected progress | lb-progress native progress + label/value; lb-steps discrete marks + spoken summary | Animate width or show an unlabelled colour strip |
 | Badge/pill | lb-pill; short status or currency, optional stroke icon | Make every label a badge or use colour without words |
 | Rarity frame | lb-rarity; solid surface, named rarity, double inset coloured edge via --tone | Change body font/colour by rarity or stack glows |
 | Modal | lb-modal native dialog; labelled title, concise content, action and Close; showModal handles focus trap/Escape | Hide Close or build a fake dialog without focus management |
@@ -109,6 +134,8 @@ One SVG stroke system: 24 × 24 viewBox, icon-size 20px, icon-stroke 1.8, no fil
 Gallery specimens show resting and simulated hover/pressed/focus/disabled/selected button states, native on/off/disabled controls, empty/partial/full progress, all rarities and live dialog/toast/reveal examples. Simulated state classes are labelled for review and should not be applied as app state. Context colours are supplied with `--tone` for borders/progress while text remains neutral. All tokens are inspectable at the end of the gallery.
 
 ## Approval questions
+
+Protected elements above are already owner-approved and are not reopened by these historical palette questions.
 
 - Approve the bundled Orbitron + Inter pairing?
 - Approve the solid neutral panel direction and quieter glow treatment across all themes?
@@ -134,8 +161,8 @@ Every `lb-mock` is a complete static screen: header, main content and footer. Th
 | Screen | Template and responsive behaviour |
 | --- | --- |
 | Main menu | Centred rank, game XP, parts and best score; Play is primary; Missions, Achievements, Inventory and Settings are secondary. |
-| Game HUD | Centred 10×20 well with static minos; hold left, next queue right; score, lines, level, speed, combo and Pause visible. Phone reduces well to 180×360 and narrows side rails. |
-| Pause | Focused solid panel with run context, Resume primary, Settings, Restart and Main menu. A production overlay must use native dialog focus handling. |
+| Game HUD | Centred 10×20 well with static minos; hold, speed, score, personal-best hint and lines left; next queue, time, pause and achievement feed right. Phone reduces well to 180×360 and narrows side rails. |
+| Pause | Focused solid panel with run context, one large Resume action, then one icon-only row for Restart, Main menu and Settings. A production overlay must use native dialog focus handling. |
 | Game over | Score, XP gained, best and level progress; Play again primary. Available boosters sit to the right on desktop and below on phone. |
 | Achievements | All/Locked/Unlocked/Categories filters, sort, x of y, overall progress and named locked/unlocked rows. Badge claim explicitly awards XP. |
 | Settings | Audio, gameplay/controls and accessibility/display groups with native labelled rows. |

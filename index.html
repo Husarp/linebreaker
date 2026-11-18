@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="lb-game-root">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Linebreaker</title>
+    <link rel="preload" href="assets/fonts/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="ui/tokens.css">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="touch.css">
 </head>
@@ -32,7 +34,7 @@
 <canvas id="bg-canvas"></canvas>
 
 <!-- CUSTOM ALERT MODAL -->
-<div id="custom-alert" class="overlay hidden" style="z-index: 1100;">
+<div id="custom-alert" role="dialog" aria-modal="true" aria-labelledby="alert-title" class="overlay hidden" style="z-index: 1100;">
     <div class="modal-box" id="alert-box">
         <div class="modal-title" id="alert-title">NOTICE</div>
         <div class="modal-text" id="alert-text">Message goes here.</div>
@@ -41,7 +43,7 @@
 </div>
 
 <!-- FILE SETUP OVERLAY -->
-<div id="file-setup-overlay" class="overlay hidden" style="z-index: 1010;">
+<div id="file-setup-overlay" class="lb-r3 overlay hidden" style="z-index: 1010;">
     <div class="modal-box" style="max-width: 420px;">
         <div class="modal-title" id="file-setup-title">SAVE FILE</div>
         <div class="modal-text" id="file-setup-text"></div>
@@ -51,9 +53,9 @@
 </div>
 
 <!-- CUSTOM CONFIRM MODAL -->
-<div id="custom-confirm" class="overlay hidden" style="z-index: 1101;">
+<div id="custom-confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" class="overlay hidden" style="z-index: 1101;">
     <div class="modal-box" style="border-color: var(--error);">
-        <div class="modal-title" style="color: var(--error);">WARNING</div>
+        <div class="modal-title" id="confirm-title" style="color: var(--error);">WARNING</div>
         <div class="modal-text" id="confirm-text">Message goes here.</div>
         <div class="modal-btn-group">
             <button class="btn-secondary" id="confirm-no">CANCEL</button>
@@ -63,15 +65,18 @@
 </div>
 
 <!-- PAUSE OVERLAY -->
-<div id="pause-overlay" class="overlay hidden" style="z-index: 999;">
-    <h1 style="color: var(--primary); margin-bottom: 20px;">PAUSED</h1>
-    <p style="color: #ccc; font-size: 0.85rem; margin-bottom: 25px; max-width: 280px; line-height: 1.5;">
-        Take a breath.<br>
-        <span style="color: var(--primary); font-size: 0.75rem;">Exiting will save your current XP and score.</span>
-    </p>
-    <button class="btn-main" onclick="window.resumeGame()">RESUME</button>
-    <button class="btn-secondary" style="margin-top: 12px; font-size: 0.75rem;" onclick="window.openSettings()">⚙️ SETTINGS</button>
-    <button class="btn-secondary" style="border-color: var(--error); color: var(--error); margin-top: 10px;" onclick="window.quitGame()">QUIT GAME</button>
+<div id="pause-overlay" class="overlay hidden lb-run-overlay" style="z-index: 999;" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+    <div class="lb-run-panel">
+        <h1 id="pause-title">PAUSED</h1>
+        <p>Take a breath. Your next move can wait.</p>
+        <p class="lb-run-note">Leaving saves your score and XP in the run results. Restart begins a fresh run.</p>
+        <button class="lb-run-primary" onclick="window.resumeGame()">RESUME</button>
+        <div class="lb-run-icons" role="group" aria-label="Run actions">
+            <button aria-label="Restart run" title="Restart run" onclick="document.getElementById('pause-overlay').classList.add('hidden'); window.startGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/></svg></button>
+            <button aria-label="Main menu via run results" title="End run — return through results" onclick="window.quitGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/></svg></button>
+            <button aria-label="Settings" title="Settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 4 4 1v8l-4 1-1 4H9l-1-4-4-1V8l4-1z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+    </div>
 </div>
 
 <!-- MENU -->
@@ -157,7 +162,7 @@
         </div>
 
         <!-- Collapsible DEV panel -->
-        <div id="dev-panel" style="position:relative; margin-top:10px; display:none; justify-content:center;">
+        <div id="dev-panel" class="lb-r3" style="position:relative; margin-top:10px; display:none; justify-content:center;">
             <button onclick="document.getElementById('dev-list').classList.toggle('hidden')"
                     style="font-size:0.55rem;padding:3px 10px;background:rgba(255,0,0,0.1);border:1px solid rgba(255,0,0,0.3);border-radius:4px;color:#ff6666;cursor:pointer;font-family:inherit;letter-spacing:1px;">
                 DEV ▼
@@ -215,7 +220,7 @@
 </div>
 
 <!-- STATS & LEADERBOARD SCREEN -->
-<div id="stats-overlay" class="overlay hidden" style="z-index: 1002; background: #050510; backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="stats-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1002;">
     <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
         <button class="btn-back" onclick="window.closeStats()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="color:var(--primary); font-family:var(--ui-font); font-size:0.58rem;">STATISTICS</span>
@@ -271,7 +276,7 @@
 </div>
 
 <!-- INVENTORY SCREEN -->
-<div id="inventory-overlay" class="overlay hidden" style="z-index: 1004; background: rgba(5,5,16,0.92); backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="inventory-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1004;">
     <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
         <button class="btn-back" onclick="window.closeInventory()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary);">INVENTORY</span>
@@ -322,7 +327,7 @@
 </div>
 
 <!-- MISSIONS SCREEN -->
-<div id="missions-overlay" class="overlay hidden" onclick="window._mqOverlayClick(event)" style="z-index:1004;background:#050510;backdrop-filter:none;justify-content:flex-start;align-items:stretch;padding:0;overflow:hidden;flex-direction:column;text-align:left;">
+<div id="missions-overlay" class="overlay hidden lb-fullscreen" onclick="window._mqOverlayClick(event)" style="z-index:1004; overflow:hidden; text-align:left;">
     <div style="display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;background:rgba(5,5,16,0.97);z-index:20;position:relative;">
         <button class="btn-back" onclick="window.closeMissions()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <!-- V4 Pill+Disk tabs -->
@@ -366,7 +371,7 @@
 </div>
 
 <!-- SETTINGS SCREEN -->
-<div id="settings-overlay" class="overlay hidden" style="z-index: 1004; background: #050510; backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="settings-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1004;">
     <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:20;">
         <button class="btn-back" onclick="window.closeSettings()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary);">SETTINGS</span>
@@ -382,7 +387,7 @@
                         <div class="c-pill-track">
                             <div class="c-pill-fill" id="sfx-pill-fill" style="width:50%;"></div>
                             <div class="c-pill-knob" id="sfx-pill-knob" style="left:50%;"></div>
-                            <input type="range" class="c-pill-input" id="setting-sfx-vol" min="0" max="100" step="5" value="50"
+                            <input type="range" class="c-pill-input" id="setting-sfx-vol" aria-label="SFX volume" min="0" max="100" step="5" value="50"
                                 oninput="_cPillSync('sfx',this.value);window.onSettingChange('sfxVol',this.value)">
                         </div>
                         <button id="sfx-mute-btn" onclick="window.toggleMute('sfx')" style="background:none;border:1px solid #444;border-radius:6px;cursor:pointer;color:#aaa;padding:4px 7px;line-height:1;flex-shrink:0;display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
@@ -396,7 +401,7 @@
                         <div class="c-pill-track">
                             <div class="c-pill-fill" id="music-pill-fill" style="width:30%;"></div>
                             <div class="c-pill-knob" id="music-pill-knob" style="left:30%;"></div>
-                            <input type="range" class="c-pill-input" id="setting-music-vol" min="0" max="100" step="5" value="30"
+                            <input type="range" class="c-pill-input" id="setting-music-vol" aria-label="Music volume" min="0" max="100" step="5" value="30"
                                 oninput="_cPillSync('music',this.value);window.onSettingChange('musicVol',this.value)">
                         </div>
                         <button id="music-mute-btn" onclick="window.toggleMute('music')" style="background:none;border:1px solid #444;border-radius:6px;cursor:pointer;color:#aaa;padding:4px 7px;line-height:1;flex-shrink:0;display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
@@ -423,7 +428,7 @@
                             <div class="d-step-dot" data-v="200"></div>
                             <div class="d-step-dot" data-v="250"></div>
                             <div class="d-step-dot" data-v="300"></div>
-                            <input type="range" class="d-steps-input" id="slider-das" min="50" max="300" step="10" value="160"
+                            <input type="range" class="d-steps-input" id="slider-das" aria-label="DAS delay" min="50" max="300" step="10" value="160"
                                 oninput="window.onSettingChange('das',this.value);_dStepsSync('das-dtrack','',this,50,300)">
                         </div>
                         <span class="d-steps-val" id="setting-das-val">160ms</span>
@@ -439,7 +444,7 @@
                             <div class="d-step-dot cur" data-v="50"></div>
                             <div class="d-step-dot" data-v="75"></div>
                             <div class="d-step-dot" data-v="100"></div>
-                            <input type="range" class="d-steps-input" id="slider-arr" min="0" max="100" step="5" value="50"
+                            <input type="range" class="d-steps-input" id="slider-arr" aria-label="ARR speed" min="0" max="100" step="5" value="50"
                                 oninput="window.onSettingChange('arr',this.value);_dStepsSync('arr-dtrack','',this,0,100)">
                         </div>
                         <span class="d-steps-val" id="setting-arr-val">50ms</span>
@@ -454,7 +459,7 @@
                             <div class="d-step-dot on" data-v="1"></div>
                             <div class="d-step-dot cur" data-v="2"></div>
                             <div class="d-step-dot" data-v="3"></div>
-                            <input type="range" class="d-steps-input" id="slider-shake" min="0" max="3" step="1" value="2"
+                            <input type="range" class="d-steps-input" id="slider-shake" aria-label="Screen shake" min="0" max="3" step="1" value="2"
                                 oninput="window.onSettingChange('shakeStrength',this.value);_dStepsSync('shake-dtrack','',this,0,3)">
                         </div>
                         <span class="d-steps-val" id="setting-shake-val">Medium</span>
@@ -471,7 +476,7 @@
                             <div class="d-step-dot cur" data-v="3"></div>
                             <div class="d-step-dot" data-v="4"></div>
                             <div class="d-step-dot" data-v="5"></div>
-                            <input type="range" class="d-steps-input" id="slider-lineclear" min="0" max="5" step="1" value="3"
+                            <input type="range" class="d-steps-input" id="slider-lineclear" aria-label="Line clear speed" min="0" max="5" step="1" value="3"
                                 oninput="window.onSettingChange('lineClearMs',this.value);_dStepsSync('lineclear-dtrack','',this,0,5)">
                         </div>
                         <span class="d-steps-val" id="setting-lineclear-val">150ms</span>
@@ -507,7 +512,7 @@
                             <div class="d-step-dot cur" data-v="50"></div>
                             <div class="d-step-dot" data-v="75"></div>
                             <div class="d-step-dot" data-v="100"></div>
-                            <input type="range" class="d-steps-input" id="setting-hard-drop-lock-ms" min="0" max="100" step="5" value="50"
+                            <input type="range" class="d-steps-input" id="setting-hard-drop-lock-ms" aria-label="Hard drop lock delay" min="0" max="100" step="5" value="50"
                                 oninput="window.onSettingChange('hardDropLockMs',this.value);_dStepsSync('hdl-dtrack','',this,0,100)">
                         </div>
                         <span class="d-steps-val" id="setting-hard-drop-lock-ms-val">50ms</span>
@@ -523,7 +528,7 @@
                             <div class="d-step-dot" data-v="60"></div>
                             <div class="d-step-dot" data-v="80"></div>
                             <div class="d-step-dot" data-v="100"></div>
-                            <input type="range" class="d-steps-input" min="0" max="100" step="10" value="30" id="slider-grid"
+                            <input type="range" class="d-steps-input" min="0" max="100" step="5" value="30" id="slider-grid" aria-label="Grid opacity"
                                 oninput="window.onSettingChange('gridOpacity',this.value);_dStepsSync('grid-dtrack','',this,0,100)">
                         </div>
                         <span class="d-steps-val" id="setting-grid-val">30%</span>
@@ -542,7 +547,7 @@
                             <span class="e-step-val" id="fontsize-step-val">5</span>
                             <button class="e-step-btn" onclick="window._eStepChange('fontsize',1)">+</button>
                         </div>
-                        <input type="range" min="1" max="10" step="1" value="5" id="slider-fontsize" style="display:none;"
+                        <input type="range" min="1" max="10" step="1" value="5" id="slider-fontsize" aria-label="Font size" style="display:none;"
                             oninput="window.onSettingChange('fontSize', this.value)">
                     </div>
                 </div>
@@ -555,7 +560,7 @@
                             <span class="e-step-val" id="gamescale-step-val">5</span>
                             <button class="e-step-btn" onclick="window._eStepChange('gamescale',1)">+</button>
                         </div>
-                        <input type="range" min="1" max="10" step="1" value="5" id="slider-gamescale" style="display:none;"
+                        <input type="range" min="1" max="10" step="1" value="5" id="slider-gamescale" aria-label="Game scale" style="display:none;"
                             oninput="window.onSettingChange('gameScale', this.value)">
                     </div>
                 </div>
@@ -566,7 +571,7 @@
                             <div class="d-step-dot cur" data-v="1"></div>
                             <div class="d-step-dot" data-v="2"></div>
                             <div class="d-step-dot" data-v="3"></div>
-                            <input type="range" class="d-steps-input" id="slider-heavybg" min="1" max="3" step="1" value="1"
+                            <input type="range" class="d-steps-input" id="slider-heavybg" aria-label="Background intensity" min="1" max="3" step="1" value="1"
                                 oninput="window.onSettingChange('heavyBg',this.value);_dStepsSync('heavybg-dtrack','',this,1,3)">
                         </div>
                         <span class="d-steps-val" id="setting-heavybg-val" style="min-width:52px;">Light</span>
@@ -591,7 +596,7 @@
 </div>
 
 <!-- TRANSFER SAVE MENU -->
-<div id="transfer-overlay" class="overlay hidden" style="z-index: 1020;">
+<div id="transfer-overlay" class="lb-r3 overlay hidden" style="z-index: 1020;">
     <div class="transfer-box">
         <h2 style="color: var(--primary); margin-bottom: 15px; font-family: 'Press Start 2P'; font-size:0.72rem;">SAVE TRANSFER</h2>
         <p style="font-size: 0.75rem; color: #ccc; margin-bottom: 14px; line-height: 1.5;">Export your progress to a <b>.lbsave</b> file and keep it as a backup. Import it on any device — your progress will <b style="color:var(--primary);">not</b> be wiped on export.</p>
@@ -674,15 +679,15 @@
             <div style="font-size:0.55rem; color:#665500; letter-spacing:2px; margin-bottom:10px;">FUN MODE CONFIG</div>
             <div class="fun-cfg-row">
                 <span>Columns: <b id="fun-cols-val">10</b></span>
-                <input type="range" id="fun-cols" min="6" max="16" value="10" oninput="window.updateFunConfigDisplay()" style="width:120px;">
+                <input type="range" id="fun-cols" aria-label="Board columns" min="6" max="16" value="10" oninput="window.updateFunConfigDisplay()" style="width:120px;">
             </div>
             <div class="fun-cfg-row">
                 <span>Rows: <b id="fun-rows-val">20</b></span>
-                <input type="range" id="fun-rows" min="15" max="30" value="20" oninput="window.updateFunConfigDisplay()" style="width:120px;">
+                <input type="range" id="fun-rows" aria-label="Board rows" min="15" max="30" value="20" oninput="window.updateFunConfigDisplay()" style="width:120px;">
             </div>
             <div class="fun-cfg-row">
                 <span>Start Speed: <b id="fun-speed-val">1</b></span>
-                <input type="range" id="fun-speed" min="1" max="15" value="1" oninput="window.updateFunConfigDisplay()" style="width:120px;">
+                <input type="range" id="fun-speed" aria-label="Starting speed" min="1" max="15" value="1" oninput="window.updateFunConfigDisplay()" style="width:120px;">
             </div>
         </div>
     </div>
@@ -697,7 +702,7 @@
 </div>
 
 <!-- PLAYLIST PANEL -->
-<div id="playlist-overlay" class="overlay hidden" style="z-index: 1010; background: rgba(5,5,16,0.97); backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="playlist-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1010;">
     <div style="display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
         <div style="display:flex;align-items:center;gap:8px;">
             <button class="btn-back" onclick="window.closePlaylistPanel()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
@@ -730,7 +735,7 @@
 </div>
 
 <!-- RULES SCREEN -->
-<div id="rules-overlay" class="overlay hidden" style="z-index:1006;background:#050510;backdrop-filter:none;justify-content:flex-start;padding:0;overflow-y:auto;align-items:stretch;">
+<div id="rules-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index:1006;">
     <!-- Sticky header -->
     <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0;background:rgba(5,5,16,0.98);position:sticky;top:0;z-index:10;">
         <button class="btn-back" onclick="window.closeRules()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
@@ -954,7 +959,7 @@
 </div>
 
 <!-- GAME OVER -->
-<div id="go-overlay" class="overlay hidden">
+<div id="go-overlay" class="overlay hidden lb-run-overlay" role="dialog" aria-modal="true" aria-labelledby="go-title">
     <h1 id="go-title" style="margin-bottom: 20px;">GAME OVER</h1>
 
     <!-- Normal / Advanced mode: XP breakdown -->
@@ -1016,7 +1021,7 @@
 
 <!-- START ANIMATION -->
 <div id="start-animation-overlay" class="overlay hidden">
-    <div id="start-text-container"></div>
+    <div id="start-text-container" role="status" aria-label="Get ready to play"></div>
 </div>
 
 <!-- GRA -->
@@ -1058,7 +1063,7 @@
 </div>
 
 <!-- DAILY GIFT OVERLAY -->
-<div id="daily-gift-overlay" class="overlay hidden" style="z-index: 1007;">
+<div id="daily-gift-overlay" class="lb-r3 overlay hidden" style="z-index: 1007;">
     <div class="modal-box" style="max-width: 380px; text-align: center; min-height: 220px;">
         <div class="modal-title" style="color: var(--gold); margin-bottom: 12px; position:relative; display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0;"><path d="M20 12v10H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>DAILY GIFT <button onclick="window.openDailyGiftInfo()" style="position:absolute;right:0;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.18);color:#bbb;border-radius:8px;width:26px;height:26px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;transition:background 0.15s,border-color 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.13)';this.style.borderColor='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.borderColor='rgba(255,255,255,0.18)'" title="Reward probabilities"><svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><line x1="10" y1="9" x2="10" y2="14"/><circle cx="10" cy="6.5" r="0.8" fill="currentColor" stroke="none"/></svg></button></div>
 
@@ -1080,7 +1085,7 @@
 
 
 <!-- ACHIEVEMENTS OVERLAY -->
-<div id="achievements-overlay" class="overlay hidden" style="z-index: 1003; background: rgba(5,5,16,0.92); backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="achievements-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1003;">
     <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
         <button class="btn-back" onclick="window.closeAchievements()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:'Press Start 2P'; font-size:0.58rem; color:var(--primary); display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4H4v5c0 1.65 1.35 3 3 3"/><path d="M17 4h3v5c0 1.65-1.35 3-3 3"/><path d="M7 12c0 2.76 2.24 5 5 5s5-2.24 5-5V4H7v8z"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="9 21 12 21 15 21"/></svg>ACHIEVEMENTS</span>
@@ -1106,7 +1111,7 @@
 </div>
 
 <!-- TUTORIAL OVERLAY -->
-<div id="tutorial-overlay" class="overlay hidden" style="z-index: 1008; background: rgba(5,5,16,0.95); backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="tutorial-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1008;">
     <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
         <button class="btn-back" onclick="window.closeTutorial()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary); display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polygon points="10 8 16 11 10 14 10 8" fill="currentColor" opacity="0.7"/></svg>TUTORIALS</span>
@@ -1121,7 +1126,7 @@
 </div>
 
 <!-- CREDITS OVERLAY -->
-<div id="credits-overlay" class="overlay hidden" style="z-index:1010;align-items:flex-start;overflow-y:auto;background:rgba(5,5,16,0.97);">
+<div id="credits-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index:1010; align-items:flex-start;">
     <div style="max-width:520px;width:100%;margin:0 auto;padding:24px 16px 48px;box-sizing:border-box;">
         <!-- Header -->
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:28px;position:sticky;top:0;background:rgba(5,5,16,0.97);padding:12px 0;z-index:1;">

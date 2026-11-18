@@ -6,6 +6,8 @@ await mkdir('dist-web/ui', { recursive: true });
 for (const file of ['index.html', 'app.js', 'style.css', 'desktop.js', 'native-save.js', 'touch.js', 'touch.css']) {
   await cp(file, 'dist-web/' + file);
 }
+await mkdir('dist-web/ui', { recursive: true });
+await cp('ui/tokens.css', 'dist-web/ui/tokens.css');
 await cp('assets/fonts', 'dist-web/assets/fonts', { recursive: true });
 await cp('assets/music.json', 'dist-web/assets/music.json');
 const tracks = await readdir('assets/music').catch(error => {
