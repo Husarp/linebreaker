@@ -11,7 +11,7 @@
     const version = 1;
     const scoreKeys = ['highscoreHistory', 'pinnedScores', 'funLeaderboard', 'leaderboard'];
     const keyGroups = [
-        ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'levelRewardsThrough', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
+        ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'dailyGiftStreak', 'lastSeenTime', 'levelRewardsThrough', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
         ['parts', 'universalParts', 'boosters', 'boxes', 'ghostColorUnlocked', 'ownedSkins', 'ownedThemes', 'ownedBtnStyles', 'ownedGridStyles', 'ownedSfxPacks', 'ownedPalettes', 'customPaletteOverrides', 'customPickerColors', 'customThemeColor', '_cpmBaseColor', '_cpmMode', 'menuPlaylist', 'gamePlaylist', 'actionPlaylist'],
         ['missions'], ['achievements', 'pendingAchievementClaims'], ['stats'], scoreKeys,
     ];
@@ -172,7 +172,9 @@
         for (const key of Object.keys(out)) if (!allowed.has(key)) delete out[key];
         for (const [key, value] of entries(data)) {
             if (!allowed.has(key) || key === 'schemaVersion') continue;
-            if (typeof defaults[key] === 'number' || key === 'levelRewardsThrough' || key === 'skinCatalogVersion') out[key] = number(value, defaults[key] || 0);
+            if (key === 'lastSeenTime') out[key] = Number.isSafeInteger(value) && value >= 0 && value <= 253_402_300_799_999 ? value : 0;
+            else if (key === 'dailyGiftStreak') out[key] = Math.floor(number(value, 0, 100000));
+            else if (typeof defaults[key] === 'number' || key === 'levelRewardsThrough' || key === 'skinCatalogVersion') out[key] = number(value, defaults[key] || 0);
             else if (typeof defaults[key] === 'boolean') out[key] = value === true;
             else if (key.endsWith('Playlist')) out[key] = Array.isArray(value) ? list(value).filter(trackName) : (defaults[key] || []);
             else if (key === 'ownedSkins') out[key] = Array.isArray(value) ? list(value) : (defaults[key] || []);
@@ -182,6 +184,7 @@
             else if (/Color$/.test(key)) out[key] = colour(value, '#00ffff');
             else if (['_cpmMode'].includes(key)) out[key] = string(value);
         }
+        if (!out.lastDailyGift) out.dailyGiftStreak = 0;
         out.ownedSkins = [...new Set(list(out.ownedSkins).filter(key => typeof key === 'string' && Object.hasOwn(skins, key)))];
         for (const k of scoreKeys) out[k] = list(data[k]).filter(object).map(cleanScore);
         out.leaderboard.sort((first, second) => (second.score || 0) - (first.score || 0));

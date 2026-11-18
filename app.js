@@ -801,6 +801,8 @@
     let _gameInProgress = false; // true between startGame and gameOver — blocks mid-game file saves
     const defaultSaveData = { schemaVersion: LBSave.version, totalXP: 0, parts: {}, universalParts: 0, ownedSkins: [DEFAULT_BLOCK_SKIN], skinCatalogVersion: SKIN_CATALOG_VERSION, ownedThemes: [], ownedBtnStyles: [], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, pendingLevelBox: null, missions: null, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, dailyStreak: 0, highestDailyStreak: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
 
+    Object.assign(defaultSaveData, { dailyGiftStreak: 0, lastSeenTime: 0 });
+
     // --- FILE SYSTEM ACCESS API ---
     const _nativeAdapter = window.Capacitor?.isNativePlatform()
         ? window.LBNativeSave.createFilesystemSave(window.Capacitor.Plugins.Filesystem)
@@ -2188,6 +2190,8 @@
     // Pulsowanie przycisku PLAY z cykliczną zmianą koloru
     let _playBtnInterval = null;
     function randomizePlayButton() {
+        dailyGiftReady = true;
+        dailyGift.refresh();
         const btn = document.getElementById('btn-play');
         if (!btn) return;
         clearInterval(_playBtnInterval);
@@ -2380,7 +2384,8 @@
             if (!saveData.pinnedScores) saveData.pinnedScores = [];
             if (!saveData.achievements) saveData.achievements = {};
         }
-        checkTimeManipulation();
+        LBCrates.observeTime(saveData);
+        dailyGift.refresh();
         setTimeout(_checkGlowNotifications, 100);
         _checkMissionsRefresh();
             _reminders?.refresh();
@@ -2509,20 +2514,8 @@
 
     function saveDataToFile() {
         if (_gameInProgress) return; // defer saves until game over — keeps score and achievements in sync
+        LBCrates.observeTime(saveData);
         return writeSaveFile({ ...saveData, _settings: { ...settings } });
-    }
-
-    function checkTimeManipulation() {
-        if (!saveData.lastDailyGift) return;
-        const today = new Date().toISOString().slice(0, 10);
-        if (saveData.lastDailyGift > today) {
-            window._timeBlocked = true;
-            setTimeout(() => {
-                customAlert('⚠️ Your save file contains data from the future.<br><br>Please sync your system clock and reload the page.<br><br><span style="color:var(--error);">Gameplay is blocked until resolved.</span>', 'SYSTEM TIME ERROR', true);
-                const btn = document.getElementById('btn-play');
-                if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; btn.title = 'Sync system clock to play'; }
-            }, 600);
-        }
     }
 
     const BOOSTER_INFO = {
@@ -2910,7 +2903,7 @@
         _showMilestoneBox(lv);
     }
     function _showMilestoneBox(lv) {
-        if (_levelBoxShowing) return;
+        if (_levelBoxShowing || dailyGift.isOpen()) return;
         _levelBoxShowing = true;
         let box = saveData.pendingMilestoneReward;
         if (!box) {
@@ -2938,13 +2931,6 @@
         const preOpen = document.createElement('div');
         preOpen.id = 'lb-pre-open';
         preOpen.innerHTML = `
-            <svg viewBox="0 0 64 64" width="80" height="80" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:8px auto;display:block;filter:drop-shadow(0 0 12px ${color}55);">
-                <rect x="8" y="28" width="48" height="28" rx="3"/>
-                <path d="M8 36h48"/>
-                <path d="M32 8c0 0-8-4-12 0s-4 12 0 12h24c4 0 4-8 0-12s-12 0-12 0z"/>
-                <line x1="32" y1="20" x2="32" y2="36"/>
-                <line x1="32" y1="42" x2="32" y2="56"/>
-            </svg>
             <div style="font-size:0.65rem;color:#666;margin-bottom:16px;">Contains 10 parts + 2 universal parts</div>
             <button id="lb-open-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid ${color};background:${color}22;color:${color};cursor:pointer;transition:all 0.2s;">OPEN BOX</button>
         `;
@@ -2970,15 +2956,7 @@
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
         _animateIn(panel, 'anim-in-down');
-        panel.querySelector('#lb-open-btn').onclick = () => {
-            preOpen.style.display = 'none';
-            rewardsDiv.style.display = 'block';
-            Array.from(grid.children).forEach((card, i) => {
-                card.style.opacity = '0'; card.style.transform = 'scale(0.8)';
-                card.style.transition = `opacity 0.25s ${i*0.06}s, transform 0.25s ${i*0.06}s`;
-                setTimeout(() => { card.style.opacity = '1'; card.style.transform = 'scale(1)'; }, 20);
-            });
-        };
+        LBCrates.bindReveal(preOpen, rewardsDiv, grid, LBCrates.levelRarity(lv));
         const claim = () => {
             overlay.remove();
             _levelBoxShowing = false;
@@ -3097,7 +3075,7 @@
 
     let _levelBoxShowing = false;
     function _showLevelBox() {
-        if (_levelBoxShowing || !saveData.pendingLevelBox) return;
+        if (_levelBoxShowing || dailyGift.isOpen() || !saveData.pendingLevelBox) return;
         _levelBoxShowing = true;
         const { level, rankName, rankColor: savedRankColor, rewards } = saveData.pendingLevelBox;
         const rankColor = hexColor(savedRankColor, '#ffd700');
@@ -3122,17 +3100,10 @@
             <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">Level ${escapeHtml(level)} — New rank reached!</div>
         `;
 
-        // Box icon + open button (pre-open state)
+        // Open button (pre-open state)
         const preOpen = document.createElement('div');
         preOpen.id = 'lb-pre-open';
         preOpen.innerHTML = `
-            <svg viewBox="0 0 64 64" width="80" height="80" fill="none" stroke="${rankColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:8px auto;display:block;filter:drop-shadow(0 0 12px ${rankColor}55);">
-                <rect x="8" y="28" width="48" height="28" rx="3"/>
-                <path d="M8 36h48"/>
-                <path d="M32 8c0 0-8-4-12 0s-4 12 0 12h24c4 0 4-8 0-12s-12 0-12 0z"/>
-                <line x1="32" y1="20" x2="32" y2="36"/>
-                <line x1="32" y1="42" x2="32" y2="56"/>
-            </svg>
             <div style="font-size:0.65rem;color:#666;margin-bottom:16px;">Contains 10 parts + 2 universal parts</div>
             <button id="lb-open-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid ${rankColor};background:${rankColor}22;color:${rankColor};cursor:pointer;transition:all 0.2s;">OPEN BOX</button>
         `;
@@ -3160,17 +3131,7 @@
         document.body.appendChild(overlay);
         _animateIn(panel, 'anim-in-down');
 
-        panel.querySelector('#lb-open-btn').onclick = () => {
-            preOpen.style.display = 'none';
-            rewardsDiv.style.display = 'block';
-            // Animate cards
-            Array.from(grid.children).forEach((card, i) => {
-                card.style.opacity = '0';
-                card.style.transform = 'scale(0.8)';
-                card.style.transition = `opacity 0.25s ${i*0.06}s, transform 0.25s ${i*0.06}s`;
-                setTimeout(() => { card.style.opacity = '1'; card.style.transform = 'scale(1)'; }, 20);
-            });
-        };
+        LBCrates.bindReveal(preOpen, rewardsDiv, grid, LBCrates.levelRarity(level));
 
         const claim = () => {
             overlay.remove();
@@ -3222,6 +3183,9 @@
     }
     function devResetDailyGift() {
         saveData.lastDailyGift = null;
+        saveData.dailyGiftStreak = 0;
+        dailyGift.refresh();
+        saveDataToFile();
         customAlert('Daily gift reset! Gift is now available.', 'DEV');
     }
     function devResetStore() {
@@ -8503,7 +8467,7 @@
     }
 
     function startGame(){
-        if (window._timeBlocked || _gameOverProtect) return;
+        if (_gameOverProtect) return;
         // Show rules on first fun/master play
         if (currentGameMode === 'fun' && !saveData.seenFunRules) {
             saveData.seenFunRules = true;
@@ -10524,13 +10488,6 @@
         `;
         const preOpen = document.createElement('div');
         preOpen.innerHTML = `
-            <svg viewBox="0 0 64 64" width="80" height="80" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:8px auto;display:block;filter:drop-shadow(0 0 14px ${color}66);">
-                <rect x="8" y="28" width="48" height="28" rx="3"/>
-                <path d="M8 36h48"/>
-                <path d="M32 8c0 0-8-4-12 0s-4 12 0 12h24c4 0 4-8 0-12s-12 0-12 0z"/>
-                <line x1="32" y1="20" x2="32" y2="36"/>
-                <line x1="32" y1="42" x2="32" y2="56"/>
-            </svg>
             <div style="font-size:0.65rem;color:#888;margin-bottom:16px;">${ms.label}</div>
             <button id="ms-open-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid ${color};background:${bgColor};color:${color};cursor:pointer;transition:all 0.2s;">OPEN BOX</button>
         `;
@@ -10544,7 +10501,7 @@
             const card = document.createElement('div');
             card.className = 'lb-reward-card';
             const rc = hexColor(RARITY_COLS[rw.rarity], '#aaaaaa');
-            card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;opacity:0;transform:scale(0.8);transition:opacity 0.25s, transform 0.25s;`;
+            card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
             card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(rw.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${_rewardLabel(rw)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(rw.desc)}</div><div class="lb-reward-rarity">${escapeHtml(rw.rarity)}</div>`;
             grid.appendChild(card);
         });
@@ -10557,14 +10514,7 @@
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
 
-        panel.querySelector('#ms-open-btn').onclick = () => {
-            preOpen.style.display = 'none';
-            rewardsDiv.style.display = 'block';
-            Array.from(grid.children).forEach((card, i) => {
-                card.style.transitionDelay = `${i * 0.1}s`;
-                setTimeout(() => { card.style.opacity = '1'; card.style.transform = 'scale(1)'; }, 20);
-            });
-        };
+        LBCrates.bindReveal(preOpen, rewardsDiv, grid, LBCrates.missionRarity(ms.pts, isWeekly));
         claimBtn.onclick = () => {
             overlay.remove();
             renderMissionsOverlay(isWeekly ? 'weekly' : 'daily');
@@ -10703,7 +10653,6 @@
     ];
 
     function openModeSelect() {
-        if (window._timeBlocked) return;
         const playerLevel = getLevelInfo(saveData.totalXP).level;
         const funTab = playOverlay.querySelector('[data-mode="fun"]');
         funTab.disabled = playerLevel < 11;
@@ -11495,6 +11444,21 @@
         };
         return;
     }
+
+    let dailyGiftReady = false;
+    const dailyGift = LBCrates.mountDailyGift({
+        button: document.getElementById('lb43-daily-gift'), getSave: () => saveData,
+        ready: () => dailyGiftReady && !_gameInProgress, save: saveDataToFile, onClose: drawRankBadge,
+        grant(plan) {
+            const cards = LBCrates.grantDailyGift(saveData, plan, {
+                pickParts: count => _weightedPickParts(_getPartsEligibleItems(), count), addPart: addPartsToItem,
+                partName: _partItemName, addUniversal: addUniversalParts, addBooster: addBoosterToSave, boosterInfo: BOOSTER_INFO,
+            });
+            playSFX('gift');
+            checkProgressAchievements();
+            return cards;
+        },
+    });
 
     _setLoadProgress(5, 'Initializing…');
     loadSettings();

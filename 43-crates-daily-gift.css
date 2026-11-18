@@ -1,0 +1,96 @@
+.lb43-gift-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 6px 14px;
+    min-height: 44px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-button);
+    background: var(--surface-1);
+    color: var(--text);
+    font: 600 14px / 1.25 var(--font-body);
+    text-align: left;
+    cursor: pointer;
+}
+.lb43-gift-button svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+}
+.lb43-gift-status { display: block; color: var(--text-muted); font-weight: 400; }
+.lb43-gift-button[data-status="available"] { border-color: var(--accent-border); }
+.lb43-gift-button[data-status="available"] svg { color: var(--accent-bright); }
+.lb43-gift-button[data-status="clock-blocked"] .lb43-gift-status { color: var(--warning); }
+.lb43-gift-button[aria-disabled="true"] { cursor: default; }
+.lb43-gift-button:focus-visible { outline: 3px solid var(--accent-bright); outline-offset: 3px; }
+.lb43-gift-button:not([aria-disabled="true"]):hover { background: var(--surface-2); }
+
+.lb43-gift-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3100;
+    display: grid;
+    place-items: center;
+    background: #000d;
+    text-align: center;
+}
+.lb43-gift-panel { padding: 24px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.lb43-gift-panel h2 { font: 700 24px / 1.25 var(--font-display); }
+.lb43-gift-streak { margin: 8px 0 16px; color: var(--text-muted); }
+.lb43-gift-grid { display: grid; margin-bottom: 16px; }
+.lb43-gift-card { border: 1px solid var(--lb43-tone, var(--border)); border-radius: var(--radius-md); }
+.lb43-gift-icon { display: block; margin-bottom: 4px; }
+.lb43-gift-card strong { font-size: 14px; line-height: 1.3; }
+
+.lb43-crate {
+    margin: 0 auto 12px;
+    color: var(--lb43-tone, var(--rarity-common));
+    font: 600 14px / 1.5 var(--font-body);
+    text-transform: capitalize;
+    --lb43-seam: 0% 43%, 62% 54%, 100% 36%;
+}
+.lb43-crate[data-rarity="rare"] { --lb43-seam: 0% 49%, 61% 59%, 100% 44%; }
+.lb43-crate[data-rarity="epic"] { --lb43-seam: 0% 51%, 61% 63%, 100% 48%; }
+.lb43-crate[data-rarity="legendary"] { --lb43-seam: 0% 55%, 62% 67%, 100% 52%; }
+.lb43-crate[data-rarity="mythic"] { --lb43-seam: 0% 59%, 58% 70%, 100% 56%; }
+.lb43-crate[data-rarity="common"], .lb43-gift-card[data-rarity="common"] { --lb43-tone: var(--rarity-common); }
+.lb43-crate[data-rarity="rare"], .lb43-gift-card[data-rarity="rare"] { --lb43-tone: var(--rarity-rare); }
+.lb43-crate[data-rarity="epic"], .lb43-gift-card[data-rarity="epic"] { --lb43-tone: var(--rarity-epic); }
+.lb43-crate[data-rarity="legendary"] { --lb43-tone: var(--rarity-legendary); }
+.lb43-crate[data-rarity="mythic"] { --lb43-tone: var(--rarity-mythic); }
+.lb43-crate-sprite { position: relative; display: inline-block; vertical-align: top; }
+.lb43-crate-body { display: block; height: clamp(100px, 22vh, 158px); width: auto; }
+.lb43-crate-lid { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+.lb43-crate figcaption { margin-top: 4px; }
+.lb43-crate-opening .lb43-crate-sprite { animation: lb43-shake 230ms ease-in-out; }
+.lb43-crate-opening .lb43-crate-body { clip-path: polygon(var(--lb43-seam), 100% 100%, 0% 100%); }
+.lb43-crate-opening .lb43-crate-lid {
+    clip-path: polygon(0% 0%, var(--lb43-seam), 100% 0%);
+    animation: lb43-lid-pop 490ms ease-out both;
+}
+.lb43-crate-cards > .lb-reward-card { animation: lb43-card-flight 280ms ease-out var(--lb43-card-delay, 0ms) both; }
+
+@keyframes lb43-shake {
+    0%, 100% { transform: translateX(0) rotate(0); }
+    25%, 75% { transform: translateX(-4px) rotate(-4deg); }
+    50% { transform: translateX(4px) rotate(4deg); }
+}
+@keyframes lb43-lid-pop {
+    0%, 40% { transform: translateY(0); opacity: 1; }
+    75% { transform: translateY(-30px) rotate(-9deg); opacity: 1; }
+    100% { transform: translateY(-48px) rotate(-14deg); opacity: 0; }
+}
+@keyframes lb43-card-flight {
+    from { transform: translateY(22px) scale(.76); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lb43-crate-opening .lb43-crate-sprite,
+    .lb43-crate-opening .lb43-crate-lid,
+    .lb43-crate-cards > .lb-reward-card { animation: none; }
+}

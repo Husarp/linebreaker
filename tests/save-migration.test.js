@@ -10,7 +10,7 @@ afterEach(() => game?.close());
 
 it('migrates legacy scores, listening counts, and dates without retaining duplicates', async () => {
   game = await loadGame();
-  const clean = game.w.sanitizeSave(legacy, game.api.save);
+  const clean = game.w.sanitizeSave(legacy, { ...game.api.save, lastSeenTime: 0 });
   expect(clean.schemaVersion).toBe(1);
   expect(clean.leaderboard.map(entry => entry.score)).toEqual([1500, 1000, 800]);
   expect(clean.leaderboard[0]).toMatchObject({ date: '2026-02-07', lines: 20, maxSpeed: 5 });
@@ -25,8 +25,8 @@ it('migrates legacy scores, listening counts, and dates without retaining duplic
   expect(clean.achievements.music_listener).toMatchObject({ tier: 1, tierDates: { '1': '2026-02-07' } });
   expect(clean.achievements.legacy_badge.unlockedAt).toBe('2026-11-18');
   expect(clean.pendingAchievementClaims).toEqual(legacy.pendingAchievementClaims);
-  expect(clean).toMatchObject({ lastDailyGift: '2026-02-07', ownedBtnStyles: ['legacy'] });
-  for (const key of ['highscore', 'highscoreData', 'ownedFonts', 'ownedBgStyles', 'seenMasterRules', 'dailyGiftUnlockReq', 'dailyGiftStreak', 'xpEarnedSinceLastGift', 'stats.bestNormalScore', 'stats.musicTracksListened', 'stats.mostPlayedSongCount', 'missions.weekly.daysPlayedThisWeek']) {
+  expect(clean).toMatchObject({ lastDailyGift: '2026-02-07', dailyGiftStreak: 3, lastSeenTime: 0, ownedBtnStyles: ['legacy'] });
+  for (const key of ['highscore', 'highscoreData', 'ownedFonts', 'ownedBgStyles', 'seenMasterRules', 'dailyGiftUnlockReq', 'xpEarnedSinceLastGift', 'stats.bestNormalScore', 'stats.musicTracksListened', 'stats.mostPlayedSongCount', 'missions.weekly.daysPlayedThisWeek']) {
     expect(clean).not.toHaveProperty(key);
   }
   expect(game.w.LBSave.date('2024-2-29')).toBe('2024-02-29');

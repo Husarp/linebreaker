@@ -357,6 +357,24 @@ function renderGame(review) {
     }
 }
 
+function renderCrates() {
+    const group = section('crates', 'Crates', 'Compare the five reward rarities and the original rainbow Mythic with the in-game crimson version.');
+    for (const [key, name] of [
+        ['common', 'Common'], ['rare', 'Rare'], ['epic', 'Epic'], ['legendary', 'Legendary'],
+        ['mythic', 'Mythic · Crimson'], ['mythic-rainbow', 'Mythic · Rainbow'],
+    ]) {
+        card(group, key, name, key === 'mythic-rainbow' ? 'Comparison only' : 'In-game crate', {
+            preview(panel) {
+                const image = element('img');
+                image.src = new URL(`../assets/ui/crates/${key}.png`, import.meta.url);
+                image.alt = `${name} reward crate`;
+                image.loading = 'lazy';
+                panel.append(image);
+            },
+        });
+    }
+}
+
 function renderConcepts(result) {
     const group = section('concepts', 'New skin concepts (AI)', 'Review the full concept boards and star favourites independently of your decision.', 'review-grid--concepts');
     if (result.status === 'rejected' || !result.value.length) {
@@ -395,6 +413,7 @@ copyButton.addEventListener('click', async () => {
     }
 });
 
+renderCrates();
 const [game, concepts] = await Promise.allSettled([gamePreviews(), fetchFile('skins-ai.json').then(response => response.json())]);
 let gameReady = game.status === 'fulfilled';
 try {
