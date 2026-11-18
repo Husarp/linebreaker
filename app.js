@@ -721,6 +721,9 @@
     const defaultSaveData = { totalXP: 0, highscore: 0, parts: {}, universalParts: 0, ownedSkins: ['neon'], ownedFonts: ['Orbitron'], ownedThemes: [], ownedBtnStyles: [], ownedBlockShapes: [], ownedBgStyles: ['default'], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, dailyGiftUnlockReq: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, seenMasterRules: false, pendingLevelBox: null, missions: null, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, dailyStreak: 0, highestDailyStreak: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
 
     // --- FILE SYSTEM ACCESS API ---
+    const _desktopSave = !!window.__TAURI__;
+    let _desktopLoadPromise = null;
+    let _desktopSaveReady = false;
     let fileHandle = null;
 
     async function openIDB() {
@@ -791,6 +794,7 @@
     let _saveWritePromise = null;
     let _pendingSaveJSON = null;
     function writeSaveFile(data) {
+        if (_desktopSave && !_desktopSaveReady) return Promise.resolve();
         _pendingSaveJSON = JSON.stringify(data, null, 2);
         if (!_saveWritePromise) {
             _saveWritePromise = (async () => {
@@ -798,7 +802,9 @@
                     const json = _pendingSaveJSON;
                     _pendingSaveJSON = null;
                     try {
-                        if (fileHandle) {
+                        if (_desktopSave) {
+                            await window.__TAURI__.core.invoke('write_save', { json });
+                        } else if (fileHandle) {
                             const writable = await fileHandle.createWritable();
                             await writable.write(json);
                             await writable.close();
@@ -2511,7 +2517,7 @@
         try {
             _initTrackCatalog(); // fire-and-forget: populates catalog from JSON, no AudioContext needed
             _setLoadProgress(55, 'Checking save data…');
-            const existingHandle = await getHandleFromIDB();
+            const existingHandle = _desktopSave ? null : await getHandleFromIDB();
             _setLoadProgress(75, 'Loading save file…');
             showFileSetup(existingHandle);
         } catch(e) {
@@ -2627,6 +2633,24 @@
             setTimeout(_checkGlowNotifications, 100);
             _checkMissionsRefresh();
             _initTrackCatalog(); // re-run now that saveData is loaded
+        }
+
+        if (_desktopSave) {
+            // One boot read even if the loading-screen failsafe fires concurrently.
+            _desktopLoadPromise ||= window.__TAURI__.core.invoke('load_save');
+            try {
+                const json = await _desktopLoadPromise;
+                applyLoadedData(json === null ? null : JSON.parse(json));
+                _desktopSaveReady = true;
+                checkAchievementsOnLoad();
+                if (overlay) overlay.classList.add('hidden');
+                randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
+            } catch (e) {
+                // Do not start with defaults and overwrite an unreadable desktop save.
+                console.error('Desktop save load failed:', e);
+                customAlert('Unable to load desktop save. Restart the app after checking save.json / save.bak. ' + e, 'SAVE ERROR', true);
+            }
+            return;
         }
 
         // === Android WebView / no File System Access API ===

@@ -24,3 +24,10 @@ desktop.ini
 *~
 
 node_modules/
+
+# Desktop generated output and signing material
+dist-web/
+src-tauri/target/
+src-tauri/gen/
+*.key
+*.key.pub
