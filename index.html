@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="touch.css">
     <link rel="stylesheet" href="portrait.css">
     <link rel="stylesheet" href="controls.css">
+    <link rel="stylesheet" href="28-achievements.css">
 </head>
 <body>
 
@@ -1117,28 +1118,43 @@
 
 
 <!-- ACHIEVEMENTS OVERLAY -->
-<div id="achievements-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1003;">
-    <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
-        <button class="btn-back" onclick="window.closeAchievements()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
-        <span style="font-family:'Press Start 2P'; font-size:0.58rem; color:var(--primary); display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4H4v5c0 1.65 1.35 3 3 3"/><path d="M17 4h3v5c0 1.65-1.35 3-3 3"/><path d="M7 12c0 2.76 2.24 5 5 5s5-2.24 5-5V4H7v8z"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="9 21 12 21 15 21"/></svg>ACHIEVEMENTS</span>
-        <span id="ach-counter" style="margin-left:6px; font-size:0.65rem; color:#888;"></span>
-    </div>
-    <div style="width:100%; max-width:640px; margin:0 auto; padding:16px 20px;">
-        <!-- Tabs -->
-        <div style="display:flex; gap:6px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
-            <button class="opt-btn active" data-achtab="all" onclick="window.renderAchievementsOverlay('all')">ALL</button>
-            <button class="opt-btn" data-achtab="unlocked" onclick="window.renderAchievementsOverlay('unlocked')">UNLOCKED</button>
-            <button class="opt-btn" data-achtab="locked" onclick="window.renderAchievementsOverlay('locked')">LOCKED</button>
-            <label style="margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;" title="Show unlock dates on hover">
-                <span style="font-size:0.55rem;color:#555;">Dates</span>
-                <label class="toggle" style="transform:scale(0.75);transform-origin:center;">
-                    <input type="checkbox" id="ach-dates-toggle" onchange="window.toggleAchDates(this.checked)">
-                    <span class="toggle-slider"></span>
-                </label>
-            </label>
+<div id="achievements-overlay" class="lb-achievements overlay hidden" aria-labelledby="ach-title" role="region">
+    <header class="lb-ach-header">
+        <div class="lb-header lb-ach-column">
+            <button type="button" class="lb-btn lb-btn--ghost" onclick="window.closeAchievements()">Back</button>
+            <h1 id="ach-title"><span class="lb-mino" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Achievements</h1>
+            <span id="ach-counter" class="lb-pill" aria-live="polite"></span>
         </div>
-        <!-- Achievement list rendered by JS -->
-        <div id="ach-list"></div>
+    </header>
+    <div class="lb-stack lb-ach-column lb-ach-content">
+        <div class="lb-tabs" role="group" aria-label="Achievement filters">
+            <button type="button" class="lb-btn lb-btn--ghost" data-achtab="all" aria-pressed="true">All</button>
+            <button type="button" class="lb-btn lb-btn--ghost" data-achtab="locked" aria-pressed="false">Locked</button>
+            <button type="button" class="lb-btn lb-btn--ghost" data-achtab="unlocked" aria-pressed="false">Unlocked</button>
+            <button type="button" class="lb-btn lb-btn--ghost" data-achtab="categories" aria-pressed="false">Categories</button>
+        </div>
+        <div class="lb-actions lb-ach-sort-bar">
+            <label>Sort by
+                <select id="ach-sort" class="lb-select">
+                    <option value="rarity">Rarity</option>
+                    <option value="progress">Progress</option>
+                    <option value="name">Name</option>
+                    <option value="recent">Recently unlocked</option>
+                </select>
+            </label>
+            <label class="lb-check"><input type="checkbox" id="ach-dates-toggle">Show unlock dates</label>
+        </div>
+        <section class="lb-card lb-stack lb-ach-summary" aria-labelledby="ach-progress-title">
+            <div class="lb-ach-summary-heading">
+                <h2 id="ach-progress-title">Overall progress</h2>
+                <strong id="ach-percent"></strong>
+            </div>
+            <progress id="ach-progress" class="lb-progress lb-progress--pattern" max="100" value="0" aria-labelledby="ach-progress-title"></progress>
+            <p>Secret achievements don’t count toward this percentage.</p>
+            <ul id="ach-tier-counts" class="lb-ach-tier-counts" aria-label="Unlocked achievements by rarity"></ul>
+        </section>
+        <div id="ach-claims" hidden></div>
+        <div id="ach-list" class="lb-stack"></div>
     </div>
 </div>
 
