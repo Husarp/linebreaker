@@ -7423,6 +7423,8 @@
     const _RANK_XP_PER_LEVEL = [1000, 2000, 3500, 5500, 8000, 11000, 14500, 18500];
 
     function getLevelInfo(xp) {
+        // Missing or invalid XP must never fall through to the endless rank.
+        if (!Number.isFinite(xp)) xp = 0;
         if (xp <= 0) return { level: 1, lvlInRank: 0, currentXP: 0, neededXP: _RANK_XP_PER_LEVEL[0], percent: 0, rank: RANKS[0], isUltimateChampion: false, isLegend: false, isDiamond: false, isCelestite: false };
         let level = 0;
         let cumulative = 0;
@@ -8021,8 +8023,8 @@
             nameEl.innerText = info.rank.name;
             nameEl.style.fontSize = '';
             nameEl.style.color = info.rank.c;
-            lvlEl.innerText  = 'New Rank';
-            lvlEl.style.fontSize = '18px';
+            lvlEl.innerText  = info.level === 1 ? '1' : 'New Rank';
+            lvlEl.style.fontSize = info.level === 1 ? '' : '18px';
             lvlEl.style.fontWeight = '';
             lvlEl.style.fontFamily = "'Noto Serif', serif";
             lvlEl.style.color = '#fff';
@@ -12341,7 +12343,7 @@
             seed(seed) { let n = seed >>> 0; Math.random = () => ((n = (Math.imul(n, 1664525) + 1013904223) >>> 0) / 4294967296); pieceBag = []; _nextQueue = []; },
             spawn: resetPlayer, move: playerMove, rotate: playerRotate, hardDrop: playerHardDrop,
             hold: doHold, drop: playerDrop, sweep: arenaSweep, tick(dtMs) { update(lastTime + dtMs); },
-            nextPiece: getNextPiece, gameOver, getLevelInfo,
+            nextPiece: getNextPiece, gameOver, getLevelInfo, drawRankBadge,
             missionWeekKey: _missionWeekKey, missionDateKey: _missionDateKey,
             encSave: _encSave, decSave: _decSave,
             defaultMissions: _defaultMissions, refreshMissions: _checkMissionsRefresh,
