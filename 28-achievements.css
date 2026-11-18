@@ -1,0 +1,168 @@
+.overlay.lb-achievements {
+    z-index: 1003;
+    align-items: stretch;
+    justify-content: flex-start;
+    overflow: hidden auto;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    text-align: left;
+    color: var(--text);
+    background: linear-gradient(#7ec8e308 1px, transparent 1px),
+        linear-gradient(90deg, #7ec8e308 1px, transparent 1px), var(--surface-0);
+    background-size: 24px 24px;
+    backdrop-filter: none;
+    font: var(--text-body)/var(--leading) var(--font-body);
+}
+
+.lb-achievements .lb-ach-column {
+    width: min(100%, var(--column));
+    margin-inline: auto;
+}
+
+.lb-achievements .lb-ach-header {
+    flex-shrink: 0;
+    background: var(--surface-0);
+    border-bottom: var(--border-width) solid var(--accent-border);
+}
+
+.lb-achievements :is(.lb-header, .lb-ach-content) {
+    padding: var(--space-4);
+}
+
+.lb-achievements .lb-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    border: 0;
+}
+
+.lb-achievements .lb-ach-content {
+    flex-shrink: 0;
+    padding-bottom: var(--space-6);
+}
+
+.lb-achievements :is(h1, h2, h3) {
+    color: var(--text);
+    font-family: var(--font-display);
+    line-height: var(--leading-title);
+    text-shadow: none;
+    overflow-wrap: anywhere;
+}
+
+.lb-achievements h1 { margin: 0; }
+.lb-achievements h2 { font-size: var(--text-heading); }
+.lb-achievements h3 { font-size: var(--text-title); }
+.lb-achievements :is(p, .lb-ach-status, .lb-ach-card-body li) { color: var(--text-muted); }
+.lb-achievements :is(.lb-pill, .lb-ach-status) { font-variant-numeric: tabular-nums; }
+.lb-achievements #ach-percent { font-family: var(--font-display); }
+
+.lb-achievements .lb-tabs {
+    flex-wrap: wrap;
+}
+
+.lb-achievements :is(.lb-btn, .lb-select) {
+    font: 600 var(--text-body)/var(--leading-title) var(--font-body);
+    border-radius: var(--radius-button);
+    cursor: pointer;
+}
+
+.lb-achievements :is(button, input, select, summary):focus-visible {
+    outline: var(--focus-width) solid var(--accent-bright);
+    outline-offset: var(--focus-offset);
+}
+
+.lb-achievements .lb-ach-sort-bar { justify-content: space-between; }
+.lb-achievements .lb-ach-sort-bar label {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    min-height: var(--target);
+}
+
+.lb-achievements :is(.lb-ach-summary-heading, .lb-ach-category-heading, .lb-ach-claim-row) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.lb-achievements .lb-ach-tier-counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr));
+    gap: var(--space-2);
+    list-style: none;
+}
+
+.lb-achievements .lb-ach-tier-counts li {
+    display: grid;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border-inline-start: 3px solid var(--tone);
+    background: var(--surface-2);
+    font-variant-numeric: tabular-nums;
+}
+
+.lb-achievements .lb-ach-rarity-label {
+    display: block;
+    color: var(--tone);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: var(--tracking);
+    overflow-wrap: anywhere;
+}
+
+.lb-achievements .lb-ach-claim-row {
+    border-top: var(--border-width) solid var(--border);
+    padding-top: var(--space-3);
+}
+
+.lb-achievements .lb-ach-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-3);
+    padding: var(--space-4);
+}
+
+.lb-achievements .lb-ach-card-body {
+    display: grid;
+    gap: var(--space-2);
+    overflow-wrap: anywhere;
+}
+
+.lb-achievements .lb-ach-card summary {
+    align-content: center;
+    min-height: var(--target);
+    cursor: pointer;
+}
+
+.lb-achievements .lb-ach-card ul { padding-inline-start: var(--space-4); }
+
+.lb-achievements .lb-ach-badge,
+.lb-achievements .lb-ach-badge-frame,
+.lb-achievements .lb-ach-badge-icon {
+    display: grid;
+    place-items: center;
+}
+
+.lb-achievements .lb-ach-badge { width: 68px; height: 68px; }
+.lb-achievements .lb-ach-badge-icon { width: calc(100% - 6px); height: calc(100% - 6px); }
+
+@media (max-width: 600px) {
+    .lb-achievements .lb-grid { grid-template-columns: minmax(0, 1fr); }
+    .lb-achievements .lb-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 400px) {
+    .lb-achievements .lb-header { grid-template-columns: 1fr auto; }
+    .lb-achievements .lb-header .lb-btn { justify-self: start; }
+    .lb-achievements .lb-header h1 { grid-area: 2 / 1 / auto / -1; }
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+    .lb-achievements .lb-ach-content { padding-block: var(--space-8); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .overlay.lb-achievements { animation-duration: 1ms; }
+}
