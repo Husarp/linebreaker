@@ -961,6 +961,7 @@
     function loadSettings() {
         try { settings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}') }; } catch(e) {}
         if (!settings.gridStyle) settings.gridStyle = 'lines';
+        settings.keyBindings = LBControls.normalizeBindings(settings.keyBindings);
     }
     function saveSettings() { localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings)); saveDataToFile(); }
     let _saveFileDebounceId = null;
@@ -5168,6 +5169,7 @@
     }
 
     function openSettings() {
+        controlsEditor.render();
         const mv = settings.musicVol, sv = settings.sfxVol;
         document.getElementById('setting-music-vol').value = mv;
         document.getElementById('setting-sfx-vol').value = sv;
@@ -5302,6 +5304,7 @@
     }
     window.resetAllProgress = resetAllProgress;
     function closeSettings() {
+        controlsEditor.cancel();
         if (_settingsTrackPollId) { clearInterval(_settingsTrackPollId); _settingsTrackPollId = null; }
         const _fromPause = window._settingsFromPause;
         window._settingsFromPause = false;
@@ -8137,7 +8140,7 @@
         badgeAnimFrame = requestAnimationFrame(anim);
     }
 
-    const keys = {ArrowUp:false,ArrowDown:false,ArrowLeft:false,ArrowRight:false,KeyW:false,KeyS:false,KeyA:false,KeyD:false,Space:false,SpaceReleased:true,KeyH:false};
+    const heldMoves = new Map(), softDropSources = new Set();
     const DAS_DELAY=160, ARR_DELAY=50; let dasTimer, arrTimer;
     let board=[], score=0, gameTime=0, dropInterval=1000, dropCounter=0, lastTime=0, currentScoreMultiplier=1.0;
     let isPaused=true, isGameOver=false, isAnimating=false, animatingLines=[];
@@ -8236,6 +8239,7 @@
 
     function togglePause() {
         if (isGameOver || isAnimating || !document.getElementById('start-animation-overlay').classList.contains('hidden')) return;
+        resetHeldInputs();
         isPaused = true;
         pauseMusic();
         document.getElementById('pause-overlay').classList.remove('hidden');
@@ -8629,7 +8633,7 @@
         if(collide(board,player)){gameOver();return;}
         // Continue the held direction without restarting DAS on each piece.
         if(!isGameOver && !isPaused){
-            const direction = _moveDirection || ((keys.ArrowLeft||keys.KeyA) ? -1 : (keys.ArrowRight||keys.KeyD) ? 1 : 0);
+            const direction = _moveDirection;
             if (direction) {
                 _moveDirection=direction;
                 _moveRepeatAt=performance.now();
@@ -8992,7 +8996,7 @@
         if(isAnimating) { drawGame(); requestAnimationFrame(update); return; }
         _updateHeldMove(t);
         dropCounter+=dt;
-        if(keys.ArrowDown || keys.KeyS) {
+        if(softDropSources.size) {
             _softDropUsedThisGame = true;
             // Cap soft drop to 50ms/row max — prevents insane speed at high speedLevels
             const softBonus = Math.max(0, dropInterval / 50 - 1);
@@ -9333,8 +9337,7 @@
             document.getElementById('go-overlay').classList.remove('hidden');
             _gameOverProtect = true;
             if (document.activeElement) document.activeElement.blur();
-            Object.keys(keys).forEach(key => { keys[key] = key === 'SpaceReleased'; });
-            stopMove();
+            resetHeldInputs();
             setTimeout(() => { _gameOverProtect = false; }, 800);
         }
     }
@@ -9420,6 +9423,8 @@
             );
             return;
         }
+        resetHeldInputs();
+        document.getElementById('pause-overlay').classList.add('hidden');
         _gameInProgress = true;
         // advanced mode removed
         clearInterval(_playBtnInterval);
@@ -9525,79 +9530,49 @@
         _menuIdleStart = Date.now(); // reset afk timer
     }
     
-    function handleKeyDown(e){
-        if (isGameOver && e.code !== 'Escape') { e.preventDefault(); return; }
-        if (e.code === 'Escape' || e.code === 'KeyP') {
-            if (!isGameOver && e.code !== 'Escape' && document.getElementById('app').classList.contains('active-game')) {
-                if (isPaused && !document.getElementById('pause-overlay').classList.contains('hidden')) resumeGame();
-                else if (!isPaused && document.getElementById('start-animation-overlay').classList.contains('hidden')) togglePause();
-            } else if (e.code === 'Escape') {
-                // Close color/palette modals first if open
-                const sfxPrev = document.getElementById('sfx-inv-preview');
-                if (sfxPrev) { window._closeModal('sfx-inv-preview'); return; }
-                const cpModal = document.getElementById('color-picker-modal');
-                if (cpModal) { window._closeModal('color-picker-modal'); return; }
-                const pvModal = document.getElementById('palette-view-modal');
-                if (pvModal) { window._closeModal('palette-view-modal'); return; }
-                const cpmModal = document.getElementById('custom-palette-modal');
-                if (cpmModal) { window._closeModal('custom-palette-modal'); return; }
-                const palEditModal = document.getElementById('pal-edit-modal');
-                if (palEditModal) { window._closeModal('pal-edit-modal'); return; }
-                // Close universal parts modal first if open
-                const uniModal = document.getElementById('uni-modal-overlay');
-                if (uniModal) { window._closeModal('uni-modal-overlay'); return; }
-                // Close exchange modal first if open
-                const excModal = document.getElementById('exc-modal-overlay');
-                if (excModal) { window._closeModal('exc-modal-overlay'); return; }
-                if (!isGameOver && document.getElementById('app').classList.contains('active-game')) {
-                    const _settingsEl = document.getElementById('settings-overlay');
-                    if (_settingsEl && !_settingsEl.classList.contains('hidden')) { closeSettings(); return; }
-                    const _creditsEl = document.getElementById('credits-overlay');
-                    if (_creditsEl && !_creditsEl.classList.contains('hidden')) { window.closeCredits(); return; }
-                    if (isPaused && !document.getElementById('pause-overlay').classList.contains('hidden')) resumeGame();
-                    else if (!isPaused && document.getElementById('start-animation-overlay').classList.contains('hidden')) togglePause();
-                    return;
-                }
-                const overlayOrder = ['credits-overlay','tutorial-overlay','daily-gift-overlay','missions-overlay','playlist-overlay','inventory-overlay','settings-overlay','rules-overlay','stats-overlay','mode-select-overlay','transfer-overlay','achievements-overlay'];
-                for (const id of overlayOrder) {
-                    const el = document.getElementById(id);
-                    if (el && !el.classList.contains('hidden')) {
-                        if (id === 'missions-overlay') { window.closeMissions(); return; }
-                        else if (id === 'inventory-overlay') closeInventory();
-                        else if (id === 'settings-overlay') closeSettings();
-                        else if (id === 'mode-select-overlay') closeModeSelect();
-                        else if (id === 'achievements-overlay') window.closeAchievements();
-                        else if (id === 'playlist-overlay') closePlaylistPanel();
-                        else if (id === 'transfer-overlay') closeTransferMenu();
-                        else if (id === 'credits-overlay') window.closeCredits();
-                        else if (id === 'tutorial-overlay') window.closeTutorial();
-                        else if (id === 'rules-overlay') window.closeRules();
-                        else if (id === 'stats-overlay') closeStats();
-                        else el.classList.add('hidden');
-                        break;
-                    }
-                }
-            } else if (e.code === 'KeyP') {
-                if (!isGameOver && document.getElementById('app').classList.contains('active-game')) {
-                    if (isPaused && !document.getElementById('pause-overlay').classList.contains('hidden')) resumeGame();
-                    else if (!isPaused && document.getElementById('start-animation-overlay').classList.contains('hidden')) togglePause();
-                }
-            }
-            return;
-        }
-        if(keys.hasOwnProperty(e.code)){
-            if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
-            if(!keys[e.code]){
-                if((e.code==='ArrowUp'||e.code==='KeyW')&&!isPaused)playerRotate(1);
-                if(e.code==='Space'&&keys.SpaceReleased&&!isPaused)playerHardDrop();
-                if(e.code==='KeyH'&&!isPaused)doHold();
-                if(e.code==='ArrowLeft'||e.code==='KeyA'){handleMove(-1)}
-                if(e.code==='ArrowRight'||e.code==='KeyD'){handleMove(1)}
-            }
-            keys[e.code]=true
-        }
+    const runActive = () => !isGameOver && document.getElementById('app').classList.contains('active-game')
+        && document.getElementById('start-animation-overlay').classList.contains('hidden');
+
+    function pauseFromInput(overlay = LBGamepad.topOverlay()) {
+        if (!runActive()) return;
+        if (isPaused && overlay?.id === 'pause-overlay') resumeGame();
+        else if (!isPaused && !overlay && !document.getElementById('pause-overlay').classList.contains('anim-out-down')) togglePause();
     }
-    function handleKeyUp(e){if(keys.hasOwnProperty(e.code)){if(e.code==='ArrowLeft'||e.code==='KeyA'){stopMove();keys[e.code]=false;if(keys.ArrowRight||keys.KeyD)handleMove(1);}else if(e.code==='ArrowRight'||e.code==='KeyD'){stopMove();keys[e.code]=false;if(keys.ArrowLeft||keys.KeyA)handleMove(-1);}else{if(e.code==='Space')keys.SpaceReleased=true;keys[e.code]=false;}}}
+
+    function backFromOverlay(overlay) {
+        if (controlsEditor.cancel()) return;
+        switch (overlay.id) {
+            case 'pause-overlay': pauseFromInput(overlay); return;
+            case 'go-overlay': resetGameToMenu(); return;
+            case 'custom-alert': closeAlert(); return;
+            case 'custom-confirm': document.getElementById('confirm-no').click(); return;
+            case 'mq-confirm-overlay': document.getElementById('mq-confirm-cancel').click(); return;
+        }
+        const close = [...overlay.querySelectorAll('.btn-back, [onclick*="close"], [onclick*="_closeModal"]')]
+            .find(LBGamepad.visible);
+        if (close) close.click();
+        else if (overlay.id.endsWith('-modal') || overlay.id.endsWith('-preview')) window._closeModal(overlay.id);
+    }
+
+    function handleKeyDown(event) {
+        if (event.defaultPrevented || controlsEditor.capture(event)) return;
+        if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+        if (event.code !== 'Escape' && event.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+        const action = LBControls.actionForKey(settings.keyBindings, event.code);
+        if (!action && event.code !== 'Escape') return;
+        const overlay = LBGamepad.topOverlay();
+        const back = event.code === 'Escape' && overlay && overlay.id !== 'menu-overlay';
+        const pause = overlay?.id === 'pause-overlay' && action === 'pause';
+        const restart = ['pause-overlay', 'go-overlay'].includes(overlay?.id) && action === 'restart';
+        if (overlay && !back && !pause && !restart) return;
+        if (!overlay && (!runActive() || !action)) return;
+        event.preventDefault();
+        if (event.repeat) return;
+        if (back) backFromOverlay(overlay);
+        else if (action) pressGameInput(action, `key:${event.code}`, overlay);
+    }
+
+    function handleKeyUp(event) { releaseGameInput(`key:${event.code}`); }
     let _moveDirection = 0, _moveRepeatAt = 0;
     function handleMove(d) {
         if (isPaused || isGameOver) return;
@@ -9616,30 +9591,59 @@
     }
     function stopMove(){_moveDirection=0;clearTimeout(dasTimer);clearInterval(arrTimer)}
 
-    // Touch and keyboard share the same movement, rotation, drop and hold functions.
-    const touchActive = () => !isPaused && !isGameOver && !isAnimating && !_hardDropAnimating
-        && document.getElementById('app').classList.contains('active-game')
-        && document.getElementById('start-animation-overlay').classList.contains('hidden');
+    function updateInputMove() {
+        let direction = 0;
+        for (const held of heldMoves.values()) direction = held;
+        if (direction && direction !== _moveDirection) handleMove(direction);
+        else if (!direction) stopMove();
+    }
+
+    function releaseGameInput(source) {
+        softDropSources.delete(source);
+        if (heldMoves.delete(source)) updateInputMove();
+    }
+
+    function resetHeldInputs() {
+        heldMoves.clear();
+        softDropSources.clear();
+        _bufferedMove = 0;
+        stopMove();
+    }
+
+    const touchActive = () => runActive() && !isPaused && !isAnimating && !_hardDropAnimating;
+
+    function gameAction(action) {
+        if (action === 'pause') { pauseFromInput(); return; }
+        if (!touchActive()) return;
+        if (action === 'left') playerMove(-1);
+        else if (action === 'right') playerMove(1);
+        else if (action === 'cw') playerRotate(1);
+        else if (action === 'ccw') playerRotate(-1);
+        else if (action === 'soft') { _softDropUsedThisGame = true; playerDrop(); }
+        else if (action === 'hard') playerHardDrop();
+        else if (action === 'hold') doHold();
+    }
+
+    function pressGameInput(action, source, overlay) {
+        if (action === 'pause') { pauseFromInput(overlay); return; }
+        if (action === 'restart') {
+            if (!isAnimating && !_hardDropAnimating && (runActive() || overlay?.id === 'go-overlay')) startGame();
+            return;
+        }
+        if (!runActive() || isPaused) return;
+        if (action === 'soft') softDropSources.add(source);
+        else if (action === 'left' || action === 'right') {
+            heldMoves.set(source, action === 'left' ? -1 : 1);
+            updateInputMove();
+        } else gameAction(action);
+    }
+
     window.LBInput = {
         active: touchActive,
         unlockAudio() { initAudio(); if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {}); },
-        action(action) {
-            if (action === 'pause') { handleKeyDown({ code: 'KeyP', preventDefault() {} }); return; }
-            if (!touchActive()) return;
-            if (action === 'left') playerMove(-1);
-            else if (action === 'right') playerMove(1);
-            else if (action === 'cw') playerRotate(1);
-            else if (action === 'ccw') playerRotate(-1);
-            else if (action === 'soft') { _softDropUsedThisGame = true; playerDrop(); }
-            else if (action === 'hard') playerHardDrop();
-            else if (action === 'hold') doHold();
-        },
-        press(action) {
-            if (!touchActive()) return;
-            if (action === 'soft') keys.ArrowDown = true;
-            else handleMove(action === 'left' ? -1 : 1);
-        },
-        release() { stopMove(); keys.ArrowDown = false; }
+        action: gameAction,
+        press(action) { if (touchActive()) pressGameInput(action, 'touch'); },
+        release() { releaseGameInput('touch'); }
     };
 
     // Android shell only: keep native navigation isolated from desktop input.
@@ -9665,7 +9669,7 @@
                     window._closeModal(top.id);
                 } else if (!['pause-overlay', 'go-overlay'].includes(top.id)) {
                     top.classList.add('hidden');
-                } else handleKeyDown({ code: 'Escape', preventDefault() {} });
+                } else if (top.id === 'pause-overlay') pauseFromInput(top);
             } else if (document.getElementById('app').classList.contains('active-game')) {
                 if (!isPaused && !isGameOver) togglePause();
             } else if (await customConfirm('Exit Linebreaker?', 'EXIT')) {
@@ -9679,6 +9683,7 @@
     }
 
     document.addEventListener('keydown',handleKeyDown); document.addEventListener('keyup',handleKeyUp);
+    window.addEventListener('blur', resetHeldInputs);
     
     document.addEventListener('visibilitychange', () => {
         if(document.hidden && document.getElementById('app').classList.contains('active-game') && !isGameOver && !isPaused && !isAnimating && document.getElementById('start-animation-overlay').classList.contains('hidden')) togglePause();
@@ -12297,6 +12302,9 @@
 
     _setLoadProgress(5, 'Initializing…');
     loadSettings();
+    const controlsEditor = LBControls.createEditor(document.getElementById('controls-settings'),
+        () => settings.keyBindings, bindings => { settings.keyBindings = bindings; saveSettings(); });
+    LBGamepad.start({ press: pressGameInput, release: releaseGameInput, back: backFromOverlay });
     _musicMuted = settings.musicMuted || false;
     _sfxMuted = settings.sfxMuted || false;
     // Sync mute button icons on load

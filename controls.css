@@ -1,0 +1,15 @@
+.lb-controls { margin-bottom: var(--space-4); text-align: left; }
+.lb-controls-grid { display: grid; gap: var(--space-2); }
+.lb-controls-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(0, 1fr));
+    align-items: center;
+    gap: var(--space-2);
+}
+.lb-r3 .lb-controls-row .lb-btn { padding-inline: var(--space-2) !important; overflow-wrap: anywhere; }
+.lb-controls-status { min-height: 1.5em; margin: 0; }
+.lb-r3 .lb-controls .lb-controls-warning { color: var(--danger) !important; }
+:is(button, [role="button"]).lb-gamepad-focus:focus {
+    outline: var(--focus-width) solid var(--accent-bright) !important;
+    outline-offset: var(--focus-offset);
+}

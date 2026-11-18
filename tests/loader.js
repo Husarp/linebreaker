@@ -45,6 +45,8 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   if (capacitor) w.Capacitor = capacitor;
   w.eval(readFileSync(new URL('../native-save.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../save-sanitize.js', import.meta.url), 'utf8'));
+  w.eval(readFileSync(new URL('../controls.js', import.meta.url), 'utf8'));
+  w.eval(readFileSync(new URL('../gamepad.js', import.meta.url), 'utf8'));
   w.__LB_TEST__ = flag;
   w.eval(readFileSync(new URL('../app.js', import.meta.url), 'utf8').replace('window.__lb = {', 'window.__lb = { writeSaveFile, applyLoadedData,'));
   // Let IndexedDB-backed startup finish before tests mutate state or close the window.
