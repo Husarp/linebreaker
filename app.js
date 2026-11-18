@@ -909,9 +909,9 @@
     const defaultSettings = { musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: DEFAULT_BLOCK_SKIN, fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
     Object.assign(defaultSettings, { bgBlockMotion: 'spinning', showRunMissions: false, musicFollowsSpeed: true });
     defaultSettings.themeBackground = 'image';
+    defaultSettings.lineClearEffect = 'default';
     let settings = { ...defaultSettings };
     const _themeBackgroundSelect = document.getElementById('setting-theme-background');
-    defaultSettings.lineClearEffect = 'default';
     const _lineClearEffectSelect = document.getElementById('setting-line-clear-effect');
     const _bgBlockMotionSelect = document.getElementById('setting-bg-block-motion');
     const _runMissionsSelect = document.getElementById('setting-run-missions');
