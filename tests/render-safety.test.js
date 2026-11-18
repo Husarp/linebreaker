@@ -5,9 +5,12 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const markup = `<b data-render-probe>quotes: ' " &amp; \\</b>`;
 const invalidColor = `#123456" data-render-probe="invalid`;
+const importedTrack = {
+  file: 'track.mp3', title: `${markup} title`, artist: `${markup} artist`, tags: [`${markup} tag`]
+};
+const ownedThemes = ['ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura'];
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-const nativeSave = readFileSync(new URL('../native-save.js', import.meta.url), 'utf8');
 let page;
 let window;
 let document;
@@ -22,6 +25,11 @@ beforeEach(async () => {
   window.showOpenFilePicker = vi.fn();
   window.requestAnimationFrame = () => 0;
   window.cancelAnimationFrame = () => {};
+  window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  window.HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+    this.dispatchEvent(new window.Event('close'));
+  };
   Object.defineProperty(window.HTMLElement.prototype, 'innerText', {
     get() { return this.textContent; },
     set(value) { this.textContent = value; }
@@ -33,9 +41,14 @@ beforeEach(async () => {
       createRadialGradient: () => ({ addColorStop() {} })
     }, { get: (context, key) => context[key] ?? (() => {}) });
   };
-  window.fetch = async () => ({
-    json: async () => ({ menu: [{ file: 'track.mp3', title: markup, artist: markup, tags: [markup] }] })
-  });
+  window.fetch = async (path, options) => {
+    if (options?.method === 'HEAD') return { ok: path === 'assets/music/track.mp3' };
+    if (path === 'assets/music.json') return { ok: true, json: async () => ({ menu: [importedTrack] }) };
+    if (path === 'assets/music.release.json') {
+      return { ok: true, json: async () => ({ menu: [{ synth: 'glass-harbor', title: 'Glass Harbor' }] }) };
+    }
+    return { ok: false };
+  };
   for (const src of [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m => m[1])) {
     window.eval(src === 'app.js' ? app : readFileSync(new URL('../' + src, import.meta.url), 'utf8'));
   }
@@ -81,39 +94,51 @@ it('renders achievement claims and saved reward cards as text and rejects an inv
   expect(box.querySelector('[data-render-probe]')).toBeNull();
 });
 
-it('shows single and tiered achievement dates as literal text in their tooltips', () => {
+it('shows single and tiered achievement dates as literal text on unlocked cards', () => {
   const singleDate = `${markup} single`;
   const tierDate = `${markup} tier`;
+  const earlierDate = `${markup} earlier tier`;
   game.setup({ save: { achievements: {
     rules_reader: { unlocked: true, unlockedAt: singleDate },
-    collector: { tier: 1, tierDates: { 1: tierDate } }
+    collector: { tier: 2, tierDates: { 1: earlierDate, 2: tierDate } }
   } } });
-  window.toggleAchDates(true);
-  window.openAchievements('unlocked');
-  const tooltips = [...document.querySelectorAll('#ach-list > div > div:nth-child(2) > div')].map(card => {
-    card.dispatchEvent(new window.MouseEvent('mouseenter'));
-    const tooltip = document.getElementById('ach-tip');
-    expect(tooltip.querySelector('[data-render-probe]')).toBeNull();
-    return tooltip.textContent;
-  });
-  expect(tooltips.some(text => text.includes(singleDate))).toBe(true);
-  expect(tooltips.some(text => text.includes(tierDate))).toBe(true);
+  window.openAchievements();
+  document.querySelector('[data-achtab="unlocked"]').click();
+  document.getElementById('ach-dates-toggle').click();
+  const list = document.getElementById('ach-list');
+  const cards = [...list.querySelectorAll('.lb-ach-card')];
+  const cardNamed = name => cards.find(card => card.querySelector('h3').textContent === name);
+  const paragraphs = card => [...card.querySelectorAll('p')].map(paragraph => paragraph.textContent);
+  expect(paragraphs(cardNamed('Dementia'))).toContain(`Unlocked on ${singleDate}`);
+  const collector = cardNamed('Accumulator');
+  expect(paragraphs(collector)).toContain(`Unlocked on ${tierDate}`);
+  expect(collector.querySelector('details li').textContent).toContain(earlierDate);
+  expect(list.querySelector('[data-render-probe]')).toBeNull();
 });
 
-it('keeps imported track metadata as text and passes the unchanged name to the playlist action', () => {
+it('keeps imported track metadata as text and passes the unchanged name to the playlist action', async () => {
   window.moveTrack = vi.fn();
   window.openPlaylistPanel();
   const playlist = document.querySelector('#playlist-panel-content');
-  expect(playlist.textContent).toContain(markup);
+  const { title, artist, tags } = importedTrack;
+  const toggle = await vi.waitFor(() => {
+    const button = [...playlist.querySelectorAll('button')].find(button => button.getAttribute('aria-label') === `menu playlist: ${title}`);
+    expect(button).toBeDefined();
+    return button;
+  });
+  const row = toggle.parentElement.parentElement;
+  const metadata = row.querySelector('[title="Play now"]');
+  expect([...metadata.children].map(field => field.textContent)).toEqual([title, `by ${artist}`]);
+  expect([...row.lastElementChild.querySelectorAll('span')].map(chip => chip.textContent)).toEqual(tags);
   expect(playlist.querySelector('[data-render-probe]')).toBeNull();
-  const toggle = [...playlist.querySelectorAll('button')].find(button => button.getAttribute('aria-label') === `menu playlist: ${markup}`);
-  expect(toggle).toBeDefined();
   toggle.click();
-  expect(window.moveTrack).toHaveBeenCalledWith('menu', markup, false);
+  expect(window.moveTrack).toHaveBeenCalledExactlyOnceWith('menu', title, false);
 });
 
 it('only renders valid hex colors in palette inputs, previews and copy handlers', () => {
   game.setup({ save: {
+    ownedThemes,
+    ownedPalettes: ['greyscale', 'ice', 'pastel', 'dark', 'synthwave', 'earth', 'neon'],
     customThemeColor: invalidColor,
     customPickerColors: [invalidColor, '#A1b2C3'],
     customPaletteOverrides: { classic: [invalidColor, '#A1b2C3'] }
@@ -123,15 +148,48 @@ it('only renders valid hex colors in palette inputs, previews and copy handlers'
   expect(preview.firstElementChild.style.getPropertyValue('--piece-color')).toBe('#00ffff');
   expect(preview.children[1].style.getPropertyValue('--piece-color')).toBe('#A1b2C3');
   window._openPaletteViewModal('classic');
-  const copy = document.querySelector('#palette-view-modal [title="Copy hex"]');
-  expect(copy.getAttribute('onclick')).toContain("writeText('#00ffff')");
+  const copy = [...document.querySelectorAll('#palette-view-modal [title="Copy hex"]')];
+  expect(copy[0].getAttribute('onclick')).toContain("writeText('#00ffff')");
+  expect(copy[1].getAttribute('onclick')).toContain("writeText('#A1b2C3')");
   window._openPaletteEditor('classic');
   expect(document.getElementById('pe-c0-hex').value).toBe('#00ffff');
-  window._openCustomPaletteModal();
-  expect(document.getElementById('cpm-hex-0').value).toBe('#00ffff');
-  window._openColorPickerModal();
-  expect(document.getElementById('cp-hex-input').value).toBe('#ff00ff');
-  expect(document.querySelector('[data-render-probe]')).toBeNull();
+  const paletteButton = document.getElementById('custom-palette-picker-button');
+  expect(paletteButton.querySelector('.lb-color-launch-mark').style.getPropertyValue('--swatch')).toContain('conic-gradient(#00ffff, #a1b2c3,');
+  paletteButton.click();
+  const palette = document.getElementById('custom-palette-modal');
+  const pieces = palette.querySelectorAll('.lb-color-piece');
+  for (const [index, color] of [[0, '#00ffff'], [1, '#a1b2c3']]) {
+    pieces[index].click();
+    expect(palette.querySelector('.lb-color-hex').value).toBe(color);
+    expect(pieces[index].style.getPropertyValue('--piece-color')).toBe(color);
+    expect(palette.querySelector('.lb-color-preview').style.getPropertyValue('--swatch')).toBe(color);
+  }
+  expect(palette.outerHTML).not.toContain('data-render-probe');
+  palette.querySelector('[aria-label="Close"]').click();
+
+  const themeButton = document.getElementById('custom-theme-picker-button');
+  expect(themeButton.querySelector('.lb-color-launch-mark').style.getPropertyValue('--swatch')).toBe('#ff00ff');
+  themeButton.click();
+  const theme = document.getElementById('color-picker-modal');
+  expect(theme.querySelector('.lb-color-hex').value).toBe('#ff00ff');
+  expect(theme.querySelector('.lb-color-preview').style.getPropertyValue('--swatch')).toBe('#ff00ff');
+  expect(document.documentElement.outerHTML).not.toContain('data-render-probe');
+});
+
+it('applies the custom theme colour from the picker to the page', () => {
+  game.setup({ save: { ownedThemes } });
+  window.inventoryTab('colors');
+  const rootStyle = document.documentElement.style;
+  expect(rootStyle.getPropertyValue('--primary')).toBe('#00ffff');
+  document.getElementById('custom-theme-picker-button').click();
+  const theme = document.getElementById('color-picker-modal');
+  const input = theme.querySelector('.lb-color-hex');
+  input.value = '#12ABEF';
+  input.dispatchEvent(new window.Event('input'));
+  theme.querySelector('.lb-color-apply').click();
+  expect(rootStyle.getPropertyValue('--primary')).toBe('#12abef');
+  expect(rootStyle.getPropertyValue('--primary-dim')).toBe('rgba(18,171,239,0.35)');
+  expect(game.save.customThemeColor).toBe('#12abef');
 });
 
 it('shows one inventory status, actions and locked-only progress, and counts catalog skins', () => {
