@@ -11982,4 +11982,36 @@
     window.addEventListener('resize', () => applyGameScale(settings.gameScale || '5'));
 
 
+    // Characterization-only access; production startup and gameplay are unchanged.
+    if (window.__LB_TEST__ === true) {
+        const copy = value => JSON.parse(JSON.stringify(value));
+        window.__lb = {
+            get state() { return copy({board, player, score, lines: linesClearedThisGame, level: speedLevel, holdPiece, holdUsed, combo: _comboCount, isGameOver, dropInterval}); },
+            get save() { return copy(saveData); },
+            get pieces() { return copy(BASE_PIECES); },
+            setup({cells, type = 6, x = 3, y = 0, speed = 1, save} = {}) {
+                board = cells ? copy(cells) : Array.from({length: ROWS}, () => Array(COLS).fill(0));
+                saveData = Object.assign(copy(defaultSaveData), save || {});
+                player = {pos: {x,y}, matrix: BASE_PIECES[type].map(r => r.map(v => v ? type : 0)), next: null};
+                _currentPieceType = type; pieceBag = []; _nextQueue = [];
+                score = 0; linesClearedThisGame = 0; speedLevel = speed; dropInterval = Math.floor(1000 / speed);
+                dropCounter = 0; lastTime = performance.now(); currentScoreMultiplier = 1;
+                isPaused = false; isGameOver = false; isAnimating = false; _hardDropAnimating = false;
+                holdPiece = null; holdUsed = false; _comboCount = 0; _lastMoveWasRotation = false;
+                settings.optHold = true; settings.hardDropLock = false;
+                document.getElementById('go-overlay').classList.add('hidden');
+            },
+            setBoard(cells) { board = copy(cells); },
+            setSave(value) { saveData = copy(value); },
+            seed(seed) { let n = seed >>> 0; Math.random = () => ((n = (Math.imul(n, 1664525) + 1013904223) >>> 0) / 4294967296); pieceBag = []; _nextQueue = []; },
+            spawn: resetPlayer, move: playerMove, rotate: playerRotate, hardDrop: playerHardDrop,
+            hold: doHold, drop: playerDrop, sweep: arenaSweep, tick(dtMs) { update(lastTime + dtMs); },
+            nextPiece: getNextPiece, gameOver, getLevelInfo,
+            missionWeekKey: _missionWeekKey, missionDateKey: _missionDateKey,
+            encSave: _encSave, decSave: _decSave,
+            defaultMissions: _defaultMissions, refreshMissions: _checkMissionsRefresh,
+            autoClaimMissions: _autoClaimMissions, streakMultiplier: _getMissionStreakXPMult,
+            streakThreshold: _dailyStreakXPThreshold
+        };
+    }
 })();
