@@ -62,14 +62,15 @@ it('renders imported scores, dates and pinned notes as literal text', () => {
   const entry = { score: markup, date: markup, note: markup, lines: 1, time: 60, maxSpeed: 2 };
   game.setup({ save: { leaderboard: [entry, entry, entry, entry], pinnedScores: [entry], highscoreHistory: [entry], funLeaderboard: [entry] } });
   for (const [tab, list] of [['leaderboard', 'lb-list'], ['pinned', 'pinned-list'], ['highscores', 'highscores-list'], ['fun', 'fun-list']]) {
-    window.statsLbTab(tab);
+    if (tab === 'fun') { window.statsLbTab('leaderboard'); document.querySelector('[data-stats-board="fun"]').click(); }
+    else window.statsLbTab(tab);
     const container = document.getElementById(list);
     expect(container.querySelector('.lb-score').textContent).toContain(markup);
     expect(container.querySelector('.lb-date').textContent).toBe(markup);
     expect(container.querySelector('[data-render-probe]')).toBeNull();
   }
   expect(document.querySelector('#pinned-list .lb-details-row').textContent).toContain(markup);
-  document.querySelector('#lb-list > div > div').dispatchEvent(new window.MouseEvent('mouseenter'));
+  document.querySelector('#lb-list .lb-stats-podium-place').dispatchEvent(new window.MouseEvent('mouseenter'));
   expect(document.querySelector('#lb-tooltip-global').textContent).toContain(markup);
   expect(document.querySelector('#lb-tooltip-global [data-render-probe]')).toBeNull();
 });

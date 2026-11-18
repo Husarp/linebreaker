@@ -5152,7 +5152,7 @@
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
             const noteHtml = e.note ? `<span class="lb-stats-meta">${escapeHtml(e.note)}</span>` : '';
-            div.innerHTML = `<span class="lb-rank" style="color:#ffd700;min-width:24px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffd700" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${e.score.toLocaleString()} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
+            div.innerHTML = `<span class="lb-rank" style="color:#ffd700;min-width:24px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffd700" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
             div.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 _showScorePinPopup(ev, '📌 Unpin', () => unpinScore(realIdx));
@@ -5196,7 +5196,7 @@
             const details = e.lines != null
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}spd ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
-            div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${e.score.toLocaleString()} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(isCur ? '⭐ CURRENT' : e.date)}</span>`;
+            div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(isCur ? '⭐ CURRENT' : e.date)}</span>`;
             container.appendChild(div);
         });
     }
@@ -5222,7 +5222,7 @@
             block.style.setProperty('--tone', p.color);
             block.style.minHeight = `${p.h + 32}px`;
             block.setAttribute('aria-label', `Rank ${p.rank}: ${p.e.score.toLocaleString()} points`);
-            block.innerHTML = `<span class="lb-score">${p.e.score.toLocaleString()}</span><span aria-hidden="true">${p.medal}</span>`;
+            block.innerHTML = `<span class="lb-score">${escapeHtml(p.e.score.toLocaleString())}</span><span aria-hidden="true">${p.medal}</span>`;
             block.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(p.lbIdx));
@@ -5267,7 +5267,7 @@
                 const details = e.lines != null
                     ? `<span class="lb-detail">${ico.time}${lbFmt(e.time)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed)}</span>`
                     : '';
-                div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${e.score.toLocaleString()} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
+                div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
                 div.addEventListener('click', (ev) => {
                     ev.stopPropagation();
                     _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(i));
