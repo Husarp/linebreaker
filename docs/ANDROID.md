@@ -5,8 +5,7 @@ It packages static files locally, locks the activity to portrait, hides system
 bars (swipe reveals them temporarily), and keeps the screen awake while the
 activity is visible. Hardware Back closes an overlay using the game's existing
 controls, pauses gameplay, and asks before exiting the main menu. Backgrounding
-also pauses gameplay. App is wired for navigation/lifecycle; Haptics, Filesystem
-and Preferences are installed but otherwise unwired.
+also pauses gameplay. App is wired for navigation/lifecycle; Haptics and Filesystem are wired for gameplay and saves; Preferences remains unused.
 
 The cyan T mino launcher icons and splash images are **placeholders**, manually
 generated in android/app/src/main/res. Replace them before release.
@@ -15,26 +14,42 @@ generated in android/app/src/main/res. Replace them before release.
 
 Run npm install, then npm run android:sync (build:web followed by cap sync android).
 npm run android:open opens Android Studio. build:web recreates dist-web/ from
-index.html, app.js, style.css, assets/fonts and assets/music.json, plus local
-assets/music/*.mp3 only when present. Missing licensed audio is not downloaded.
+the game, desktop/native adapters, touch.js/css, ui/tokens.css, all bundled fonts
+(including Inter), assets/music.json and locally present music MP3s. Both Capacitor
+and Tauri use this single build:web output. Missing licensed audio is not downloaded.
 
 Set ANDROID_HOME=/home/coder/android-sdk here, or set sdk.dir in the ignored
 android/local.properties. Keep local paths, build outputs and signing keys out
 of Git. The generated Gradle wrapper uses Gradle 8.14.3 with AGP 8.13.0;
-Capacitor 8 targets SDK 36 and requires JDK 21 or newer. Java 25 is installed
-in this workspace. The Gradle help check fails on Java 25 with
-Unsupported class file major version 69; JDK 21 is required here and is not
-installed. Rerun the check with JAVA_HOME pointing to JDK 21.
-Verify with npx cap sync android, cd android && ./gradlew help, and npm test.
-No APK or bundle is produced by these checks.
+Capacitor 8 targets SDK 36. JDK 21 is installed at
+`~/.local/jdk/jdk-21.0.13+9`; Java 25 fails with Unsupported class file major
+version 69. Verify with `npm run android:sync`, `npm test`, and in android/:
+`JAVA_HOME=~/.local/jdk/jdk-21.0.13+9 ./gradlew help`. No APK is produced.
+
+## Playable input and storage
+
+Touch/coarse-pointer devices and native Capacitor show 48px button controls during
+play. Drag the board sideways to move by cells; tap to rotate clockwise, tap the
+left third or tap with two fingers for counter-clockwise using the same kick logic
+as keyboard rotation. Fast downward swipes hard-drop; slow downward drags soft-drop;
+swipe up to hold (when enabled by the mode). Buttons also offer hold and pause,
+with held movement using the keyboard DAS/ARR path. Board gestures suppress page
+scroll/zoom. The first pointer interaction unlocks audio. Native lock/clear events
+use @capacitor/haptics; verify feel and gesture thresholds on a physical phone.
+
+Android uses @capacitor/filesystem Directory.Data with UTF-8 save.json, save.bak
+and a temporary save.tmp promoted by rename. It shares the desktop native-save
+contract and serialized game write queue and bypasses the file picker. An invalid
+primary recovers from backup; an unreadable save blocks writes until restart.
+Storage survives app upgrades with the same app ID; uninstall clears app data.
+Backup/restore and device persistence still need physical-device verification.
 
 ## Still required for a playable phone version
 
-- Touch controls, including movement, rotate, drop, hold and pause.
 - Portrait layouts for every screen, overlay and keyboard/safe-area situation.
-- Native save storage through a Filesystem/Preferences adapter, with migration,
-  backup/restore and update-persistence checks.
-- Audio unlock on the first tap, plus device lifecycle/audio-focus validation.
+- Device backup/restore and update-persistence checks; existing WebView IndexedDB
+  saves are not automatically migrated.
+- Device lifecycle/audio-focus validation.
 - A measured performance budget on a representative low-end phone: frame time,
   input latency, memory, battery and audio loading.
 - Device verification of Back ordering, portrait lock, system-bar gestures,

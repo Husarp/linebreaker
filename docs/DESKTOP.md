@@ -1,7 +1,7 @@
 # Linebreaker desktop (Tauri 2)
 
 Work in this repository; no dev server is needed. `npm ci`, then `npm run desktop:dev`.
-The pre-dev copy step refreshes ignored `dist-web/` from the static game and `desktop.js`.
+The shared `npm run build:web` step refreshes ignored `dist-web/` from the static game and `desktop.js`.
 It includes fonts, music.json and music MP3s only when present locally. MP3s remain ignored;
 do not distribute third-party music without permission. The cyan L-mino SVG and generated
 icons in `src-tauri/icons/` are placeholders. Regenerate with

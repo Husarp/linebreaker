@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.husarp.linebreaker",
   "build": {
-    "beforeDevCommand": "node scripts/copy-web.mjs",
+    "beforeDevCommand": "npm run build:web",
     "beforeBuildCommand": "node scripts/prepare-desktop-build.mjs",
     "frontendDist": "../dist-web"
   },
