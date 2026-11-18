@@ -7,6 +7,13 @@
     "cell": 64
   },
   {
+    "key": "aztec-gold",
+    "name": "Aztec Gold",
+    "cost": 30,
+    "file": "aztec-gold.png",
+    "cell": 64
+  },
+  {
     "key": "brushed-metal",
     "name": "Brushed Metal",
     "cost": 15,
@@ -18,6 +25,13 @@
     "name": "Carved Stone",
     "cost": 20,
     "file": "carved-stone.png",
+    "cell": 64
+  },
+  {
+    "key": "obsidian-carved",
+    "name": "Obsidian Carved",
+    "cost": 25,
+    "file": "obsidian-carved.png",
     "cell": 64
   },
   {
@@ -35,20 +49,6 @@
     "cell": 64
   },
   {
-    "key": "holo-foil",
-    "name": "Holo Foil",
-    "cost": 25,
-    "file": "holo-foil.png",
-    "cell": 64
-  },
-  {
-    "key": "lava",
-    "name": "Lava",
-    "cost": 25,
-    "file": "lava.png",
-    "cell": 64
-  },
-  {
     "key": "jelly-candy",
     "name": "Jelly Candy",
     "cost": 15,
@@ -56,17 +56,17 @@
     "cell": 64
   },
   {
-    "key": "nebula",
-    "name": "Nebula",
-    "cost": 30,
-    "file": "nebula.png",
+    "key": "lava-glass",
+    "name": "Lava Glass",
+    "cost": 25,
+    "file": "lava-glass.png",
     "cell": 64
   },
   {
-    "key": "neon-tube",
-    "name": "Neon Tube",
-    "cost": 20,
-    "file": "neon-tube.png",
+    "key": "neon-pixel",
+    "name": "Neon Pixel",
+    "cost": 15,
+    "file": "neon-pixel.png",
     "cell": 64
   },
   {
@@ -88,13 +88,6 @@
     "name": "Soft Clay",
     "cost": 15,
     "file": "soft-clay.png",
-    "cell": 64
-  },
-  {
-    "key": "wood-inlay",
-    "name": "Wood Inlay",
-    "cost": 30,
-    "file": "wood-inlay.png",
     "cell": 64
   }
 ]

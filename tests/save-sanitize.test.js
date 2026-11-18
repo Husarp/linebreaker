@@ -62,10 +62,10 @@ it('imports a legacy TRPG1 export through the shared sanitizer and migrations', 
 });
 it('sanitizes schema v1 skin keys while preserving image rewards and the Neon palette', () => {
  a.applyLoadedData({schemaVersion:1,skinCatalogVersion:1,totalXP:100,
-  ownedSkins:['lava','gem','neon'],ownedPalettes:['classic','neon'],parts:{'golden-dragon':7,gem:3,neon:2},
+  ownedSkins:['lava','lava-glass','gem','neon'],ownedPalettes:['classic','neon'],parts:{'golden-dragon':7,lava:4,gem:3,neon:2},
   _settings:{skin:'gem',blockShape:'round'},
-  pendingLevelBox:{rewards:[{type:'parts',key:'golden-dragon'},{type:'parts',key:'gem'}]}});
- expect(a.save).toMatchObject({schemaVersion:1,ownedSkins:['retro','lava'],ownedPalettes:['classic','neon'],universalParts:2,
+  pendingLevelBox:{rewards:[{type:'parts',key:'golden-dragon'},{type:'parts',key:'gem'},{type:'parts',key:'lava'}]}});
+ expect(a.save).toMatchObject({schemaVersion:1,ownedSkins:['retro','lava-glass'],ownedPalettes:['classic','neon'],universalParts:3,
   _settings:{skin:'retro',blockShape:'square'}});
  expect(a.save.parts).toEqual({'golden-dragon':7,neon:2});
  expect(a.save.pendingLevelBox.rewards).toEqual([expect.objectContaining({key:'golden-dragon',label:'+1 Part: Golden Dragon',desc:'7/50 parts'})]);

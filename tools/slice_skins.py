@@ -12,19 +12,18 @@ from PIL import Image, ImageChops
 CELL = 64
 SKINS = {
     "aztec": 25,
+    "aztec-gold": 30,
     "brushed-metal": 15,
     "carved-stone": 20,
+    "obsidian-carved": 25,
     "gem-gloss": 20,
     "golden-dragon": 50,
-    "holo-foil": 25,
-    "lava": 25,
     "jelly-candy": 15,
-    "nebula": 30,
-    "neon-tube": 20,
+    "lava-glass": 25,
+    "neon-pixel": 15,
     "pixel-16bit": 10,
     "porcelain": 10,
     "soft-clay": 15,
-    "wood-inlay": 30,
 }
 
 
