@@ -199,14 +199,15 @@ it('applies the custom theme colour from the picker to the page', () => {
 });
 
 it('shows one inventory status, actions and locked-only progress, and counts catalog skins', () => {
-  game.setup({ save: { ownedSkins: ['neon', 'neon', 'retro', 'bubble', 'matrix', 'unknown'], parts: { glass: 10, shadow: 2 } } });
+  game.setup({ save: { ownedSkins: ['retro', 'retro', 'bubble', 'neon', 'matrix', 'unknown'], parts: { glass: 10, shadow: 2 } } });
   window.openInventory();
   const row = key => document.querySelector(`#owned-skin-btns [data-item-key="${key}"]`);
-  const equipped = row('neon');
-  const owned = row('retro');
+  const equipped = row('retro');
+  const owned = row('bubble');
   const locked = row('shadow');
   const ready = row('glass');
-  expect(document.getElementById('skin-owned-count').innerText).toBe('(2/8)');
+  expect(document.getElementById('skin-owned-count').innerText).toBe('(2/21)');
+  expect(row('neon')).toBeNull();
   for (const [card, status] of [[equipped, 'Equipped'], [owned, 'Owned'], [locked, 'Locked'], [ready, 'Locked']]) {
     expect([...card.querySelectorAll('.lb-item-state')].map(chip => chip.textContent)).toEqual([status]);
   }

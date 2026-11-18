@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { IDBFactory } from 'fake-indexeddb';
-export async function loadGame(flag = true, desktopInvoke = null, capacitor = null, fetchImpl = async () => ({ok:true, json:async () => []}), initialSettings = null) {
+export async function loadGame(flag = true, desktopInvoke = null, capacitor = null, fetchImpl = async () => ({ok:true, json:async () => []}), initialSettings = null, configureWindow = null) {
   if (fetchImpl && typeof fetchImpl === 'object') { initialSettings = fetchImpl; fetchImpl = async () => ({ok:true, json:async () => []}); }
   const dom = new JSDOM(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), {url:'https://linebreaker.test/', runScripts:'outside-only', pretendToBeVisual:true});
   const w = dom.window;
+  configureWindow?.(w);
   const RealDate = w.Date;
   w.Date = class extends RealDate { constructor(...args) { super(...(args.length ? args : ['2026-11-18T12:00:00Z'])); } static now() { return Date.parse('2026-11-18T12:00:00Z'); } };
   w.fetch = fetchImpl;
@@ -53,6 +54,7 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   w.eval(readFileSync(new URL('../music-synth.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../notifications.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../color-picker.js', import.meta.url), 'utf8'));
+  w.eval(readFileSync(new URL('../assets/skins/catalog.js', import.meta.url), 'utf8'));
   w.__LB_TEST__ = flag;
   w.eval(readFileSync(new URL('../app.js', import.meta.url), 'utf8').replace('window.__lb = {', 'window.__lb = { writeSaveFile, applyLoadedData, startMusic, switchMusicMode, _initTrackCatalog, _getPlaylist,'));
   // Let IndexedDB-backed startup finish before tests mutate state or close the window.

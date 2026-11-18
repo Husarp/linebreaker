@@ -120,6 +120,7 @@ it('does not ship local MP3s or catalogue entries without the private build flag
   try {
     mkdirSync(path('assets/music'), { recursive: true });
     mkdirSync(path('assets/fonts'));
+    cpSync(new URL('../assets/skins', import.meta.url), path('assets/skins'), { recursive: true });
     mkdirSync(path('ui'));
     mkdirSync(path('data'));
     for (const file of ['index.html', 'app.js', 'music-synth.js', 'style.css', 'desktop.js', 'native-save.js', 'touch.js', 'touch.css', 'portrait.css', 'ui/tokens.css']) {
@@ -140,5 +141,7 @@ it('does not ship local MP3s or catalogue entries without the private build flag
     expect(existsSync(path('dist-web/assets/music'))).toBe(false);
     expect(existsSync(path('dist-web/music-synth.js'))).toBe(true);
     expect(readFileSync(path('dist-web/data/missions.json'), 'utf8')).toBe(readFileSync(path('data/missions.json'), 'utf8'));
+    expect(existsSync(path('dist-web/assets/skins/catalog.js'))).toBe(true);
+    expect(existsSync(path('dist-web/assets/skins/golden-dragon.png'))).toBe(true);
   } finally { rmSync(fixture, { recursive: true, force: true }); }
 });

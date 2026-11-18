@@ -9,7 +9,7 @@ beforeEach(async () => {
 });
 afterEach(() => game?.close());
 
-const cappedParts = Object.fromEntries('retro glass shadow outline holo journey gem ocean forest fire dragon void sunset arctic midnight sakura ghostColor dots boxes dotboxes sfxCyber sfxRetro sfxZen sfxArcade greyscale ice pastel dark synthwave earth neon'.split(' ').map(key => [key, 30]));
+const cappedParts = () => Object.fromEntries(api.partsItems().map(({ key }) => [key, api.partCost(key)]));
 
 it('keeps spinning by default and advances falling pieces by elapsed time and discrete quarter turns', () => {
   window.openSettings();
@@ -55,7 +55,7 @@ it('stops drawing the background during an active game', async () => {
 });
 
 it('converts owned parts and formats both singular and grouped conversions', () => {
-  api.setup({ save: { ownedSkins: ['neon', 'retro'] } });
+  api.setup({ save: { ownedSkins: ['retro'] } });
   expect(api.grantRewardPart('retro')).toBe(true);
   expect(api.save.parts.retro).toBeUndefined();
   expect(api.save.universalParts).toBe(0.2);
@@ -77,7 +77,7 @@ it('shows grouped converted parts in a level box while escaping reward text', ()
 });
 
 it('shows the conversion when collecting an airdrop', () => {
-  api.setup({ save: { parts: cappedParts } });
+  api.setup({ save: { parts: cappedParts() } });
   window.Math.random = () => 0.5;
   document.getElementById('menu-overlay').classList.remove('hidden');
   api.spawnSpecialBlock();
@@ -92,10 +92,10 @@ it('shows the conversion when collecting an airdrop', () => {
 it('shows mission milestone conversions and restores pending level milestone conversions from save', () => {
   const missions = api.defaultMissions();
   missions.daily.pointsToday = 6;
-  api.setup({ save: { parts: cappedParts, missions } });
+  api.setup({ save: { parts: cappedParts(), missions } });
   window.Math.random = () => 0;
   window._claimMissionMilestone(6, false);
-  expect(document.querySelector('.lb-reward-overlay s')?.parentElement.textContent).toBe('+1 part (Retro) → +0.2 universal parts');
+  expect(document.querySelector('.lb-reward-overlay s')?.parentElement.textContent).toBe('+1 part (Glass) → +0.2 universal parts');
 
   const rewards = api.generateLevelBoxRewards();
   expect(rewards.filter(reward => reward.type === 'converted_parts')).toHaveLength(10);
@@ -103,7 +103,7 @@ it('shows mission milestone conversions and restores pending level milestone con
   const clean = window.sanitizeSave(saved, api.save);
   const restored = clean.pendingMilestoneReward.rewards[0];
   expect(restored).not.toHaveProperty('label');
-  expect(api.rewardLabel(restored)).toBe('<s>+1 part (Retro)</s> → +0.2 universal parts');
+  expect(api.rewardLabel(restored)).toBe('<s>+1 part (Glass)</s> → +0.2 universal parts');
 });
 
 it('projects best-run, cumulative, and secret progress without mutating missions', () => {

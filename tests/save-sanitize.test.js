@@ -40,7 +40,7 @@ it('loads a defaults-based real save with progress, dates, missions and legacy b
  fixture.missions.weekly.weekKey = a.missionWeekKey(); fixture.missions.weekly.isoWeekKey=true;
  fixture.missions.stats.totalPts=25;
  a.applyLoadedData(fixture);
- expect(a.save).toMatchObject({totalXP:12345,parts:{shadow:4},universalParts:2.4,boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
+ expect(a.save).toMatchObject({schemaVersion:1,skinCatalogVersion:1,totalXP:12345,parts:{shadow:4},universalParts:3.4,ownedSkins:['retro'],boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
  expect(a.save.leaderboard[0]).toMatchObject({score:5000,date:'2026-11-18',clock:'12:30'});
  expect(a.save.pinnedScores[0].note).toBe('Nice run');
  expect(a.save.pendingLevelBox.rewards).toHaveLength(2);
@@ -60,6 +60,16 @@ it('imports a legacy TRPG1 export through the shared sanitizer and migrations', 
  expect(a.save.pinnedScores[0].note).not.toContain('<');
  expect(a.save.achievements.save_transfer.unlocked).toBe(true);
 });
+it('sanitizes schema v1 skin keys while preserving image rewards and the Neon palette', () => {
+ a.applyLoadedData({schemaVersion:1,skinCatalogVersion:1,totalXP:100,
+  ownedSkins:['lava','gem','neon'],ownedPalettes:['classic','neon'],parts:{'golden-dragon':7,gem:3,neon:2},
+  _settings:{skin:'gem',blockShape:'round'},
+  pendingLevelBox:{rewards:[{type:'parts',key:'golden-dragon'},{type:'parts',key:'gem'}]}});
+ expect(a.save).toMatchObject({schemaVersion:1,ownedSkins:['retro','lava'],ownedPalettes:['classic','neon'],universalParts:2,
+  _settings:{skin:'retro',blockShape:'square'}});
+ expect(a.save.parts).toEqual({'golden-dragon':7,neon:2});
+ expect(a.save.pendingLevelBox.rewards).toEqual([expect.objectContaining({key:'golden-dragon',label:'+1 Part: Golden Dragon',desc:'7/50 parts'})]);
+});
 it('sanitizes native desktop saves before displaying loaded progress', async () => {
  game.close();
  game = await loadGame(true, async command => command === 'load_save' ? JSON.stringify({totalXP:123,pinnedScores:[{note:attack,date:attack}]}) : null);
@@ -77,7 +87,7 @@ it('repairs malformed nested structures, clamps numbers, and blocks entity paylo
  expect(clean.missions.daily.quests).toEqual([]);
  expect(clean.missions.weekly.missions).toEqual([]);
  expect(clean.customPaletteOverrides.classic.slice(0,2)).toEqual(['#00ffff','#abcdef']);
- expect(clean.ownedSkins).toEqual(['neon']);
+ expect(clean.ownedSkins).toEqual(['retro']);
  expect(clean.pendingLevelBoxes[0].rewards).toHaveLength(1);
  expect(clean.pinnedScores[0].note).not.toContain('&');
 });
