@@ -1,0 +1,10 @@
+/* Isolated touch additions using the shared lb component/token contract. */
+.lb-touch-controls { display:none; }
+.lb-touch #app.active-game .lb-touch-controls { display:flex; flex-wrap:wrap; justify-content:center; gap:var(--space-2,8px); padding:8px max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)); width:100%; }
+.lb-touch-controls button { min-width:48px; min-height:48px; padding:8px; border:1px solid var(--accent-border,#46566f); border-radius:var(--radius-sm,6px); background:var(--surface-2,#202b3d); color:var(--text,#f3f6fc); font:600 16px var(--font-body, sans-serif); touch-action:none; }
+.lb-touch-controls button:active { background:var(--accent-soft,#141c2b); }
+.lb-touch #app.active-game #tetris { touch-action:none; user-select:none; -webkit-user-select:none; }
+.lb-touch #app.active-game { flex-wrap:wrap; overscroll-behavior:none; }
+
+.lb-touch #app.active-game { gap:8px; align-content:center; }
+.lb-touch #app.active-game #game-wrapper { height:calc(100% - 160px); }

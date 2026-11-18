@@ -797,7 +797,13 @@
     const defaultSaveData = { totalXP: 0, highscore: 0, parts: {}, universalParts: 0, ownedSkins: ['neon'], ownedFonts: ['Orbitron'], ownedThemes: [], ownedBtnStyles: [], ownedBlockShapes: [], ownedBgStyles: ['default'], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, dailyGiftUnlockReq: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, seenMasterRules: false, pendingLevelBox: null, missions: null, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, dailyStreak: 0, highestDailyStreak: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
 
     // --- FILE SYSTEM ACCESS API ---
-    const _desktopSave = !!window.__TAURI__;
+    const _nativeAdapter = window.Capacitor?.isNativePlatform()
+        ? window.LBNativeSave.createFilesystemSave(window.Capacitor.Plugins.Filesystem)
+        : window.__TAURI__ ? {
+            load: () => window.__TAURI__.core.invoke('load_save'),
+            write: json => window.__TAURI__.core.invoke('write_save', { json })
+        } : null;
+    const _desktopSave = !!_nativeAdapter;
     let _desktopLoadPromise = null;
     let _desktopSaveReady = false;
     let fileHandle = null;
@@ -879,7 +885,7 @@
                     _pendingSaveJSON = null;
                     try {
                         if (_desktopSave) {
-                            await window.__TAURI__.core.invoke('write_save', { json });
+                            await _nativeAdapter.write(json);
                         } else if (fileHandle) {
                             const writable = await fileHandle.createWritable();
                             await writable.write(json);
@@ -2745,7 +2751,7 @@
 
         if (_desktopSave) {
             // One boot read even if the loading-screen failsafe fires concurrently.
-            _desktopLoadPromise ||= window.__TAURI__.core.invoke('load_save');
+            _desktopLoadPromise ||= _nativeAdapter.load();
             try {
                 const json = await _desktopLoadPromise;
                 applyLoadedData(json === null ? null : JSON.parse(json));
@@ -2755,8 +2761,8 @@
                 randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
             } catch (e) {
                 // Do not start with defaults and overwrite an unreadable desktop save.
-                console.error('Desktop save load failed:', e);
-                customAlert('Unable to load desktop save. Restart the app after checking save.json / save.bak. ' + e, 'SAVE ERROR', true);
+                console.error('Native save load failed:', e);
+                customAlert('Unable to load native save. Restart the app after checking save.json / save.bak. ' + e, 'SAVE ERROR', true);
             }
             return;
         }
@@ -8649,7 +8655,13 @@
         rotate(player.matrix,-d);player.pos.x=ox;player.pos.y=oy;
     }
     
+    function nativeHaptic(clear = false) {
+        if (!window.Capacitor?.isNativePlatform()) return;
+        const haptics = window.Capacitor.Plugins.Haptics;
+        if (haptics) Promise.resolve(clear ? haptics.notification({ type: 'SUCCESS' }) : haptics.impact({ style: 'LIGHT' })).catch(() => {});
+    }
     function merge(b,p){
+        nativeHaptic();
         p.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v){b[y+p.pos.y][x+p.pos.x]=v;}}));
         blocksPlacedThisGame++;
         if (!_boardSymmetricAchieved) {
@@ -8789,6 +8801,7 @@
     function arenaSweep(){
         let rows=[];for(let y=ROWS-1;y>=0;--y){let full=true;for(let x=0;x<COLS;++x)if(board[y][x]===0){full=false;break;}if(full)rows.push(y)}
         if(rows.length){
+            nativeHaptic(true);
             const midY=(rows[0]+rows[rows.length-1])/2*BLOCK+BLOCK/2; const str=rows.length; triggerShake(str*3); shockwaves.push(new Shockwave(midY,str));
             rows.forEach(y=>{for(let x=0;x<COLS;x++){const v=board[y][x];if(v){const c=COLORS[v];for(let i=0;i<str*2;i++)particles.push(new Particle(x*BLOCK+BLOCK/2,y*BLOCK+BLOCK/2,c))}}});
             if (rows.length >= 4) { _quadraKillThisGame = true; _quadrasThisGame++; }
@@ -9560,6 +9573,32 @@
         _moveRepeatAt = arr === 0 ? now : _moveRepeatAt + (1 + Math.floor((now - _moveRepeatAt) / arr)) * arr;
     }
     function stopMove(){_moveDirection=0;clearTimeout(dasTimer);clearInterval(arrTimer)}
+
+    // Touch and keyboard share the same movement, rotation, drop and hold functions.
+    const touchActive = () => !isPaused && !isGameOver && !isAnimating && !_hardDropAnimating
+        && document.getElementById('app').classList.contains('active-game')
+        && document.getElementById('start-animation-overlay').classList.contains('hidden');
+    window.LBInput = {
+        active: touchActive,
+        unlockAudio() { initAudio(); if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {}); },
+        action(action) {
+            if (action === 'pause') { handleKeyDown({ code: 'KeyP', preventDefault() {} }); return; }
+            if (!touchActive()) return;
+            if (action === 'left') playerMove(-1);
+            else if (action === 'right') playerMove(1);
+            else if (action === 'cw') playerRotate(1);
+            else if (action === 'ccw') playerRotate(-1);
+            else if (action === 'soft') { _softDropUsedThisGame = true; playerDrop(); }
+            else if (action === 'hard') playerHardDrop();
+            else if (action === 'hold') doHold();
+        },
+        press(action) {
+            if (!touchActive()) return;
+            if (action === 'soft') keys.ArrowDown = true;
+            else handleMove(action === 'left' ? -1 : 1);
+        },
+        release() { stopMove(); keys.ArrowDown = false; }
+    };
 
     // Android shell only: keep native navigation isolated from desktop input.
     if (window.Capacitor?.isNativePlatform()) {
