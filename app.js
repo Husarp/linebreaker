@@ -3504,6 +3504,10 @@
         }
         const rewards = box.rewards;
         const overlay = document.createElement('div');
+        overlay.className = 'lb-reward-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-box-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;z-index:3100;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
         const color = '#ffd700';
@@ -3532,13 +3536,15 @@
         rewardsDiv.id = 'lb-rewards-grid';
         rewardsDiv.style.cssText = 'display:none;';
         const grid = document.createElement('div');
+        grid.className = 'lb-reward-grid';
         grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
         const RARITY_COLS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
         rewards.forEach(r => {
             const card = document.createElement('div');
+            card.className = 'lb-reward-card';
             const rc = RARITY_COLS[r.rarity] || '#aaa';
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${r.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${r.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${r.desc}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${r.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${r.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${r.desc}</div><div class="lb-reward-rarity">${r.rarity}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);
@@ -3676,6 +3682,10 @@
         const { level, rankName, rankColor, rewards } = saveData.pendingLevelBox;
 
         const overlay = document.createElement('div');
+        overlay.className = 'lb-reward-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-box-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;z-index:3100;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
 
@@ -3687,7 +3697,7 @@
         // Title
         panel.innerHTML = `
             <div style="font-size:0.55rem;letter-spacing:3px;color:#666;margin-bottom:4px;font-family:var(--ui-font);">MILESTONE REWARD</div>
-            <div style="font-size:1rem;font-weight:bold;color:${rankColor};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">${rankName}</div>
+            <div class="lb-rank-identity" style="font-size:1rem;font-weight:bold;color:${rankColor};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">${rankName}</div>
             <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">Level ${level} — New rank reached!</div>
         `;
 
@@ -3712,12 +3722,14 @@
         rewardsDiv.id = 'lb-rewards-grid';
         rewardsDiv.style.cssText = 'display:none;';
         const grid = document.createElement('div');
+        grid.className = 'lb-reward-grid';
         grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
         rewards.forEach(r => {
             const card = document.createElement('div');
+            card.className = 'lb-reward-card';
             const rc = RARITY_COLS[r.rarity] || '#aaa';
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${r.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${r.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${r.desc}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${r.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${r.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${r.desc}</div><div class="lb-reward-rarity">${r.rarity}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);
@@ -9804,18 +9816,22 @@
         const levelStr = li.isCelestite ? (' ' + _toRoman(li.level)) : (_liLvlInRank === 0 ? '' : (' ' + _toRoman(_liLvlInRank)));
         document.getElementById('level-up-popup-overlay')?.remove();
         const overlay = document.createElement('div');
+        overlay.className = 'lb-reward-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-up-popup-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1300;display:flex;align-items:center;justify-content:center;font-family:inherit;';
         const rewardsHtml = rewards.map(r => {
             const col = RARITY_COLORS[r.rarity] || '#ccc';
             return `<div style="border:1px solid ${col};border-radius:10px;padding:8px 12px;margin-bottom:7px;box-shadow:0 0 10px ${col}30;display:flex;align-items:center;gap:8px;">
                 <span style="font-size:1.4rem;">${r.icon}</span>
-                <div><div style="font-size:0.85rem;font-weight:bold;color:${col};">${r.label}</div><div style="font-size:0.62rem;color:#aaa;">${r.desc}</div></div>
+                <div><div style="font-size:0.85rem;font-weight:bold;color:${col};">${r.label}</div><div style="font-size:0.62rem;color:#aaa;">${r.desc}</div><div class="lb-reward-rarity">${r.rarity}</div></div>
             </div>`;
         }).join('');
         overlay.innerHTML = `<div style="background:rgba(6,6,20,0.98);border:1px solid var(--primary);border-radius:16px;padding:24px 22px;max-width:340px;width:90%;text-align:center;box-shadow:0 0 40px var(--primary)30;">
             <div style="font-size:0.55rem;letter-spacing:3px;color:var(--primary);margin-bottom:6px;">LEVEL UP!</div>
-            <div style="font-size:1.1rem;font-weight:bold;color:#fff;margin-bottom:16px;">${rankName}${levelStr}</div>
+            <div class="lb-rank-identity" style="font-size:1.1rem;font-weight:bold;color:#fff;margin-bottom:16px;">${rankName}${levelStr}</div>
             <div style="text-align:left;max-height:280px;overflow-y:auto;">${rewardsHtml}</div>
             <button onclick="document.getElementById('level-up-popup-overlay').remove()" style="margin-top:16px;padding:10px 24px;background:linear-gradient(45deg,var(--primary)33,var(--primary)18);border:1px solid var(--primary);border-radius:10px;color:var(--primary);cursor:pointer;font-family:inherit;font-weight:bold;font-size:0.8rem;box-shadow:0 0 10px var(--primary)30;">AWESOME!</button>
         </div>`;
@@ -11314,6 +11330,10 @@
         const bgColor = isWeekly ? 'rgba(255,153,0,0.1)' : 'rgba(68,255,136,0.1)';
         const RARITY_COLS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
         const overlay = document.createElement('div');
+        overlay.className = 'lb-reward-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.style.cssText = 'position:fixed;inset:0;z-index:3200;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
         const panel = document.createElement('div');
         panel.style.cssText = `background:rgba(5,5,20,0.98);border:1px solid ${color}44;border-radius:16px;padding:24px 20px;max-width:380px;width:100%;text-align:center;max-height:90vh;overflow-y:auto;`;
@@ -11339,12 +11359,14 @@
         const rewardsDiv = document.createElement('div');
         rewardsDiv.style.display = 'none';
         const grid = document.createElement('div');
+        grid.className = 'lb-reward-grid';
         grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
         rewards.forEach(rw => {
             const card = document.createElement('div');
+            card.className = 'lb-reward-card';
             const rc = RARITY_COLS[rw.rarity] || '#aaa';
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;opacity:0;transform:scale(0.8);transition:opacity 0.25s, transform 0.25s;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${rw.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${rw.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${rw.desc}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${rw.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${rw.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${rw.desc}</div><div class="lb-reward-rarity">${rw.rarity}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);

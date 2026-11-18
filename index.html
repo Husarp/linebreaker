@@ -64,15 +64,18 @@
 </div>
 
 <!-- PAUSE OVERLAY -->
-<div id="pause-overlay" class="overlay hidden" style="z-index: 999;">
-    <h1 style="color: var(--primary); margin-bottom: 20px;">PAUSED</h1>
-    <p style="color: #ccc; font-size: 0.85rem; margin-bottom: 25px; max-width: 280px; line-height: 1.5;">
-        Take a breath.<br>
-        <span style="color: var(--primary); font-size: 0.75rem;">Exiting will save your current XP and score.</span>
-    </p>
-    <button class="btn-main" onclick="window.resumeGame()">RESUME</button>
-    <button class="btn-secondary" style="margin-top: 12px; font-size: 0.75rem;" onclick="window.openSettings()">⚙️ SETTINGS</button>
-    <button class="btn-secondary" style="border-color: var(--error); color: var(--error); margin-top: 10px;" onclick="window.quitGame()">QUIT GAME</button>
+<div id="pause-overlay" class="overlay hidden lb-run-overlay" style="z-index: 999;" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+    <div class="lb-run-panel">
+        <h1 id="pause-title">PAUSED</h1>
+        <p>Take a breath. Your next move can wait.</p>
+        <p class="lb-run-note">Leaving saves your score and XP in the run results. Restart begins a fresh run.</p>
+        <button class="lb-run-primary" onclick="window.resumeGame()">RESUME</button>
+        <div class="lb-run-icons" role="group" aria-label="Run actions">
+            <button aria-label="Restart run" title="Restart run" onclick="document.getElementById('pause-overlay').classList.add('hidden'); window.startGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/></svg></button>
+            <button aria-label="Main menu via run results" title="End run — return through results" onclick="window.quitGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/></svg></button>
+            <button aria-label="Settings" title="Settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 4 4 1v8l-4 1-1 4H9l-1-4-4-1V8l4-1z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+    </div>
 </div>
 
 <!-- MENU -->
@@ -955,7 +958,7 @@
 </div>
 
 <!-- GAME OVER -->
-<div id="go-overlay" class="overlay hidden">
+<div id="go-overlay" class="overlay hidden lb-run-overlay" role="dialog" aria-modal="true" aria-labelledby="go-title">
     <h1 id="go-title" style="margin-bottom: 20px;">GAME OVER</h1>
 
     <!-- Normal / Advanced mode: XP breakdown -->
@@ -1017,7 +1020,7 @@
 
 <!-- START ANIMATION -->
 <div id="start-animation-overlay" class="overlay hidden">
-    <div id="start-text-container"></div>
+    <div id="start-text-container" role="status" aria-label="Get ready to play"></div>
 </div>
 
 <!-- GRA -->

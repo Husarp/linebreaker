@@ -14,3 +14,11 @@
 - Replaced hidden slider facades with rectangular native controls and visible keyboard focus/44px targets, retaining IDs, handlers and existing value displays. Percentage controls use 5% steps (grid changed from 10); timing/discrete/count controls retain their compatible units and steps. No saved-value migration.
 - Wired --accent to the existing --primary theme property, including custom colours, without changing background/theme behavior. Included tokens.css in web packaging.
 - Validation: node --check app.js; npm test (52 passed); npm run build:web; protected menu/missions content and existing IDs checked; nine screen shells and percentage steps checked; local python HTTP serve + curl for page/tokens/Inter, server stopped; git diff --check. No test changes, skills or commits. Browser visual verification was not performed.
+
+## R2 — run and reward overlays
+
+- Replaced stacked pause actions with one large Resume and one accessible SVG icon row for Restart, Main menu via run results, and Settings. Reused existing handlers; leaving retains the existing end-run confirmation/results flow and restart starts a fresh run.
+- Scoped rounded rectangular 44px actions, solid surfaces, Inter/Orbitron typography, readable result rows, responsive reward cards and written rarity states to pause/game-over/level-up/rank-box/level-milestone/mission-milestone reward overlays. Preserved rank identity colours and fonts, reward calculations, save format and claim/open handlers.
+- Restyled the existing start sequence with a centred solid surface and short transform/opacity entrance, keeping its existing duration and gameplay start timing. Removed claim pulse animations in these overlays and honoured reduced motion.
+- HUD consistency only: solid existing panels and consistent label/counter fonts; preserved HUD markup and geometry. Protected menu, rank/XP and missions screen markup unchanged; mission milestone popup styling is isolated from the missions screen.
+- Validation: node --check app.js; npm test (52 passed); protected menu/missions/HUD markup equality, all original IDs retained, unique IDs and named pause controls; temporary python HTTP server + curl for page/CSS/script/tokens, server stopped; git diff --check. No tests changed, browser visual verification, skills or commits.
