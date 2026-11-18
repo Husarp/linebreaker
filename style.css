@@ -655,25 +655,6 @@ input:checked + .toggle-slider:before { transform: translateX(22px); background:
 /* Score values: prevent overflow with very large numbers */
 .value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
-/* Mode Cards */
-.mode-card {
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 12px;
-    padding: 14px 16px;
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-    background: rgba(255,255,255,0.04);
-    text-align: left;
-}
-.mode-card:hover { border-color: var(--primary); background: rgba(255,255,255,0.07); }
-.mode-card.selected { border-color: var(--primary); background: rgba(0,255,255,0.07); box-shadow: 0 0 12px rgba(0,255,255,0.15); }
-.mode-card-title { font-size: 0.85rem; font-weight: bold; color: var(--primary); margin-bottom: 5px; letter-spacing: 1px; }
-.mode-card-desc { font-size: 0.7rem; color: #aaa; line-height: 1.5; }
-.fun-cfg-row { display:flex; align-items:center; justify-content:space-between; padding:5px 0; font-size:0.7rem; color:#ccc; gap:8px; }
-.fun-cfg-row input[type=range] { accent-color: var(--primary); }
-.mode-opt-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.04); position:relative; overflow:hidden; border-radius:4px; contain:paint; }
-.mode-opt-row:last-child { border-bottom:none; }
-
 /* Hide top-right bar during active gameplay */
 #app.active-game ~ #top-right-bar { display: none !important; }
 
