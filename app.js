@@ -900,61 +900,6 @@
         return _saveWritePromise;
     }
 
-    // === MUSIC SYSTEM ===
-    const NOTES = {
-        'C4':261.63,'D4':293.66,'E4':329.63,'F4':349.23,'G4':392,'A4':440,'Bb4':466.16,'B4':493.88,
-        'C5':523.25,'Cs5':554.37,'D5':587.33,'E5':659.25,'F5':698.46,'Fs5':739.99,'G5':783.99,'A5':880,'B5':987.77,'R':0
-    };
-    const MENU_TRACKS = [
-        { name:'Menu 1', bpm:72, wave:'sine', notes:[
-            ['C5',2],['E5',1],['G5',2],['E5',1],['A4',2],['C5',1],['E5',2],['C5',1],
-            ['F4',2],['A4',1],['C5',2],['A4',1],['G4',2],['B4',1],['D5',2],['B4',1],
-            ['C5',3],['G4',3],['E5',2],['D5',1],['C5',2],['D5',1],
-            ['E5',3],['G5',3],['A5',2],['G5',1],['F5',2],['E5',1],
-            ['D5',3],['F5',3],['E5',6],
-        ]},
-        { name:'Menu 2', bpm:65, wave:'triangle', notes:[
-            ['G4',2],['A4',1],['B4',1],['C5',4],['B4',2],['A4',1],['G4',1],['E4',4],
-            ['A4',2],['B4',1],['C5',1],['D5',4],['C5',2],['B4',1],['A4',1],['G4',4],
-            ['E5',2],['D5',1],['C5',1],['B4',4],['A4',2],['G4',1],['A4',1],['B4',4],
-            ['C5',6],['G4',2],['C5',8],
-        ]},
-        { name:'Menu 3', bpm:78, wave:'sine', notes:[
-            ['E5',1.5],['D5',0.5],['C5',1.5],['D5',0.5],['E5',1.5],['E5',0.5],['E5',2],
-            ['D5',1.5],['D5',0.5],['D5',2],['E5',1.5],['G5',0.5],['G5',2],
-            ['E5',1.5],['D5',0.5],['C5',1.5],['D5',0.5],['E5',1.5],['E5',0.5],['E5',1],['E5',0.5],
-            ['D5',1.5],['D5',0.5],['E5',1.5],['D5',0.5],['C5',4],
-        ]},
-    ];
-    const GAME_TRACKS = [
-        { name:'Theme A', bpm:160, wave:'square', notes:[
-            ['E5',1],['B4',.5],['C5',.5],['D5',1],['C5',.5],['B4',.5],
-            ['A4',1],['A4',.5],['C5',.5],['E5',1],['D5',.5],['C5',.5],
-            ['B4',1.5],['C5',.5],['D5',1],['E5',1],['C5',1],['A4',1],['A4',2],
-            ['R',.5],['D5',.5],['F5',1],['A5',1],['G5',.5],['F5',.5],
-            ['E5',1.5],['C5',.5],['E5',1],['D5',.5],['C5',.5],
-            ['B4',1],['B4',.5],['C5',.5],['D5',1],['E5',1],['C5',1],['A4',1],['A4',2],
-        ]},
-        { name:'Theme B', bpm:156, wave:'triangle', notes:[
-            ['G5',1],['E5',1],['E5',1],['F5',1],['D5',1],['D5',1],
-            ['C5',1],['D5',1],['E5',1],['F5',1],['G5',2],
-            ['G5',1],['E5',1],['E5',1],['F5',1],['D5',1],['D5',1],
-            ['C5',1],['E5',1],['G5',1],['E5',3],
-            ['A5',1],['A5',1],['A5',1],['B5',1],['A5',1],['G5',1],
-            ['F5',1],['G5',1],['A5',1],['G5',1],['F5',1],['E5',1],
-            ['D5',1],['E5',1],['F5',1],['G5',1],['E5',2],['C5',1],['C5',3],
-        ]},
-        { name:'Theme C', bpm:174, wave:'sawtooth', notes:[
-            ['A4',.5],['A4',.5],['A5',1],['A5',.5],['G5',.5],['Fs5',1],['E5',1],['D5',1],
-            ['D5',1],['E5',1],['Fs5',1],['G5',2],['A5',1],
-            ['A4',.5],['A4',.5],['A5',1],['A5',.5],['G5',.5],['Fs5',1],['E5',1],['D5',1],
-            ['E5',1],['Fs5',1],['G5',1],['A5',3],
-            ['G5',1],['Fs5',1],['E5',1],['D5',2],['Cs5',1],
-            ['D5',1],['E5',1],['Fs5',1],['G5',3],
-            ['A5',1],['G5',1],['Fs5',1],['E5',2],['D5',1],['Cs5',1],['D5',1],['E5',1],['A4',3],
-        ]}
-    ];
-
     // Settings
     const defaultSettings = { classicColors: false, musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: 'neon', fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false };
     let settings = { ...defaultSettings };
@@ -1617,7 +1562,7 @@
         saveSettings();
     }
 
-    let audioCtx = null, masterGain = null, sfxGain = null, musicPlaying = false, musicTimeout = null;
+    let audioCtx = null, masterGain = null, sfxGain = null, musicPlaying = false;
     // All SFX are now fully synthesized — no file loading needed
     const _sfxBuffers = {};
 
@@ -2258,97 +2203,39 @@
         }
     }
 
-    function _playNote(freq, t, dur, wave) {
-        if (!audioCtx || freq === 0) return;
-        const osc = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        osc.connect(g); g.connect(masterGain);
-        osc.type = wave; osc.frequency.value = freq;
-        g.gain.setValueAtTime(0.3, t);
-        g.gain.linearRampToValueAtTime(0, t + dur * 0.88);
-        osc.start(t); osc.stop(t + dur);
-        _activeOscillators.push(osc);
-        osc.onended = () => { _activeOscillators = _activeOscillators.filter(o => o !== osc); };
-    }
-    let _currentTrack = -1;
-    let _currentTracks = GAME_TRACKS;
-    let _activeOscillators = [];
-    let _menuAudioBuffers = [];
     let _menuSourceNode = null;
     let _currentMode = 'menu';
     let _menuFileNames = [];
     let _currentMenuTrackIdx = 0;
-    let _gameAudioBuffers = [];
     let _gameFileNames = [];
     let _gameSourceNode = null;
-    let _currentGameTrackIdx = 0;
-    let _actionAudioBuffers = [];
     let _actionFileNames = [];
-    let _actionSourceNode = null;
-    let _musicJsonData = null;
-    let _currentActionTrackIdx = 0;
+    let _musicCatalogPromise;
     let _nowPlayingName = '';
     let _nowPlayingArtist = '';
-    let _menuFileArtists = [];
     let _trackStartTime = 0;
     let _trackPauseOffset = 0;
     let _trackDuration = 0;
     let _musicPaused = false;
     let _widgetIntervalId = null;
-    let _trackPool = new Map();
-    let _currentMusicTab = 'menu';
+    const _trackPool = new Map();
     let _settingsTrackPollId = null;
-    let _trackCatalog = new Map(); // title → { artist } — populated from music.json, no AudioContext needed
-    let _gameFileArtists = [];
-    let _actionFileArtists = [];
     let _menuShuffleQueue = []; // queue-based no-repeat playback
-    function _scheduleTrack(idx) {
-        if (!musicPlaying || !audioCtx) return;
-        const track = _currentTracks[idx];
-        const beat = 60 / track.bpm;
-        let t = audioCtx.currentTime + 0.05;
-        track.notes.forEach(([n, b]) => { _playNote(NOTES[n]||0, t, b*beat*0.9, track.wave); t += b*beat; });
-        const ms = (t - audioCtx.currentTime) * 1000;
-        musicTimeout = setTimeout(() => {
-            if (!musicPlaying) return;
-            let next; do { next = Math.floor(Math.random()*_currentTracks.length); } while (_currentTracks.length>1 && next===idx);
-            _currentTrack = next; _scheduleTrack(next);
-        }, ms - 400);
-    }
-    async function _getMusicJson() {
-        if (!_musicJsonData) {
-            try {
-                const r = await fetch('assets/music.json');
-                _musicJsonData = await r.json();
-            } catch(e) { _musicJsonData = {}; }
-        }
-        return _musicJsonData;
-    }
-    function _getNormGain(buffer, target = 0.22) {
-        let sumSq = 0, count = 0;
-        for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-            const data = buffer.getChannelData(ch);
-            for (let i = 0; i < data.length; i++) { sumSq += data[i] * data[i]; count++; }
-        }
-        const rms = count > 0 ? Math.sqrt(sumSq / count) : 0;
-        return rms > 0.001 ? Math.min(target / rms, 6) : 1;
-    }
-    // Catalog entries retain URLs only; media elements stream the playing tracks.
-    function _createMusicSource() {
+    function _createMusicSource(descriptor) {
+        if (descriptor.synth) return window.LBMusicSynth.createSource(audioCtx, descriptor);
         const media = new Audio(); media.preload = 'metadata';
+        media.src = descriptor.url;
         const node = audioCtx.createMediaElementSource(media);
-        let descriptor = null, stopped = false, paused = false;
+        let stopped = false, paused = false;
         const source = {
             onended: null,
-            get buffer() { return descriptor; },
-            set buffer(value) { descriptor=value; media.src=value.url; },
             connect(target) { node.connect(target); },
             start(when=0, offset=0) {
                 const ready = () => {
                     if (stopped) return;
                     if (Number.isFinite(media.duration)) {
                         descriptor.duration=media.duration;
-                        if (_menuSourceNode === source || _gameSourceNode === source || _actionSourceNode === source) {
+                        if (_menuSourceNode === source || _gameSourceNode === source) {
                             _trackDuration=media.duration;
                             _currentTrackDuration30s=media.duration;
                         }
@@ -2372,42 +2259,6 @@
         media.onerror=() => { if (!stopped) console.error('Music load failed:',descriptor?.url); };
         return source;
     }
-    async function _loadAudioSet(tracks) {
-        const bufs = [], names = [], artists = [];
-        for (const track of tracks) {
-            const name = track.title || track.file.replace(/\.mp3$/i,'');
-            if (names.includes(name)) continue;
-            const artist = track.artist || '';
-            // Preserve synthesized fallback when a catalog file is unavailable, without downloading/decode.
-            try { if (!(await fetch('assets/music/'+track.file,{method:'HEAD'})).ok) continue; } catch (error) { continue; }
-            let entry = _trackPool.get(name);
-            if (!entry) {
-                entry = {buf:{url:'assets/music/'+track.file,duration:0},artist,ng:1};
-                _trackPool.set(name,entry);
-            }
-            bufs.push(entry.buf); names.push(name); artists.push(artist);
-        }
-        return {bufs,names,artists};
-    }
-    async function _loadMenuAudioFiles() {
-        if (!audioCtx) return;
-        const data = await _getMusicJson();
-        const { bufs, names, artists } = await _loadAudioSet(data.menu || []);
-        _menuAudioBuffers = bufs; _menuFileNames = names; _menuFileArtists = artists;
-    }
-    async function _loadGameAudioFiles() {
-        if (!audioCtx) return;
-        const data = await _getMusicJson();
-        const gameTracks = [...(data.game||[])];
-        const { bufs, names, artists } = await _loadAudioSet(gameTracks);
-        _gameAudioBuffers = bufs; _gameFileNames = names; _gameFileArtists = artists;
-    }
-    async function _loadActionAudioFiles() {
-        if (!audioCtx) return;
-        const data = await _getMusicJson();
-        const { bufs, names, artists } = await _loadAudioSet(data.action || []);
-        _actionAudioBuffers = bufs; _actionFileNames = names; _actionFileArtists = artists;
-    }
     function _fillMenuQueue(playlist, currentName) {
         const copy = [...playlist];
         for (let i = copy.length - 1; i > 0; i--) {
@@ -2419,112 +2270,68 @@
         _menuShuffleQueue.push(...copy);
     }
     function _playMenuFileTrack(idx) {
-        if (!musicPlaying || !audioCtx) return;
-        const playlist = saveData.menuPlaylist?.length ? saveData.menuPlaylist : _menuFileNames;
+        const playlist = _getPlaylist('menu');
         if (!playlist.length) return;
-        if (_menuSourceNode) { try { _menuSourceNode.onended = null; _menuSourceNode.stop(); } catch(e) {} _menuSourceNode = null; }
-        _musicPaused = false;
-        _trackPauseOffset = 0;
         const realIdx = ((idx % playlist.length) + playlist.length) % playlist.length;
         _currentMenuTrackIdx = realIdx;
-        const name = playlist[realIdx];
-        const entry = _trackPool.get(name) || (() => { const i = _menuFileNames.indexOf(name); return i >= 0 ? { buf: _menuAudioBuffers[i], artist: _menuFileArtists?.[i] || '' } : null; })();
-        if (!entry?.buf) { _playMenuFileTrack(realIdx + 1); return; }
-        const src = _createMusicSource();
-        src.buffer = entry.buf;
-        const _mng = audioCtx.createGain(); _mng.gain.value = entry.ng ?? _getNormGain(entry.buf);
-        src.connect(_mng); _mng.connect(masterGain);
+        _playMenuTrack(playlist[realIdx]);
+    }
+    function _playMenuTrack(name, offset = 0) {
+        const entry = _trackPool.get(name);
+        if (!musicPlaying || !audioCtx || !entry) return;
+        _menuSourceNode?.stop();
+        _musicPaused = false;
+        _trackPauseOffset = Math.max(0, Math.min(offset, (entry.buf.duration || Infinity) - 0.1));
+        const src = _createMusicSource(entry.buf);
+        src.connect(masterGain);
         src.onended = () => {
             if (!musicPlaying || _currentMode !== 'menu' || _musicPaused) return;
-            const pl = saveData.menuPlaylist?.length ? saveData.menuPlaylist : _menuFileNames;
+            const pl = _getPlaylist('menu');
+            _menuShuffleQueue = _menuShuffleQueue.filter(track => pl.includes(track));
             if (!_menuShuffleQueue.length) _fillMenuQueue(pl, name);
             const nextName = _menuShuffleQueue.shift();
             const nextIdx = pl.indexOf(nextName);
             _playMenuFileTrack(nextIdx >= 0 ? nextIdx : 0);
         };
-        src.start();
         _trackStartTime = audioCtx.currentTime;
         _trackDuration = entry.buf.duration;
         _menuSourceNode = src;
+        src.start(0, _trackPauseOffset);
         updateNowPlaying(name, entry.artist);
         if (!document.getElementById('playlist-overlay')?.classList.contains('hidden')) _renderPlaylistPanel();
     }
-    function _playGameFileTrack(idx) {
-        if (!musicPlaying || !audioCtx || !_gameAudioBuffers.length) return;
-        if (_gameSourceNode) { try { _gameSourceNode.stop(); } catch(e) {} _gameSourceNode = null; }
-        if (_actionSourceNode) { try { _actionSourceNode.stop(); } catch(e) {} _actionSourceNode = null; }
-        const realIdx = idx % _gameAudioBuffers.length;
-        _currentGameTrackIdx = realIdx;
-        const src = _createMusicSource();
-        src.buffer = _gameAudioBuffers[realIdx];
-        const _gng = audioCtx.createGain(); _gng.gain.value = _trackPool.get(_gameFileNames[realIdx])?.ng ?? _getNormGain(_gameAudioBuffers[realIdx]);
-        src.connect(_gng); _gng.connect(masterGain);
-        src.onended = () => {
-            if (!musicPlaying || _currentMode !== 'game') return;
-            _startGameMusicForCurrentSpeed();
-        };
-        src.start();
-        _gameSourceNode = src;
-        _trackDuration = src.buffer.duration;
-        updateNowPlaying(_gameFileNames[realIdx] || '');
-    }
-    function _playActionFileTrack(idx) {
-        if (!musicPlaying || !audioCtx || !_actionAudioBuffers.length) return;
-        if (_actionSourceNode) { try { _actionSourceNode.stop(); } catch(e) {} _actionSourceNode = null; }
-        if (_gameSourceNode) { try { _gameSourceNode.stop(); } catch(e) {} _gameSourceNode = null; }
-        const realIdx = idx % _actionAudioBuffers.length;
-        _currentActionTrackIdx = realIdx;
-        const src = _createMusicSource();
-        src.buffer = _actionAudioBuffers[realIdx];
-        const _ang = audioCtx.createGain(); _ang.gain.value = _trackPool.get(_actionFileNames[realIdx])?.ng ?? _getNormGain(_actionAudioBuffers[realIdx]);
-        src.connect(_ang); _ang.connect(masterGain);
-        src.onended = () => {
-            if (!musicPlaying || _currentMode !== 'game') return;
-            _startGameMusicForCurrentSpeed();
-        };
-        src.start();
-        _actionSourceNode = src;
-        _trackDuration = src.buffer.duration;
-        updateNowPlaying(_actionFileNames[realIdx] || '');
-    }
-    function _pickDiffIdx(current, length) {
-        if (length <= 1) return 0;
-        let idx; do { idx = Math.floor(Math.random() * length); } while (idx === current);
-        return idx;
-    }
     function _startGameMusicForCurrentSpeed() {
-        const hasGame = _gameAudioBuffers.length > 0;
-        const hasAction = _actionAudioBuffers.length > 0;
-        if (hasAction && hasGame) {
-            if (Math.random() < 0.38) _playActionFileTrack(_pickDiffIdx(_currentGameTrackIdx, _actionAudioBuffers.length));
-            else _playGameFileTrack(_pickDiffIdx(_currentGameTrackIdx, _gameAudioBuffers.length));
-        } else if (hasAction) _playActionFileTrack(_pickDiffIdx(_currentGameTrackIdx, _actionAudioBuffers.length));
-        else if (hasGame) _playGameFileTrack(_pickDiffIdx(_currentGameTrackIdx, _gameAudioBuffers.length));
-        else { _currentTracks = GAME_TRACKS; _currentTrack = _pickDiffIdx(_currentTrack, GAME_TRACKS.length); _scheduleTrack(_currentTrack); }
+        if (!musicPlaying || !audioCtx || _currentMode !== 'game') return;
+        const game = _getPlaylist('game');
+        const intense = _getPlaylist('action');
+        const playlist = intense.length && (!game.length || Math.random() < 0.38) ? intense : game;
+        if (!playlist.length) return;
+        const choices = playlist.length > 1 ? playlist.filter(name => name !== _nowPlayingName) : playlist;
+        const name = choices[Math.floor(Math.random() * choices.length)];
+        const entry = _trackPool.get(name);
+        _gameSourceNode?.stop();
+        const src = _createMusicSource(entry.buf);
+        src.connect(masterGain);
+        src.onended = () => {
+            if (_gameSourceNode === src) _startGameMusicForCurrentSpeed();
+        };
+        _gameSourceNode = src;
+        _trackStartTime = audioCtx.currentTime;
+        _trackDuration = entry.buf.duration;
+        src.start();
+        updateNowPlaying(name, entry.artist);
     }
     async function _startMenuMusic() {
-        if (!_menuAudioBuffers.length) {
-            await _loadMenuAudioFiles();
-        }
-        if (_currentMode !== 'menu' || !musicPlaying) return;
-        if (_menuAudioBuffers.length > 0) {
-            const pl = saveData.menuPlaylist?.length ? saveData.menuPlaylist : _menuFileNames;
-            _menuShuffleQueue = [];
-            _fillMenuQueue(pl, '');
-            const firstIdx = pl.indexOf(_menuShuffleQueue.shift());
-            _playMenuFileTrack(firstIdx >= 0 ? firstIdx : 0);
-        } else {
-            _currentTracks = MENU_TRACKS;
-            _currentTrack = Math.floor(Math.random() * MENU_TRACKS.length);
-            _scheduleTrack(_currentTrack);
-        }
+        await _initTrackCatalog();
+        if (_currentMode !== 'menu' || !musicPlaying || _menuSourceNode || _musicPaused) return;
+        const pl = _getPlaylist('menu');
+        _menuShuffleQueue = [];
+        _fillMenuQueue(pl, '');
+        _playMenuFileTrack(pl.indexOf(_menuShuffleQueue.shift()));
     }
     function startMusic(mode = 'menu') {
         if (musicPlaying) return;
         initAudio();
-        // Preload all audio sets in background so settings music panel is ready immediately
-        if (!_gameAudioBuffers.length) _loadGameAudioFiles();
-        if (!_actionAudioBuffers.length) _loadActionAudioFiles();
         if (audioCtx.state === 'suspended') audioCtx.resume();
         musicPlaying = true;
         // Sync mute icons with actual settings.musicVol
@@ -2535,22 +2342,16 @@
         if (_mwMute) _mwMute.innerHTML = _muteIco;
         const _plMwMute = document.getElementById('pl-mw-mute');
         if (_plMwMute) _plMwMute.innerHTML = (_isMuted ? _SVG_MUTED : _SVG_VOL).replace('width="14"','width="11"').replace('height="14"','height="11"');
-        _currentMode = mode;
-        if (mode === 'menu') {
-            _startMenuMusic();
-        } else {
-            _currentTracks = GAME_TRACKS;
-            _currentTrack = Math.floor(Math.random() * GAME_TRACKS.length);
-            _scheduleTrack(_currentTrack);
-        }
+        switchMusicMode(mode);
     }
-    async function switchMusicMode(mode) {
-        clearTimeout(musicTimeout);
-        _activeOscillators.forEach(o => { try { o.stop(0); } catch(e) {} });
-        _activeOscillators = [];
+    function _stopMusicSources() {
         if (_menuSourceNode) { try { _menuSourceNode.stop(); } catch(e) {} _menuSourceNode = null; }
         if (_gameSourceNode) { try { _gameSourceNode.stop(); } catch(e) {} _gameSourceNode = null; }
-        if (_actionSourceNode) { try { _actionSourceNode.stop(); } catch(e) {} _actionSourceNode = null; }
+        _musicPaused = false;
+        _trackPauseOffset = _trackStartTime = _trackDuration = 0;
+    }
+    async function switchMusicMode(mode) {
+        _stopMusicSources();
         _currentMode = mode;
         _menuShuffleQueue = [];
         updateNowPlaying('');
@@ -2558,12 +2359,11 @@
         if (mode === 'menu') {
             _startMenuMusic();
         } else {
-            if (!_gameAudioBuffers.length) await _loadGameAudioFiles();
-            if (!_actionAudioBuffers.length) await _loadActionAudioFiles();
-            if (_currentMode !== 'game' || !musicPlaying) return;
+            await _initTrackCatalog();
+            if (_currentMode !== 'game' || !musicPlaying || _gameSourceNode) return;
             _startGameMusicForCurrentSpeed();
             if (audioCtx && masterGain) {
-                const targetVol = settings.musicVol / 100 * 0.2;
+                const targetVol = _musicMuted ? 0 : settings.musicVol / 100 * 0.2;
                 masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
                 masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
                 masterGain.gain.linearRampToValueAtTime(targetVol, audioCtx.currentTime + 1.5);
@@ -2571,22 +2371,17 @@
         }
     }
     function stopMusic() {
-        musicPlaying = false; clearTimeout(musicTimeout);
-        _activeOscillators.forEach(o => { try { o.stop(0); } catch(e) {} });
-        _activeOscillators = [];
-        if (_menuSourceNode) { try { _menuSourceNode.stop(); } catch(e) {} _menuSourceNode = null; }
-        if (_gameSourceNode) { try { _gameSourceNode.stop(); } catch(e) {} _gameSourceNode = null; }
-        if (_actionSourceNode) { try { _actionSourceNode.stop(); } catch(e) {} _actionSourceNode = null; }
-        _menuAudioBuffers = [];
+        musicPlaying = false;
+        _stopMusicSources();
         if (audioCtx) { audioCtx.close().catch(()=>{}); audioCtx = null; masterGain = null; sfxGain = null; }
     }
     function pauseMusic() {
-        [_menuSourceNode,_gameSourceNode,_actionSourceNode].forEach(source=>source?.pause?.());
+        [_menuSourceNode,_gameSourceNode].forEach(source=>source?.pause());
         if (audioCtx && audioCtx.state==='running') audioCtx.suspend();
     }
     function resumeMusic() {
         if (audioCtx && audioCtx.state==='suspended') audioCtx.resume();
-        [_menuSourceNode,_gameSourceNode,_actionSourceNode].forEach(source=>source?.resume?.());
+        [_menuSourceNode,_gameSourceNode].forEach(source=>source?.resume());
     }
     // === END MUSIC SYSTEM ===
 
@@ -2614,13 +2409,44 @@
         }
     }
 
-    async function _initTrackCatalog() {
-        const data = await _getMusicJson();
-        const tracks = [...(data.menu||[]), ...(data.game||[])];
-        tracks.forEach(t => {
-            const name = t.title || t.file.replace(/\.mp3$/i,'');
-            if (!_trackCatalog.has(name)) _trackCatalog.set(name, { artist: t.artist || '', tags: t.tags || [] });
-        });
+    async function _readMusicCatalog(path) {
+        try {
+            const response = await fetch(path);
+            return response.ok ? (await response.json()) || {} : {};
+        } catch (error) { return {}; }
+    }
+
+    async function _registerTracks(tracks) {
+        const names = await Promise.all(tracks.map(async track => {
+            const synth = window.LBMusicSynth?.getTrack(track.synth);
+            let buf;
+            if (synth) buf = { synth, duration: synth.duration };
+            else if (track.file) {
+                const url = 'assets/music/' + encodeURIComponent(track.file);
+                try {
+                    const response = await fetch(url, { method: 'HEAD' });
+                    if (response.ok && !response.headers?.get('content-type')?.startsWith('text/html')) buf = { url, duration: 0 };
+                } catch (error) {}
+            }
+            if (!buf) return null;
+            const name = track.title || track.file?.replace(/\.mp3$/i, '');
+            if (name && !_trackPool.has(name)) _trackPool.set(name, { buf, artist: track.artist || '', tags: track.tags || [] });
+            return name;
+        }));
+        return [...new Set(names.filter(Boolean))];
+    }
+
+    function _initTrackCatalog() {
+        return _musicCatalogPromise ||= (async () => {
+            const local = await _readMusicCatalog('assets/music.json');
+            const hasSynth = Object.values(local).some(tracks => Array.isArray(tracks) && tracks.some(track => track.synth));
+            const original = hasSynth ? {} : await _readMusicCatalog('assets/music.release.json');
+            [_menuFileNames, _gameFileNames, _actionFileNames] = await Promise.all([
+                _registerTracks([...(original.menu || []), ...(local.menu || [])]),
+                _registerTracks([...(original.game || []), ...(local.game || [])]),
+                _registerTracks([...(original.intense || []), ...(local.intense || []), ...(local.action || [])])
+            ]);
+        })();
     }
 
     async function loadData() {
@@ -9073,12 +8899,8 @@
         try {
         const _gcGO = document.getElementById('game-container');
         if (_gcGO) _gcGO.style.transform = '';
-        musicPlaying = false; clearTimeout(musicTimeout);
-        _activeOscillators.forEach(o => { try { o.stop(0); } catch(e) {} });
-        _activeOscillators = [];
-        if (_menuSourceNode) { try { _menuSourceNode.stop(); } catch(e) {} _menuSourceNode = null; }
-        if (_gameSourceNode) { try { _gameSourceNode.stop(); } catch(e) {} _gameSourceNode = null; }
-        if (_actionSourceNode) { try { _actionSourceNode.stop(); } catch(e) {} _actionSourceNode = null; }
+        musicPlaying = false;
+        _stopMusicSources();
         updateNowPlaying('');
         setTimeout(()=>playSFX('gameover'), 200);
 
@@ -9512,7 +9334,7 @@
             randomizePlayButton();
         });
         if (audioCtx && masterGain) {
-            const targetVol = settings.musicVol / 100 * 0.2;
+            const targetVol = _musicMuted ? 0 : settings.musicVol / 100 * 0.2;
             masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
             masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime);
             masterGain.gain.linearRampToValueAtTime(targetVol, audioCtx.currentTime + 0.8);
@@ -9755,7 +9577,7 @@
         if (artistEl) artistEl.textContent = _nowPlayingArtist ? 'by ' + _nowPlayingArtist : '';
         const elapsed = _musicPaused
             ? _trackPauseOffset
-            : (audioCtx && _trackStartTime > 0 ? Math.min(audioCtx.currentTime - _trackStartTime + _trackPauseOffset, _trackDuration || 0) : 0);
+            : (audioCtx ? Math.min(audioCtx.currentTime - _trackStartTime + _trackPauseOffset, _trackDuration || 0) : 0);
         const dur = _trackDuration || 0;
         const elEl = document.getElementById('mw-elapsed');
         const totEl = document.getElementById('mw-total');
@@ -9801,76 +9623,33 @@
         if (plMute) plMute.innerHTML = (_isMutedNow ? _SVG_MUTED : _SVG_VOL).replace('width="14"','width="11"').replace('height="14"','height="11"');
     }
     window.musicWidgetPrev = function() {
-        if (_currentMode !== 'menu' || !_menuAudioBuffers.length) return;
+        if (_currentMode !== 'menu' || !musicPlaying) return;
         _menuShuffleQueue = [];
-        _playMenuFileTrack((_currentMenuTrackIdx - 1 + _menuAudioBuffers.length) % _menuAudioBuffers.length);
+        _playMenuFileTrack(_currentMenuTrackIdx - 1);
     };
     window.musicWidgetNext = function() {
-        if (_currentMode !== 'menu' || !_menuAudioBuffers.length) return;
+        if (_currentMode !== 'menu' || !musicPlaying) return;
         _menuShuffleQueue = [];
-        _playMenuFileTrack((_currentMenuTrackIdx + 1) % _menuAudioBuffers.length);
+        _playMenuFileTrack(_currentMenuTrackIdx + 1);
     };
     window.musicWidgetPause = function() {
-        if (!audioCtx || _currentMode !== 'menu') return;
+        if (!audioCtx || !musicPlaying || !_nowPlayingName || _currentMode !== 'menu') return;
         if (!_musicPaused) {
-            if (_trackStartTime > 0) {
-                _trackPauseOffset = Math.min(audioCtx.currentTime - _trackStartTime + _trackPauseOffset, Math.max(0, _trackDuration - 0.1));
-            }
-            if (_menuSourceNode) { try { _menuSourceNode.onended = null; _menuSourceNode.stop(); } catch(e) {} _menuSourceNode = null; }
+            _trackPauseOffset = Math.min(audioCtx.currentTime - _trackStartTime + _trackPauseOffset, Math.max(0, _trackDuration - 0.1));
+            _menuSourceNode?.stop();
+            _menuSourceNode = null;
             _musicPaused = true;
+            _updateMusicWidget();
         } else {
-            _musicPaused = false;
-            const playlist = saveData.menuPlaylist?.length ? saveData.menuPlaylist : _menuFileNames;
-            if (!musicPlaying || !playlist.length) return;
-            const name = playlist[_currentMenuTrackIdx] || playlist[0];
-            const entry = _trackPool.get(name) || (() => { const i = _menuFileNames.indexOf(name); return i >= 0 ? { buf: _menuAudioBuffers[i], artist: _menuFileArtists?.[i]||'' } : null; })();
-            if (!entry?.buf) { _musicPaused = false; _updateMusicWidget(); return; }
-            const src = _createMusicSource();
-            src.buffer = entry.buf;
-            src.connect(masterGain);
-            const offset = Math.min(_trackPauseOffset, (entry.buf.duration || Infinity) - 0.1);
-            src.onended = () => {
-                if (!musicPlaying || _currentMode !== 'menu' || _musicPaused) return;
-                _trackPauseOffset = 0;
-                const pl2 = saveData.menuPlaylist?.length ? saveData.menuPlaylist : _menuFileNames;
-                if (!_menuShuffleQueue.length) _fillMenuQueue(pl2, name);
-                const nx = _menuShuffleQueue.shift();
-                _playMenuFileTrack(pl2.indexOf(nx) >= 0 ? pl2.indexOf(nx) : 0);
-            };
-            src.start(0, Math.max(0, offset));
-            _trackStartTime = audioCtx.currentTime;
-            _menuSourceNode = src;
+            _playMenuTrack(_nowPlayingName, _trackPauseOffset);
         }
-        _updateMusicWidget();
     };
     window.musicWidgetSeek = function(e, el) {
         if (!audioCtx || !_trackDuration || _currentMode !== 'menu') return;
         const rect = el.getBoundingClientRect();
+        if (!rect.width) return;
         const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        const seekTo = frac * _trackDuration;
-        if (_menuSourceNode) { try { _menuSourceNode.onended = null; _menuSourceNode.stop(); } catch(e2) {} _menuSourceNode = null; }
-        _musicPaused = false;
-        _trackPauseOffset = seekTo;
-        if (!musicPlaying) { _updateMusicWidget(); return; }
-        const name = _nowPlayingName;
-        if (!name) { _updateMusicWidget(); return; }
-        const entry = _trackPool.get(name) || (() => { const i = _menuFileNames.indexOf(name); return i >= 0 ? { buf: _menuAudioBuffers[i], artist: _menuFileArtists?.[i]||'' } : null; })();
-        if (!entry?.buf) { _updateMusicWidget(); return; }
-        const src = _createMusicSource();
-        src.buffer = entry.buf;
-        src.connect(masterGain);
-        src.onended = () => {
-            if (!musicPlaying || _currentMode !== 'menu' || _musicPaused) return;
-            _trackPauseOffset = 0;
-            const pl3 = saveData.menuPlaylist?.length ? saveData.menuPlaylist : _menuFileNames;
-            if (!_menuShuffleQueue.length) _fillMenuQueue(pl3, name);
-            const nxt = _menuShuffleQueue.shift();
-            _playMenuFileTrack(pl3.indexOf(nxt) >= 0 ? pl3.indexOf(nxt) : 0);
-        };
-        src.start(0, Math.max(0, Math.min(seekTo, (entry.buf.duration || Infinity) - 0.1)));
-        _trackStartTime = audioCtx.currentTime;
-        _menuSourceNode = src;
-        _updateMusicWidget();
+        _playMenuTrack(_nowPlayingName, frac * _trackDuration);
     };
     function skipSong() { /* song skipping disabled */ }
 
@@ -9907,23 +9686,17 @@
 
 
     function _getPlaylist(ctx) {
-        const key = ctx + 'Playlist';
-        if (saveData[key]?.length) return saveData[key];
-        if (ctx === 'action') return []; // action tracks default to disabled
-        // Use decoded names if available, otherwise fall back to catalog names filtered by section
-        const decoded = ctx === 'menu' ? _menuFileNames : _gameFileNames;
-        if (decoded.length) return decoded.slice();
-        // Catalog fallback: return all catalog names that belong to this section (based on music.json)
-        if (_musicJsonData) {
-            const section = _musicJsonData[ctx] || [];
-            return section.map(t => t.title || t.file.replace(/\.mp3$/i,'')).filter(n => _trackCatalog.has(n));
+        const saved = saveData[ctx + 'Playlist'];
+        if (Array.isArray(saved)) {
+            const playable = [...new Set(saved.filter(name => _trackPool.has(name)))];
+            if (playable.length || (ctx === 'action' && !saved.length)) return playable;
         }
-        return [];
+        return ctx === 'menu' ? _menuFileNames : ctx === 'game' ? _gameFileNames : _actionFileNames;
     }
     function _renderMusicTrackContent() {
         const el = document.getElementById('mt-content');
         if (!el) return;
-        if (_trackCatalog.size === 0) {
+        if (_trackPool.size === 0) {
             el.innerHTML = `<div style="font-size:0.6rem;color:#555;padding:12px 2px;font-style:italic;">Loading tracks…</div>`;
             return;
         }
@@ -9932,9 +9705,9 @@
         const menuPlaylist = _getPlaylist('menu');
         const gamePlaylist = _getPlaylist('game');
         const actionPlaylist = _getPlaylist('action');
-        const allNames = [..._trackCatalog.keys()];
+        const allNames = [..._trackPool.keys()];
         const rows = allNames.map(name => {
-            const entry = _trackPool.get(name) || _trackCatalog.get(name) || {};
+            const entry = _trackPool.get(name);
             const artist = entry.artist || '';
             const isPlaying = name === _nowPlayingName;
             const isAction = _actionFileNames.includes(name);
@@ -9958,11 +9731,7 @@
     window.switchMusicTab = function() {}; // no-op: tabs removed
     window.moveTrack = function(ctx, name, toOn) {
         const key = ctx + 'Playlist';
-        if (!saveData[key]?.length && ctx !== 'action') {
-            const current = _getPlaylist(ctx);
-            if (current.length) saveData[key] = current.slice();
-        }
-        if (!saveData[key]) saveData[key] = [];
+        saveData[key] = _getPlaylist(ctx).slice();
         if (toOn) {
             if (!saveData[key].includes(name)) saveData[key].push(name);
         } else {
@@ -9972,7 +9741,7 @@
                 saveData[key] = def.slice();
             }
             if (ctx === 'menu' && _nowPlayingName === name && _currentMode === 'menu') {
-                _playMenuFileTrack((_currentMenuTrackIdx + 1) % saveData[key].length);
+                _playMenuFileTrack(_currentMenuTrackIdx);
             }
         }
         saveDataToFile();
@@ -11460,8 +11229,7 @@
 
     // ===== PLAYLIST PANEL =====
     function openPlaylistPanel() {
-        if (!_gameAudioBuffers.length) _loadGameAudioFiles().then(_renderPlaylistPanel);
-        if (!_actionAudioBuffers.length) _loadActionAudioFiles().then(_renderPlaylistPanel);
+        _initTrackCatalog().then(_renderPlaylistPanel);
         _renderPlaylistPanel();
         const _plEl = document.getElementById('playlist-overlay');
         _plEl.classList.remove('hidden');
@@ -11475,7 +11243,7 @@
     function _renderPlaylistPanel() {
         const el = document.getElementById('playlist-panel-content');
         if (!el) return;
-        if (_trackCatalog.size === 0) {
+        if (_trackPool.size === 0) {
             el.innerHTML = `<div style="font-size:0.6rem;color:#555;padding:20px 2px;font-style:italic;">Loading tracks…</div>`;
             return;
         }
@@ -11484,7 +11252,7 @@
         const menuPlaylist = _getPlaylist('menu');
         const gamePlaylist = _getPlaylist('game');
         const actionPlaylist = _getPlaylist('action');
-        const allNames = [..._trackCatalog.keys()].sort((a, b) => a.localeCompare(b));
+        const allNames = [..._trackPool.keys()].sort((a, b) => a.localeCompare(b));
         const TAG_COLORS = { chill:'#4488cc', electronic:'#44bb88', retro:'#cc8844', intense:'#cc4444', upbeat:'#aa44cc' };
         // Fixed column widths so header and rows always align
         const COL = 'grid-template-columns:1fr 44px 44px 130px;';
@@ -11502,9 +11270,9 @@
             <button onclick="window.resetPlaylist()" style="position:absolute;right:0;top:calc(50% - 4px);transform:translateY(-50%);font-size:0.55rem;padding:3px 9px;background:rgba(255,60,60,0.08);border:1px solid rgba(255,60,60,0.35);border-radius:5px;color:#ff6666;cursor:pointer;font-family:inherit;white-space:nowrap;">↺ Reset</button>
         </div>`;
         const rows = allNames.map(name => {
-            const entry = _trackPool.get(name) || _trackCatalog.get(name) || {};
+            const entry = _trackPool.get(name);
             const artist = entry.artist || '';
-            const tags = entry.tags || _trackCatalog.get(name)?.tags || [];
+            const tags = entry.tags;
             const isPlaying = name === _nowPlayingName;
             const isAction = _actionFileNames.includes(name) || (tags.includes('action') && !_menuFileNames.includes(name) && !_gameFileNames.includes(name));
             const menuOn = menuPlaylist.includes(name);
@@ -11544,47 +11312,14 @@
     window.openPlaylistPanel = openPlaylistPanel;
     window.closePlaylistPanel = closePlaylistPanel;
     window.playTrackInPlaylist = function(name) {
-        if (!audioCtx || _currentMode !== 'menu') return;
-        if (!musicPlaying) { musicPlaying = true; }
-        if (_musicPaused) { if (audioCtx.state === 'suspended') audioCtx.resume(); _musicPaused = false; }
-        let buf, artist;
-        const poolEntry = _trackPool.get(name);
-        if (poolEntry?.buf) { buf = poolEntry.buf; artist = poolEntry.artist || ''; }
-        else {
-            const mi = _menuFileNames.indexOf(name);
-            if (mi >= 0) { buf = _menuAudioBuffers[mi]; artist = _menuFileArtists?.[mi] || ''; }
-            else {
-                const gi = _gameFileNames.indexOf(name);
-                if (gi >= 0) { buf = _gameAudioBuffers[gi]; artist = _gameFileArtists?.[gi] || ''; }
-                else {
-                    const ai = _actionFileNames.indexOf(name);
-                    if (ai >= 0) { buf = _actionAudioBuffers[ai]; artist = _actionFileArtists?.[ai] || ''; }
-                }
-            }
-        }
-        if (!buf) return;
-        if (_menuSourceNode) { try { _menuSourceNode.onended = null; _menuSourceNode.stop(); } catch(e) {} _menuSourceNode = null; }
-        _trackPauseOffset = 0;
-        const playlist = saveData.menuPlaylist?.length ? saveData.menuPlaylist : _menuFileNames;
-        const idx = playlist.indexOf(name);
+        if (_currentMode !== 'menu' || !_trackPool.has(name)) return;
+        initAudio();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        musicPlaying = true;
+        const idx = _getPlaylist('menu').indexOf(name);
         if (idx >= 0) _currentMenuTrackIdx = idx;
         _menuShuffleQueue = [];
-        const src = _createMusicSource();
-        src.buffer = buf;
-        src.connect(masterGain);
-        src.onended = () => {
-            if (!musicPlaying || _currentMode !== 'menu' || _musicPaused) return;
-            const pl = saveData.menuPlaylist?.length ? saveData.menuPlaylist : _menuFileNames;
-            if (!_menuShuffleQueue.length) _fillMenuQueue(pl, name);
-            const nx = _menuShuffleQueue.shift();
-            _playMenuFileTrack(pl.indexOf(nx) >= 0 ? pl.indexOf(nx) : 0);
-        };
-        src.start();
-        _trackStartTime = audioCtx.currentTime;
-        _trackDuration = buf.duration;
-        _menuSourceNode = src;
-        updateNowPlaying(name, artist);
-        _renderPlaylistPanel();
+        _playMenuTrack(name);
     };
     window.resetPlaylist = function() {
         delete saveData.menuPlaylist;

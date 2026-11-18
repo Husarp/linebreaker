@@ -15,8 +15,8 @@ generated in android/app/src/main/res. Replace them before release.
 Run npm install, then npm run android:sync (build:web followed by cap sync android).
 npm run android:open opens Android Studio. build:web recreates dist-web/ from
 the game, desktop/native adapters, touch.js/css, ui/tokens.css, all bundled fonts
-(including Inter), assets/music.json and locally present music MP3s. Both Capacitor
-and Tauri use this single build:web output. Missing licensed audio is not downloaded.
+(including Inter), and the original synth soundtrack, not local MP3s. Both Capacitor
+and Tauri use this single build:web output. See [Music](MUSIC.md) for audio packaging.
 
 Set ANDROID_HOME=/home/coder/android-sdk here, or set sdk.dir in the ignored
 android/local.properties. Keep local paths, build outputs and signing keys out

@@ -237,7 +237,7 @@ Przechowuje wszystkie wyniki z normalnych gier. Wyświetla top 50 z podium (top 
 
 ### Muzyka i dźwięk
 
-Trzy kategorie w `assets/music.json`: `menu`, `game`, `intense` (intense wymaga odblokowania Intense Pack).
+Oryginalna ścieżka syntezowana: `menu`, `game` i `intense`. Kompilacja wydania używa `assets/music.release.json` i nie zawiera lokalnych MP3. Zobacz [dokumentację muzyki](docs/MUSIC.md).
 
 **SFX:** 11 syntezowanych dźwięków (Web Audio API): clear, drop, levelup, click, gameover, unlock, gift, booster, achievement, rankup, newrank.
 
