@@ -13,7 +13,7 @@
     const keyGroups = [
         ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'levelRewardsThrough', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
         ['parts', 'universalParts', 'boosters', 'boxes', 'ghostColorUnlocked', 'ownedSkins', 'ownedThemes', 'ownedBtnStyles', 'ownedGridStyles', 'ownedSfxPacks', 'ownedPalettes', 'customPaletteOverrides', 'customPickerColors', 'customThemeColor', '_cpmBaseColor', '_cpmMode', 'menuPlaylist', 'gamePlaylist', 'actionPlaylist'],
-        ['missions'], ['achievements', 'pendingAchievementClaims'], ['stats'], scoreKeys,
+        ['missions'], ['season', 'lastSeenTime', 'seasonBlockedUntil'], ['achievements', 'pendingAchievementClaims'], ['stats'], scoreKeys,
     ];
     const saveKeys = keyGroups.flat();
     const day = v => String(v).padStart(2, '0');
@@ -201,6 +201,9 @@
             id: claim.id, name: string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common', xp: number(claim.xp, 0, 100000),
             ...(claim.tierNum ? { tierNum: Math.floor(number(claim.tierNum, 0, 100)) } : {}),
         }));
+        out.season = window.LBSeason.sanitizeSeason(data.season);
+        out.lastSeenTime = window.LBSeason.timestamp(data.lastSeenTime);
+        out.seasonBlockedUntil = window.LBSeason.timestamp(data.seasonBlockedUntil);
         out.missions = null;
         if (object(data.missions)) {
             const missionDefaults = definitions.missionDefaults || {

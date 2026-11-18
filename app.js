@@ -15,9 +15,10 @@
     })();
     const DEFAULT_BLOCK_SKIN = 'retro';
     const SKIN_CATALOG_VERSION = 1;
-    const IMAGE_SKINS = new Map(window.LBImageSkins.map(skin => [skin.key, skin]));
+    const seasonPass = window.LBSeason;
+    const IMAGE_SKINS = new Map([...window.LBImageSkins, seasonPass.exclusiveSkin].map(skin => [skin.key, skin]));
     const SKIN_NAMES = { retro:'Retro', glass:'Glass', shadow:'Shadow', outline:'Outline', holo:'Holo', journey:'Journey', bubble:'Bubble',
-        ...Object.fromEntries(window.LBImageSkins.map(({ key, name }) => [key, name])) };
+        ...Object.fromEntries([...IMAGE_SKINS.values()].map(({ key, name }) => [key, name])) };
     const REMOVED_SKINS = new Set(['holo-foil','lava','nebula','wood-inlay','neon-tube','neon','gem','gameboy','monochrome','modern','candy','vim','aerolab','classic','window',
         'matrix','gold','golddragon','circuit','marble','fire','toxic','ice','flat','glossy','metal','puffy','bordered','gloss2k','lumines','minimal']);
     const BG_BLOCK_SKINS = ['glass','shadow','retro','outline'];
@@ -799,7 +800,7 @@
 
     let saveData = {}; let gainedXPThisRound = 0; let _boosterUsedThisRound = false; let _leveledUpThisGame = false;
     let _gameInProgress = false; // true between startGame and gameOver — blocks mid-game file saves
-    const defaultSaveData = { schemaVersion: LBSave.version, totalXP: 0, parts: {}, universalParts: 0, ownedSkins: [DEFAULT_BLOCK_SKIN], skinCatalogVersion: SKIN_CATALOG_VERSION, ownedThemes: [], ownedBtnStyles: [], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, pendingLevelBox: null, missions: null, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, dailyStreak: 0, highestDailyStreak: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
+    const defaultSaveData = { schemaVersion: LBSave.version, totalXP: 0, parts: {}, universalParts: 0, ownedSkins: [DEFAULT_BLOCK_SKIN], skinCatalogVersion: SKIN_CATALOG_VERSION, ownedThemes: [], ownedBtnStyles: [], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, pendingLevelBox: null, missions: null, season: seasonPass.emptySeason(), lastSeenTime: 0, seasonBlockedUntil: 0, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, dailyStreak: 0, highestDailyStreak: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
 
     // --- FILE SYSTEM ACCESS API ---
     const _nativeAdapter = window.Capacitor?.isNativePlatform()
@@ -2321,9 +2322,11 @@
             const refund = removed.reduce((total, key) => total + Math.max(1, Math.floor((ITEM_PART_COST[key] || 10) / 10)), 0);
             if (refund) addUniversalParts(refund);
             if (legacyLavaParts) delete saveData.parts.lava;
-            skinSettingsChanged = legacyLavaParts || resetSkin || !_skinAvailable(settings.skin)
+            const unavailableSkin = !_skinAvailable(settings.skin)
+                || (IMAGE_SKINS.get(settings.skin)?.exclusive && !saveData.ownedSkins.includes(settings.skin));
+            skinSettingsChanged = legacyLavaParts || resetSkin || unavailableSkin
                 || settings.blockShape !== 'square' || (originalFileShape != null && originalFileShape !== 'square');
-            if (resetSkin || !_skinAvailable(settings.skin)) settings.skin = DEFAULT_BLOCK_SKIN;
+            if (resetSkin || unavailableSkin) settings.skin = DEFAULT_BLOCK_SKIN;
             settings.blockShape = 'square';
             if (fileSettings && resetSkin) fileSettings.skin = DEFAULT_BLOCK_SKIN;
             saveData.ownedSkins = [...new Set([DEFAULT_BLOCK_SKIN,
@@ -2381,6 +2384,7 @@
             if (!saveData.achievements) saveData.achievements = {};
         }
         checkTimeManipulation();
+        seasonPass.observe(saveData);
         setTimeout(_checkGlowNotifications, 100);
         _checkMissionsRefresh();
             _reminders?.refresh();
@@ -2509,6 +2513,7 @@
 
     function saveDataToFile() {
         if (_gameInProgress) return; // defer saves until game over — keeps score and achievements in sync
+        seasonPass.observe(saveData);
         return writeSaveFile({ ...saveData, _settings: { ...settings } });
     }
 
@@ -2537,9 +2542,9 @@
         if (!el) return;
         el.style.display = 'none';
     }
-    function addBoosterToSave(type) {
+    function addBoosterToSave(type, amount = 1) {
         if (!saveData.boosters) saveData.boosters = {};
-        saveData.boosters[type] = (saveData.boosters[type] || 0) + 1;
+        saveData.boosters[type] = (saveData.boosters[type] || 0) + amount;
     }
 
     const ITEM_PART_COST = { ghostColor: 20, boxes: 10, dots: 5, dotboxes: 15, sfxCyber: 30, sfxRetro: 15, sfxZen: 30, sfxArcade: 20, pastel: 10, neon: 15, dark: 10, greyscale: 5, synthwave: 10, earth: 10, ice: 5 };
@@ -2547,7 +2552,7 @@
 
     function _getAllPartsItems() {
         const items = [];
-        Object.keys(SKIN_NAMES).forEach(k => { if (!(saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).includes(k)) items.push({cat:'skin',key:k}); });
+        Object.keys(SKIN_NAMES).forEach(k => { if (!IMAGE_SKINS.get(k)?.exclusive && !(saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).includes(k)) items.push({cat:'skin',key:k}); });
         const themeNames = ['ocean','forest','fire','dragon','void','sunset','arctic','midnight','sakura'];
         themeNames.forEach(k => { if (!(saveData.ownedThemes||[]).includes(k)) items.push({cat:'theme',key:k}); });
         // Fonts are tied to style packs — not separately unlockable via parts
@@ -2627,7 +2632,7 @@
         if (saveData.parts) delete saveData.parts[key];
     }
     function playerUnlockItem(cat, key) {
-        if (cat === 'skin' && !_skinAvailable(key)) return;
+        if (cat === 'skin' && (!_skinAvailable(key) || IMAGE_SKINS.get(key)?.exclusive)) return;
         const partsHave = saveData.parts?.[key] || 0;
         if (partsHave < _getItemCost(key)) return;
         giveItemDirectly(cat, key);
@@ -3896,7 +3901,7 @@
         const ownedSkinContainer = document.getElementById('owned-skin-btns');
         if (ownedSkinContainer) {
             const skinNames = SKIN_NAMES;
-            const allSkinKeys = Object.keys(skinNames);
+            const allSkinKeys = Object.keys(skinNames).filter(key => !IMAGE_SKINS.get(key)?.exclusive || saveData.ownedSkins?.includes(key));
             const ownedSkins = allSkinKeys.filter(key => (saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).includes(key));
             const skinCountEl = document.getElementById('skin-owned-count');
             if (skinCountEl) skinCountEl.innerText = `(${ownedSkins.length}/${allSkinKeys.length})`;
@@ -7430,7 +7435,7 @@
                 image.onerror = () => resolve(false);
             });
             _skinAtlases.set(skin, atlas);
-            image.src = `assets/skins/${metadata.file}`;
+            image.src = metadata.asset || `assets/skins/${metadata.file}`;
         }
         return _skinAtlases.get(skin);
     }
@@ -10207,6 +10212,25 @@
     };
     window.renderMissionsOverlay = renderMissionsOverlay;
 
+    window.LBSeasonUI.mount({
+        getSave: () => saveData,
+        save: saveDataToFile,
+        partName: _partItemName,
+        boosterName: key => BOOSTER_INFO[key]?.label || key,
+        inventory: () => ({
+            parts: _getAllPartsItems().map(({ key }) => ({ key, remaining: _getItemCost(key) - (saveData.parts?.[key] || 0) })),
+            boosters: Object.keys(BOOSTER_INFO),
+            skins: [seasonPass.exclusiveSkin.key],
+            ownedSkins: saveData.ownedSkins || [],
+        }),
+        grant({ type, key, amount }) {
+            if (type === 'parts') addPartsToItem(key, amount);
+            if (type === 'universal_parts') addUniversalParts(amount);
+            if (type === 'booster') addBoosterToSave(key, amount);
+            if (type === 'skin') giveItemDirectly('skin', key);
+        },
+    });
+
     function _mqConfirm(title, msg, note, onOk) {
         const ov = document.getElementById('mq-confirm-overlay');
         if (!ov) { onOk(); return; }
@@ -10357,6 +10381,7 @@
         if (!q || !q.completed || q.ptsClaimed) return;
         q.ptsClaimed = true;
         const pts = q.pts;
+        seasonPass.creditMissionPoints(saveData, pts);
         if (isWeekly) {
             m.weekly.points = (m.weekly.points || 0) + pts;
         } else {

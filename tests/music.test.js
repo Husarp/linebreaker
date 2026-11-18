@@ -121,6 +121,7 @@ it('does not ship local MP3s or catalogue entries without the private build flag
     mkdirSync(path('assets/music'), { recursive: true });
     mkdirSync(path('assets/fonts'));
     cpSync(new URL('../assets/skins', import.meta.url), path('assets/skins'), { recursive: true });
+    cpSync(new URL('../assets/ui', import.meta.url), path('assets/ui'), { recursive: true });
     mkdirSync(path('ui'));
     mkdirSync(path('data'));
     for (const file of ['index.html', 'app.js', 'music-synth.js', 'style.css', 'desktop.js', 'native-save.js', 'touch.js', 'touch.css', 'portrait.css', 'ui/tokens.css']) {
@@ -128,6 +129,7 @@ it('does not ship local MP3s or catalogue entries without the private build flag
     }
     for (const file of ['music.json', 'music.release.json']) cpSync(new URL('../assets/' + file, import.meta.url), path('assets/' + file));
     cpSync(new URL('../data/missions.json', import.meta.url), path('data/missions.json'));
+    cpSync(new URL('../data/season.json', import.meta.url), path('data/season.json'));
     writeFileSync(path('assets/music/Rest Area.mp3'), 'test fixture');
     writeFileSync(path('assets/music/unlisted.mp3'), 'test fixture');
 
@@ -143,5 +145,8 @@ it('does not ship local MP3s or catalogue entries without the private build flag
     expect(readFileSync(path('dist-web/data/missions.json'), 'utf8')).toBe(readFileSync(path('data/missions.json'), 'utf8'));
     expect(existsSync(path('dist-web/assets/skins/catalog.js'))).toBe(true);
     expect(existsSync(path('dist-web/assets/skins/golden-dragon.png'))).toBe(true);
+    expect(existsSync(path('dist-web/assets/ui/41-season-pass-banner.webp'))).toBe(true);
+    expect(existsSync(path('dist-web/assets/ui/41-season-pass-skin.svg'))).toBe(true);
+    expect(readFileSync(path('dist-web/data/season.json'), 'utf8')).toBe(readFileSync(path('data/season.json'), 'utf8'));
   } finally { rmSync(fixture, { recursive: true, force: true }); }
 });

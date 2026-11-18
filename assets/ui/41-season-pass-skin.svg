@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="576" height="64" viewBox="0 0 576 64">
+  <defs>
+    <linearGradient id="shine" x2=".72" y2="1">
+      <stop stop-color="#fff" stop-opacity=".84"/>
+      <stop offset=".2" stop-color="#fff" stop-opacity=".22"/>
+      <stop offset=".5" stop-color="#090b35" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#070928" stop-opacity=".55"/>
+    </linearGradient>
+    <symbol id="cell" viewBox="0 0 64 64">
+      <rect x="1" y="1" width="62" height="62" rx="10" fill="#090d34"/>
+      <rect x="3" y="3" width="58" height="58" rx="9" fill="currentColor"/>
+      <rect x="5" y="5" width="54" height="54" rx="7" fill="url(#shine)"/>
+      <rect x="9" y="9" width="46" height="46" rx="5" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>
+      <path d="M12 19v-3q0-4 4-4h19m8 0h5" fill="none" stroke="#fff" stroke-opacity=".77" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+  <use href="#cell" x="0" width="64" height="64" color="#00dbfd"/>
+  <use href="#cell" x="64" width="64" height="64" color="#ffd438"/>
+  <use href="#cell" x="128" width="64" height="64" color="#b94aff"/>
+  <use href="#cell" x="192" width="64" height="64" color="#3bea61"/>
+  <use href="#cell" x="256" width="64" height="64" color="#ff447b"/>
+  <use href="#cell" x="320" width="64" height="64" color="#4282ff"/>
+  <use href="#cell" x="384" width="64" height="64" color="#ff9d32"/>
+  <use href="#cell" x="448" width="64" height="64" color="#6b7692"/>
+  <use href="#cell" x="512" width="64" height="64" color="#fff"/>
+</svg>
