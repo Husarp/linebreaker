@@ -96,6 +96,7 @@
             }
             const amount = number(r.amount, 1, 1000);
             const rarity = ['common','rare','epic','legendary'].includes(r.rarity) ? r.rarity : 'common';
+            if (type === 'converted_parts' && items.has(key) && Number.isInteger(r.amount) && amount > 0) return { type, key, amount, icon:'⭐', desc:'Duplicate converted', rarity:'rare' };
             if (type === 'universal_parts') return { type, amount, rarity, icon:'⭐', label:`+${amount} Universal Part${amount === 1 ? '' : 's'}`, desc:'Added to your inventory' };
             if (type === 'parts' && items.has(key)) return { type, key, amount, rarity, icon:'🧩', label:`+${amount} Part: ${key === 'ghostColor' ? 'Colored Ghost' : key.charAt(0).toUpperCase() + key.slice(1)}`, desc:`${number(out.parts[key])}/10 parts` };
             if (type === 'booster' && Object.hasOwn(definitions.boosters || {}, key)) {
