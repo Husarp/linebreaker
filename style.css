@@ -1889,10 +1889,8 @@ input.c-pill-input, input.d-steps-input {
 #start-text-container { position: static; white-space: normal; font-family: var(--font-display); font-size: clamp(20px, 5vw, 40px); animation: lb-run-enter 320ms ease-out both; }
 @keyframes lb-run-enter { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
 /* HUD consistency only: same geometry, colour accents and display numbers. */
-#app .glass-box { background: #080c16; backdrop-filter: none; }
 #app .label { font-family: var(--font-body); }
 #app .value { font-family: var(--font-display); }
-#booster-hud, #mode-badge { background: #080c16 !important; }
 @media (prefers-reduced-motion: reduce) {
     .lb-run-overlay *, .lb-reward-overlay *, #start-text-container { animation: none !important; transition: none !important; }
 }
