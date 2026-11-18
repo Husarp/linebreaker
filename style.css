@@ -1969,10 +1969,20 @@ input.c-pill-input, input.d-steps-input {
 }
 .lb-r3 .inv-row[data-equipped=true] { border: 2px solid var(--accent-bright); }
 .lb-r3 .inv-row > div { min-width: 0 !important; }
-.lb-r3 .inv-row > div:last-child { width: 100%; justify-content: flex-start !important; }
-.lb-r3 .inv-row > div:first-of-type > div:first-child { font-size: 1rem !important; color: var(--text) !important; font-weight: 600; }
-.lb-r3 .inv-row :is(span, .lb-item-state) { color: var(--text-muted) !important; font-size: .875rem !important; line-height: 1.5; }
-.lb-r3 .lb-item-state { margin-top: 4px; }
+.lb-r3 .inv-row:not(.lb-inventory-card) > div:last-child { width: 100%; justify-content: flex-start !important; }
+.lb-r3 .inv-row:not(.lb-inventory-card) > div:first-of-type > div:first-child { font-size: 1rem !important; color: var(--text) !important; font-weight: 600; }
+.lb-r3 .inv-row:not(.lb-inventory-card) span { color: var(--text-muted) !important; font-size: .875rem !important; line-height: 1.5; }
+.lb-r3 .lb-inventory-card { display: grid; align-content: start; padding: 10px !important; gap: 6px !important; }
+.lb-inventory-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+.lb-inventory-name { min-width: 0; color: var(--text); font-size: .9rem; font-weight: 600; line-height: 1.25; }
+.lb-item-state { flex-shrink: 0; padding: 2px 6px; border: 1px solid var(--border); border-radius: 99px; color: var(--text-muted); font-size: .65rem; line-height: 1.25; white-space: nowrap; }
+.lb-inventory-card[data-equipped=true] .lb-item-state { color: var(--accent-bright); border-color: currentColor; }
+.lb-inventory-detail { color: var(--text-muted); font-size: .75rem; line-height: 1.25; }
+.lb-inventory-swatch { display: inline-block; width: 20px; height: 20px; margin-right: 8px; border: 1px solid var(--border); border-radius: 50%; vertical-align: middle; }
+.lb-inventory-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.lb-inventory-progress { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: .7rem; white-space: nowrap; }
+.lb-inventory-controls .lb-inventory-action { margin-left: auto; padding-inline: 10px; }
+.lb-r3 .lb-inventory-controls .lb-inventory-action--unlock { color: var(--gold) !important; border-color: var(--gold) !important; }
 :is(#owned-skin-btns, #owned-theme-btns, #owned-palette-btns) {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px;
 }
@@ -1980,7 +1990,7 @@ input.c-pill-input, input.d-steps-input {
 .lb-inventory-preview { display: block; width: 96px; height: 64px; background: var(--surface-0); border-radius: 6px; padding: 8px; object-fit: contain; }
 .lb-palette-preview { display: flex; flex-wrap: wrap; gap: 4px; padding-block: 12px; }
 .lb-palette-preview span { width: 22px; height: 22px; background: var(--piece-color); border: 2px outset #ffffff88; border-radius: 2px; }
-.lb-r3 .inv-row .lb-progress { width: 96px; height: 10px; }
+.lb-inventory-progress .lb-progress { width: 50px; height: 8px; }
 .lb-r3-picker { padding: 16px; box-sizing: border-box; }
 .lb-r3-picker > div { background: var(--surface-1) !important; border-color: var(--border) !important; max-height: calc(100dvh - 32px) !important; overflow-y: auto; box-sizing: border-box; }
 .lb-r3-picker input[type=color] { min-width: 44px; min-height: 44px; }
