@@ -18,7 +18,7 @@
     const IMAGE_SKINS = new Map(window.LBImageSkins.map(skin => [skin.key, skin]));
     const SKIN_NAMES = { retro:'Retro', glass:'Glass', shadow:'Shadow', outline:'Outline', holo:'Holo', journey:'Journey', bubble:'Bubble',
         ...Object.fromEntries(window.LBImageSkins.map(({ key, name }) => [key, name])) };
-    const REMOVED_SKINS = new Set(['neon','gem','gameboy','monochrome','modern','candy','vim','aerolab','classic','window',
+    const REMOVED_SKINS = new Set(['holo-foil','lava','nebula','wood-inlay','neon-tube','neon','gem','gameboy','monochrome','modern','candy','vim','aerolab','classic','window',
         'matrix','gold','golddragon','circuit','marble','fire','toxic','ice','flat','glossy','metal','puffy','bordered','gloss2k','lumines','minimal']);
     const BG_BLOCK_SKINS = ['glass','shadow','retro','outline'];
     function _skinAvailable(key) { return Object.hasOwn(SKIN_NAMES, key); }
