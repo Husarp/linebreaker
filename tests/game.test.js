@@ -53,8 +53,8 @@ it.each([1,2,5,10,15])('gravity at speed %i uses a strict interval boundary', sp
   a.tick(1);expect(a.state.player.pos.y).toBe(1);
 });
 // Existing regression: checkAchievements calls a missing tier.check before displaying the overlay.
-it.fails('game over shows the overlay', () => {a.gameOver();game.advance(1000);expect(a.state.isGameOver).toBe(true);expect(game.w.document.getElementById('go-overlay').classList.contains('hidden')).toBe(false);});
-it.fails('spawn collision ends the game and shows overlay', () => {a.setBoard(Array.from({length:22},()=>Array(10).fill(1)));a.spawn();game.advance(1000);expect(a.state.isGameOver).toBe(true);expect(game.w.document.getElementById('go-overlay').classList.contains('hidden')).toBe(false);});
+it('game over shows the overlay', () => {a.gameOver();game.advance(1000);expect(a.state.isGameOver).toBe(true);expect(game.w.document.getElementById('go-overlay').classList.contains('hidden')).toBe(false);});
+it('spawn collision ends the game and shows overlay', () => {a.setBoard(Array.from({length:22},()=>Array(10).fill(1)));a.spawn();game.advance(1000);expect(a.state.isGameOver).toBe(true);expect(game.w.document.getElementById('go-overlay').classList.contains('hidden')).toBe(false);});
 it.each([[0,1,0],[-1,1,0],[999,1,999],[1000,2,0],[9999,10,999],[10000,11,0],[640000,81,0],[664000,82,0]])('XP %i yields level %i', (xp,level,currentXP) => {expect(a.getLevelInfo(xp)).toMatchObject({level,currentXP});if(level>=81)expect(a.getLevelInfo(xp).isCelestite).toBe(true);});
 it.each([['2021-01-03','2020-W53'],['2021-01-04','2021-W01'],['2020-12-31','2020-W53'],['2024-12-30','2025-W01']])('ISO week %s', (date,key) => expect(a.missionWeekKey(new game.w.Date(date+'T12:00:00'))).toBe(key));
 it('round trips Unicode saves', () => {const text=JSON.stringify({version:3,data:{name:'星 🌈 café',xp:123}});expect(a.decSave(a.encSave(text))).toBe(text);});
