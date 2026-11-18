@@ -75,7 +75,12 @@
             out._settings = { ...defaults._settings };
             for (const [k,v] of Object.entries(defaults._settings || {})) {
                 const input = data._settings[k];
-                out._settings[k] = typeof v === 'number' ? number(input, v, 10000) : typeof v === 'boolean' ? (typeof input === 'boolean' ? input : v) : typeof input === 'string' ? (/color/i.test(k) ? colour(input, v) : string(input)) : v;
+                if (k === 'colorHistory') out._settings[k] = LBColorPicker.colorHistory(input);
+                else if (k === 'colorPalette') {
+                    const valid = typeof input === 'string' && (['_custom_picker', '_random'].includes(input) || Object.hasOwn(definitions.palettes || {}, input));
+                    out._settings[k] = valid ? input : v;
+                }
+                else out._settings[k] = typeof v === 'number' ? number(input, v, 10000) : typeof v === 'boolean' ? (typeof input === 'boolean' ? input : v) : typeof input === 'string' ? (/color/i.test(k) ? colour(input, v) : string(input)) : v;
             }
         }
         const palettes = definitions.palettes || {};

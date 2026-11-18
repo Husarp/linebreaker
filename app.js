@@ -55,40 +55,6 @@
         for (let i = 0; i < 7; i++) COLORS[i + 1] = pal.colors[i];
     }
 
-    // --- HSL/HEX conversion helpers for shade generation ---
-    function _hexToHSL(hex) {
-        let r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
-        const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max - min;
-        let h = 0, s = 0, l = (max + min) / 2;
-        if (d > 0) {
-            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-            if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-            else if (max === g) h = ((b - r) / d + 2) / 6;
-            else h = ((r - g) / d + 4) / 6;
-        }
-        return [h * 360, s * 100, l * 100];
-    }
-    function _hslToHex(h, s, l) {
-        h /= 360; s /= 100; l /= 100;
-        let r, g, b;
-        if (s === 0) { r = g = b = l; } else {
-            const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q - p) * 6 * t; if (t < 1/2) return q; if (t < 2/3) return p + (q - p) * (2/3 - t) * 6; return p; };
-            const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
-            r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
-        }
-        const toHex = x => { const h = Math.round(x * 255).toString(16); return h.length === 1 ? '0' + h : h; };
-        return '#' + toHex(r) + toHex(g) + toHex(b);
-    }
-    function _generateShades(hexColor, count) {
-        const [h, s] = _hexToHSL(hexColor);
-        const shades = [];
-        for (let i = 0; i < count; i++) {
-            const l = 30 + (50 / (count - 1)) * i; // 30% to 80%
-            shades.push(_hslToHex(h, s, l));
-        }
-        return shades;
-    }
-
     function lightenHex(hex, amt) {
         if (!hex || hex[0] !== '#' || hex.length < 7) return '#ffffff';
         const r = Math.min(255, parseInt(hex.slice(1,3),16) + amt);
@@ -664,6 +630,7 @@
     window._closeModal = function(id) {
         const ov = document.getElementById(id);
         if (!ov) return;
+        if (ov.classList.contains('lb-color-dialog')) { ov.close(); return; }
         const inner = ov.querySelector('div');
         if (inner) {
             inner.classList.add('anim-out-down');
@@ -916,7 +883,7 @@
     }
 
     // Settings
-    const defaultSettings = { classicColors: false, musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: 'neon', fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false };
+    const defaultSettings = { classicColors: false, musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: 'neon', fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
     let settings = { ...defaultSettings };
     function loadSettings() {
         try { settings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}') }; } catch(e) {}
@@ -1027,7 +994,7 @@
         }
         _doApplyTheme(name);
     }
-    function _doApplyTheme(name) {
+    function _doApplyTheme(name, { persist = true } = {}) {
         if (name === 'custom' && saveData.customThemeColor) {
             const _ch = hexColor(saveData.customThemeColor, '#ff00ff');
             document.documentElement.style.setProperty('--primary', _ch);
@@ -1061,86 +1028,42 @@
             playBtn.style.background = ''; // let CSS animation handle it
         }
         settings.theme = name;
-        saveSettings();
+        if (persist) saveSettings();
         // Re-render theme list if inventory is open
         const ownedThemeContainer = document.getElementById('owned-theme-btns');
         if (ownedThemeContainer) {
             _populateVisualCustomize();
         }
     }
-    function _applyCustomTheme(hex) {
-        if (!hexColor(hex)) return;
-        saveData.customThemeColor = hex;
-        // Apply the custom color as theme
-        document.documentElement.style.setProperty('--primary', hex);
-        document.documentElement.style.setProperty('--primary-dim', hexToRgba(hex, 0.35));
-        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-        const max = Math.max(r,g,b)/255, min = Math.min(r,g,b)/255;
-        let h = 0;
-        if (max !== min) { const d = max-min; if (max===r/255) h=((g/255-b/255)/d+(g<b?6:0))/6; else if (max===g/255) h=((b/255-r/255)/d+2)/6; else h=((r/255-g/255)/d+4)/6; }
-        const playBtn = document.getElementById('btn-play');
-        if (playBtn) playBtn.style.setProperty('--play-hue', Math.round(h * 360));
-        settings.theme = 'custom';
-        saveSettings(); saveDataToFile();
-        const ownedThemeContainer = document.getElementById('owned-theme-btns');
-        if (ownedThemeContainer) _populateVisualCustomize();
+    function _allThemesOwned() {
+        const owned = saveData.ownedThemes || [];
+        return Object.keys(THEMES).every(key => FREE_THEMES.includes(key) || owned.includes(key));
     }
-    window._applyCustomTheme = _applyCustomTheme;
-    function _openColorPickerModal() {
-        const existing = document.getElementById('color-picker-modal');
-        if (existing) existing.remove();
-        const cur = hexColor(saveData.customThemeColor, '#ff00ff');
-        const presets = ['#00ffff','#0099ff','#00dd55','#ff3300','#ffcc00','#cc44ff','#ff7722','#88ddff','#aa77ff','#ff88cc','#ff0055','#44ff88','#ffff00','#ff8800','#8844ff','#00ff99'];
-        const ov = document.createElement('div');
-        ov.id = 'color-picker-modal';
-        ov.className = 'lb-r3 lb-r3-picker';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;';
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:24px;width:min(320px,88vw);position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.9);">
-            <button aria-label="Close" onclick="window._closeModal('color-picker-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">✕</button>
-            <div style="font-size:0.6rem;letter-spacing:2px;color:#888;margin-bottom:14px;">CUSTOM THEME COLOR</div>
-            <div id="cp-preview" style="width:100%;height:40px;border-radius:8px;background:${cur};margin-bottom:14px;box-shadow:0 0 20px ${cur}44;transition:background 0.2s,box-shadow 0.2s;"></div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-                <span style="font-size:0.7rem;color:#666;min-width:28px;height:36px;display:flex;align-items:center;">HEX</span>
-                <input type="text" id="cp-hex-input" aria-label="Theme hex color" value="${cur}" maxlength="7" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:10px 10px 0;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.85rem;letter-spacing:1px;outline:none;height:36px;box-sizing:border-box;" oninput="window._cpUpdateFromHex(this.value)">
-                <div style="position:relative;width:36px;height:36px;flex-shrink:0;">
-                    <input type="color" id="cp-native" aria-label="Theme color" value="${cur}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="window._cpUpdateFromNative(this.value)">
-                    <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);pointer-events:none;">${_SVG_EYEDROPPER}</div>
-                </div>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">${presets.map(c => `<button type="button" class="lb-color-preset" aria-label="Use ${c}" onclick="window._cpSelectPreset('${c}')" style="--preset:${c};"></button>`).join('')}</div>
-            <button onclick="window._cpApply()" style="width:100%;padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;cursor:pointer;font-weight:bold;letter-spacing:1px;">APPLY</button>
-        </div>`;
-        ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('color-picker-modal'); });
-        document.body.appendChild(ov);
-        _animateIn(ov.querySelector('div'), 'anim-in-up');
-        document.getElementById('cp-hex-input').focus();
+
+    window._openColorPickerModal = function() {
+        if (!_allThemesOwned()) return;
+        LBColorPicker.open({
+            id: 'color-picker-modal',
+            title: 'Custom Color',
+            color: LBColorPicker.normalizeHex(saveData.customThemeColor) || '#ff00ff',
+            history: settings.colorHistory,
+            onApply(hex, recent) {
+                settings.colorHistory = LBColorPicker.colorHistory(settings.colorHistory, recent);
+                saveData.customThemeColor = hex;
+                _doApplyTheme('custom');
+                saveSettings();
+                _populateVisualCustomize();
+            },
+        });
+    };
+
+    function _colorPickerButton(id, label, swatch, active, handler) {
+        return `<button type="button" id="${id}" class="lb-btn lb-btn--ghost lb-color-launch" data-equipped="${active}" onclick="window.${handler}()">
+            <span class="lb-color-launch-mark" aria-hidden="true" style="--swatch:${swatch}"></span>
+            <span>${label}</span>
+            <span class="lb-color-launch-state">${active ? 'Enabled' : 'Edit…'}</span>
+        </button>`;
     }
-    window._openColorPickerModal = _openColorPickerModal;
-    window._cpUpdateFromHex = function(val) {
-        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
-            document.getElementById('cp-preview').style.background = val;
-            document.getElementById('cp-preview').style.boxShadow = `0 0 20px ${val}44`;
-            document.getElementById('cp-native').value = val;
-        }
-    };
-    window._cpUpdateFromNative = function(val) {
-        document.getElementById('cp-hex-input').value = val;
-        document.getElementById('cp-preview').style.background = val;
-        document.getElementById('cp-preview').style.boxShadow = `0 0 20px ${val}44`;
-    };
-    window._cpSelectPreset = function(c) {
-        document.getElementById('cp-hex-input').value = c;
-        document.getElementById('cp-native').value = c;
-        document.getElementById('cp-preview').style.background = c;
-        document.getElementById('cp-preview').style.boxShadow = `0 0 20px ${c}44`;
-    };
-    window._cpApply = function() {
-        const hex = document.getElementById('cp-hex-input').value;
-        if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
-            _applyCustomTheme(hex);
-            window._closeModal('color-picker-modal');
-        }
-    };
 
     const _PIECE_LABELS = ['I','O','T','S','Z','J','L'];
 
@@ -1317,22 +1240,6 @@
         return Object.keys(BLOCK_PALETTES).every(k => BLOCK_PALETTES[k].free || owned.includes(k));
     }
 
-    window._onCustomPickerColor = function(idx, val) {
-        if (!hexColor(val)) return;
-        saveData.customPickerColors = paletteColors(saveData.customPickerColors);
-        saveData.customPickerColors[idx] = val;
-        if (settings.colorPalette === '_custom_picker') _applyColorPalette('_custom_picker');
-        saveDataToFile();
-    };
-    window._activateCustomPicker = function() {
-        if (!saveData.customPickerColors) saveData.customPickerColors = BLOCK_PALETTES.classic.colors.slice(0, 7);
-        settings.colorPalette = '_custom_picker';
-        settings.randomBlockColors = false;
-        _applyColorPalette('_custom_picker');
-        saveSettings();
-        _populateVisualCustomize();
-    };
-
     // --- SVG ICON CONSTANTS ---
     const _SVG_COPY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
     const _SVG_EYEDROPPER = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.7 4.7a2.4 2.4 0 00-3.4 0L14 8l2 2 3.3-3.3a2.4 2.4 0 000-3.4z"/><path d="M14 8l-8.6 8.6a2 2 0 00-.5 1V20h2.4c.4 0 .7-.2 1-.5L17 11"/></svg>';
@@ -1370,165 +1277,34 @@
     }
     window._openPaletteViewModal = _openPaletteViewModal;
 
-    // --- CUSTOM PALETTE MODAL (full editor modal for custom picker) ---
-    let _customPalState = null;
+    function _customPaletteColors() {
+        return BLOCK_PALETTES.classic.colors.map((fallback, index) => LBColorPicker.normalizeHex(saveData.customPickerColors?.[index]) || fallback);
+    }
 
     function _openCustomPaletteModal() {
-        document.getElementById('custom-palette-modal')?.remove();
-        _customPalState = paletteColors(saveData.customPickerColors);
-        let _cpmMode = saveData._cpmMode || 'perpiece';
-        let _cpmBaseColor = hexColor(saveData._cpmBaseColor, '#00ffff');
-
-        function _buildContent() {
-            const tabStyle = (active) => `font-size:0.55rem;padding:5px 12px;border-radius:6px;border:1px solid ${active ? 'var(--primary)' : '#333'};background:${active ? 'rgba(0,255,255,0.12)' : 'rgba(255,255,255,0.04)'};color:${active ? 'var(--primary)' : '#777'};cursor:pointer;font-family:inherit;font-weight:${active ? 'bold' : 'normal'};`;
-            let bodyHtml = '';
-
-            // Temporarily set COLORS for rendering
-            const _oldCols = COLORS.slice();
-
-            if (_cpmMode === 'perpiece') {
-                for (let i = 0; i < 7; i++) COLORS[i + 1] = _customPalState[i] || '#ffffff';
-                _PIECE_LABELS.forEach((lbl, i) => {
-                    const c = _customPalState[i] || '#ffffff';
-                    const piece = BASE_PIECES[i + 1];
-                    const _btnStyle = 'border:1px solid rgba(255,255,255,0.15);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(255,255,255,0.05);';
-                    bodyHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                        ${_swatchHtml(i, c)}
-                        <input type="text" id="cpm-hex-${i}" aria-label="Piece ${i + 1} hex color" value="${c}" maxlength="7" style="width:90px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 8px;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.75rem;letter-spacing:0.5px;outline:none;height:34px;box-sizing:border-box;" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._cpmChange(${i},this.value)">
-                        <div style="position:relative;width:34px;height:34px;flex-shrink:0;">
-                            <input type="color" id="cpm-native-${i}" aria-label="Piece ${i + 1} color" value="${c}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="window._cpmChange(${i},this.value)">
-                            <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);pointer-events:none;">${_SVG_EYEDROPPER}</div>
-                        </div>
-                        <button onclick="window._cpmRandom(${i})" title="Random color" style="${_btnStyle}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></button>
-                        <button onclick="window._cpmCopy(${i},event)" title="Copy" style="${_btnStyle}">${_SVG_COPY}</button>
-                    </div>`;
-                });
-            } else if (_cpmMode === 'shade') {
-                const shades = _generateShades(_cpmBaseColor, 7);
-                _customPalState = shades;
-                for (let i = 0; i < 7; i++) COLORS[i + 1] = shades[i];
-                bodyHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-                    <span style="font-size:0.7rem;color:#666;min-width:60px;height:34px;display:flex;align-items:center;">Base color</span>
-                    <input type="text" id="cpm-shade-hex" aria-label="Base hex color" value="${_cpmBaseColor}" maxlength="7" style="width:90px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 8px;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.75rem;outline:none;height:34px;box-sizing:border-box;" oninput="window._cpmShadeChange(this.value)">
-                    <div style="position:relative;width:34px;height:34px;flex-shrink:0;">
-                        <input type="color" id="cpm-shade-native" aria-label="Base color" value="${_cpmBaseColor}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="(function(v){const h=document.getElementById('cpm-shade-hex');if(h)h.value=v;})(this.value)" onchange="window._cpmShadeChange(this.value)">
-                        <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);pointer-events:none;">${_SVG_EYEDROPPER}</div>
-                    </div>
-                    <button onclick="window._cpmShadeChange('#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0'))" title="Random color" style="border:1px solid rgba(255,255,255,0.15);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(255,255,255,0.05);"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></button>
-                </div>`;
-                shades.forEach((c, i) => {
-                    bodyHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                        ${_swatchHtml(i, c, true)}
-                    </div>`;
-                });
-            } else if (_cpmMode === 'single') {
-                _customPalState = Array(7).fill(_cpmBaseColor);
-                for (let i = 0; i < 7; i++) COLORS[i + 1] = _cpmBaseColor;
-                bodyHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-                    <span style="font-size:0.7rem;color:#666;min-width:60px;height:34px;display:flex;align-items:center;">Color</span>
-                    <input type="text" id="cpm-single-hex" value="${_cpmBaseColor}" maxlength="7" style="width:90px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 8px;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.75rem;outline:none;height:34px;box-sizing:border-box;" oninput="window._cpmSingleChange(this.value)">
-                    <div style="position:relative;width:34px;height:34px;flex-shrink:0;">
-                        <input type="color" id="cpm-single-native" value="${_cpmBaseColor}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="(function(v){const h=document.getElementById('cpm-single-hex');if(h)h.value=v;})(this.value)" onchange="window._cpmSingleChange(this.value)">
-                        <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);pointer-events:none;">${_SVG_EYEDROPPER}</div>
-                    </div>
-                    <button onclick="window._cpmSingleChange('#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0'))" title="Random color" style="border:1px solid rgba(255,255,255,0.15);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(255,255,255,0.05);"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></button>
-                </div>`;
-                bodyHtml += `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-                    ${_swatchHtml(0, _cpmBaseColor)}
-                    <span style="font-size:0.6rem;color:#555;">All 7 pieces will use this color</span>
-                </div>`;
-            }
-
-            // Restore colors
-            for (let i = 0; i < _oldCols.length; i++) COLORS[i] = _oldCols[i];
-
-            return `<div style="display:flex;gap:6px;margin-bottom:14px;">
-                <button onclick="window._cpmSetMode('perpiece')" style="${tabStyle(_cpmMode === 'perpiece')}">Per Piece</button>
-                <button onclick="window._cpmSetMode('shade')" style="${tabStyle(_cpmMode === 'shade')}">Auto Shade</button>
-                <button onclick="window._cpmSetMode('single')" style="${tabStyle(_cpmMode === 'single')}">Single Color</button>
-            </div>${bodyHtml}`;
-        }
-
-        const ov = document.createElement('div');
-        ov.id = 'custom-palette-modal';
-        ov.className = 'lb-r3 lb-r3-picker';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;';
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:24px;width:min(420px,92vw);max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.9);">
-            <button aria-label="Close" onclick="window._closeModal('custom-palette-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">&#10005;</button>
-            <div style="font-size:0.6rem;letter-spacing:2px;color:#888;margin-bottom:14px;">CUSTOM BLOCK PALETTE</div>
-            <div id="cpm-body">${_buildContent()}</div>
-            <div style="margin-top:14px;">
-                <button onclick="window._cpmApply()" style="width:100%;padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid var(--primary,#00ffff);background:rgba(0,255,255,0.08);color:var(--primary,#00ffff);cursor:pointer;font-weight:bold;letter-spacing:1px;">APPLY</button>
-            </div>
-        </div>`;
-        ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('custom-palette-modal'); });
-        document.body.appendChild(ov);
-        _animateIn(ov.querySelector('div'), 'anim-in-up');
-
-        window._cpmSetMode = function(mode) {
-            _cpmMode = mode;
-            if (mode !== 'perpiece') {
-                const shades = mode === 'shade' ? _generateShades(_cpmBaseColor, 7) : Array(7).fill(_cpmBaseColor);
-                _customPalState = shades;
-            }
-            document.getElementById('cpm-body').innerHTML = _buildContent();
-        };
-        window._cpmShadeChange = function(val) {
-            if (!hexColor(val)) return;
-            _cpmBaseColor = val;
-            _customPalState = _generateShades(val, 7);
-            const hexEl = document.getElementById('cpm-shade-hex'); if (hexEl) hexEl.value = val;
-            const natEl = document.getElementById('cpm-shade-native'); if (natEl) natEl.value = val;
-            document.getElementById('cpm-body').innerHTML = _buildContent();
-        };
-        window._cpmSingleChange = function(val) {
-            if (!hexColor(val)) return;
-            _cpmBaseColor = val;
-            _customPalState = Array(7).fill(val);
-            const hexEl = document.getElementById('cpm-single-hex'); if (hexEl) hexEl.value = val;
-            const natEl = document.getElementById('cpm-single-native'); if (natEl) natEl.value = val;
-            document.getElementById('cpm-body').innerHTML = _buildContent();
-        };
+        if (!_allPalettesOwned()) return;
+        const names = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
+        const pieces = _customPaletteColors().map((color, index) => ({
+            name: names[index], matrix: BASE_PIECES[index + 1], color,
+        }));
+        LBColorPicker.open({
+            id: 'custom-palette-modal',
+            title: 'Custom Palette',
+            pieces,
+            history: settings.colorHistory,
+            onApply(colors, recent) {
+                settings.colorHistory = LBColorPicker.colorHistory(settings.colorHistory, recent);
+                saveData.customPickerColors = colors;
+                settings.colorPalette = '_custom_picker';
+                settings.randomBlockColors = false;
+                _applyColorPalette(settings.colorPalette);
+                saveSettings();
+                _populateVisualCustomize();
+                _populateInventoryOther();
+            },
+        });
     }
     window._openCustomPaletteModal = _openCustomPaletteModal;
-
-    window._cpmChange = function(i, val) {
-        if (!hexColor(val)) return;
-        _customPalState[i] = val;
-        const hexEl = document.getElementById('cpm-hex-' + i); if (hexEl) hexEl.value = val;
-        const natEl = document.getElementById('cpm-native-' + i); if (natEl) natEl.value = val;
-        // Update the swatch color and its hover handler
-        const row = hexEl?.closest('div[style*="margin-bottom"]');
-        if (row) {
-            const swatch = row.querySelector('.pal-swatch');
-            if (swatch) {
-                const innerSquare = swatch.querySelector('div');
-                if (innerSquare) innerSquare.style.background = val;
-                swatch.setAttribute('onmouseenter', "window._showBlockPreview(this," + i + ",'" + val + "')");
-            }
-        }
-    };
-    window._cpmRandom = function(i) {
-        const hex = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
-        window._cpmChange(i, hex);
-    };
-    window._cpmCopy = function(i, e) {
-        const hex = document.getElementById('cpm-hex-' + i)?.value || '';
-        navigator.clipboard?.writeText(hex).catch(() => {});
-        if (e) _showCopyFeedback(e.clientX, e.clientY);
-    };
-    window._cpmApply = function() {
-        if (!_customPalState) return;
-        saveData.customPickerColors = _customPalState.slice();
-        settings.colorPalette = '_custom_picker';
-        settings.randomBlockColors = false;
-        for (let i = 0; i < 7; i++) COLORS[i + 1] = _customPalState[i];
-        saveSettings();
-        saveDataToFile();
-        _populateVisualCustomize();
-        _populateInventoryOther();
-        document.getElementById('custom-palette-modal')?.remove();
-    };
 
     function applyBlockSkin(skin) {
         if (!_skinAvailable(skin)) return;
@@ -1553,7 +1329,7 @@
         saveSettings();
         document.querySelectorAll('[data-blockshape]').forEach(btn => btn.classList.toggle('active', btn.dataset.blockshape === shape));
     }
-    function applyStylePack(key) {
+    function applyStylePack(key, { persist = true } = {}) {
         const pack = STYLE_PACKS[key] || STYLE_PACKS.modern;
         settings.stylePack = key;
         settings.blockShape = pack.blockShape;
@@ -1572,7 +1348,7 @@
             document.head.appendChild(link);
         });
         if (pack.font) document.documentElement.style.setProperty('--ui-font', pack.font);
-        saveSettings();
+        if (persist) saveSettings();
     }
 
     let audioCtx = null, masterGain = null, sfxGain = null, musicPlaying = false;
@@ -2698,7 +2474,7 @@
 
     function saveDataToFile() {
         if (_gameInProgress) return; // defer saves until game over — keeps score and achievements in sync
-        return writeSaveFile({ _settings: { ...settings }, ...saveData });
+        return writeSaveFile({ ...saveData, _settings: { ...settings } });
     }
 
     function _getDailyGiftReq() {
@@ -4451,15 +4227,11 @@
                 );
             }).join('');
             // Custom color picker — unlocks when all themes owned
-            const allThemeKeys = Object.keys(themeNames);
-            const allThemesOwned = allThemeKeys.every(t => ownedThemes.includes(t));
             let customThemeRow = '';
-            if (allThemesOwned) {
+            if (_allThemesOwned()) {
                 const isCustomTheme = settings.theme === 'custom';
-                const curColor = hexColor(saveData.customThemeColor, '#ff00ff');
-                const preview = `<span class="lb-inventory-swatch" style="background:${curColor};"></span>Pick any theme color`;
-                customThemeRow = _makeTrackRow('Custom Color', isCustomTheme, true, 0,
-                    'window._openColorPickerModal()', '', preview, '', true);
+                const curColor = LBColorPicker.normalizeHex(saveData.customThemeColor) || '#ff00ff';
+                customThemeRow = _colorPickerButton('custom-theme-picker-button', 'Custom Color', curColor, isCustomTheme, '_openColorPickerModal');
             } else {
                 customThemeRow = _makeTrackRow('Custom Color', false, false, 0, '', '', 'Own all themes to unlock');
             }
@@ -4528,11 +4300,9 @@
             }).join('');
             let customPickerHtml = '';
             if (_allPalsOwned) {
-                const customColors = paletteColors(saveData.customPickerColors);
                 const isCustomActive = settings.colorPalette === '_custom_picker';
-                const preview = `<span class="lb-inventory-swatch" style="background:conic-gradient(${customColors.join(', ')});"></span>Pick any block colors`;
-                customPickerHtml = _makeTrackRow('Custom Palette', isCustomActive, true, 0,
-                    'window._openCustomPaletteModal()', '', preview, '', true);
+                const gradient = `conic-gradient(${_customPaletteColors().join(', ')})`;
+                customPickerHtml = _colorPickerButton('custom-palette-picker-button', 'Custom Palette', gradient, isCustomActive, '_openCustomPaletteModal');
             } else {
                 customPickerHtml = _makeTrackRow('Custom Palette', false, false, 0, '', '', 'Own all palettes to unlock');
             }
@@ -11872,10 +11642,10 @@
     try {
         _rebuildBgBlocks();
         _applyColorPalette(settings.colorPalette || 'classic');
-        _doApplyTheme(settings.theme || 'default');
+        _doApplyTheme(settings.theme || 'default', { persist: false });
         applyFontSize(settings.fontSize || '5');
         applyGameScale(settings.gameScale || '5');
-        applyStylePack(settings.stylePack || 'modern');
+        applyStylePack(settings.stylePack || 'modern', { persist: false });
     } catch(e) { console.error('Startup error:', e); }
     _setLoadProgress(40, 'Applying theme…');
     loadData();
