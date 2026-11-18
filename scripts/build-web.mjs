@@ -3,7 +3,7 @@ import { cp, mkdir, readdir, rm } from 'node:fs/promises';
 await rm('dist-web', { recursive: true, force: true });
 await mkdir('dist-web/assets', { recursive: true });
 await mkdir('dist-web/ui', { recursive: true });
-for (const file of ['index.html', 'app.js', 'style.css', 'desktop.js', 'native-save.js', 'touch.js', 'touch.css', 'portrait.css']) {
+for (const file of ['index.html', 'app.js', 'style.css', 'desktop.js', 'native-save.js', 'notifications.js', 'touch.js', 'touch.css', 'portrait.css']) {
   await cp(file, 'dist-web/' + file);
 }
 await mkdir('dist-web/ui', { recursive: true });

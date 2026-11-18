@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { IDBFactory } from 'fake-indexeddb';
-export async function loadGame(flag = true, desktopInvoke = null, capacitor = null) {
+export async function loadGame(flag = true, desktopInvoke = null, capacitor = null, initialSettings = null) {
   const dom = new JSDOM(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), {url:'https://linebreaker.test/', runScripts:'outside-only', pretendToBeVisual:true});
   const w = dom.window;
   const RealDate = w.Date;
@@ -38,12 +38,14 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   w.TextEncoder = TextEncoder; w.TextDecoder = TextDecoder;
   w.indexedDB = new IDBFactory();
   const storage = new Map();
+  if (initialSettings) storage.set('tetrisRPG_settings', JSON.stringify(initialSettings));
   Object.defineProperty(w, 'localStorage', {value:{getItem:k => storage.get(k) ?? null,setItem:(k,v) => storage.set(k,String(v)),removeItem:k => storage.delete(k),clear:() => storage.clear()}});
   delete w.showOpenFilePicker;
   let seed = 42; w.Math.random = () => ((seed = (Math.imul(seed,1664525)+1013904223) >>> 0)/4294967296);
   if (desktopInvoke) w.__TAURI__ = { core: { invoke: desktopInvoke } };
   if (capacitor) w.Capacitor = capacitor;
   w.eval(readFileSync(new URL('../native-save.js', import.meta.url), 'utf8'));
+  w.eval(readFileSync(new URL('../notifications.js', import.meta.url), 'utf8'));
   w.__LB_TEST__ = flag;
   w.eval(readFileSync(new URL('../app.js', import.meta.url), 'utf8').replace('window.__lb = {', 'window.__lb = { writeSaveFile,'));
   // Let IndexedDB-backed startup finish before tests mutate state or close the window.
