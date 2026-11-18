@@ -34,6 +34,10 @@ android/.idea/
 android/captures/
 *.apk
 *.aab
+*.jks
+*.keystore
+*.p12
+*.pfx
 # Desktop generated output and signing material
 src-tauri/target/
 src-tauri/gen/

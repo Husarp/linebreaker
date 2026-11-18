@@ -64,30 +64,61 @@ alarms aren't allowed; the app doesn't prompt for exact-alarm access.
 - Device verification of Back ordering, portrait lock, system-bar gestures,
   suspend/resume and screen-awake behavior. This shell is not device-validated.
 
-## Release and updates
+## GitHub Sideload Release
 
-Follow /home/coder/code/projects/APP-STANDARDS.md, especially sections 2–4.
-Release/update infrastructure is not implemented by this shell ticket.
+Follow `/home/coder/code/projects/APP-STANDARDS.md`, sections 2–4. Set the
+release version in `src-tauri/tauri.conf.json`; Gradle uses that value for
+`versionName` and derives `versionCode = major * 1,000,000 + minor * 1,000 + patch`.
+Use a stable `X.Y.Z` with minor and patch below 1000. The code must exceed the
+previously distributed APK's code. If releasing desktop too, follow its version
+sync steps in `docs/DESKTOP.md`.
 
-Use one canonical version and derive an increasing Android versionCode. Keep
-signing keys outside the repository and preserve the same signing identity for
-updates. Audit git ls-files before release; exclude builds, private data and
-unlicensed audio. Publish stable GitHub releases marked Latest with versioned
-artifact names (for example Linebreaker-1.2.3.apk).
+Install JDK 21 and configure the SDK as described under Development. Set:
 
-A sideload distribution must check GitHub releases at launch and on return,
-throttled to five minutes, comparing numeric versions. Provide the dismissible
-main-menu banner (dismissal lasts until a fresh start), Settings update toggle
-(default on), current version, CHECK NOW, GITHUB and GET UPDATE. Automatic
-failures stay silent; manual checks time out around ten seconds with useful
-messages. Downloads must show total size, percent, done/total and speed, use the
-app's own connection/cache, and hand off to Android's installer. That future
-sideload implementation needs REQUEST_INSTALL_PACKAGES and the one-time
-unknown-apps settings flow that resumes installation automatically on return.
-Delete cached installers after updating; failures offer TRY AGAIN and GITHUB
-without automatically opening a browser.
+| Environment variable | Value |
+| --- | --- |
+| `LINEBREAKER_RELEASE_REPO` | Actual public GitHub `owner/repo` (required for release; no placeholder is used). |
+| `LINEBREAKER_ANDROID_KEYSTORE` | Absolute path to the release keystore; defaults to `~/.android-keys/linebreaker.jks`. |
+| `LINEBREAKER_ANDROID_KEY_ALIAS` | Existing release key alias. |
+| `LINEBREAKER_ANDROID_STORE_PASSWORD` | Keystore password. |
+| `LINEBREAKER_ANDROID_KEY_PASSWORD` | Key password. |
 
-A Google Play build must omit the APK installer/updater permission and flow,
-use Play-managed updates, and complete Play signing, listing, policy/data-safety
-and release testing before publication. Do not add sideload install permission
-to this base shell.
+Supply passwords via your environment/secret manager, not files or command-line
+arguments in the checkout. Keep the key and its backup outside Git, and use the
+same signing key for every update. A debug-signed install cannot be upgraded
+with the release APK. Gradle release builds fail if signing configuration is
+missing or the resolved keystore is inside the checkout. Debug builds and
+`./gradlew help` need no release secrets; without `LINEBREAKER_RELEASE_REPO`,
+debug builds do not contact GitHub.
+
+1. Run `npm run android:release:audit` and review `git ls-files` for private
+   notes, builds, logs, test data, or unlicensed assets. The audit runs without
+   generating an APK. Complete the launcher asset and device checks above.
+2. When ready to make an APK, run `npm run android:release`. It audits tracked
+   files, runs tests, syncs without locally present music, builds the signed
+   release, and puts `Linebreaker-X.Y.Z.apk` in `android/app/build/releases/`.
+   Use the SDK's `apksigner verify --print-certs` to confirm the expected signer.
+3. Create a stable GitHub release tagged `vX.Y.Z` (or `X.Y.Z`), with a neutral
+   patch-release title. Upload the versioned APK and mark the release **Latest**.
+   Keep exactly one Android APK on the Latest release, including when carrying
+   desktop assets; the updater selects by `.apk` suffix, not a fixed filename.
+   Publishing and tagging are manual.
+4. On a phone with an older release signed by the same key, confirm the banner,
+   save retention, download size/speed, first-time permission and automatic
+   handoff on return, Android's confirmation, launch after upgrade, and cache
+   cleanup. Also test denied permission, canceled install, offline check, and
+   retry. These device checks are not covered by `gradlew help` or the JS suite.
+
+The app checks GitHub at launch and on return, at most once per five minutes
+including manual checks. The menu banner stays dismissed until a fresh start.
+Settings shows the current version, automatic-check switch, CHECK NOW, GITHUB,
+and GET UPDATE when available. Automatic failures stay silent; a manual check
+times out after about ten seconds. The app downloads the APK over HTTPS into
+its private cache, reports progress and speed, and launches Android's installer
+after any required permission grant. Android still asks the user to confirm.
+On failure, TRY AGAIN and GITHUB are offered without opening the browser.
+The next installed version removes the old APK from the update cache.
+
+This is a sideload build, **not** a Google Play build. Before creating a Play
+variant, exclude `REQUEST_INSTALL_PACKAGES`, the updater plugin and UI, and use
+Play-managed updates, signing, listing, and release testing.

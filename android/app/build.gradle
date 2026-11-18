@@ -1,5 +1,28 @@
 apply plugin: 'com.android.application'
 
+def checkout = rootProject.projectDir.parentFile.canonicalFile
+def appVersion = new groovy.json.JsonSlurper().parse(new File(checkout, 'src-tauri/tauri.conf.json')).version
+if (!(appVersion instanceof String) || !(appVersion ==~ /(?:0|[1-9]\d{0,3})(?:\.(?:0|[1-9]\d{0,2})){2}/)) {
+    throw new GradleException('Set a stable X.Y.Z version in src-tauri/tauri.conf.json (minor and patch below 1000).')
+}
+def (major, minor, patch) = appVersion.tokenize('.').collect { it.toInteger() }
+def appVersionCode = major * 1_000_000L + minor * 1_000 + patch
+if (appVersionCode < 1 || appVersionCode > 2_100_000_000) {
+    throw new GradleException('The derived Android versionCode is out of range.')
+}
+
+def updateRepo = providers.environmentVariable('LINEBREAKER_RELEASE_REPO').getOrElse('')
+if (updateRepo && !(updateRepo ==~ /[A-Za-z0-9-]+\/(?!\.{1,2}$)[A-Za-z0-9_.-]+/)) {
+    throw new GradleException('LINEBREAKER_RELEASE_REPO must be a GitHub owner/repository.')
+}
+def keystorePath = new File(providers.environmentVariable('LINEBREAKER_ANDROID_KEYSTORE')
+    .getOrElse("${System.getProperty('user.home')}/.android-keys/linebreaker.jks"))
+def keystore = keystorePath.canonicalFile
+def storePass = providers.environmentVariable('LINEBREAKER_ANDROID_STORE_PASSWORD').orNull
+def keyAliasName = providers.environmentVariable('LINEBREAKER_ANDROID_KEY_ALIAS').orNull
+def keyPass = providers.environmentVariable('LINEBREAKER_ANDROID_KEY_PASSWORD').orNull
+def externalKey = keystorePath.isAbsolute() && !keystore.toPath().startsWith(checkout.toPath())
+
 android {
     namespace = "com.husarp.linebreaker"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +30,9 @@ android {
         applicationId "com.husarp.linebreaker"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode appVersionCode.intValue()
+        versionName appVersion
+        buildConfigField 'String', 'UPDATE_REPO', '"' + updateRepo + '"'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,13 +40,38 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    buildFeatures {
+        buildConfig true
+    }
+    signingConfigs {
+        release {
+            if (externalKey && keystore.isFile() && storePass && keyAliasName && keyPass) {
+                storeFile keystore
+                storePassword storePass
+                keyAlias keyAliasName
+                keyPassword keyPass
+            }
+        }
+    }
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }
+
+def verifyReleaseConfig = tasks.register('verifyReleaseConfig') {
+    doLast {
+        if (!updateRepo) throw new GradleException('Set LINEBREAKER_RELEASE_REPO before building an Android release.')
+        if (!externalKey) throw new GradleException('Use an absolute Android keystore path outside the checkout.')
+        if (!keystore.isFile() || !storePass || !keyAliasName || !keyPass) {
+            throw new GradleException('Configure the Android release keystore and signing environment variables (docs/ANDROID.md).')
+        }
+    }
+}
+tasks.matching { it.name == 'preReleaseBuild' }.configureEach { dependsOn verifyReleaseConfig }
 
 repositories {
     flatDir{
