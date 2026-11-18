@@ -2659,95 +2659,96 @@
         }, 350);
     }
 
+    function applyLoadedData(data) {
+        data = sanitizeSave(data, { ...defaultSaveData, _settings: defaultSettings }, { palettes: BLOCK_PALETTES, boosters: BOOSTER_INFO, ranks: [...RANKS, CELESTITE_RANK], missionDefaults: _defaultMissions(), items: _getAllPartsItems() });
+        if (data && typeof data.totalXP === 'number') {
+            saveData = { ...JSON.parse(JSON.stringify(defaultSaveData)), ...data };
+            if (data.stats) saveData.stats = { ...defaultSaveData.stats, ...data.stats };
+            if (!saveData.ownedSkins) saveData.ownedSkins = ['neon'];
+            if (!saveData.ownedThemes) saveData.ownedThemes = [];
+            if (!saveData.boosters) saveData.boosters = {};
+            if (!saveData.parts) saveData.parts = {};
+            if (saveData.universalParts == null) saveData.universalParts = 0;
+            if (!saveData.ownedFonts) saveData.ownedFonts = ['Orbitron'];
+            if (!saveData.ownedBtnStyles) saveData.ownedBtnStyles = [];
+            if (saveData.ghostColorUnlocked == null) saveData.ghostColorUnlocked = false;
+            if (!saveData.ownedSfxPacks) saveData.ownedSfxPacks = ['default'];
+            if (!saveData.ownedPalettes) saveData.ownedPalettes = ['classic'];
+            if (!saveData.customPaletteOverrides) saveData.customPaletteOverrides = {};
+            // Migrate old booster keys
+            if (saveData.boosters['1.3x_game']) { saveData.boosters['1.25x_game'] = (saveData.boosters['1.25x_game']||0) + saveData.boosters['1.3x_game']; delete saveData.boosters['1.3x_game']; }
+            if (saveData.boosters['1.6x_game']) { saveData.boosters['1.5x_game'] = (saveData.boosters['1.5x_game']||0) + saveData.boosters['1.6x_game']; delete saveData.boosters['1.6x_game']; }
+            // Remove deprecated/removed skins from owned
+            saveData.ownedSkins = saveData.ownedSkins.filter(s => !['matrix','gold','golddragon','lava','circuit','marble','fire','toxic','ice','flat','glossy','metal','puffy','bordered','gloss2k','lumines','minimal'].includes(s));
+            // If active skin is a removed one, reset to neon
+            const _removedSkins = ['metal','puffy','bordered','gloss2k','lumines','minimal'];
+            if (_removedSkins.includes(settings.skin)) { settings.skin = 'neon'; saveSettings(); }
+            // If active skin/theme from localStorage is not in ownedSkins (e.g. file write lagged), restore ownership
+            const _validSkins = ['neon','retro','glass','shadow','outline','holo','journey','gem','bubble','gameboy','monochrome','modern','candy','vim','aerolab','classic','window'];
+            const _activeSkin = settings.skin || 'neon';
+            if (_skinAvailable(_activeSkin) && _validSkins.includes(_activeSkin) && !saveData.ownedSkins.includes(_activeSkin)) {
+                saveData.ownedSkins.push(_activeSkin);
+            }
+            const _validThemes = ['default','ocean','forest','fire','dragon','void','sunset','arctic','midnight','sakura'];
+            const _activeTheme = settings.theme || 'default';
+            if (_activeTheme !== 'default' && _validThemes.includes(_activeTheme) && !saveData.ownedThemes.includes(_activeTheme)) {
+                saveData.ownedThemes.push(_activeTheme);
+            }
+            // Ensure pinnedScores array exists
+            if (!saveData.pinnedScores) saveData.pinnedScores = [];
+            // Ensure achievements exists
+            if (!saveData.achievements) saveData.achievements = {};
+            if (!saveData.pendingAchievementClaims) saveData.pendingAchievementClaims = [];
+            if (!saveData.stats.blockTypeUsage) saveData.stats.blockTypeUsage = {};
+            if (!saveData.funLeaderboard) saveData.funLeaderboard = [];
+            // Load settings from file only when no local settings exist (new device / first run)
+            // localStorage is authoritative — avoids stale file overwriting fresh settings on reload
+            if (data._settings && !localStorage.getItem('tetrisRPG_settings')) {
+                Object.assign(settings, { ...defaultSettings, ...data._settings });
+                localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
+                _doApplyTheme(settings.theme || 'default');
+                applyFontSize(settings.fontSize || '5');
+                applyGameScale(settings.gameScale || '5');
+                applyStylePack(settings.stylePack || 'modern');
+                _applyColorPalette(settings.colorPalette || 'classic');
+            } else {
+                // Always apply visual/scale from localStorage (already loaded by loadSettings())
+                _doApplyTheme(settings.theme || 'default');
+                applyFontSize(settings.fontSize || '5');
+                applyGameScale(settings.gameScale || '5');
+                applyStylePack(settings.stylePack || 'modern');
+                _applyColorPalette(settings.colorPalette || 'classic');
+                // Migration: reset btn style to square if current style is not owned/free
+                if (settings.btnStyle && !BTN_STYLES[settings.btnStyle]?.free && !(saveData.ownedBtnStyles||[]).includes(settings.btnStyle)) {
+                    settings.btnStyle = 'square'; applyBtnStyle('square'); saveSettings();
+                }
+                // Migration: reset palette if not owned (skip _random and _custom_picker — they are valid non-palette values)
+                if (settings.colorPalette && settings.colorPalette !== 'classic' && settings.colorPalette !== '_random' && settings.colorPalette !== '_custom_picker' && !(saveData.ownedPalettes||['classic']).includes(settings.colorPalette)) {
+                    settings.colorPalette = 'classic'; _applyColorPalette('classic'); saveSettings();
+                }
+                // Migration: reset grid style to lines if stored value is not a valid key
+                if (!GRID_STYLES[settings.gridStyle]) {
+                    settings.gridStyle = 'lines'; saveSettings();
+                }
+            }
+        } else {
+            saveData = JSON.parse(JSON.stringify(defaultSaveData));
+            if (!saveData.pinnedScores) saveData.pinnedScores = [];
+            if (!saveData.achievements) saveData.achievements = {};
+        }
+        updateDailyGiftBtn();
+        checkTimeManipulation();
+        setTimeout(_checkGlowNotifications, 100);
+        _checkMissionsRefresh();
+        _initTrackCatalog(); // re-run now that saveData is loaded
+    }
+
     async function showFileSetup(existingHandle) {
         _dismissLoadingScreen();
         const overlay = document.getElementById('file-setup-overlay');
         const text = document.getElementById('file-setup-text');
         const btnOpen = document.getElementById('btn-open-save');
         const btnNew = document.getElementById('btn-new-save');
-
-        function applyLoadedData(data) {
-            if (data && typeof data.totalXP === 'number') {
-                saveData = { ...JSON.parse(JSON.stringify(defaultSaveData)), ...data };
-                if (data.stats) saveData.stats = { ...defaultSaveData.stats, ...data.stats };
-                if (!saveData.ownedSkins) saveData.ownedSkins = ['neon'];
-                if (!saveData.ownedThemes) saveData.ownedThemes = [];
-                if (!saveData.boosters) saveData.boosters = {};
-                if (!saveData.parts) saveData.parts = {};
-                if (saveData.universalParts == null) saveData.universalParts = 0;
-                if (!saveData.ownedFonts) saveData.ownedFonts = ['Orbitron'];
-                if (!saveData.ownedBtnStyles) saveData.ownedBtnStyles = [];
-                if (saveData.ghostColorUnlocked == null) saveData.ghostColorUnlocked = false;
-                if (!saveData.ownedSfxPacks) saveData.ownedSfxPacks = ['default'];
-                if (!saveData.ownedPalettes) saveData.ownedPalettes = ['classic'];
-                if (!saveData.customPaletteOverrides) saveData.customPaletteOverrides = {};
-                // Migrate old booster keys
-                if (saveData.boosters['1.3x_game']) { saveData.boosters['1.25x_game'] = (saveData.boosters['1.25x_game']||0) + saveData.boosters['1.3x_game']; delete saveData.boosters['1.3x_game']; }
-                if (saveData.boosters['1.6x_game']) { saveData.boosters['1.5x_game'] = (saveData.boosters['1.5x_game']||0) + saveData.boosters['1.6x_game']; delete saveData.boosters['1.6x_game']; }
-                // Remove deprecated/removed skins from owned
-                saveData.ownedSkins = saveData.ownedSkins.filter(s => !['matrix','gold','golddragon','lava','circuit','marble','fire','toxic','ice','flat','glossy','metal','puffy','bordered','gloss2k','lumines','minimal'].includes(s));
-                // If active skin is a removed one, reset to neon
-                const _removedSkins = ['metal','puffy','bordered','gloss2k','lumines','minimal'];
-                if (_removedSkins.includes(settings.skin)) { settings.skin = 'neon'; saveSettings(); }
-                // If active skin/theme from localStorage is not in ownedSkins (e.g. file write lagged), restore ownership
-                const _validSkins = ['neon','retro','glass','shadow','outline','holo','journey','gem','bubble','gameboy','monochrome','modern','candy','vim','aerolab','classic','window'];
-                const _activeSkin = settings.skin || 'neon';
-                if (_skinAvailable(_activeSkin) && _validSkins.includes(_activeSkin) && !saveData.ownedSkins.includes(_activeSkin)) {
-                    saveData.ownedSkins.push(_activeSkin);
-                }
-                const _validThemes = ['default','ocean','forest','fire','dragon','void','sunset','arctic','midnight','sakura'];
-                const _activeTheme = settings.theme || 'default';
-                if (_activeTheme !== 'default' && _validThemes.includes(_activeTheme) && !saveData.ownedThemes.includes(_activeTheme)) {
-                    saveData.ownedThemes.push(_activeTheme);
-                }
-                // Ensure pinnedScores array exists
-                if (!saveData.pinnedScores) saveData.pinnedScores = [];
-                // Ensure achievements exists
-                if (!saveData.achievements) saveData.achievements = {};
-                if (!saveData.pendingAchievementClaims) saveData.pendingAchievementClaims = [];
-                if (!saveData.stats.blockTypeUsage) saveData.stats.blockTypeUsage = {};
-                if (!saveData.funLeaderboard) saveData.funLeaderboard = [];
-                // Load settings from file only when no local settings exist (new device / first run)
-                // localStorage is authoritative — avoids stale file overwriting fresh settings on reload
-                if (data._settings && !localStorage.getItem('tetrisRPG_settings')) {
-                    Object.assign(settings, { ...defaultSettings, ...data._settings });
-                    localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
-                    _doApplyTheme(settings.theme || 'default');
-                    applyFontSize(settings.fontSize || '5');
-                    applyGameScale(settings.gameScale || '5');
-                    applyStylePack(settings.stylePack || 'modern');
-                    _applyColorPalette(settings.colorPalette || 'classic');
-                } else {
-                    // Always apply visual/scale from localStorage (already loaded by loadSettings())
-                    _doApplyTheme(settings.theme || 'default');
-                    applyFontSize(settings.fontSize || '5');
-                    applyGameScale(settings.gameScale || '5');
-                    applyStylePack(settings.stylePack || 'modern');
-                    _applyColorPalette(settings.colorPalette || 'classic');
-                    // Migration: reset btn style to square if current style is not owned/free
-                    if (settings.btnStyle && !BTN_STYLES[settings.btnStyle]?.free && !(saveData.ownedBtnStyles||[]).includes(settings.btnStyle)) {
-                        settings.btnStyle = 'square'; applyBtnStyle('square'); saveSettings();
-                    }
-                    // Migration: reset palette if not owned (skip _random and _custom_picker — they are valid non-palette values)
-                    if (settings.colorPalette && settings.colorPalette !== 'classic' && settings.colorPalette !== '_random' && settings.colorPalette !== '_custom_picker' && !(saveData.ownedPalettes||['classic']).includes(settings.colorPalette)) {
-                        settings.colorPalette = 'classic'; _applyColorPalette('classic'); saveSettings();
-                    }
-                    // Migration: reset grid style to lines if stored value is not a valid key
-                    if (!GRID_STYLES[settings.gridStyle]) {
-                        settings.gridStyle = 'lines'; saveSettings();
-                    }
-                }
-            } else {
-                saveData = JSON.parse(JSON.stringify(defaultSaveData));
-                if (!saveData.pinnedScores) saveData.pinnedScores = [];
-                if (!saveData.achievements) saveData.achievements = {};
-            }
-            updateDailyGiftBtn();
-            checkTimeManipulation();
-            setTimeout(_checkGlowNotifications, 100);
-            _checkMissionsRefresh();
-            _initTrackCatalog(); // re-run now that saveData is loaded
-        }
 
         if (_desktopSave) {
             // One boot read even if the loading-screen failsafe fires concurrently.
@@ -5442,7 +5443,7 @@
             if (importedData && typeof importedData.totalXP === 'number') {
                 const confirmed = await customConfirm("Importing will <b>OVERWRITE</b> your current progress. Proceed?");
                 if (!confirmed) { document.getElementById('file-import-input').value = ''; return; }
-                saveData = importedData;
+                applyLoadedData(importedData);
                 // save_transfer achievement
                 if (!saveData.achievements) saveData.achievements = {};
                 if (!saveData.achievements['save_transfer']?.unlocked) unlockAchievement('save_transfer');
