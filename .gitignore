@@ -34,3 +34,8 @@ android/.idea/
 android/captures/
 *.apk
 *.aab
+# Desktop generated output and signing material
+src-tauri/target/
+src-tauri/gen/
+*.key
+*.key.pub
