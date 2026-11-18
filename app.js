@@ -744,8 +744,9 @@
         drawNext(); drawHold(); drawGame();
     }
     window.addEventListener('resize',_refreshGameDPR);
-    let ROWS = 22; const VISIBLE_ROWS = 20; let COLS = 10; let BLOCK = 30;
+    let ROWS = 22; const VISIBLE_ROWS = 20; const COLS_NORMAL = 10; let COLS = COLS_NORMAL; let BLOCK = 30;
     const SPEED_MULTIPLIERS =[1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8];
+    const LINES_PER_SPEED = 10;
 
     let particles =[], shockwaves =[], floatingTexts =[], shakeIntensity = 0;
     class Particle{constructor(x,y,c){this.x=x;this.y=y;this.vx=(Math.random()-.5)*8;this.vy=(Math.random()-.5)*8;this.c=c;this.s=Math.random()*5+2;this.l=1}update(dt=1000/60){const f=dt*60/1000;this.x+=this.vx*f;this.y+=this.vy*f+.2*f*(f-1);this.vy+=.4*f;this.l-=.04*f}draw(c){c.save();c.globalAlpha=Math.max(0,this.l);c.fillStyle=this.c;c.fillRect(this.x,this.y,this.s,this.s);c.restore()}}
@@ -4746,7 +4747,7 @@
         const _uniDec = Math.round((_uniVal - _uniInt) * 10);
         const _uniDisplay = _uniDec > 0 ? `${_uniInt}<span style="font-size:0.6em;opacity:0.7;">.${_uniDec}</span>` : `${_uniInt}`;
         const uniRow = `<div style="display:flex;align-items:center;padding:10px 4px;gap:8px;margin-bottom:4px;">
-            <span style="font-size:0.75rem;color:#ffd700;font-weight:600;flex:1;">⭐ Universal Parts</span>
+            <span class="lb-help-label" style="font-size:0.75rem;color:#ffd700;font-weight:600;flex:1;">⭐ Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" title="About universal parts"></button></span>
             <span style="font-size:1rem;font-weight:bold;color:#ffd700;">${_uniDisplay}</span>
             ${(saveData.universalParts||0) >= 1 ? (_getAllPartsItems().length === 0 ? `<button onclick="window.openExchangeUniversalParts()" style="font-size:0.65rem;padding:4px 12px;border-radius:8px;border:1px solid #ffd700;background:rgba(255,215,0,0.1);color:#ffd700;cursor:pointer;font-family:inherit;font-weight:bold;">Exchange</button>` : `<button onclick="window.openUseUniversalPart()" style="font-size:0.65rem;padding:4px 12px;border-radius:8px;border:1px solid #ffd700;background:rgba(255,215,0,0.1);color:#ffd700;cursor:pointer;font-family:inherit;font-weight:bold;">Use</button>`) : ''}
         </div>`;
@@ -4795,7 +4796,7 @@
 
         container.innerHTML = `
             ${uniRow}
-            <div style="${secTitle}">BOOSTERS</div>
+            <div class="lb-help-label" style="${secTitle}">BOOSTERS <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" title="About boosters"></button></div>
             ${boosterHtml}
             ${sfxPacksHtml}`;
 
@@ -7253,6 +7254,7 @@
     }
 
     const _RANK_XP_PER_LEVEL = [1000, 2000, 3500, 5500, 8000, 11000, 14500, 18500];
+    const CELESTITE_XP_PER_LEVEL = 24000;
 
     function getLevelInfo(xp) {
         // Missing or invalid XP must never fall through to the endless rank.
@@ -7276,10 +7278,9 @@
         }
 
         // Celestite — endless rank (level 81+), no shapes
-        const celestiteXpPerLvl = 24000;
-        const celestiteLevel = level + 1 + Math.floor((xp - cumulative) / celestiteXpPerLvl);
-        const celestiteXpInto = (xp - cumulative) % celestiteXpPerLvl;
-        return { level: celestiteLevel, lvlInRank: 0, currentXP: celestiteXpInto, neededXP: celestiteXpPerLvl, percent: celestiteXpInto / celestiteXpPerLvl, rank: { name: CELESTITE_RANK.name, c: CELESTITE_RANK.c, shape: null }, isUltimateChampion: false, isLegend: true, isDiamond: false, isCelestite: true };
+        const celestiteLevel = level + 1 + Math.floor((xp - cumulative) / CELESTITE_XP_PER_LEVEL);
+        const celestiteXpInto = (xp - cumulative) % CELESTITE_XP_PER_LEVEL;
+        return { level: celestiteLevel, lvlInRank: 0, currentXP: celestiteXpInto, neededXP: CELESTITE_XP_PER_LEVEL, percent: celestiteXpInto / CELESTITE_XP_PER_LEVEL, rank: { name: CELESTITE_RANK.name, c: CELESTITE_RANK.c, shape: null }, isUltimateChampion: false, isLegend: true, isDiamond: false, isCelestite: true };
     }
     
     // --- ORBITAL LEVEL BADGE ---
@@ -7892,7 +7893,7 @@
         // Hover: show XP detail inline (no popup box — text appears/disappears)
         if (_xpBarWrap && !_xpBarWrap._xpHoverSetup) {
             _xpBarWrap._xpHoverSetup = true;
-            _xpBarWrap.addEventListener('mouseenter', () => {
+            const showXpDetail = () => {
                 const _i = getLevelInfo(saveData.totalXP);
                 if (_i.level === 0 && !_i.currentXP) return;
                 const _exact = (_i.percent * 100).toFixed(1);
@@ -7905,11 +7906,18 @@
                         + `<span style="color:var(--primary);margin-left:8px;font-weight:bold;text-shadow:0 0 8px var(--primary);">${_exact}%</span>`;
                     det.style.visibility = 'visible';
                 }
-            });
-            _xpBarWrap.addEventListener('mouseleave', () => {
+            };
+            const hideXpDetail = () => {
                 const det = document.getElementById('menu-xp-detail');
                 if (det) det.style.visibility = 'hidden';
-            });
+            };
+            const xpInfo = document.querySelector('.lb-help-xp-anchor .lb-info-btn');
+            _xpBarWrap.addEventListener('mouseenter', showXpDetail);
+            _xpBarWrap.addEventListener('mouseleave', hideXpDetail);
+            xpInfo.addEventListener('mouseenter', showXpDetail);
+            xpInfo.addEventListener('mouseleave', hideXpDetail);
+            xpInfo.addEventListener('focus', showXpDetail);
+            xpInfo.addEventListener('blur', hideXpDetail);
         }
 
         renderLoop();
@@ -8612,6 +8620,7 @@
         if (holdPiece) _loyalPieceCounter++; else _loyalPieceCounter = 0;
     }
     const _LINE_PTS = [0, 10, 20, 30, 40];
+    const COMBO_STEP_POINTS = 10;
     const _CLEAR_LABELS = ['', '', 'Double Clear', 'Triple Clear', 'QUAD!'];
     const _COMBO_COLORS = { 2: '#ffaa44', 3: '#ffdd22', 4: '#22ffaa', 5: '#00eeff', 6: '#aa44ff', 7: '#ff44ff', default: '#ff2222' };
     function _getComboColor(n) { return _COMBO_COLORS[Math.min(n, 7)] || _COMBO_COLORS.default; }
@@ -8754,8 +8763,9 @@
                 ftY += 22;
                 // Combo display (starting at combo 2)
                 if (_comboCount >= 2) {
-                    rawGameplayXPThisGame += (_comboCount - 1) * 10;
-                    const comboBonus = Math.round((_comboCount - 1) * 10 * currentScoreMultiplier);
+                    const baseComboBonus = (_comboCount - 1) * COMBO_STEP_POINTS;
+                    rawGameplayXPThisGame += baseComboBonus;
+                    const comboBonus = Math.round(baseComboBonus * currentScoreMultiplier);
                     score += comboBonus; xpFromLinesThisGame += comboBonus; _spawnScoreFly(comboBonus);
                     const cColor = _getComboColor(_comboCount);
                     const comboSz = Math.min(38, 20 + _comboCount * 2);
@@ -8772,7 +8782,7 @@
 
                 const oldSpeed = speedLevel;
                 const _baseSpeed = currentGameMode === 'fun' ? Math.max(1, funModeConfig.startSpeed) : 1;
-                speedLevel = Math.min(15, Math.floor(linesClearedThisGame/10) + _baseSpeed);
+                speedLevel = Math.min(SPEED_MULTIPLIERS.length, Math.floor(linesClearedThisGame / LINES_PER_SPEED) + _baseSpeed);
                 // Mission: reach speed 5 in under 3 minutes / speed 4 in under 2 minutes
                 if (speedLevel >= 5 && !_mq_speedRun && gameTime < 180) _mq_speedRun = true;
                 if (speedLevel >= 4 && !_mq_speedQueen && gameTime < 120) _mq_speedQueen = true;
@@ -9168,8 +9178,7 @@
 
     function useScoreBooster(key) {
         if (gainedXPThisRound <= 0 || _boosterUsedThisRound) return;
-        const BOOST_MULTS = { '2xp_game':2.0, '1.5x_game':1.5, '1.25x_game':1.25 };
-        const mult = BOOST_MULTS[key];
+        const mult = BOOSTER_INFO[key]?.mult;
         if (!mult || !saveData.boosters || !saveData.boosters[key]) return;
         playSFX('booster');
         saveData.boosters[key]--;
@@ -9201,7 +9210,7 @@
         row.style.display = 'flex';
         row.style.flexDirection = 'column';
         row.style.width = 'min(480px, 94vw)';
-        row.innerHTML = `<div style="font-size:0.65rem;color:#cc44ff;margin-bottom:6px;font-weight:bold;letter-spacing:1px;">USE BOOSTER:</div>` +
+        row.innerHTML = `<div class="lb-help-label" style="font-size:0.65rem;color:#cc44ff;margin-bottom:6px;font-weight:bold;letter-spacing:1px;">USE BOOSTER: <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About score boosters" title="About score boosters"></button></div>` +
             available.map(b => `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0;">
                 <div style="display:flex;flex-direction:column;gap:1px;">
                     <span style="font-size:0.72rem;color:#cc44ff;white-space:nowrap;">${b.label}</span>
@@ -9262,8 +9271,8 @@
             _sizeGameCanvas(canvas,COLS*BLOCK,funModeConfig.rows*BLOCK);
             if (_gcFun) _gcFun.style.aspectRatio = `${funModeConfig.cols} / ${funModeConfig.rows}`;
         } else {
-            ROWS = 22; COLS = 10; BLOCK = 30;
-            _sizeGameCanvas(canvas,300,VISIBLE_ROWS*BLOCK);
+            ROWS = 22; COLS = COLS_NORMAL; BLOCK = 30;
+            _sizeGameCanvas(canvas,COLS_NORMAL*BLOCK,VISIBLE_ROWS*BLOCK);
             if (_gcFun) _gcFun.style.aspectRatio = '1 / 2';
         }
         // Show/hide hold panel
@@ -9875,6 +9884,8 @@
     const MQ_WEEKLY_GOLDEN_THRESHOLD = 180; // pts above this earn 1 universal part each
 
     const MQ_SPECIAL_BOX_CAP = 30;
+    const MQ_SPECIAL_BOX_PARTS = 5;
+    const MISSION_STREAK_XP_TIERS = [[3, 1.25], [6, 1.5], [11, 1.75], [21, 2]];
     function _defaultMissions() {
         return {
             daily:   { quests: [], secret: null, lastRefreshDate: '', changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: false, rawXPToday: 0 },
@@ -10123,13 +10134,8 @@
         _achsThisGame = 0;
     }
 
-    function _getMissionStreakXPMult() {
-        const streak = saveData.missions?.streaks?.daily || 0;
-        if (streak >= 21)  return 2.00;
-        if (streak >= 11)  return 1.75;
-        if (streak >= 6)   return 1.50;
-        if (streak >= 3)   return 1.25;
-        return 1.0;
+    function _getMissionStreakXPMult(streak = saveData.missions?.streaks?.daily || 0) {
+        return MISSION_STREAK_XP_TIERS.findLast(([days]) => streak >= days)?.[1] ?? 1;
     }
 
     function _updateMissionProgress() {
@@ -10259,8 +10265,8 @@
               m.specialBox.pts = (m.specialBox.pts || 0) + _excessDelta;
               if (m.specialBox.pts >= MQ_SPECIAL_BOX_CAP) {
                   m.specialBox.pts -= MQ_SPECIAL_BOX_CAP;
-                  saveData.universalParts = (saveData.universalParts || 0) + 5;
-                  _showMissionReward('+5 Universal Parts — Bonus Box!');
+                  saveData.universalParts = (saveData.universalParts || 0) + MQ_SPECIAL_BOX_PARTS;
+                  _showMissionReward(`+${MQ_SPECIAL_BOX_PARTS} Universal Parts — Bonus Box!`);
               }
           } }
         // Track completions per day and total pts for stats
@@ -10626,8 +10632,8 @@
         const xpDone = rawXP >= xpThresh;
         const xpColor = xpDone ? '#44ff88' : '#ffcc44';
         const xpBarBg = xpDone ? 'linear-gradient(90deg,#22aa44,#44ff88)' : 'linear-gradient(90deg,#996600,#ffcc44)';
-        const multRows = [{d:3,x:'×1.25'},{d:6,x:'×1.50'},{d:11,x:'×1.75'},{d:21,x:'×2.00'}].map(r =>
-            `<div style="display:flex;justify-content:space-between;gap:14px;font-size:0.58rem;color:${dStreak>=r.d?'#ffcc44':'#444'};margin-bottom:3px;"><span>${r.d} days</span><span>${r.x}</span></div>`).join('');
+        const multRows = MISSION_STREAK_XP_TIERS.map(([days, multiplier]) =>
+            `<div style="display:flex;justify-content:space-between;gap:14px;font-size:0.58rem;color:${dStreak>=days?'#ffcc44':'#444'};margin-bottom:3px;"><span>${days} days</span><span>×${multiplier.toFixed(2)}</span></div>`).join('');
         const streakPanelHtml = `
             <div style="border:1px solid rgba(255,204,68,0.25);border-radius:10px;overflow:hidden;">
             <div class="mq-streak-half" style="padding:14px 16px;background:rgba(255,204,68,0.05);border:none;border-radius:0;position:relative;overflow:hidden;">
@@ -11058,8 +11064,8 @@
                 m.specialBox.pts = (m.specialBox.pts || 0) + _bonusBoxDelta;
                 if (m.specialBox.pts >= MQ_SPECIAL_BOX_CAP) {
                     m.specialBox.pts -= MQ_SPECIAL_BOX_CAP;
-                    saveData.universalParts = (saveData.universalParts || 0) + 5;
-                    if (!silent) _showMissionReward('+5 Universal Parts — Bonus Box!');
+                    saveData.universalParts = (saveData.universalParts || 0) + MQ_SPECIAL_BOX_PARTS;
+                    if (!silent) _showMissionReward(`+${MQ_SPECIAL_BOX_PARTS} Universal Parts — Bonus Box!`);
                 }
             }
         }
@@ -11437,14 +11443,12 @@
         }
         localStorage.setItem('tetrisRPG_funConfig', JSON.stringify(funModeConfig));
     }
-    function _calcModeXpMult() {
-        let m = 1.0;
-        if (settings.optMirror) m += 0.2;
-        if (settings.optNoNext) m += 0.1;
-        if (settings.optHold)   m -= 0.2;
-        if (settings.opt3Next)  m -= 0.1;
-        if (settings.optGhost)  m -= 0.2;
-        return Math.max(0.1, m);
+    const MODE_XP_MODIFIERS = [
+        ['optMirror', 'mirror', 0.2], ['optNoNext', 'nonext', 0.1], ['optHold', 'hold', -0.2],
+        ['opt3Next', '3next', -0.1], ['optGhost', 'ghost', -0.2]
+    ];
+    function _calcModeXpMult(activeSettings = settings) {
+        return Math.max(0.1, MODE_XP_MODIFIERS.reduce((mult, [setting, , change]) => activeSettings[setting] ? mult + change : mult, 1));
     }
     function _updateModeXpMultDisplay() {
         const val = document.getElementById('mode-xp-mult-val');
@@ -11940,7 +11944,7 @@
                 _dm.specialBox.pts = (_dm.specialBox.pts || 0) + _excessDelta2;
                 if (_dm.specialBox.pts >= MQ_SPECIAL_BOX_CAP) {
                     _dm.specialBox.pts -= MQ_SPECIAL_BOX_CAP;
-                    saveData.universalParts = (saveData.universalParts || 0) + 5;
+                    saveData.universalParts = (saveData.universalParts || 0) + MQ_SPECIAL_BOX_PARTS;
                 }
             }
         }
@@ -11959,34 +11963,183 @@
     window.settingsVisualSubTab = settingsVisualSubTab;
     window.toggleMute = toggleMute;
     window.toggleTrack = toggleTrack;
-    window.openRules = function() {
-        const el = document.getElementById('rules-secret-count');
-        if (el) el.textContent = ACHIEVEMENTS_DEF.filter(a => a.cat === 'secret').length;
-        const _rlEl = document.getElementById('rules-overlay');
-        _rlEl.classList.remove('hidden');
-        _animateIn(_rlEl, 'anim-in-right');
-        // rules_reader achievement tracking
-        saveData.stats.rulesOpened = (saveData.stats.rulesOpened || 0) + 1;
-        if ((saveData.stats.rulesOpened || 0) >= 5 && !saveData.achievements?.['rules_reader']?.unlocked) { unlockAchievement('rules_reader'); }
-        saveDataToFile();
+    const helpOverlay = document.getElementById('rules-overlay');
+    const helpBack = document.getElementById('help-back');
+    const helpNav = helpOverlay.querySelector('.lb-help-nav');
+    const helpContent = helpOverlay.querySelector('.lb-help-content');
+    let helpOpener;
+
+    function renderHelp() {
+        const number = value => value.toLocaleString();
+        const definitions = entries => `<dl>${entries.map(([term, text]) => `<dt>${term}</dt><dd>${text}</dd>`).join('')}</dl>`;
+        const milestoneList = milestones => milestones.map(({ pts, label }) => `${pts} pts (${label})`).join(' · ');
+        const settingRange = id => {
+            const input = document.getElementById(id);
+            return `${input.min}–${input.max}`;
+        };
+        const lineNames = ['Single', 'Double', 'Triple', 'Quad'];
+        const controls = Object.entries(LBControls.actions).map(([action, label]) => [
+            label, settings.keyBindings[action].filter(Boolean).map(LBControls.keyLabel).join(' / ') || 'Unbound'
+        ]);
+        const rankRows = RANKS.map(({ name, maxLvl }, index) => [
+            name, `Levels ${(RANKS[index - 1]?.maxLvl || 0) + 1}–${maxLvl} · ${number(_RANK_XP_PER_LEVEL[index])} XP per level`
+        ]);
+        rankRows.push([CELESTITE_RANK.name, `Level ${RANKS.at(-1).maxLvl + 1} onward · ${number(CELESTITE_XP_PER_LEVEL)} XP per level`]);
+        const modifiers = MODE_XP_MODIFIERS.map(([, id, change]) => {
+            const row = document.getElementById(`opt-row-${id}`);
+            const label = row.querySelector(':scope > div > div').textContent.trim();
+            const description = id === 'hold'
+                ? 'Store a piece or swap it back in with your Hold binding. Each piece can only be held once per turn.'
+                : row.dataset.optInfo;
+            const percent = `${change > 0 ? '+' : '−'}${Math.round(Math.abs(change) * 100)}%`;
+            return [label, `${description} Unlocks at level ${row.dataset.unlockLvl}. ${percent} in Normal.`];
+        });
+        const sections = [
+            ['basics', 'Basics & controls', `
+                <p>Stack falling pieces to fill horizontal rows. Full rows disappear and free up space. The run ends when a new piece cannot enter the board.</p>
+                <h3>Keyboard bindings</h3>
+                <p>These are your current bindings. Change either slot in Settings → Controls. Select a slot, press a key to bind it, or press Backspace to clear it. Reset to defaults restores the original layout.</p>
+                ${definitions(controls)}
+                <h3>Touch</h3>
+                <p>Use the on-screen buttons or the board gestures. Drag sideways to move and drag slowly down to soft drop. Flick down to hard drop, swipe up to hold, or tap to rotate. Tap on the left side or with two fingers for counter-clockwise rotation.</p>
+                <h3>Gamepad</h3>
+                <p>With a standard-mapped controller, use the D-pad or left stick to move, the left bumper to soft drop and the right bumper to hard drop. The bottom and right face buttons rotate in opposite directions; the left and top face buttons hold. Start pauses. In menus, the D-pad moves focus, the bottom face button selects, and the right face button goes back.</p>
+                <h3 id="help-sound" tabindex="-1">Sound settings</h3>
+                <p>Adjust music and sound effects independently. Open the playlist from Sound to choose which tracks can play.</p>
+                <h3 id="help-display" tabindex="-1">Display settings</h3>
+                <p>Adjust font size and other display preferences in Settings. Look in Gameplay for effects such as screen shake and grid visibility, or use Inventory to equip owned appearance items.</p>`],
+            ['scoring', 'Scoring & speed', `
+                <p>Placed pieces and completed lines earn points. These are the base points for a line clear, before speed, modifiers and combo bonuses:</p>
+                ${definitions(_LINE_PTS.slice(1).map((points, index) => [lineNames[index], `${points} points`]))}
+                <p>Speed rises every ${LINES_PER_SPEED} lines, up to speed ${SPEED_MULTIPLIERS.length}. At higher speeds, pieces fall faster and speed multiplies the base points for placements and clears, from ×${SPEED_MULTIPLIERS[0]} to ×${SPEED_MULTIPLIERS.at(-1)}.</p>
+                <p>Successive line-clearing placements build a combo. Each cleared line adds a combo step; after the first step each step is worth ${COMBO_STEP_POINTS} bonus points before modifiers. A placement with no line clear breaks the combo.</p>`],
+            ['ranks', 'Ranks & XP', `
+                <p>In Normal, clear at least one line to earn run XP. Score and any personal-best bonus contribute to XP before the daily streak multiplier. Total XP advances your level and unlocks ranks, rewards and modifiers.</p>
+                ${definitions(rankRows)}`],
+            ['missions', 'Missions & milestones', `
+                <p>Daily quests refresh each day; weekly missions reset on Monday. Normal runs count toward both, and daily quest points also count toward weekly milestones. Claim completed missions and unlocked milestone rewards from the Missions screen.</p>
+                <p>A hidden secret quest can appear in the daily list. The Change control lets you replace an eligible mission; secret quests cannot be swapped.</p>
+                ${definitions([['Daily milestones', milestoneList(MQ_DAILY_MILESTONES)], ['Weekly milestones', milestoneList(MQ_WEEKLY_MILESTONES)]])}
+                <h3>Bonus Box</h3>
+                <p>Daily points beyond the last daily milestone fill the Bonus Box. Every ${MQ_SPECIAL_BOX_CAP} overflow points earn ${MQ_SPECIAL_BOX_PARTS} universal parts.</p>
+                <h3>Golden Zone</h3>
+                <p>Every weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD} earns a universal part to claim from the weekly panel.</p>`],
+            ['streaks', 'Streaks & multipliers', `
+                <p>Keep a daily streak by earning the required pre-streak run XP in Normal each day. The requirement depends on rank; yours is ${number(_dailyStreakXPThreshold())} raw XP per day. Missing a day or its XP target breaks the streak.</p>
+                ${definitions(MISSION_STREAK_XP_TIERS.map(([days, multiplier]) => [`${days}+ days`, `×${multiplier.toFixed(2)} run XP`]))}
+                <p>The daily streak affects XP, not the in-run score. Mode modifiers affect scoring in Normal, and a booster can add XP after a run.</p>`],
+            ['boxes', 'Boxes & parts', `
+                <p>Level and milestone boxes supply item parts and universal parts. Missions also award parts. Item parts belong to a specific cosmetic, such as a block skin, palette, theme color, grid style or sound pack. Once you have enough parts, unlock the item and equip it in Inventory.</p>
+                <p>Universal parts can fill missing item parts. Use them from Inventory → Other. If no part-unlockable items remain, you can exchange universal parts for XP instead.</p>`],
+            ['achievements', 'Achievements & rarities', `
+                <p>Achievements track feats and milestones. Open Achievements to see progress and claim XP from completed achievements. Secret goals are hidden until discovered.</p>
+                <p>These are the standard XP rewards by rarity; the achievement card shows the actual reward.</p>
+                ${definitions(Object.entries(RARITY_ACH).map(([id, { label }]) => [label, `${number(_ACH_XP[id])} XP`]))}`],
+            ['boosters', 'Boosters', `
+                <p>Earn boosters from rewards and find them in Inventory → Other. Use an available booster on the results screen of a Normal run that earned XP. You can use one per run. Boosters multiply the XP awarded for that run, not the leaderboard score.</p>
+                ${definitions(BOOSTER_KEYS.map(key => [BOOSTER_META[key].label, `×${BOOSTER_INFO[key].mult} run XP`]))}`],
+            ['modes', 'Game modes & modifiers', `
+                <h3>Normal</h3>
+                <p>Play on the standard board (${COLS_NORMAL} columns × ${VISIBLE_ROWS} visible rows), post scores to the Normal leaderboard, and earn XP and mission progress.</p>
+                <h3>Fun</h3>
+                <p>Sandbox with its own scores. Set board width to ${settingRange('fun-cols')} columns, height to ${settingRange('fun-rows')} rows, and initial speed to ${settingRange('fun-speed')}. Fun runs do not earn run XP or mission progress, but can count toward applicable achievements.</p>
+                <h3>Modifiers</h3>
+                <p>Toggle unlocked options before a run. Their percentages add together in Normal to adjust scoring and therefore run XP. In Fun, modifiers change play without a scoring multiplier.</p>
+                ${definitions(modifiers)}`],
+            ['glossary', 'Glossary', `
+                ${definitions([
+                    ...lineNames.map((name, index) => [name, `Clear ${index + 1} ${index ? 'lines' : 'line'} with one placement.`]),
+                    ['Hard drop', 'Send a piece to the lowest valid row and lock it immediately.'],
+                    ['Soft drop', 'Move the piece down faster without an instant lock.'],
+                    ['T-spin', 'Rotate a T-piece into a tight slot so most of its corners are blocked.'],
+                    ['Combo', 'The number of lines cleared across uninterrupted line-clearing placements.'],
+                    ['Line streak', 'The number of consecutive placements that clear at least one line.'],
+                    ['Ghost piece', 'A preview of where the active piece would land.'],
+                    ['Top out', 'The point at which a new piece cannot enter the board.']
+                ])}
+                <p><button type="button" class="lb-btn lb-btn--ghost" id="help-tutorial">Open tutorials</button></p>`]
+        ];
+        helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-btn lb-btn--ghost" data-help-jump="${id}">${title}</button>`).join('');
+        helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" tabindex="-1">${title}</h2>${body}</section>`).join('');
+        document.getElementById('help-tutorial').addEventListener('click', () => {
+            window.openTutorial();
+            document.querySelector('#tutorial-overlay .btn-back').focus();
+        });
+    }
+
+    function jumpToHelp(sectionId) {
+        const candidate = document.getElementById(`help-${sectionId}`);
+        const heading = candidate?.closest('[data-help-topic]') ? candidate : document.getElementById('help-basics');
+        const topicId = heading.closest('[data-help-topic]').dataset.helpTopic;
+        for (const button of helpNav.querySelectorAll('[data-help-jump]')) {
+            if (button.dataset.helpJump === topicId) {
+                button.setAttribute('aria-current', 'location');
+                button.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+            } else button.removeAttribute('aria-current');
+        }
+        heading.focus({ preventScroll: true });
+        helpContent.scrollTop = heading.offsetTop - parseFloat(getComputedStyle(helpContent).paddingTop || 0);
+    }
+
+    window.openHelp = function(sectionId = 'basics') {
+        if (helpOverlay.classList.contains('hidden')) {
+            helpOpener = document.activeElement;
+            controlsEditor.cancel();
+            renderHelp();
+            helpOverlay.classList.remove('hidden');
+            if (saveData.stats) {
+                saveData.stats.rulesOpened = (saveData.stats.rulesOpened || 0) + 1;
+                if (saveData.stats.rulesOpened >= 5 && !saveData.achievements?.rules_reader?.unlocked) unlockAchievement('rules_reader');
+                saveDataToFile();
+            }
+        }
+        jumpToHelp(sectionId);
     };
-    window.closeRules = function() {
-        const _mEl = document.getElementById('menu-overlay');
-        _animateOut(document.getElementById('rules-overlay'), 'anim-out-right');
-        if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
+    window.closeHelp = function() {
+        helpOverlay.classList.add('hidden');
+        helpOpener?.focus({ preventScroll: true });
+        helpOpener = null;
     };
-    window.openRulesMissions = function() {
-        if (window._mqChangeMode) return;
-        window.openRules();
-        setTimeout(() => {
-            const sec = document.getElementById('rules-missions-section');
-            if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 80);
-    };
+    document.addEventListener('click', event => {
+        const trigger = event.target.closest?.('[data-help-section]');
+        if (!trigger) return;
+        if (trigger.dataset.helpSection === 'modes') document.getElementById('mode-opt-tooltip').style.display = 'none';
+        trigger.focus({ preventScroll: true });
+        window.openHelp(trigger.dataset.helpSection);
+    });
+    helpNav.addEventListener('click', event => {
+        const button = event.target.closest('[data-help-jump]');
+        if (button) jumpToHelp(button.dataset.helpJump);
+    });
+    helpOverlay.addEventListener('keydown', event => {
+        if (event.key !== 'Tab') return;
+        const last = document.getElementById('help-tutorial');
+        if (event.shiftKey ? event.target === helpBack : event.target === last) {
+            event.preventDefault();
+            (event.shiftKey ? last : helpBack).focus();
+        }
+    });
+    const reduceDriftMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    for (const button of document.querySelectorAll('[data-lb-drift]')) {
+        let drift;
+        const freeze = () => { if (drift?.playState === 'running') drift.pause(); };
+        button.addEventListener('pointerenter', event => {
+            if (event.pointerType !== 'mouse' || reduceDriftMotion?.matches) return;
+            if (drift) drift.play();
+            else drift = button.animate?.([
+                { '--lb-drift-tint': '0%' }, { '--lb-drift-tint': '38%' }
+            ], { duration: 5000, easing: 'ease-in-out', direction: 'alternate', iterations: Infinity, fill: 'both' });
+        });
+        for (const type of ['pointerleave', 'pointercancel', 'click']) button.addEventListener(type, freeze);
+        window.addEventListener('blur', freeze);
+        reduceDriftMotion?.addEventListener?.('change', freeze);
+    }
     window.openTutorial = function() { const _tutEl = document.getElementById('tutorial-overlay'); _tutEl.classList.remove('hidden'); _animateIn(_tutEl, 'anim-in-right'); };
     window.closeTutorial = function() {
         const _mEl = document.getElementById('menu-overlay');
-        _animateOut(document.getElementById('tutorial-overlay'), 'anim-out-right');
+        _animateOut(document.getElementById('tutorial-overlay'), 'anim-out-right', () => {
+            if (!helpOverlay.classList.contains('hidden')) document.getElementById('help-tutorial').focus();
+        });
         if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
     };
     window.renderAchievementsOverlay = renderAchievementsOverlay;
@@ -12159,7 +12312,7 @@
             encSave: _encSave, decSave: _decSave,
             defaultMissions: _defaultMissions, refreshMissions: _checkMissionsRefresh,
             autoClaimMissions: _autoClaimMissions, streakMultiplier: _getMissionStreakXPMult,
-            streakThreshold: _dailyStreakXPThreshold
+            streakThreshold: _dailyStreakXPThreshold, modeXpMultiplier: _calcModeXpMult
         };
     }
 })();
