@@ -3,14 +3,14 @@ import { cp, mkdir, readdir, rm } from 'node:fs/promises';
 await rm('dist-web', { recursive: true, force: true });
 await mkdir('dist-web/assets', { recursive: true });
 await mkdir('dist-web/ui', { recursive: true });
-for (const file of ['index.html', 'app.js', 'style.css', 'desktop.js', 'native-save.js', 'touch.js', 'touch.css', 'portrait.css']) {
+for (const file of ['index.html', 'app.js', 'style.css', 'desktop.js', 'native-save.js', 'touch.js', 'touch.css', 'portrait.css', 'android-update.js', 'android-update.css']) {
   await cp(file, 'dist-web/' + file);
 }
 await mkdir('dist-web/ui', { recursive: true });
 await cp('ui/tokens.css', 'dist-web/ui/tokens.css');
 await cp('assets/fonts', 'dist-web/assets/fonts', { recursive: true });
 await cp('assets/music.json', 'dist-web/assets/music.json');
-const tracks = await readdir('assets/music').catch(error => {
+const tracks = process.env.LINEBREAKER_OMIT_LOCAL_MUSIC === '1' ? [] : await readdir('assets/music').catch(error => {
   if (error.code === 'ENOENT') return [];
   throw error;
 });
