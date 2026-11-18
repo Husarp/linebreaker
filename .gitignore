@@ -41,5 +41,13 @@ android/captures/
 # Desktop generated output and signing material
 src-tauri/target/
 src-tauri/gen/
+src-tauri/installer/generated/
+release/windows/
+*.exe
+*.msi
 *.key
 *.key.pub
+*.pfx
+*.p12
+*.pvk
+*.log
