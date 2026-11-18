@@ -1,6 +1,14 @@
 (function() {
 
     const _visualReview = window.__LB_TEST__ === true && window.__LB_VISUAL_REVIEW__ === true;
+    const HTML_ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, char => HTML_ENTITIES[char]);
+    }
+    function hexColor(value, fallback) {
+        return typeof value === 'string' && value.length === 7 && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+    }
+
     const _devMode = (() => {
         if (_visualReview || new URLSearchParams(window.location.search).has('dev')) return true;
         try { return localStorage.getItem('lb_dev') === '1'; } catch(e) { return false; }
@@ -27,16 +35,20 @@
         neon:       { name: 'Neon',       colors: ['#00fff2','#ff00ff','#ffff00','#00ff00','#ff3300','#ff6600','#3399ff'] },
     };
 
+    function paletteColors(colors, defaults = BLOCK_PALETTES.classic.colors) {
+        return defaults.map((color, index) => hexColor(Array.isArray(colors) ? colors[index] : null, color));
+    }
+
     function _applyColorPalette(name) {
         // Custom picker palette
         if (name === '_custom_picker' && saveData.customPickerColors) {
-            for (let i = 0; i < 7; i++) COLORS[i + 1] = saveData.customPickerColors[i] || '#ffffff';
+            COLORS.splice(1, 7, ...paletteColors(saveData.customPickerColors));
             return;
         }
         // Check custom palette overrides first (edited palettes)
         if (saveData.customPaletteOverrides?.[name]) {
             const ov = saveData.customPaletteOverrides[name];
-            for (let i = 0; i < 7; i++) COLORS[i + 1] = ov[i] || '#ffffff';
+            COLORS.splice(1, 7, ...paletteColors(ov, BLOCK_PALETTES[name]?.colors));
             return;
         }
         const pal = BLOCK_PALETTES[name] || BLOCK_PALETTES.classic;
@@ -290,7 +302,7 @@
 
             // Floating text — modern style, stays longer
             const flyEl = document.createElement('div');
-            flyEl.innerHTML = `<div style="font-size:0.85rem;font-weight:bold;color:${rewardColor};text-shadow:0 0 10px ${rewardColor}66;letter-spacing:0.5px;">${rewardText}</div><div style="font-size:0.6rem;color:rgba(255,255,255,0.5);margin-top:2px;">Airdrop caught!</div>`;
+            flyEl.innerHTML = `<div style="font-size:0.85rem;font-weight:bold;color:${rewardColor};text-shadow:0 0 10px ${rewardColor}66;letter-spacing:0.5px;">${escapeHtml(rewardText)}</div><div style="font-size:0.6rem;color:rgba(255,255,255,0.5);margin-top:2px;">Airdrop caught!</div>`;
             flyEl.style.cssText = `position:fixed;left:${b.x}px;top:${b.y}px;transform:translateX(-50%);z-index:2600;pointer-events:none;text-align:center;background:rgba(0,0,0,0.7);padding:6px 14px;border-radius:8px;border:1px solid ${rewardColor}44;transition:all 2s ease-out;opacity:1;`;
             document.body.appendChild(flyEl);
             requestAnimationFrame(() => { flyEl.style.top = (b.y - 80) + 'px'; flyEl.style.opacity = '0'; });
@@ -1017,7 +1029,7 @@
     }
     function _doApplyTheme(name) {
         if (name === 'custom' && saveData.customThemeColor) {
-            const _ch = saveData.customThemeColor;
+            const _ch = hexColor(saveData.customThemeColor, '#ff00ff');
             document.documentElement.style.setProperty('--primary', _ch);
             document.documentElement.style.setProperty('--primary-dim', hexToRgba(_ch, 0.35));
             const _r=parseInt(_ch.slice(1,3),16),_g=parseInt(_ch.slice(3,5),16),_b=parseInt(_ch.slice(5,7),16);
@@ -1057,6 +1069,7 @@
         }
     }
     function _applyCustomTheme(hex) {
+        if (!hexColor(hex)) return;
         saveData.customThemeColor = hex;
         // Apply the custom color as theme
         document.documentElement.style.setProperty('--primary', hex);
@@ -1076,7 +1089,7 @@
     function _openColorPickerModal() {
         const existing = document.getElementById('color-picker-modal');
         if (existing) existing.remove();
-        const cur = saveData.customThemeColor || '#ff00ff';
+        const cur = hexColor(saveData.customThemeColor, '#ff00ff');
         const presets = ['#00ffff','#0099ff','#00dd55','#ff3300','#ffcc00','#cc44ff','#ff7722','#88ddff','#aa77ff','#ff88cc','#ff0055','#44ff88','#ffff00','#ff8800','#8844ff','#00ff99'];
         const ov = document.createElement('div');
         ov.id = 'color-picker-modal';
@@ -1207,8 +1220,7 @@
         const pal = BLOCK_PALETTES[paletteKey];
         if (!pal) return;
         // If there are already overrides, use those; otherwise use current palette colors
-        const currentColors = saveData.customPaletteOverrides?.[paletteKey] || pal.colors.slice(0, 7);
-        _palEditState = { key: paletteKey, colors: currentColors.slice(0, 7) };
+        _palEditState = { key: paletteKey, colors: paletteColors(saveData.customPaletteOverrides?.[paletteKey], pal.colors) };
 
         const ov = document.createElement('div');
         ov.id = 'pal-edit-modal';
@@ -1250,7 +1262,7 @@
     window._openPaletteEditor = _openPaletteEditor;
 
     window._palEditChange = function(i, val) {
-        if (!/^#[0-9a-fA-F]{6}$/.test(val)) return;
+        if (!hexColor(val)) return;
         _palEditState.colors[i] = val;
         document.getElementById('pe-c' + i + '-hex').value = val;
         document.getElementById('pe-c' + i + '-native').value = val;
@@ -1306,18 +1318,17 @@
     }
 
     window._onCustomPickerColor = function(idx, val) {
-        if (!saveData.customPickerColors) saveData.customPickerColors = BLOCK_PALETTES.classic.colors.slice(0, 7);
+        if (!hexColor(val)) return;
+        saveData.customPickerColors = paletteColors(saveData.customPickerColors);
         saveData.customPickerColors[idx] = val;
-        if (settings.colorPalette === '_custom_picker') {
-            for (let i = 0; i < 7; i++) COLORS[i + 1] = saveData.customPickerColors[i];
-        }
+        if (settings.colorPalette === '_custom_picker') _applyColorPalette('_custom_picker');
         saveDataToFile();
     };
     window._activateCustomPicker = function() {
         if (!saveData.customPickerColors) saveData.customPickerColors = BLOCK_PALETTES.classic.colors.slice(0, 7);
         settings.colorPalette = '_custom_picker';
         settings.randomBlockColors = false;
-        for (let i = 0; i < 7; i++) COLORS[i + 1] = saveData.customPickerColors[i];
+        _applyColorPalette('_custom_picker');
         saveSettings();
         _populateVisualCustomize();
     };
@@ -1331,7 +1342,7 @@
         document.getElementById('palette-view-modal')?.remove();
         const pal = BLOCK_PALETTES[paletteKey];
         if (!pal) return;
-        const displayColors = (saveData.customPaletteOverrides?.[paletteKey]) ? saveData.customPaletteOverrides[paletteKey] : pal.colors;
+        const displayColors = paletteColors(saveData.customPaletteOverrides?.[paletteKey], pal.colors);
 
         let rowsHtml = '';
         _PIECE_LABELS.forEach((lbl, i) => {
@@ -1364,10 +1375,9 @@
 
     function _openCustomPaletteModal() {
         document.getElementById('custom-palette-modal')?.remove();
-        const colors = (saveData.customPickerColors || BLOCK_PALETTES.classic.colors.slice(0, 7)).slice(0, 7);
-        _customPalState = colors.slice();
+        _customPalState = paletteColors(saveData.customPickerColors);
         let _cpmMode = saveData._cpmMode || 'perpiece';
-        let _cpmBaseColor = saveData._cpmBaseColor || '#00ffff';
+        let _cpmBaseColor = hexColor(saveData._cpmBaseColor, '#00ffff');
 
         function _buildContent() {
             const tabStyle = (active) => `font-size:0.55rem;padding:5px 12px;border-radius:6px;border:1px solid ${active ? 'var(--primary)' : '#333'};background:${active ? 'rgba(0,255,255,0.12)' : 'rgba(255,255,255,0.04)'};color:${active ? 'var(--primary)' : '#777'};cursor:pointer;font-family:inherit;font-weight:${active ? 'bold' : 'normal'};`;
@@ -1464,7 +1474,7 @@
             document.getElementById('cpm-body').innerHTML = _buildContent();
         };
         window._cpmShadeChange = function(val) {
-            if (!/^#[0-9a-fA-F]{6}$/.test(val)) return;
+            if (!hexColor(val)) return;
             _cpmBaseColor = val;
             _customPalState = _generateShades(val, 7);
             const hexEl = document.getElementById('cpm-shade-hex'); if (hexEl) hexEl.value = val;
@@ -1472,7 +1482,7 @@
             document.getElementById('cpm-body').innerHTML = _buildContent();
         };
         window._cpmSingleChange = function(val) {
-            if (!/^#[0-9a-fA-F]{6}$/.test(val)) return;
+            if (!hexColor(val)) return;
             _cpmBaseColor = val;
             _customPalState = Array(7).fill(val);
             const hexEl = document.getElementById('cpm-single-hex'); if (hexEl) hexEl.value = val;
@@ -1483,7 +1493,7 @@
     window._openCustomPaletteModal = _openCustomPaletteModal;
 
     window._cpmChange = function(i, val) {
-        if (!/^#[0-9a-fA-F]{6}$/.test(val)) return;
+        if (!hexColor(val)) return;
         _customPalState[i] = val;
         const hexEl = document.getElementById('cpm-hex-' + i); if (hexEl) hexEl.value = val;
         const natEl = document.getElementById('cpm-native-' + i); if (natEl) natEl.value = val;
@@ -2597,7 +2607,7 @@
             } catch (e) {
                 // Do not start with defaults and overwrite an unreadable desktop save.
                 console.error('Native save load failed:', e);
-                customAlert('Unable to load native save. Restart the app after checking save.json / save.bak. ' + e, 'SAVE ERROR', true);
+                customAlert('Unable to load native save. Restart the app after checking save.json / save.bak. ' + escapeHtml(e), 'SAVE ERROR', true);
             }
             return;
         }
@@ -2666,7 +2676,7 @@
                     await saveHandleToIDB(handle);
                     overlay.classList.add('hidden');
                     randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic();
-                } catch(e) { console.error('Open save error:', e); customAlert('Error loading save: ' + e.message, 'ERROR', true); }
+                } catch(e) { console.error('Open save error:', e); customAlert('Error loading save: ' + escapeHtml(e.message), 'ERROR', true); }
             };
             btnNew.onclick = async () => {
                 try {
@@ -2885,7 +2895,7 @@
                                 <div style="width:90px;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
                                     <div id="uni-bar-${item.key}" style="height:100%;width:${pct}%;background:#4477ff;border-radius:3px;transition:width 0.4s ease,background 0.2s;"></div>
                                 </div>
-                                <span id="uni-lbl-${item.key}" style="font-size:0.62rem;color:#666;">${parts}/${cost}</span>
+                                <span id="uni-lbl-${item.key}" style="font-size:0.62rem;color:#666;">${escapeHtml(parts)}/${cost}</span>
                             </div>
                         </div>
                         ${showControls ? `<div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
@@ -3143,7 +3153,7 @@
                     <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
                         <span style="font-size:1.4rem;">🔥</span>
                         <div style="text-align:left;">
-                            <div style="font-size:1.1rem;font-weight:bold;color:#fff;">${streak} day${streak!==1?'s':''}</div>
+                            <div style="font-size:1.1rem;font-weight:bold;color:#fff;">${escapeHtml(streak)} day${streak!==1?'s':''}</div>
                             <div style="font-size:0.58rem;color:#666;">current streak</div>
                         </div>
                     </div>
@@ -3180,7 +3190,7 @@
                 el.style.display = '';
                 const pct = Math.round(Math.min(100, xpEarned / req * 100));
                 const progressBar = `<div style="width:100%;max-width:180px;margin:12px auto 0;">
-                        <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:#666;margin-bottom:4px;"><span>${xpEarned} / ${req} XP earned</span></div>
+                        <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:#666;margin-bottom:4px;"><span>${escapeHtml(xpEarned)} / ${req} XP earned</span></div>
                         <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--primary);border-radius:3px;"></div></div>
                       </div>`;
                 el.innerHTML = `<div style="margin-bottom:8px;"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></div><span style="color:#aaa;font-size:0.8rem;">Earn <b style="color:#fff;">${req - xpEarned} more XP</b> to unlock today's gift.</span>${progressBar}<br><button class="btn-secondary" style="margin-top:12px;border:none;" onclick="window.closeDailyGift()">CLOSE</button>`;
@@ -3311,13 +3321,13 @@
             if (!resultEl) return;
             resultEl.style.display = 'block';
             const rewardsHtml = rewards.map(rw => {
-                const col = RARITY_COLORS[rw.rarity] || '#ccc';
+                const col = hexColor(RARITY_COLORS[rw.rarity], '#cccccc');
                 return `<div class="dg-item-reveal" style="border-color:${col};box-shadow:0 0 14px ${col}40;margin-bottom:8px;padding:8px 12px;">
                     <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
-                        <span style="font-size:1.5rem;">${rw.icon}</span>
+                        <span style="font-size:1.5rem;">${escapeHtml(rw.icon)}</span>
                         <div>
-                            <div style="font-size:0.9rem;font-weight:bold;color:${col};">${rw.label}</div>
-                            <div style="font-size:0.65rem;color:#aaa;">${rw.desc}</div>
+                            <div style="font-size:0.9rem;font-weight:bold;color:${col};">${escapeHtml(rw.label)}</div>
+                            <div style="font-size:0.65rem;color:#aaa;">${escapeHtml(rw.desc)}</div>
                         </div>
                     </div>
                 </div>`;
@@ -3356,7 +3366,7 @@
         panel.style.cssText = 'background:rgba(5,5,20,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px 20px;max-width:420px;width:100%;text-align:center;max-height:90vh;overflow-y:auto;';
         panel.innerHTML = `
             <div style="font-size:0.55rem;letter-spacing:3px;color:#666;margin-bottom:4px;font-family:var(--ui-font);">LEVEL MILESTONE</div>
-            <div style="font-size:1rem;font-weight:bold;color:${color};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">LEVEL ${lv}</div>
+            <div style="font-size:1rem;font-weight:bold;color:${color};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">LEVEL ${escapeHtml(lv)}</div>
             <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">Every 10 levels — milestone reward!</div>
         `;
         const preOpen = document.createElement('div');
@@ -3383,9 +3393,9 @@
         rewards.forEach(r => {
             const card = document.createElement('div');
             card.className = 'lb-reward-card';
-            const rc = RARITY_COLS[r.rarity] || '#aaa';
+            const rc = hexColor(RARITY_COLS[r.rarity], '#aaaaaa');
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${r.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${r.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${r.desc}</div><div class="lb-reward-rarity">${r.rarity}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(r.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${escapeHtml(r.label)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);
@@ -3520,7 +3530,8 @@
     function _showLevelBox() {
         if (_levelBoxShowing || !saveData.pendingLevelBox) return;
         _levelBoxShowing = true;
-        const { level, rankName, rankColor, rewards } = saveData.pendingLevelBox;
+        const { level, rankName, rankColor: savedRankColor, rewards } = saveData.pendingLevelBox;
+        const rankColor = hexColor(savedRankColor, '#ffd700');
 
         const overlay = document.createElement('div');
         overlay.className = 'lb-reward-overlay';
@@ -3538,8 +3549,8 @@
         // Title
         panel.innerHTML = `
             <div style="font-size:0.55rem;letter-spacing:3px;color:#666;margin-bottom:4px;font-family:var(--ui-font);">MILESTONE REWARD</div>
-            <div class="lb-rank-identity" style="font-size:1rem;font-weight:bold;color:${rankColor};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">${rankName}</div>
-            <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">Level ${level} — New rank reached!</div>
+            <div class="lb-rank-identity" style="font-size:1rem;font-weight:bold;color:${rankColor};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">${escapeHtml(rankName)}</div>
+            <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">Level ${escapeHtml(level)} — New rank reached!</div>
         `;
 
         // Box icon + open button (pre-open state)
@@ -3568,9 +3579,9 @@
         rewards.forEach(r => {
             const card = document.createElement('div');
             card.className = 'lb-reward-card';
-            const rc = RARITY_COLS[r.rarity] || '#aaa';
+            const rc = hexColor(RARITY_COLS[r.rarity], '#aaaaaa');
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${r.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${r.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${r.desc}</div><div class="lb-reward-rarity">${r.rarity}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(r.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${escapeHtml(r.label)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);
@@ -3616,7 +3627,7 @@
                 saveData.totalXP = Math.max(0, parseInt(input));
                 _processLevelUps(oldLevel, getLevelInfo(saveData.totalXP).level);
                 saveDataToFile(); drawRankBadge();
-                customAlert(`XP set to ${saveData.totalXP}`, 'DEV MODE');
+                customAlert(`XP set to ${escapeHtml(saveData.totalXP)}`, 'DEV MODE');
             }
         } else {
             const input = prompt("Enter level (1–81+):\n 1–10  Bronze\n11–20  Silver\n21–30  Gold\n31–40  Emerald\n41–50  Sapphire\n51–60  Ruby\n61–70  Amethyst\n71–80  Diamond\n  81+  Celestite", getLevelInfo(saveData.totalXP).level);
@@ -4002,7 +4013,7 @@
                     const [cy, cm, cd] = cell.key.split('-');
                     const fmtDate = `${cd}.${cm}.${cy}`;
                     const tip = c > 0 ? `${fmtDate} — ${c} game${c>1?'s':''}` : fmtDate;
-                    html += `<div data-ctip="${tip}" style="flex:1;min-height:4px;border-radius:2px;background:${bg};opacity:${op};${extra}"></div>`;
+                    html += `<div data-ctip="${escapeHtml(tip)}" style="flex:1;min-height:4px;border-radius:2px;background:${bg};opacity:${op};${extra}"></div>`;
                 }
             }
             html += `</div>`;
@@ -4022,11 +4033,11 @@
         const todayXP = todayEntries.reduce((s, e) => s + (e.xp || 0), 0);
         html += `<div style="display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:10px;padding:8px 6px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.05);">
             <div style="font-size:0.55rem;color:#888;letter-spacing:1.5px;font-weight:bold;width:100%;margin-bottom:2px;">TODAY</div>
-            <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">Games</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${todayGames > 0 ? todayGames : '—'}</div></div>
+            <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">Games</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${escapeHtml(todayGames > 0 ? todayGames : '—')}</div></div>
             <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">Best Score</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${todayBestScore > 0 ? todayBestScore.toLocaleString() : '—'}</div></div>
             <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">Avg Score</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${todayAvgScore > 0 ? todayAvgScore.toLocaleString() : '—'}</div></div>
             <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">Time Played</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${todayTotalTime > 0 ? todayTimeFmt : '—'}</div></div>
-            <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">XP Earned</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${todayXP > 0 ? todayXP.toLocaleString() : '—'}</div></div>
+            <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">XP Earned</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${escapeHtml(todayXP > 0 ? todayXP.toLocaleString() : '—')}</div></div>
         </div>`;
 
         container.innerHTML = html;
@@ -4173,8 +4184,8 @@
                 const div = document.createElement('div'); div.className = 'lb-row';
                 const rankColor = i === 0 ? '#ffd700' : i < 3 ? '#c0c0c0' : i < 10 ? '#9b59b6' : '#666';
                 const configStr = `${e.cols||10}×${e.rows||20}` + (e.startSpeed && e.startSpeed > 1 ? ` · spd ${e.startSpeed}` : '');
-                const details = `<span class="lb-detail">${configStr}</span><span class="lb-detail">${lbFmt(e.time||0)}</span><span class="lb-detail">${e.lines||0} lines</span>`;
-                div.innerHTML = `<span class="lb-rank" style="font-size:0.85rem;font-weight:bold;color:${rankColor};min-width:52px;text-align:center;">#${i+1}</span><span class="lb-score">${e.score.toLocaleString()} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${e.date}</span>`;
+                const details = `<span class="lb-detail">${escapeHtml(configStr)}</span><span class="lb-detail">${lbFmt(e.time||0)}</span><span class="lb-detail">${escapeHtml(e.lines||0)} lines</span>`;
+                div.innerHTML = `<span class="lb-rank" style="font-size:0.85rem;font-weight:bold;color:${rankColor};min-width:52px;text-align:center;">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
                 container.appendChild(div);
             }
             if (max < fl.length) {
@@ -4281,39 +4292,28 @@
         }
         _updateMusicWidget();
     }
-    function _makeTrackRow(label, isActive, isOwned, partCount, onEnableJs, onUnlockJs, extraHtml, itemKey) {
-        const svgCheck = `<svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 8 6 12 13 4"/></svg>`;
-        let rightSide;
-        if (isOwned && isActive) {
-            rightSide = `<span style="display:flex;align-items:center;gap:4px;font-size:0.68rem;font-weight:bold;color:#22cc55;flex-shrink:0;">${svgCheck} Equipped</span>`;
-        } else if (isOwned) {
-            rightSide = `<button onclick="event.stopPropagation();${onEnableJs}" style="font-size:0.65rem;padding:6px 16px;border-radius:8px;border:1px solid #444;background:rgba(255,255,255,0.05);color:#aaa;cursor:pointer;font-family:inherit;flex-shrink:0;">Enable</button>`;
-        } else {
-            const _cost = _getItemCost(itemKey);
-            if (partCount >= _cost) {
-            rightSide = `<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                <div style="font-size:0.6rem;color:#ffd700;font-weight:bold;">${_cost}/${_cost} parts</div>
-                <button onclick="${onUnlockJs}" style="font-size:0.65rem;padding:4px 12px;border-radius:8px;border:1px solid #ffd700;background:rgba(255,215,0,0.12);color:#ffd700;cursor:pointer;font-family:inherit;font-weight:bold;box-shadow:0 0 8px rgba(255,215,0,0.45);animation:pulse-glow-gold 1.8s ease-in-out infinite;">Unlock</button>
-            </div>`;
-            } else {
-            rightSide = `<div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
-                <progress class="lb-progress lb-progress--pattern" aria-label="${label} parts" max="${_cost}" value="${partCount}"></progress>
-                <span style="font-size:0.6rem;color:#555;min-width:36px;text-align:right;font-family:inherit;">${partCount}/${_cost} parts</span>
-            </div>`;
-            }
-        }
-        const _glowReady = !isOwned && itemKey && partCount >= _getItemCost(itemKey);
-        const _rowClickable = isOwned && !isActive && onEnableJs;
-        const _rowCursor = _rowClickable ? 'cursor:pointer;' : '';
-        const _rowClick = _rowClickable ? ` onclick="${onEnableJs}"` : '';
-        const _labelCursor = isOwned && onEnableJs ? 'cursor:pointer;' : '';
-        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${isActive}" class="inv-row${_glowReady ? ' glow-notify' : ''}" style="display:flex;align-items:center;padding:7px 4px;gap:8px;border-radius:6px;${_rowCursor}"${_rowClick}>
-            <div style="flex:1;text-align:left;${_labelCursor}">
-                <div style="font-size:0.8rem;color:${isOwned?'#fff':'#666'};">${label}</div>
-                <div class="lb-item-state">${isActive ? 'Equipped' : isOwned ? 'Owned' : 'Locked · Collect parts to unlock'}</div>
-                ${extraHtml ? `<div style="font-size:0.62rem;color:#666;margin-top:2px;">${extraHtml}</div>` : ''}
+    function _makeTrackRow(label, isActive, isOwned, partCount, onEquipJs, onUnlockJs, extraHtml, itemKey, configurable = false) {
+        const equipped = isOwned && isActive;
+        const status = equipped ? 'Equipped' : isOwned ? 'Owned' : 'Locked';
+        const cost = !isOwned && itemKey ? _getItemCost(itemKey) : 0;
+        const parts = Math.max(0, Number(partCount) || 0);
+        const ready = cost > 0 && parts >= cost;
+        const canEquip = isOwned && (!equipped || configurable) && onEquipJs;
+        const safeLabel = escapeHtml(label);
+        const progress = cost > 0 ? `<div class="lb-inventory-progress">
+            <progress class="lb-progress lb-progress--pattern" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
+            <span>${Math.min(parts, cost)}/${cost} parts</span>
+        </div>` : '';
+        const action = ready
+            ? `<button type="button" class="lb-inventory-action lb-inventory-action--unlock" onclick="${onUnlockJs}">Unlock</button>`
+            : canEquip ? `<button type="button" class="lb-inventory-action" onclick="event.stopPropagation();${onEquipJs}">${equipped ? 'Edit' : 'Equip'}</button>` : '';
+        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" class="inv-row lb-inventory-card${ready ? ' glow-notify' : ''}"${canEquip ? ` style="cursor:pointer;" onclick="${onEquipJs}"` : ''}>
+            <div class="lb-inventory-heading">
+                <div class="lb-inventory-name">${safeLabel}</div>
+                <div class="lb-item-state">${status}</div>
             </div>
-            <div style="min-width:130px;display:flex;align-items:center;justify-content:flex-end;">${rightSide}</div>
+            ${extraHtml ? `<div class="lb-inventory-detail">${extraHtml}</div>` : ''}
+            ${progress || action ? `<div class="lb-inventory-controls">${progress}${action}</div>` : ''}
         </div>`;
     }
 
@@ -4363,8 +4363,8 @@
         const ownedSkinContainer = document.getElementById('owned-skin-btns');
         if (ownedSkinContainer) {
             const skinNames = SKIN_NAMES;
-            const ownedSkins = (saveData.ownedSkins || ['neon']).filter(_skinAvailable).filter(s => !['matrix','gold','golddragon','lava','circuit','marble','fire','toxic'].includes(s));
             const allSkinKeys = Object.keys(skinNames).filter(_skinAvailable);
+            const ownedSkins = allSkinKeys.filter(key => (saveData.ownedSkins || ['neon']).includes(key));
             const skinCountEl = document.getElementById('skin-owned-count');
             if (skinCountEl) skinCountEl.innerText = `(${ownedSkins.length}/${allSkinKeys.length})`;
             const rows = allSkinKeys.map(s => {
@@ -4395,7 +4395,7 @@
                         if (cell) drawGameBlock(ctx, x, y, 6, 30);
                     }));
                 } finally { settings.skin = previousSkin; }
-                row.prepend(canvas);
+                row.querySelector('.lb-inventory-heading').after(canvas);
             });
             // Hover preview for owned skins
             let skinTip = document.getElementById('skin-preview-tip');
@@ -4456,23 +4456,12 @@
             let customThemeRow = '';
             if (allThemesOwned) {
                 const isCustomTheme = settings.theme === 'custom';
-                const curColor = saveData.customThemeColor || '#ff00ff';
-                customThemeRow = `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;margin-top:6px;background:${isCustomTheme ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)'};border:1px solid ${isCustomTheme ? curColor+'55' : 'rgba(255,255,255,0.06)'};cursor:pointer;transition:border-color 0.2s;" onclick="window._openColorPickerModal()">
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <div style="width:20px;height:20px;border-radius:50%;background:${curColor};box-shadow:0 0 8px ${curColor}66;border:1px solid rgba(255,255,255,0.15);flex-shrink:0;"></div>
-                        <div>
-                            <div style="font-size:0.72rem;color:${isCustomTheme ? '#fff' : '#aaa'};font-weight:${isCustomTheme ? 'bold' : 'normal'};">Custom Color</div>
-                            <div style="font-size:0.55rem;color:#555;margin-top:1px;">Pick any theme color</div>
-                        </div>
-                    </div>
-                    ${isCustomTheme ? `<span style="display:flex;align-items:center;gap:4px;font-size:0.68rem;font-weight:bold;color:#22cc55;flex-shrink:0;"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 8 6 12 13 4"/></svg> Enabled</span>` : `<span style="font-size:0.6rem;color:#555;font-family:'Orbitron',sans-serif;">Pick…</span>`}
-                </div>`;
+                const curColor = hexColor(saveData.customThemeColor, '#ff00ff');
+                const preview = `<span class="lb-inventory-swatch" style="background:${curColor};"></span>Pick any theme color`;
+                customThemeRow = _makeTrackRow('Custom Color', isCustomTheme, true, 0,
+                    'window._openColorPickerModal()', '', preview, '', true);
             } else {
-                customThemeRow = `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-top:6px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);opacity:0.5;">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <span style="font-size:0.72rem;color:#555;">Locked</span>
-                    <span style="margin-left:auto;font-size:0.55rem;color:#444;">Own all themes to unlock</span>
-                </div>`;
+                customThemeRow = _makeTrackRow('Custom Color', false, false, 0, '', '', 'Own all themes to unlock');
             }
             ownedThemeContainer.innerHTML = rows + customThemeRow;
             // Hover preview for themes (color swatch)
@@ -4505,7 +4494,7 @@
                 sample.className = 'lb-theme-sample';
                 sample.style.setProperty('--sample', col);
                 sample.textContent = col;
-                row.prepend(sample);
+                row.querySelector('.lb-inventory-heading').after(sample);
                 row.onclick = (e) => {
                     if (e.target.closest('button')) return; // let Enable/Unlock button clicks through
                     navigator.clipboard?.writeText(col).catch(() => {});
@@ -4527,7 +4516,7 @@
                 const isOwned = p.free || ownedPals.includes(k);
                 const isActive = _activePal === k;
                 const parts = saveData.parts?.[k] || 0;
-                const displayColors = (saveData.customPaletteOverrides?.[k]) ? saveData.customPaletteOverrides[k] : p.colors;
+                const displayColors = paletteColors(saveData.customPaletteOverrides?.[k], p.colors);
                 const swatches = displayColors.slice(0,7).map(c => `<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${c};"></span>`).join('');
                 let extra = `<div class="lb-palette-preview" aria-label="${p.name} block colors">${displayColors.slice(0,7).map(c => `<span style="--piece-color:${c}"></span>`).join('')}</div><div style="display:flex;gap:2px;margin-top:2px;">${swatches}</div>`;
                 // Palette name click opens color view popup (handled via data attribute below)
@@ -4537,28 +4526,15 @@
                     `window.playerUnlockItem('palette','${k}')`,
                     extra, k);
             }).join('');
-            // Custom Picker row at the end (styled like Custom Color theme row)
             let customPickerHtml = '';
             if (_allPalsOwned) {
-                const customColors = saveData.customPickerColors || BLOCK_PALETTES.classic.colors.slice(0, 7);
+                const customColors = paletteColors(saveData.customPickerColors);
                 const isCustomActive = settings.colorPalette === '_custom_picker';
-                const gradientColors = customColors.slice(0, 7).join(', ');
-                customPickerHtml = `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;margin-top:6px;background:${isCustomActive ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)'};border:1px solid ${isCustomActive ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)'};cursor:pointer;transition:border-color 0.2s;" onclick="window._openCustomPaletteModal()">
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <div style="width:20px;height:20px;border-radius:50%;background:conic-gradient(${gradientColors});box-shadow:0 0 8px rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.15);flex-shrink:0;"></div>
-                        <div>
-                            <div style="font-size:0.72rem;color:${isCustomActive ? '#fff' : '#aaa'};font-weight:${isCustomActive ? 'bold' : 'normal'};">Custom Palette</div>
-                            <div style="font-size:0.55rem;color:#555;margin-top:1px;">Pick any block colors</div>
-                        </div>
-                    </div>
-                    ${isCustomActive ? `<span style="display:flex;align-items:center;gap:4px;font-size:0.68rem;font-weight:bold;color:#22cc55;flex-shrink:0;"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 8 6 12 13 4"/></svg> Enabled</span>` : `<span style="font-size:0.6rem;color:#555;font-family:'Orbitron',sans-serif;">Pick\u2026</span>`}
-                </div>`;
+                const preview = `<span class="lb-inventory-swatch" style="background:conic-gradient(${customColors.join(', ')});"></span>Pick any block colors`;
+                customPickerHtml = _makeTrackRow('Custom Palette', isCustomActive, true, 0,
+                    'window._openCustomPaletteModal()', '', preview, '', true);
             } else {
-                customPickerHtml = `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-top:6px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);opacity:0.5;">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <span style="font-size:0.72rem;color:#555;">Custom Palette</span>
-                    <span style="margin-left:auto;font-size:0.55rem;color:#444;">Own all palettes to unlock</span>
-                </div>`;
+                customPickerHtml = _makeTrackRow('Custom Palette', false, false, 0, '', '', 'Own all palettes to unlock');
             }
             const _shuffleHtml = `<div class="inv-row" style="display:flex;align-items:center;padding:7px 4px;gap:8px;border-radius:6px;">
                 <div style="flex:1;text-align:left;"><div style="font-size:0.8rem;color:#fff;">Shuffle Colors</div><div style="font-size:0.62rem;color:#666;margin-top:2px;">Colors not fixed to piece types</div></div>
@@ -4572,11 +4548,7 @@
                     "window.onSettingChange('randomBlockColors',true);window.onSettingChange('colorPalette','_random')",
                     '', 'Every block is a different random color', '_randomColors');
             } else {
-                _randomHtml = `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-top:6px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:8px;opacity:0.5;">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <span style="font-size:0.72rem;color:#555;">Locked</span>
-                    <span style="font-size:0.55rem;color:#444;margin-left:auto;">Own all palettes to unlock</span>
-                </div>`;
+                _randomHtml = _makeTrackRow('Random Colors', false, false, 0, '', '', 'Own all palettes to unlock');
             }
             ownedPaletteContainer.innerHTML = _shuffleHtml + palRows + _randomHtml + customPickerHtml;
             // Palette row click -> open palette view modal (override enable behavior); buttons still work
@@ -4767,7 +4739,7 @@
                 <span style="font-size:0.75rem;color:${rarityColor};font-weight:600;">${multiplier}</span>
                 <span style="font-size:0.75rem;color:${rarityColor};font-weight:600;">${boosterText}</span>
                 <span style="font-size:0.55rem;color:${rarityColor};opacity:0.7;text-transform:uppercase;letter-spacing:1px;text-align:center;">${meta.rarity}</span>
-                <span style="font-size:0.85rem;font-weight:700;color:#fff;text-align:center;">${count}</span>
+                <span style="font-size:0.85rem;font-weight:700;color:#fff;text-align:center;">${escapeHtml(count)}</span>
                 <div style="display:flex;gap:5px;justify-content:flex-end;">${xchBtnHtml}</div>
             </div>`;
         }).join('');
@@ -5016,7 +4988,7 @@
         if (_sfxSel) {
             const _ownedPacks = saveData.ownedSfxPacks || ['default'];
             const _packLabels = { default: 'Default', cyber: 'Cyber', retro: 'Retro', zen: 'Zen', arcade: 'Arcade' };
-            _sfxSel.innerHTML = _ownedPacks.map(p => `<option value="${p}"${settings.sfxPack === p ? ' selected' : ''}>${_packLabels[p] || p}</option>`).join('');
+            _sfxSel.innerHTML = _ownedPacks.map(p => `<option value="${escapeHtml(p)}"${settings.sfxPack === p ? ' selected' : ''}>${escapeHtml(_packLabels[p] || p)}</option>`).join('');
         }
         // Color Palette dropdown sync
         const _palSel = document.getElementById('setting-color-palette');
@@ -5379,7 +5351,7 @@
             document.body.appendChild(popup);
             document.addEventListener('click', (e) => { if (!popup.contains(e.target)) popup.style.display = 'none'; });
         }
-        popup.innerHTML = label;
+        popup.textContent = label;
         popup.style.display = 'block';
         popup.style.left = Math.min(x + 6, window.innerWidth - 210) + 'px';
         popup.style.top = (y - 36) + 'px';
@@ -5408,10 +5380,10 @@
             const div = document.createElement('div'); div.className = 'lb-row';
             div.style.cssText = 'border-left:2px solid #ffd700;padding-left:8px;';
             const details = e.lines != null
-                ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${e.lines||0} lines</span><span class="lb-detail">${ico.speed}speed ${e.maxSpeed||1}</span>`
+                ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
-            const noteHtml = e.note ? `<span style="font-size:0.55rem;color:#888;margin-left:6px;">${e.note}</span>` : '';
-            div.innerHTML = `<span class="lb-rank" style="color:#ffd700;min-width:24px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffd700" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${e.score.toLocaleString()} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${e.date}</span>`;
+            const noteHtml = e.note ? `<span style="font-size:0.55rem;color:#888;margin-left:6px;">${escapeHtml(e.note)}</span>` : '';
+            div.innerHTML = `<span class="lb-rank" style="color:#ffd700;min-width:24px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffd700" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
             div.style.cursor = 'pointer';
             div.addEventListener('click', (ev) => {
                 ev.stopPropagation();
@@ -5442,9 +5414,9 @@
             div.style.cssText = isCur ? 'border-left:2px solid var(--primary);padding-left:8px;' : 'padding-left:10px;';
             const rankColor = i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#e8922a' : '#666';
             const details = e.lines != null
-                ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${e.lines||0} lines</span><span class="lb-detail">${ico.speed}spd ${e.maxSpeed||1}</span>`
+                ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}spd ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
-            div.innerHTML = `<span class="lb-rank" style="color:${rankColor};min-width:24px;font-weight:bold;">#${i+1}</span><span class="lb-score">${e.score.toLocaleString()} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date" style="${isCur?'color:var(--primary);font-weight:bold;':''}">${isCur ? '⭐ CURRENT' : e.date}</span>`;
+            div.innerHTML = `<span class="lb-rank" style="color:${rankColor};min-width:24px;font-weight:bold;">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date" style="${isCur?'color:var(--primary);font-weight:bold;':''}">${escapeHtml(isCur ? '⭐ CURRENT' : e.date)}</span>`;
             container.appendChild(div);
         });
     }
@@ -5469,7 +5441,7 @@
             block.style.cssText = `display:flex;flex-direction:column;align-items:center;flex:1;max-width:130px;`;
             const scoreDiv = document.createElement('div');
             scoreDiv.style.cssText = `font-size:0.7rem;font-weight:bold;color:${p.color};margin-bottom:5px;font-family:'Orbitron',sans-serif;letter-spacing:0.5px;`;
-            scoreDiv.innerHTML = `${p.e.score.toLocaleString()} <span style="font-weight:normal;opacity:0.5;font-size:0.6rem;">pts</span>`;
+            scoreDiv.innerHTML = `${escapeHtml(p.e.score.toLocaleString())} <span style="font-weight:normal;opacity:0.5;font-size:0.6rem;">pts</span>`;
             const podBlock = document.createElement('div');
             podBlock.style.cssText = `width:100%;height:${p.h}px;background:linear-gradient(180deg,${p.color}28,${p.color}0d);border:1px solid ${p.color}55;border-bottom:none;border-radius:6px 6px 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;`;
             podBlock.innerHTML = `<div style="font-size:1.5rem;line-height:1;">${p.medal}</div>`;
@@ -5483,16 +5455,16 @@
             block.addEventListener('mouseenter', (ev) => {
                 if (!tipEl) return;
                 const e = p.e;
-                let tipHtml = `<div style="font-size:0.7rem;font-weight:bold;color:${p.color};margin-bottom:5px;">${p.medal} #${p.rank} — ${e.score.toLocaleString()} pts</div>`;
+                let tipHtml = `<div style="font-size:0.7rem;font-weight:bold;color:${p.color};margin-bottom:5px;">${p.medal} #${p.rank} — ${escapeHtml(e.score.toLocaleString())} pts</div>`;
                 if (e.lines != null) {
                     tipHtml += `<div style="display:flex;flex-direction:column;gap:2px;">`;
                     tipHtml += `<span>${ico.time} ${lbFmt(e.time||0)}</span>`;
-                    tipHtml += `<span>${ico.lines} ${e.lines||0} lines</span>`;
-                    tipHtml += `<span>${ico.speed} speed ${e.maxSpeed||1}</span>`;
-                    if (e.maxCombo > 1) tipHtml += `<span>🔥 combo x${e.maxCombo}</span>`;
+                    tipHtml += `<span>${ico.lines} ${escapeHtml(e.lines||0)} lines</span>`;
+                    tipHtml += `<span>${ico.speed} speed ${escapeHtml(e.maxSpeed||1)}</span>`;
+                    if (e.maxCombo > 1) tipHtml += `<span>🔥 combo x${escapeHtml(e.maxCombo)}</span>`;
                     tipHtml += `</div>`;
                 }
-                tipHtml += `<div style="color:#555;font-size:0.6rem;margin-top:4px;">${e.date}</div>`;
+                tipHtml += `<div style="color:#555;font-size:0.6rem;margin-top:4px;">${escapeHtml(e.date)}</div>`;
                 tipEl.innerHTML = tipHtml;
                 tipEl.style.display = 'block';
                 const tx = Math.min(ev.clientX + 14, window.innerWidth - 190);
@@ -5522,9 +5494,9 @@
                 const div = document.createElement('div'); div.className = 'lb-row';
                 const rankColor = i < 10 ? '#9b59b6' : i < 20 ? '#3d85c8' : '#666';
                 const details = e.lines != null
-                    ? `<span class="lb-detail">${ico.time}${lbFmt(e.time)}</span><span class="lb-detail">${ico.lines}${e.lines} lines</span><span class="lb-detail">${ico.speed}speed ${e.maxSpeed}</span>`
+                    ? `<span class="lb-detail">${ico.time}${lbFmt(e.time)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed)}</span>`
                     : '';
-                div.innerHTML = `<span class="lb-rank" style="font-size:0.85rem;font-weight:bold;color:${rankColor};min-width:52px;text-align:center;">#${i+1}</span><span class="lb-score">${e.score.toLocaleString()} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${e.date}</span>`;
+                div.innerHTML = `<span class="lb-rank" style="font-size:0.85rem;font-weight:bold;color:${rankColor};min-width:52px;text-align:center;">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
                 div.style.cursor = 'pointer';
                 div.addEventListener('click', (ev) => {
                     ev.stopPropagation();
@@ -6439,7 +6411,7 @@
             for (const a of ACHIEVEMENTS_DEF) {
                 const st = saveData.achievements[a.id];
                 if (!st) continue;
-                if (a.type === 'tiered') count += (st.tier || 0);
+                if (a.type === 'tiered') count += Number(st.tier) || 0;
                 else if (st.unlocked) count++;
             }
             return count;
@@ -8733,7 +8705,7 @@
                     const _funBest = saveData.stats.bestFunScore || 0;
                     const _isNewFunRec = _funBest > 0 && Math.round(score) >= _funBest && score > 0;
                     _funRecEl.innerHTML = _funBest > 0
-                        ? (_isNewFunRec ? `<span style="color:#ffd700;font-weight:bold;">★ NEW FUN RECORD!</span>` : `Fun Record: <span style="color:var(--primary);">${_funBest.toLocaleString()}</span>`)
+                        ? (_isNewFunRec ? `<span style="color:#ffd700;font-weight:bold;">★ NEW FUN RECORD!</span>` : `Fun Record: <span style="color:var(--primary);">${escapeHtml(_funBest.toLocaleString())}</span>`)
                         : '';
                 }
             }
@@ -8992,7 +8964,7 @@
             available.map(b => `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0;">
                 <div style="display:flex;flex-direction:column;gap:1px;">
                     <span style="font-size:0.72rem;color:#cc44ff;white-space:nowrap;">${b.label}</span>
-                    <span style="font-size:0.6rem;color:#888;">left: ${saveData.boosters[b.key]}</span>
+                    <span style="font-size:0.6rem;color:#888;">left: ${escapeHtml(saveData.boosters[b.key])}</span>
                 </div>
                 <button class="btn-secondary" style="border-color:#cc44ff;color:#cc44ff;font-size:0.65rem;padding:4px 14px;flex-shrink:0;" onclick="window.useScoreBooster('${b.key}')">USE</button>
             </div>`).join('');
@@ -9361,7 +9333,7 @@
         const titleEl = document.getElementById('mw-title');
         if (!titleEl) return;
         const titleText = _nowPlayingName || '—';
-        titleEl.innerHTML = `<span class="mw-title-inner">${titleText}</span>`;
+        titleEl.innerHTML = `<span class="mw-title-inner">${escapeHtml(titleText)}</span>`;
         const inner = titleEl.querySelector('.mw-title-inner');
         requestAnimationFrame(() => {
             if (inner && inner.scrollWidth > titleEl.clientWidth) {
@@ -9465,15 +9437,15 @@
         overlay.id = 'level-up-popup-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1300;display:flex;align-items:center;justify-content:center;font-family:inherit;';
         const rewardsHtml = rewards.map(r => {
-            const col = RARITY_COLORS[r.rarity] || '#ccc';
+            const col = hexColor(RARITY_COLORS[r.rarity], '#cccccc');
             return `<div style="border:1px solid ${col};border-radius:10px;padding:8px 12px;margin-bottom:7px;box-shadow:0 0 10px ${col}30;display:flex;align-items:center;gap:8px;">
-                <span style="font-size:1.4rem;">${r.icon}</span>
-                <div><div style="font-size:0.85rem;font-weight:bold;color:${col};">${r.label}</div><div style="font-size:0.62rem;color:#aaa;">${r.desc}</div><div class="lb-reward-rarity">${r.rarity}</div></div>
+                <span style="font-size:1.4rem;">${escapeHtml(r.icon)}</span>
+                <div><div style="font-size:0.85rem;font-weight:bold;color:${col};">${escapeHtml(r.label)}</div><div style="font-size:0.62rem;color:#aaa;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div></div>
             </div>`;
         }).join('');
         overlay.innerHTML = `<div style="background:rgba(6,6,20,0.98);border:1px solid var(--primary);border-radius:16px;padding:24px 22px;max-width:340px;width:90%;text-align:center;box-shadow:0 0 40px var(--primary)30;">
             <div style="font-size:0.55rem;letter-spacing:3px;color:var(--primary);margin-bottom:6px;">LEVEL UP!</div>
-            <div class="lb-rank-identity" style="font-size:1.1rem;font-weight:bold;color:#fff;margin-bottom:16px;">${rankName}${levelStr}</div>
+            <div class="lb-rank-identity" style="font-size:1.1rem;font-weight:bold;color:#fff;margin-bottom:16px;">${escapeHtml(rankName)}${levelStr}</div>
             <div style="text-align:left;max-height:280px;overflow-y:auto;">${rewardsHtml}</div>
             <button onclick="document.getElementById('level-up-popup-overlay').remove()" style="margin-top:16px;padding:10px 24px;background:linear-gradient(45deg,var(--primary)33,var(--primary)18);border:1px solid var(--primary);border-radius:10px;color:var(--primary);cursor:pointer;font-family:inherit;font-weight:bold;font-size:0.8rem;box-shadow:0 0 10px var(--primary)30;">AWESOME!</button>
         </div>`;
@@ -9498,7 +9470,6 @@
             el.innerHTML = `<div style="font-size:0.6rem;color:#555;padding:12px 2px;font-style:italic;">Loading tracks…</div>`;
             return;
         }
-        const esc = s => s.replace(/'/g, "\\'");
         const svgCheck = `<svg viewBox="0 0 10 10" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1.5 5 4 8 8.5 2"/></svg>`;
         const menuPlaylist = _getPlaylist('menu');
         const gamePlaylist = _getPlaylist('game');
@@ -9512,16 +9483,16 @@
             const menuOn = menuPlaylist.includes(name);
             const gameOn = isAction ? actionPlaylist.includes(name) : gamePlaylist.includes(name);
             const gameCtx = isAction ? 'action' : 'game';
-            const artistSpan = artist ? `<span style="display:block;font-size:0.72em;color:#666;margin-top:1px;">by ${artist}</span>` : '';
+            const artistSpan = artist ? `<span style="display:block;font-size:0.72em;color:#666;margin-top:1px;">by ${escapeHtml(artist)}</span>` : '';
             const playMark = isPlaying ? `<span style="color:var(--primary);margin-right:2px;">▶</span>` : '';
             const col = isPlaying ? 'var(--primary)' : '#ccc';
             const mOn = menuOn; const gOn = gameOn;
             const mBtnS = `font-size:0.58rem;padding:3px 8px;border-radius:5px;border:1px solid ${mOn?'#4488ff':'#333'};background:${mOn?'rgba(68,136,255,0.15)':'rgba(255,255,255,0.03)'};color:${mOn?'#7aadff':'#555'};cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;min-width:52px;justify-content:center;`;
             const gBtnS = `font-size:0.58rem;padding:3px 8px;border-radius:5px;border:1px solid ${gOn?'#44aa55':'#333'};background:${gOn?'rgba(68,170,85,0.15)':'rgba(255,255,255,0.03)'};color:${gOn?'#7acc88':'#555'};cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;min-width:52px;justify-content:center;`;
             return `<div style="display:flex;align-items:center;gap:6px;padding:5px 2px;">
-                <span style="flex:1;font-size:0.62rem;color:${col};line-height:1.3;">${playMark}${name}${artistSpan}</span>
-                <button type="button" style="${mBtnS}" onclick="window.moveTrack('menu','${esc(name)}',${!mOn})">${mOn?svgCheck:''}Menu</button>
-                <button type="button" style="${gBtnS}" onclick="window.moveTrack('${gameCtx}','${esc(name)}',${!gOn})">${gOn?svgCheck:''}Game</button>
+                <span style="flex:1;font-size:0.62rem;color:${col};line-height:1.3;">${playMark}${escapeHtml(name)}${artistSpan}</span>
+                <button type="button" style="${mBtnS}" onclick="window.moveTrack('menu',${escapeHtml(JSON.stringify(name))},${!mOn})">${mOn?svgCheck:''}Menu</button>
+                <button type="button" style="${gBtnS}" onclick="window.moveTrack('${gameCtx}',${escapeHtml(JSON.stringify(name))},${!gOn})">${gOn?svgCheck:''}Game</button>
             </div>`;
         }).join('');
         el.innerHTML = rows || `<div style="font-size:0.58rem;color:#555;padding:6px 2px;font-style:italic;">No tracks found</div>`;
@@ -10124,7 +10095,7 @@
     function _missionQuestCard(q, index, isWeekly) {
         const isSecret = q.tier === 'secret';
         const displayTier = isSecret ? (q.displayTier || 'normal') : (q.tier || 'normal');
-        const tc = isSecret ? '#cc44ff' : (MISSION_TIER_COLORS[displayTier] || '#4499ff');
+        const tc = isSecret ? '#cc44ff' : hexColor(MISSION_TIER_COLORS[displayTier], '#4499ff');
         const tierLabel = isSecret ? 'SECRET' : displayTier.toUpperCase();
         const done = q.completed;
         const claimedState = done && q.ptsClaimed;
@@ -10133,13 +10104,13 @@
         const canSwapThis = !isSecret && !done && changeAvail && typeof index === 'number';
         const inChangeMode = !!window._mqChangeMode;
         const title = isSecret && !done ? '???' : q.title;
-        const desc  = isSecret && !done ? '<span class="mq-secret-hint">Complete to reveal…</span>' : `<span>${q.desc}</span>`;
+        const desc  = isSecret && !done ? '<span class="mq-secret-hint">Complete to reveal…</span>' : `<span>${escapeHtml(q.desc)}</span>`;
         const hasProgress = !isSecret && q.target > 1;
         const pct = hasProgress ? Math.min(100, ((q.progress || 0) / q.target) * 100) : 0;
         const _progFmt = hasProgress
             ? (q.metric === 'gameTime'
                 ? `<span style="color:${tc}">${_fmtMissionTime(q.progress || 0)}</span><span style="color:#444">/${_fmtMissionTime(q.target)}</span>`
-                : `<span style="color:${tc}">${q.progress || 0}</span><span style="color:#444">/${q.target}</span>`)
+                : `<span style="color:${tc}">${escapeHtml(q.progress || 0)}</span><span style="color:#444">/${escapeHtml(q.target)}</span>`)
             : '';
         const miniWellHtml = hasProgress ? _miniWell(q.progress, q.target, tc) : '';
         // Progress row: continuous HUD-style bar (Section D) + progress/target on right
@@ -10155,7 +10126,7 @@
         if (claimedState) {
             actionHtml = `<div style="font-family:var(--ui-font);font-size:0.48rem;color:#44ff88;letter-spacing:0.18em;">&#x2713; CLAIMED</div>`;
         } else if (readyState) {
-            actionHtml = `<div style="text-align:center;margin-top:8px;"><button class="mq-pts-claim-btn" style="color:${tc};border-color:${tc};background:${tc}22;box-shadow:0 0 10px ${tc}22;" onclick="window._claimQuestPts('${q.id}',${!!isWeekly},'${tc}',this)">CLAIM +${q.pts} PTS</button></div>`;
+            actionHtml = `<div style="text-align:center;margin-top:8px;"><button class="mq-pts-claim-btn" style="color:${tc};border-color:${tc};background:${tc}22;box-shadow:0 0 10px ${tc}22;" onclick="window._claimQuestPts(${escapeHtml(JSON.stringify(String(q.id)))},${!!isWeekly},'${tc}',this)">CLAIM +${escapeHtml(q.pts)} PTS</button></div>`;
         } else if (!done && hasProgress) {
             actionHtml = `<div style="font-family:var(--ui-font);font-size:0.48rem;color:#555;letter-spacing:0.1em;">${Math.floor(pct)}% complete</div>`;
         }
@@ -10170,13 +10141,13 @@
         return `<div class="mq-card-wrap">
             <div class="mq-card${isSecret?' mq-card--secret':''}${changeModeCls}" style="${cardStyle}">
                 <div class="mq-card-hdr">
-                    <span class="mq-tier-badge" style="color:${tc};border-color:${tc}44">${tierLabel}</span>
-                    <span class="mq-pts" style="color:${tc}">+${q.pts} pts</span>
+                    <span class="mq-tier-badge" style="color:${tc};border-color:${tc}44">${escapeHtml(tierLabel)}</span>
+                    <span class="mq-pts" style="color:${tc}">+${escapeHtml(q.pts)} pts</span>
                 </div>
                 <div class="mq-card-body${miniWellHtml ? '' : ' mq-card-body--nowell'}">
                     ${miniWellHtml}
                     <div class="mq-card-text">
-                        <div class="mq-card-title">${title}</div>
+                        <div class="mq-card-title">${escapeHtml(title)}</div>
                         <div class="mq-card-desc">${desc}</div>
                     </div>
                 </div>
@@ -10250,10 +10221,10 @@
             if (pending > 0) {
                 return `<div class="mq-pb-icon-wrap" style="left:${gPct}%;">
                     <div style="position:relative;display:inline-block;">
-                        <button class="mq-ms-claim-btn" onclick="window._claimWeeklyUniversalParts()" title="Collect +${pending} Universal Part${pending !== 1 ? 's' : ''}">
+                        <button class="mq-ms-claim-btn" onclick="window._claimWeeklyUniversalParts()" title="Collect +${escapeHtml(pending)} Universal Part${pending !== 1 ? 's' : ''}">
                             <span class="mq-ms-icon reached-w">${boxIcon}</span>
                         </button>
-                        <div style="position:absolute;top:-3px;right:-5px;background:#ffcc44;color:#050510;font-family:var(--ui-font);font-size:0.32rem;font-weight:bold;padding:1px 3px;border-radius:3px;line-height:1.4;pointer-events:none;">+${pending}</div>
+                        <div style="position:absolute;top:-3px;right:-5px;background:#ffcc44;color:#050510;font-family:var(--ui-font);font-size:0.32rem;font-weight:bold;padding:1px 3px;border-radius:3px;line-height:1.4;pointer-events:none;">+${escapeHtml(pending)}</div>
                     </div>
                 </div>`;
             }
@@ -10266,7 +10237,7 @@
         const ptsDimColor = isWeekly ? '#664400' : '#223355';
         return `<div class="mq-pb-wrap" style="position:relative;">
             <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;">
-                <span style="font-family:var(--ui-font);font-size:1.4rem;font-weight:900;color:${ptsColor};letter-spacing:1px;line-height:1;${isGolden?'text-shadow:0 0 12px rgba(255,204,68,0.45);':''}">${points}</span>
+                <span style="font-family:var(--ui-font);font-size:1.4rem;font-weight:900;color:${ptsColor};letter-spacing:1px;line-height:1;${isGolden?'text-shadow:0 0 12px rgba(255,204,68,0.45);':''}">${escapeHtml(points)}</span>
                 <span style="font-family:var(--ui-font);font-size:0.52rem;color:${ptsDimColor};letter-spacing:2px;padding-bottom:1px;">PTS</span>
             </div>
             <div class="mq-pb-labels">${labels}${goldenLabelHtml}</div>
@@ -10328,11 +10299,11 @@
                 bg = '#4499ff'; opacity = '1';
             }
             if (day.isToday) outline = 'outline:2px solid rgba(255,255,255,0.7);outline-offset:-2px;';
-            const tipAttr = !day.isFuture ? `data-mq-day-count="${c}"` : '';
+            const tipAttr = !day.isFuture ? `data-mq-day-count="${escapeHtml(c)}"` : '';
             return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;">
                 <div style="font-size:0.38rem;color:${day.isToday?'#ccc':'#444'};letter-spacing:0.5px;">${DAY_SHORT[i]}</div>
                 <div ${tipAttr} style="width:100%;aspect-ratio:1/1;border-radius:4px;background:${bg};opacity:${opacity};${outline}cursor:default;"></div>
-                ${c > 0 && !day.isFuture ? `<div style="font-size:0.38rem;color:#4499ff;font-weight:bold;">${c}</div>` : `<div style="font-size:0.38rem;color:transparent;">0</div>`}
+                ${c > 0 && !day.isFuture ? `<div style="font-size:0.38rem;color:#4499ff;font-weight:bold;">${escapeHtml(c)}</div>` : `<div style="font-size:0.38rem;color:transparent;">0</div>`}
             </div>`;
         }).join('');
 
@@ -10355,7 +10326,7 @@
                 cell.addEventListener('mouseenter', e => {
                     const cnt = parseInt(cell.dataset.mqDayCount, 10);
                     mqTip.innerHTML = cnt > 0
-                        ? `<div style="font-family:var(--ui-font);font-size:1.3rem;font-weight:900;color:#4499ff;line-height:1;">${cnt}</div><div style="font-size:0.5rem;color:#778;margin-top:4px;letter-spacing:0.08em;">${cnt === 1 ? 'MISSION' : 'MISSIONS'}</div>`
+                        ? `<div style="font-family:var(--ui-font);font-size:1.3rem;font-weight:900;color:#4499ff;line-height:1;">${escapeHtml(cnt)}</div><div style="font-size:0.5rem;color:#778;margin-top:4px;letter-spacing:0.08em;">${cnt === 1 ? 'MISSION' : 'MISSIONS'}</div>`
                         : `<div style="font-size:1rem;color:#333;line-height:1;">—</div><div style="font-size:0.5rem;color:#444;margin-top:4px;letter-spacing:0.08em;">NO MISSIONS</div>`;
                     mqTip.style.display = 'block';
                     mqTip.style.left = (e.clientX + 14) + 'px';
@@ -10422,10 +10393,10 @@
                 <div style="position:absolute;right:-12px;top:-12px;font-size:4rem;opacity:0.08;line-height:1;pointer-events:none;">🔥</div>
                 <div style="display:flex;align-items:center;gap:8px;position:relative;">
                     <span style="font-size:1.4rem;">🔥</span>
-                    <span style="font-family:var(--ui-font);font-size:1.8rem;font-weight:900;color:#ffcc44;line-height:1;">${dStreak}</span>
+                    <span style="font-family:var(--ui-font);font-size:1.8rem;font-weight:900;color:#ffcc44;line-height:1;">${escapeHtml(dStreak)}</span>
                     <span style="font-size:0.55rem;color:#aa8800;font-family:monospace;align-self:flex-end;margin-bottom:3px;">${dStreak === 1 ? 'day' : 'days'}</span>
                 </div>
-                <div style="font-size:0.42rem;color:#776633;letter-spacing:0.15em;margin-top:6px;position:relative;">DAILY STREAK · BEST <b style="color:#ffcc44;">${bestD}</b></div>
+                <div style="font-size:0.42rem;color:#776633;letter-spacing:0.15em;margin-top:6px;position:relative;">DAILY STREAK · BEST <b style="color:#ffcc44;">${escapeHtml(bestD)}</b></div>
                 ${xpMult > 1 ? `<div style="margin-top:5px;font-size:0.45rem;color:#aa8800;position:relative;">XP Multiplier: ${xpMult.toFixed(2)}× active</div>` : ''}
                 <div class="mq-streak-panel-tip">
                     <div style="font-family:var(--ui-font);font-size:0.48rem;letter-spacing:1.5px;color:#666;margin-bottom:5px;">XP MULTIPLIER</div>
@@ -10438,7 +10409,7 @@
             <div style="padding:14px 16px;background:${xpDone?'rgba(68,255,136,0.04)':'rgba(255,204,68,0.03)'};">
                 <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;">
                     <span style="font-size:0.45rem;color:#666;letter-spacing:0.18em;font-family:var(--ui-font);">TODAY'S XP</span>
-                    <span style="font-family:var(--ui-font);font-size:0.8rem;font-weight:bold;color:${xpColor};">${rawXP}<span style="color:#555;font-size:0.55rem;font-weight:normal;">/${xpThresh}</span></span>
+                    <span style="font-family:var(--ui-font);font-size:0.8rem;font-weight:bold;color:${xpColor};">${escapeHtml(rawXP)}<span style="color:#555;font-size:0.55rem;font-weight:normal;">/${xpThresh}</span></span>
                 </div>
                 <div style="height:5px;background:rgba(255,255,255,0.06);overflow:hidden;">
                     <div style="height:100%;width:${xpPct}%;background:${xpBarBg};transition:width 0.4s;"></div>
@@ -10460,7 +10431,7 @@
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                     <span style="line-height:0;flex-shrink:0;"><svg viewBox="0 0 24 24" width="22" height="22" fill="white" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 3.66333L20.25 7.7398V17.01L12 21.0865L3.75 17.01V7.7398L12 3.66333ZM5.25 9.41292V16.078L11.25 19.0427V12.3776L5.25 9.41292ZM12.75 12.3776V19.0427L18.75 16.078V9.41292L16.5 10.5247V13.4999L15 14.2499V11.2659L12.75 12.3776ZM17.807 8.20577L15.8527 9.17139C15.8099 9.13606 15.7624 9.10498 15.7106 9.07908L10.1015 6.27454L12 5.33645L17.807 8.20577ZM8.41452 7.1081L14.1871 9.9944L12 11.0751L6.19304 8.20577L8.41452 7.1081Z"/></svg></span>
                     <div style="flex:1;">
-                        <div style="font-family:var(--ui-font);font-size:0.95rem;color:#ffcc44;font-weight:bold;">${sbPts} <span style="color:#666;font-weight:normal;font-size:0.6rem;">/ ${MQ_SPECIAL_BOX_CAP}</span></div>
+                        <div style="font-family:var(--ui-font);font-size:0.95rem;color:#ffcc44;font-weight:bold;">${escapeHtml(sbPts)} <span style="color:#666;font-weight:normal;font-size:0.6rem;">/ ${MQ_SPECIAL_BOX_CAP}</span></div>
                         <div style="font-size:0.42rem;color:#776633;letter-spacing:0.12em;">BONUS BOX</div>
                     </div>
                 </div>
@@ -10987,9 +10958,9 @@
         rewards.forEach(rw => {
             const card = document.createElement('div');
             card.className = 'lb-reward-card';
-            const rc = RARITY_COLS[rw.rarity] || '#aaa';
+            const rc = hexColor(RARITY_COLS[rw.rarity], '#aaaaaa');
             card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;opacity:0;transform:scale(0.8);transition:opacity 0.25s, transform 0.25s;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${rw.icon}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${rw.label}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${rw.desc}</div><div class="lb-reward-rarity">${rw.rarity}</div>`;
+            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(rw.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${escapeHtml(rw.label)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(rw.desc)}</div><div class="lb-reward-rarity">${escapeHtml(rw.rarity)}</div>`;
             grid.appendChild(card);
         });
         rewardsDiv.appendChild(grid);
@@ -11036,7 +11007,6 @@
             el.innerHTML = `<div style="font-size:0.6rem;color:#555;padding:20px 2px;font-style:italic;">Loading tracks…</div>`;
             return;
         }
-        const esc = s => s.replace(/'/g, "\\'");
         const svgCheck = `<svg viewBox="0 0 10 10" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1.5 5 4 8 8.5 2"/></svg>`;
         const menuPlaylist = _getPlaylist('menu');
         const gamePlaylist = _getPlaylist('game');
@@ -11049,7 +11019,7 @@
         const mkCb = (on, color, ctx, name) => {
             const border = on ? color : '#333';
             const bg = on ? color + '22' : 'transparent';
-            return `<button type="button" aria-label="${ctx} playlist: ${name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}','${esc(name)}',${!on})" style="width:20px;height:20px;border-radius:4px;border:1.5px solid ${border};background:${bg};cursor:pointer;display:flex;align-items:center;justify-content:center;color:${on?color:'transparent'};flex-shrink:0;">${on?svgCheck:''}</button>`;
+            return `<button type="button" aria-label="${ctx} playlist: ${escapeHtml(name)}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}',${escapeHtml(JSON.stringify(name))},${!on})" style="width:20px;height:20px;border-radius:4px;border:1.5px solid ${border};background:${bg};cursor:pointer;display:flex;align-items:center;justify-content:center;color:${on?color:'transparent'};flex-shrink:0;">${on?svgCheck:''}</button>`;
         };
         const header = `<div data-pl-row style="position:relative;display:grid;${COL}${GAP}align-items:center;padding:0 0 8px 0;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:2px;cursor:default;">
             <div style="font-size:0.5rem;color:#444;letter-spacing:1.5px;">TRACK</div>
@@ -11070,13 +11040,13 @@
             const col = isPlaying ? 'var(--primary)' : '#ccc';
             const playMark = isPlaying ? `<span style="color:var(--primary);margin-right:4px;font-size:0.55rem;">▶</span>` : '';
             const tagChips = [...tags].sort().map(t => {
-                const tc = TAG_COLORS[t] || '#888';
-                return `<span style="font-size:0.47rem;padding:2px 5px;border-radius:3px;background:${tc}20;border:1px solid ${tc}55;color:${tc};letter-spacing:0.3px;white-space:nowrap;">${t}</span>`;
+                const tc = hexColor(TAG_COLORS[t], '#888888');
+                return `<span style="font-size:0.47rem;padding:2px 5px;border-radius:3px;background:${tc}20;border:1px solid ${tc}55;color:${tc};letter-spacing:0.3px;white-space:nowrap;">${escapeHtml(t)}</span>`;
             }).join('');
             return `<div style="display:grid;${COL}${GAP}align-items:center;padding:7px 0;">
-                <div onclick="window.playTrackInPlaylist('${esc(name)}')" style="min-width:0;padding-right:8px;text-align:left;cursor:pointer;" title="Play now">
-                    <div style="font-size:0.63rem;color:${col};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${playMark}${name}</div>
-                    ${artist ? `<div style="font-size:0.53rem;color:#444;margin-top:1px;">by ${artist}</div>` : ''}
+                <div onclick="window.playTrackInPlaylist(${escapeHtml(JSON.stringify(name))})" style="min-width:0;padding-right:8px;text-align:left;cursor:pointer;" title="Play now">
+                    <div style="font-size:0.63rem;color:${col};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${playMark}${escapeHtml(name)}</div>
+                    ${artist ? `<div style="font-size:0.53rem;color:#444;margin-top:1px;">by ${escapeHtml(artist)}</div>` : ''}
                 </div>
                 <div style="display:flex;justify-content:center;align-items:center;">${mkCb(menuOn,'#4488ff','menu',name)}</div>
                 <div style="display:flex;justify-content:center;align-items:center;">${mkCb(gameOn,'#44aa55',gameCtx,name)}</div>
@@ -11942,7 +11912,8 @@
             encSave: _encSave, decSave: _decSave,
             defaultMissions: _defaultMissions, refreshMissions: _checkMissionsRefresh,
             autoClaimMissions: _autoClaimMissions, streakMultiplier: _getMissionStreakXPMult,
-            streakThreshold: _dailyStreakXPThreshold
+            streakThreshold: _dailyStreakXPThreshold,
+            showLevelBox: _showLevelBox
         };
     }
 })();
