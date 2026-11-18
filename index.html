@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="touch.css">
     <link rel="stylesheet" href="portrait.css">
     <link rel="stylesheet" href="controls.css">
+    <link rel="stylesheet" href="29-stats.css">
 </head>
 <body>
 
@@ -222,58 +223,60 @@
 </div>
 
 <!-- STATS & LEADERBOARD SCREEN -->
-<div id="stats-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1002;">
-    <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
-        <button class="btn-back" onclick="window.closeStats()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
-        <span style="color:var(--primary); font-family:var(--ui-font); font-size:0.58rem;">STATISTICS</span>
-    </div>
-    <div style="width:100%; max-width:800px; margin:0 auto; padding:16px 20px;">
-        <div class="xp-breakdown" style="width:100%; max-width:100%; padding:10px; margin-bottom:8px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 44px;">
-                <div class="xp-row"><span>Total XP</span><span id="stat-total-xp" style="color:var(--primary);font-weight:bold;">0</span></div>
-                <div class="xp-row"><span>Best Score</span><span id="stat-best-score" style="color:#ffd700;">0</span></div>
-                <div class="xp-row"><span>Games Played</span><span id="stat-games">0</span></div>
-                <div class="xp-row"><span>Daily Streak</span><span id="stat-daily-streak" style="color:#ffd700;">0 days</span></div>
-                <div class="xp-row"><span>Total Time</span><span id="stat-time">0h 0m 0s</span></div>
-                <div class="xp-row"><span>Days Played</span><span id="stat-days-played">—</span></div>
-                <div class="xp-row"><span>Lines Cleared</span><span id="stat-lines">0</span></div>
-                <div class="xp-row"><span>Best Earned XP</span><span id="stat-best-xp" style="color:#88ffcc;">—</span></div>
-                <div class="xp-row"><span>Blocks Placed</span><span id="stat-blocks">0</span></div>
-                <div class="xp-row"><span>Best Combo</span><span id="stat-max-combo" style="color:#00eeff;">×0</span></div>
+<div id="stats-overlay" class="overlay hidden lb-fullscreen" role="region" aria-labelledby="stats-title">
+    <div class="lb-stats-shell">
+        <header class="lb-header">
+            <button class="lb-btn lb-btn--ghost" type="button" onclick="window.closeStats()">Back</button>
+            <h1 id="stats-title">Statistics</h1>
+        </header>
+        <div class="lb-tabs lb-stats-tabs" role="tablist" aria-label="Statistics views">
+            <button class="lb-btn" type="button" role="tab" id="stats-tab-general" aria-controls="general-stats-container" aria-selected="true" data-stats-tab="general">General stats</button>
+            <button class="lb-btn" type="button" role="tab" id="stats-tab-lb" aria-controls="leaderboard-container" aria-selected="false" tabindex="-1" data-stats-tab="leaderboard">Leaderboard</button>
+            <button class="lb-btn" type="button" role="tab" id="stats-tab-pin" aria-controls="pinned-container" aria-selected="false" tabindex="-1" data-stats-tab="pinned">Pinned</button>
+            <button class="lb-btn" type="button" role="tab" id="stats-tab-hs" aria-controls="highscores-container" aria-selected="false" tabindex="-1" data-stats-tab="highscores">Highscores</button>
+        </div>
+        <section id="general-stats-container" role="tabpanel" aria-labelledby="stats-tab-general" tabindex="0">
+            <dl class="lb-card lb-stats-metrics">
+                <div><dt>Best score</dt><dd id="stat-best-score">—</dd><dd class="lb-stats-comparison" id="stat-best-score-pct" hidden></dd></div>
+                <div><dt>Average score</dt><dd id="stat-average-score">—</dd></div>
+                <div><dt>Best earned XP</dt><dd id="stat-best-xp">—</dd><dd class="lb-stats-comparison" id="stat-best-xp-pct" hidden></dd></div>
+                <div><dt>Best combo</dt><dd id="stat-max-combo">—</dd></div>
+                <div><dt>Total XP</dt><dd id="stat-total-xp">—</dd></div>
+                <div><dt>Games played</dt><dd id="stat-games">—</dd></div>
+                <div><dt>Total time</dt><dd id="stat-time">—</dd></div>
+                <div><dt>Days played</dt><dd id="stat-days-played">—</dd></div>
+                <div><dt>Lines cleared</dt><dd id="stat-lines">—</dd></div>
+                <div><dt>Blocks placed</dt><dd id="stat-blocks">—</dd></div>
+                <div><dt>Daily streak</dt><dd id="stat-daily-streak">—</dd></div>
+                <div><dt>Items collected</dt><dd id="stat-items-collected">—</dd></div>
+            </dl>
+            <section class="lb-card">
+                <h2>Activity</h2>
+                <div id="stat-activity-calendar"></div>
+            </section>
+        </section>
+        <section id="leaderboard-container" role="tabpanel" aria-labelledby="stats-tab-lb" tabindex="0" hidden>
+            <div class="lb-actions" role="group" aria-label="Leaderboard mode">
+                <button class="lb-btn" type="button" aria-pressed="true" aria-controls="lb-list" data-stats-board="standard">Standard</button>
+                <button class="lb-btn" type="button" aria-pressed="false" aria-controls="fun-list" data-stats-board="fun">Fun mode</button>
             </div>
-        </div>
-        <div id="stat-block-usage" style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.07);"></div>
-        <!-- Activity Calendar -->
-        <div style="margin-bottom:20px;margin-top:18px;">
-            <div style="font-size:0.65rem;color:#666;letter-spacing:2px;font-weight:bold;margin-bottom:8px;">ACTIVITY</div>
-            <div id="stat-activity-calendar" style="padding-bottom:4px;width:100%;box-sizing:border-box;"></div>
-        </div>
-        <!-- Leaderboard / Pinned tabs -->
-        <div style="display:flex; gap:6px; margin-bottom:10px;">
-            <button class="opt-btn active" id="stats-tab-lb" onclick="window.statsLbTab('leaderboard')"><svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" style="display:inline-block;vertical-align:-2px;margin-right:4px;opacity:0.9"><rect x="1" y="11" width="4" height="4" rx="0.5"/><rect x="6" y="7" width="4" height="8" rx="0.5" opacity="0.8"/><rect x="11" y="3" width="4" height="12" rx="0.5" opacity="0.65"/></svg>LEADERBOARD</button>
-            <button class="opt-btn" id="stats-tab-pin" onclick="window.statsLbTab('pinned')"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>PINNED</button>
-            <button class="opt-btn" id="stats-tab-hs" onclick="window.statsLbTab('highscores')"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><path d="M12 2l3 7h7l-5.5 4.5 2 7L12 16l-6.5 4.5 2-7L2 9h7z"/></svg>HIGHSCORES</button>
-            <button class="opt-btn" id="stats-tab-fun" onclick="window.statsLbTab('fun')"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M12 8v8"/></svg>FUN</button>
-        </div>
-
-        <div id="leaderboard-container" style="height:auto; max-width:100%; margin-bottom:0; overflow-y:visible;">
             <div id="lb-list"></div>
-        </div>
-
-        <div id="pinned-container" style="height:auto; max-width:100%; margin-bottom:0; overflow-y:visible; display:none;">
-            <div class="lb-title">PINNED SCORES</div>
+            <div id="fun-list" hidden></div>
+        </section>
+        <section id="pinned-container" role="tabpanel" aria-labelledby="stats-tab-pin" tabindex="0" hidden>
             <div id="pinned-list"></div>
-        </div>
-
-        <div id="highscores-container" style="height:auto; max-width:100%; margin-bottom:0; overflow-y:visible; display:none;">
-            <div class="lb-title">HIGHSCORE HISTORY</div>
-            <div id="highscores-list"></div>
-        </div>
-
-        <div id="fun-container" style="height:auto; max-width:100%; margin-bottom:0; overflow-y:visible; display:none;">
-            <div class="lb-title">FUN MODE SCORES</div>
-            <div id="fun-list"></div>
-        </div>
+        </section>
+        <section id="highscores-container" role="tabpanel" aria-labelledby="stats-tab-hs" tabindex="0" hidden>
+            <section class="lb-card">
+                <h2>Records by speed level</h2>
+                <p class="lb-stats-meta">Best score for each maximum speed reached.</p>
+                <div id="highscores-by-speed"></div>
+            </section>
+            <section>
+                <h2>Highscore history</h2>
+                <div id="highscores-list"></div>
+            </section>
+        </section>
     </div>
 </div>
 
