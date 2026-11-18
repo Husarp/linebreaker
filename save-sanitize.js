@@ -11,8 +11,8 @@
     const version = 1;
     const scoreKeys = ['highscoreHistory', 'pinnedScores', 'funLeaderboard', 'leaderboard'];
     const keyGroups = [
-        ['schemaVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'levelRewardsThrough', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
-        ['parts', 'universalParts', 'boosters', 'boxes', 'ghostColorUnlocked', 'ownedSkins', 'ownedThemes', 'ownedBtnStyles', 'ownedBlockShapes', 'ownedGridStyles', 'ownedSfxPacks', 'ownedPalettes', 'customPaletteOverrides', 'customPickerColors', 'customThemeColor', '_cpmBaseColor', '_cpmMode', 'menuPlaylist', 'gamePlaylist', 'actionPlaylist'],
+        ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'levelRewardsThrough', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
+        ['parts', 'universalParts', 'boosters', 'boxes', 'ghostColorUnlocked', 'ownedSkins', 'ownedThemes', 'ownedBtnStyles', 'ownedGridStyles', 'ownedSfxPacks', 'ownedPalettes', 'customPaletteOverrides', 'customPickerColors', 'customThemeColor', '_cpmBaseColor', '_cpmMode', 'menuPlaylist', 'gamePlaylist', 'actionPlaylist'],
         ['missions'], ['achievements', 'pendingAchievementClaims'], ['stats'], scoreKeys,
     ];
     const saveKeys = keyGroups.flat();
@@ -164,19 +164,25 @@
         if (legacy) data = migrateLegacy(data);
         const out = JSON.parse(JSON.stringify(defaults));
         out.schemaVersion = version;
+        const skins = definitions.skins || Object.fromEntries([
+            ...['Retro','Glass','Shadow','Outline','Holo','Journey','Bubble'].map(name => [name.toLowerCase(), name]),
+            ...(window.LBImageSkins || []).map(({key, name}) => [key, name]),
+        ]);
         const allowed = new Set(saveKeys);
         for (const key of Object.keys(out)) if (!allowed.has(key)) delete out[key];
         for (const [key, value] of entries(data)) {
             if (!allowed.has(key) || key === 'schemaVersion') continue;
-            if (typeof defaults[key] === 'number' || key === 'levelRewardsThrough') out[key] = number(value, defaults[key] || 0);
+            if (typeof defaults[key] === 'number' || key === 'levelRewardsThrough' || key === 'skinCatalogVersion') out[key] = number(value, defaults[key] || 0);
             else if (typeof defaults[key] === 'boolean') out[key] = value === true;
             else if (key.endsWith('Playlist')) out[key] = Array.isArray(value) ? list(value).filter(trackName) : (defaults[key] || []);
+            else if (key === 'ownedSkins') out[key] = Array.isArray(value) ? list(value) : (defaults[key] || []);
             else if (key.startsWith('owned')) out[key] = Array.isArray(value) ? list(value).filter(x => typeof x === 'string').map(string).filter(Boolean) : (defaults[key] || []);
             else if (['parts','boosters','boxes'].includes(key)) out[key] = numericMap(value);
             else if (key === 'lastDailyGift') out[key] = date(value) || null;
             else if (/Color$/.test(key)) out[key] = colour(value, '#00ffff');
             else if (['_cpmMode'].includes(key)) out[key] = string(value);
         }
+        out.ownedSkins = [...new Set(list(out.ownedSkins).filter(key => typeof key === 'string' && Object.hasOwn(skins, key)))];
         for (const k of scoreKeys) out[k] = list(data[k]).filter(object).map(cleanScore);
         out.leaderboard.sort((first, second) => (second.score || 0) - (first.score || 0));
         out.stats = { ...defaults.stats };
@@ -227,6 +233,8 @@
                     out._settings[k] = valid ? input : v;
                 }
                 else if (k === 'ghostColor') out._settings[k] = ['white', 'colored'].includes(input) ? input : v;
+                else if (k === 'skin') out._settings[k] = typeof input === 'string' && Object.hasOwn(skins, input) ? input : 'retro';
+                else if (k === 'blockShape') out._settings[k] = 'square';
                 else out._settings[k] = typeof v === 'number' ? number(input, v, 10000) : typeof v === 'boolean' ? (typeof input === 'boolean' ? input : v) : typeof input === 'string' ? (/color/i.test(k) ? colour(input, v) : string(input)) : v;
             }
             if (typeof data._settings._lastPalette === 'string' && Object.hasOwn(definitions.palettes || {}, data._settings._lastPalette)) out._settings._lastPalette = data._settings._lastPalette;
@@ -239,22 +247,29 @@
         const colours = (v, fallback) => fallback.slice(0, 7).map((c,i) => colour(Array.isArray(v) ? v[i] : null, c));
         if ('customPickerColors' in data) out.customPickerColors = colours(data.customPickerColors, classic);
         out.customPaletteOverrides = Object.fromEntries(entries(data.customPaletteOverrides).filter(([k]) => Object.hasOwn(palettes, k)).map(([k,v]) => [k, colours(v, palettes[k].colors)]));
-        const items = new Map((definitions.items || []).map(i => [i.key, i]));
-        for (const key of ('retro glass shadow outline holo journey gem bubble gameboy monochrome modern candy vim aerolab classic window ocean forest fire dragon void sunset arctic midnight sakura ghostColor dots boxes dotboxes sfxCyber sfxRetro sfxZen sfxArcade').split(' ').concat(Object.keys(palettes))) items.set(key, {key});
+        const items = new Set([
+            ...(definitions.items || []).map(item => item.key),
+            ...Object.keys(skins),
+            ...('ocean forest fire dragon void sunset arctic midnight sakura ghostColor dots boxes dotboxes sfxCyber sfxRetro sfxZen sfxArcade').split(' '),
+            ...Object.keys(palettes),
+        ]);
+        if (out.parts) out.parts = Object.fromEntries(Object.entries(out.parts).filter(([key]) => items.has(key)));
+        const partLabel = definitions.partLabel || (key => key === 'ghostColor' ? 'Colored Ghost' : Object.hasOwn(skins, key) ? skins[key] : key.charAt(0).toUpperCase() + key.slice(1));
+        const partCost = definitions.partCost || (() => 10);
         function reward(r) {
             if (!object(r)) return null;
             let type = r.type, key = r.key;
             // Older boxes stored only display text; accept exact game-generated forms.
             if (!type && r.label === '+1 Universal Part') type = 'universal_parts';
             if (!type && typeof r.label === 'string' && r.label.startsWith('+1 Part: ')) {
-                key = [...items.keys()].find(k => r.label === '+1 Part: ' + (k === 'ghostColor' ? 'Colored Ghost' : k.charAt(0).toUpperCase() + k.slice(1)));
+                key = [...items].find(k => r.label === '+1 Part: ' + partLabel(k));
                 if (key) type = 'parts';
             }
             const amount = number(r.amount, 1, 1000);
             const rarity = ['common','rare','epic','legendary'].includes(r.rarity) ? r.rarity : 'common';
             if (type === 'converted_parts' && items.has(key) && Number.isInteger(r.amount) && amount > 0) return { type, key, amount, icon:'⭐', desc:'Duplicate converted', rarity:'rare' };
             if (type === 'universal_parts') return { type, amount, rarity, icon:'⭐', label:`+${amount} Universal Part${amount === 1 ? '' : 's'}`, desc:'Added to your inventory' };
-            if (type === 'parts' && items.has(key)) return { type, key, amount, rarity, icon:'🧩', label:`+${amount} Part: ${key === 'ghostColor' ? 'Colored Ghost' : key.charAt(0).toUpperCase() + key.slice(1)}`, desc:`${number(out.parts[key])}/10 parts` };
+            if (type === 'parts' && items.has(key)) return { type, key, amount, rarity, icon:'🧩', label:`+${amount} Part: ${partLabel(key)}`, desc:`${number(out.parts[key])}/${partCost(key)} parts` };
             if (type === 'booster' && Object.hasOwn(definitions.boosters || {}, key)) {
                 const b = definitions.boosters[key];
                 return { type, key, amount, rarity:b.rarity, icon:b.icon, label:b.label, desc:'Booster added to inventory' };
