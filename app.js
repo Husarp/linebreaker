@@ -9350,6 +9350,43 @@
     function handleKeyUp(e){if(keys.hasOwnProperty(e.code)){if(e.code==='ArrowLeft'||e.code==='KeyA'){stopMove();keys[e.code]=false;if(keys.ArrowRight||keys.KeyD)handleMove(1);}else if(e.code==='ArrowRight'||e.code==='KeyD'){stopMove();keys[e.code]=false;if(keys.ArrowLeft||keys.KeyA)handleMove(-1);}else{if(e.code==='Space')keys.SpaceReleased=true;keys[e.code]=false;}}}
     function handleMove(d){if(isPaused)return;if(isAnimating){_bufferedMove=d;return;}playerMove(d);clearTimeout(dasTimer);clearInterval(arrTimer);const _das=settings.das||160,_arr=settings.arr||50;dasTimer=setTimeout(()=>{arrTimer=setInterval(()=>{playerMove(d)},_arr)},_das)}
     function stopMove(){clearTimeout(dasTimer);clearInterval(arrTimer)}
+
+    // Android shell only: keep native navigation isolated from desktop input.
+    if (window.Capacitor?.isNativePlatform()) {
+        const nativeApp = window.Capacitor.Plugins.App;
+        nativeApp.addListener('backButton', async () => {
+            const visible = el => el && !el.classList.contains('hidden')
+                && getComputedStyle(el).display !== 'none';
+            const overlays = [...document.querySelectorAll(
+                '[id$="-overlay"], [id$="-modal"], #custom-confirm, #custom-alert, #sfx-inv-preview'
+            )].filter(el => visible(el) && !['menu-overlay', 'start-animation-overlay'].includes(el.id));
+            overlays.sort((a, b) => (parseInt(getComputedStyle(b).zIndex) || 0)
+                - (parseInt(getComputedStyle(a).zIndex) || 0));
+            const top = overlays[0];
+            if (top?.id === 'custom-confirm') {
+                document.getElementById('confirm-no').click();
+            } else if (top?.id === 'custom-alert') {
+                closeAlert();
+            } else if (top) {
+                const close = top.querySelector('.btn-back, [onclick*="close"], [onclick*="_closeModal"]');
+                if (close) close.click();
+                else if (top.id.endsWith('-modal') || top.id.endsWith('-preview')) {
+                    window._closeModal(top.id);
+                } else if (!['pause-overlay', 'go-overlay'].includes(top.id)) {
+                    top.classList.add('hidden');
+                } else handleKeyDown({ code: 'Escape', preventDefault() {} });
+            } else if (document.getElementById('app').classList.contains('active-game')) {
+                if (!isPaused && !isGameOver) togglePause();
+            } else if (await customConfirm('Exit Linebreaker?', 'EXIT')) {
+                await nativeApp.exitApp();
+            }
+        }).catch(error => console.error('Android back button setup failed', error));
+        nativeApp.addListener('appStateChange', ({ isActive }) => {
+            if (!isActive && !isPaused && !isGameOver
+                && document.getElementById('app').classList.contains('active-game')) togglePause();
+        }).catch(error => console.error('Android lifecycle setup failed', error));
+    }
+
     document.addEventListener('keydown',handleKeyDown); document.addEventListener('keyup',handleKeyUp);
     
     document.addEventListener('visibilitychange', () => {

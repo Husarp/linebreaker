@@ -24,3 +24,13 @@ desktop.ini
 *~
 
 node_modules/
+
+# Capacitor generated web assets and Android local/build state
+dist-web/
+android/local.properties
+android/.gradle/
+android/**/build/
+android/.idea/
+android/captures/
+*.apk
+*.aab
