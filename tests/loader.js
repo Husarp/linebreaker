@@ -51,6 +51,7 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   w.eval(readFileSync(new URL('../save-sanitize.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../controls.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../gamepad.js', import.meta.url), 'utf8'));
+  w.eval(readFileSync(new URL('../45-music-tempo.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../music-synth.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../notifications.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../color-picker.js', import.meta.url), 'utf8'));

@@ -163,7 +163,7 @@
             }
         }
         events.sort((first, second) => first.time - second.time);
-        const track = { duration: form.length * 64 * stepTime, events, waves: score.waves, cutoff: score.cutoff, trim: score.trim };
+        const track = { duration: form.length * 64 * stepTime, barDuration: 16 * stepTime, events, waves: score.waves, cutoff: score.cutoff, trim: score.trim };
         cache.set(id, track);
         return track;
     }
@@ -198,16 +198,16 @@
             noiseFilters[voice] = filter;
         }
         const active = new Set();
-        let timer, origin, cursor, offset = 0, running = false, stopped = false;
+        const timeline = root.LBMusicTempo.createTimeline(track.events, duration, track.barDuration);
+        let timer, running = false, stopped = false;
 
-        function play(event, time) {
+        function play(event, time, length) {
             const { voice, note, strength } = event;
             const tonal = Number.isInteger(voice);
             const noiseFilter = noiseFilters[voice];
             const node = noiseFilter ? context.createBufferSource() : context.createOscillator();
             const gain = context.createGain();
             let [level, attack, sustain] = tonal ? envelopes[voice] : voice === 'kick' ? [0.23, 0.005, 0.33] : voice === 'snare' ? [0.21, 0.005, 0.19] : [0.13, 0.003, 0.15];
-            let length = event.duration;
             if (tonal) {
                 node.type = track.waves[voice];
                 node.frequency.value = 440 * 2 ** ((note - 69) / 12);
@@ -236,16 +236,10 @@
 
         function schedule() {
             if (!running) return;
-            const now = context.currentTime;
-            if (now >= origin + duration) {
+            if (timeline.schedule(context.currentTime, play)) {
                 source.stop();
                 source.onended?.();
                 return;
-            }
-            while (cursor < track.events.length && origin + track.events[cursor].time < now + 0.19) {
-                const event = track.events[cursor++];
-                const time = origin + event.time;
-                if (time >= now - 0.02) play(event, Math.max(now, time));
             }
             timer = setTimeout(schedule, context.state === 'running' ? 45 : 180);
         }
@@ -266,21 +260,25 @@
             buffer: descriptor,
             onended: null,
             connect(target) { output.connect(target); },
+            setTempo: timeline.setTempo,
+            finishAtBar: timeline.finishAtBar,
             start(when = 0, position = 0) {
                 if (running || stopped) return;
                 running = true;
-                offset = Math.max(0, Math.min(position, duration - 0.001));
-                origin = Math.max(when, context.currentTime + 0.025) - offset;
-                cursor = track.events.findIndex(event => event.time >= offset);
-                if (cursor < 0) cursor = track.events.length;
+                timeline.start(Math.max(when, context.currentTime + 0.025), position);
                 schedule();
             },
             pause() {
                 if (!running) return;
-                offset = Math.max(0, context.currentTime - origin);
+                timeline.pause(context.currentTime);
                 silence();
             },
-            resume() { this.start(0, offset); },
+            resume() {
+                if (running || stopped) return;
+                running = true;
+                timeline.resume(context.currentTime + 0.025);
+                schedule();
+            },
             stop() {
                 if (stopped) return;
                 stopped = true;
