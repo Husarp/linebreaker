@@ -3579,76 +3579,63 @@
 
     function openStats() {
         checkProgressAchievements();
-        const _s = v => v ? v : '—';
-        const _sn = v => v ? v.toLocaleString() : '—';
-        document.getElementById('stat-total-xp').innerText = _sn(saveData.totalXP);
-        document.getElementById('stat-games').innerText = _s(saveData.stats.gamesPlayed);
-        document.getElementById('stat-time').innerText = saveData.stats.totalTimePlayed ? formatTime(saveData.stats.totalTimePlayed) : '—';
-        document.getElementById('stat-blocks').innerText = _s(saveData.stats.totalBlocksPlaced);
-        document.getElementById('stat-lines').innerText = _s(saveData.stats.totalLinesCleared);
-        const streakEl = document.getElementById('stat-daily-streak');
-        if (streakEl) { const sv = saveData.stats.highestDailyStreak || saveData.stats.dailyStreak || 0; streakEl.innerText = sv ? sv + ' days' : '—'; }
-        const comboEl = document.getElementById('stat-max-combo');
-        if (comboEl) { const cv = saveData.stats.maxCombo || 0; comboEl.innerText = cv ? '×' + cv : '—'; }
-        // Average Score
-        const bestScoreEl = document.getElementById('stat-best-score');
-        if (bestScoreEl) {
-            const gp = saveData.stats.gamesPlayed || 0;
-            const ts = saveData.stats.totalScore || 0;
-            const avg = gp > 0 ? Math.round(ts / gp) : 0;
-            bestScoreEl.innerText = avg > 0 ? avg.toLocaleString() : '—';
-            const bestScoreLabel = bestScoreEl.parentElement?.querySelector('span:first-child');
-            if (bestScoreLabel) bestScoreLabel.innerText = 'Average Score';
+        const overlay = document.getElementById('stats-overlay');
+        overlay.classList.remove('hidden');
+        statsLbTab('general');
+        statsTabs[0].focus({ preventScroll: true });
+        overlay.scrollTop = 0;
+        _animateIn(overlay, 'anim-in-right');
+    }
+
+    function statsPercentOfAverage(best, average) {
+        return best > 0 && average > 0 ? Math.round(best / average * 100) : null;
+    }
+
+    function drawGeneralStats() {
+        const { stats, leaderboard } = saveData;
+        const averageScore = stats.gamesPlayed > 0 ? (stats.totalScore || 0) / stats.gamesPlayed : 0;
+        const bestScore = leaderboard.reduce((best, entry) => Math.max(best, entry.score || 0), saveData.highscore || 0);
+        let bestXP = stats.bestEarnedXP || 0;
+        let recordedXP = 0;
+        let xpRuns = 0;
+        for (const { xp } of leaderboard) {
+            if (!Number.isFinite(xp)) continue;
+            bestXP = Math.max(bestXP, xp);
+            recordedXP += xp;
+            xpRuns++;
         }
-        const _fmt2 = t => { const m = Math.floor(t / 60), s = t % 60; return `${m}m ${String(s).padStart(2, '0')}s`; };
-        const daysPlayedEl = document.getElementById('stat-days-played');
-        if (daysPlayedEl) { const ph = saveData.stats?.playHistory || {}; const dpv = Object.keys(ph).length; daysPlayedEl.innerText = dpv ? dpv : '—'; }
-        // Items Collected (X / Y)
-        const bestXpEl = document.getElementById('stat-best-xp');
-        if (bestXpEl) {
-            const _ownedSkins = (saveData.ownedSkins || ['neon']).filter(_skinAvailable).length;
-            const _totalSkins = _devMode ? 17 : 8;
-            const _ownedThemes = (saveData.ownedThemes || []).length + 1; // +1 for default
-            const _totalThemes = Object.keys(THEMES).length;
-            const _ownedGrid = (saveData.ownedGridStyles || []).length + 1; // +1 for lines (free)
-            const _totalGrid = Object.keys(GRID_STYLES).length;
-            const _ownedPal = (saveData.ownedPalettes || ['classic']).length;
-            const _totalPal = Object.keys(BLOCK_PALETTES).length;
-            const _ownedSfx = (saveData.ownedSfxPacks || ['default']).length;
-            const _totalSfx = 5;
-            const _ghost = saveData.ghostColorUnlocked ? 1 : 0;
-            const _collected = _ownedSkins + _ownedThemes + _ownedGrid + _ownedPal + _ownedSfx + _ghost;
-            const _total = _totalSkins + _totalThemes + _totalGrid + _totalPal + _totalSfx + 1;
-            bestXpEl.innerText = `${_collected} / ${_total}`;
-            const bestXpLabel = bestXpEl.parentElement?.querySelector('span:first-child');
-            if (bestXpLabel) bestXpLabel.innerText = 'Items Collected';
-        }
+        const formatCount = value => value ? value.toLocaleString() : '—';
+        const stat = (name, value) => { document.getElementById('stat-' + name).textContent = value; };
+        const comparison = (name, best, average, label) => {
+            const percent = statsPercentOfAverage(best, average);
+            const element = document.getElementById(`stat-${name}-pct`);
+            element.hidden = percent === null;
+            element.textContent = percent === null ? '' : `${percent}% of ${label}`;
+        };
+        stat('best-score', formatCount(bestScore));
+        stat('average-score', averageScore > 0 ? Math.round(averageScore).toLocaleString() : '—');
+        stat('best-xp', formatCount(bestXP));
+        stat('max-combo', stats.maxCombo ? '×' + stats.maxCombo : '—');
+        stat('total-xp', formatCount(saveData.totalXP));
+        stat('games', formatCount(stats.gamesPlayed));
+        stat('time', stats.totalTimePlayed ? formatTime(stats.totalTimePlayed) : '—');
+        stat('days-played', formatCount(Object.keys(stats.playHistory || {}).length));
+        stat('lines', formatCount(stats.totalLinesCleared));
+        stat('blocks', formatCount(stats.totalBlocksPlaced));
+        const streak = stats.highestDailyStreak || stats.dailyStreak;
+        stat('daily-streak', streak ? `${formatCount(streak)} days` : '—');
+        comparison('best-score', bestScore, averageScore, 'your average');
+        comparison('best-xp', bestXP, xpRuns ? recordedXP / xpRuns : 0, 'recorded average XP');
+
+        const ownedSkins = (saveData.ownedSkins || ['neon']).filter(_skinAvailable).length;
+        const ownedThemes = (saveData.ownedThemes || []).length + 1;
+        const ownedGrid = (saveData.ownedGridStyles || []).length + 1;
+        const ownedPal = (saveData.ownedPalettes || ['classic']).length;
+        const ownedSfx = (saveData.ownedSfxPacks || ['default']).length;
+        const collected = ownedSkins + ownedThemes + ownedGrid + ownedPal + ownedSfx + Number(!!saveData.ghostColorUnlocked);
+        const total = (_devMode ? 17 : 8) + Object.keys(THEMES).length + Object.keys(GRID_STYLES).length + Object.keys(BLOCK_PALETTES).length + 6;
+        stat('items-collected', `${collected} / ${total}`);
         _renderActivityCalendar(null);
-        const usageEl = document.getElementById('stat-block-usage');
-        if (usageEl) {
-            const usage = saveData.stats.blockTypeUsage || {};
-            usageEl.innerHTML = `<div style="font-size:0.83rem;letter-spacing:2px;color:#555;margin-bottom:12px;">BLOCK USAGE</div>` +
-                `<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">` +
-                [1,2,3,4,5,6,7].map(t => {
-                    const count = usage[t] || 0;
-                    const color = COLORS[t];
-                    const shape = BASE_PIECES[t].filter(row => row.some(c => c));
-                    const miniCell = 11;
-                    const miniPiece = shape.map(row =>
-                        `<div style="display:flex;">` + row.map(c =>
-                            `<div style="width:${miniCell}px;height:${miniCell}px;${c ? `background:${color};box-shadow:0 0 4px ${color};` : 'background:transparent;'};margin:0.5px;border-radius:1px;"></div>`
-                        ).join('') + `</div>`
-                    ).join('');
-                    return `<div style="display:flex;flex-direction:column;align-items:center;gap:5px;min-width:66px;">
-                        <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:50px;">${miniPiece}</div>
-                        <div style="font-size:1rem;color:${color};font-weight:bold;line-height:1;">${count}</div>
-                    </div>`;
-                }).join('') + `</div>`;
-        }
-        statsLbTab('leaderboard');
-        const _statsEl = document.getElementById('stats-overlay');
-        _statsEl.classList.remove('hidden');
-        _animateIn(_statsEl, 'anim-in-right');
     }
     function _renderActivityCalendar(year) {
         const container = document.getElementById('stat-activity-calendar');
@@ -3713,20 +3700,15 @@
             }
         }
 
-        // Compute cell size to fit full year without scrolling
-        // Container width is dynamic; we compute after setting innerHTML once
-        // Use CSS approach: fixed small cells, let container scroll only if truly needed
         const GAP = 4;
-        // We'll use CSS variable approach: compute in JS after render
         const ROW_LBL = 34; // px for day labels
 
         // Year tabs
-        let html = `<div style="display:flex;justify-content:center;gap:5px;margin-bottom:8px;">`;
+        let html = `<div class="lb-actions lb-stats-years" role="group" aria-label="Activity year">`;
         years.forEach(y => {
-            const active = y === year;
-            html += `<button data-cal-year="${y}" style="border:1px solid ${active?'var(--primary)':'#333'};background:${active?'var(--primary)':'transparent'};color:${active?'#000':'#666'};border-radius:20px;padding:2px 12px;font-size:0.58rem;cursor:pointer;font-family:inherit;font-weight:bold;">${y}</button>`;
+            html += `<button class="lb-btn" type="button" data-cal-year="${y}" aria-pressed="${y === year}">${y}</button>`;
         });
-        html += `</div>`;
+        html += `</div><div class="lb-stats-calendar-scroll" role="region" aria-label="Activity calendar" tabindex="0"><div class="lb-stats-calendar">`;
 
         // Month labels (absolutely positioned over week columns)
         // We compute month positions using week index * (CELL+GAP) + ROW_LBL
@@ -3744,7 +3726,7 @@
             const sepDayIdx = dayIdx + 1;
             const sepWc = Math.floor((startDow + sepDayIdx) / 7);
             const sepDow = (startDow + sepDayIdx) % 7;
-            html += `<span data-week-col="${weekCol}" data-dow="${dow}" data-wc-end="${wcEnd}" data-sep-wc="${sepWc}" data-sep-dow="${sepDow}" style="position:absolute;font-size:0.52rem;color:#888;font-weight:bold;white-space:nowrap;transform:translateX(-50%);">${MONTHS[m]}</span>`;
+            html += `<span data-week-col="${weekCol}" data-dow="${dow}" data-wc-end="${wcEnd}" data-sep-wc="${sepWc}" data-sep-dow="${sepDow}">${MONTHS[m]}</span>`;
         }
         html += `</div>`;
 
@@ -3753,7 +3735,7 @@
         // Day labels
         html += `<div id="cal-day-labels" style="display:flex;flex-direction:column;gap:${GAP}px;width:${ROW_LBL}px;flex-shrink:0;">`;
         DAY_LABELS.forEach(l => {
-            html += `<div style="font-size:0.5rem;color:#555;text-align:right;padding-right:4px;display:flex;align-items:center;justify-content:flex-end;">${l}</div>`;
+            html += `<div>${l}</div>`;
         });
         html += `</div>`;
         // Week columns wrapper
@@ -3794,7 +3776,7 @@
             }
             html += `</div>`;
         }
-        html += `</div></div>`;
+        html += `</div></div></div></div>`;
 
         // --- TODAY's stats section ---
         const todayKey = _ldk(now);
@@ -3803,25 +3785,25 @@
         const todayDatePrefix = `${tD}.${tM}.${tY}`;
         const todayEntries = (saveData.leaderboard || []).filter(e => e.date && e.date.startsWith(todayDatePrefix));
         const todayBestScore = todayEntries.length > 0 ? Math.max(...todayEntries.map(e => e.score || 0)) : 0;
-        const todayAvgScore = todayEntries.length > 0 ? Math.round(todayEntries.reduce((s, e) => s + (e.score || 0), 0) / todayEntries.length) : 0;
+        const todayAvgScore = todayEntries.length > 0 ? todayEntries.reduce((s, e) => s + (e.score || 0), 0) / todayEntries.length : 0;
+        const todayBestPercent = statsPercentOfAverage(todayBestScore, todayAvgScore);
         const todayTotalTime = todayEntries.reduce((s, e) => s + (e.time || 0), 0);
         const todayTimeFmt = todayTotalTime >= 3600 ? `${Math.floor(todayTotalTime/3600)}h ${Math.floor((todayTotalTime%3600)/60)}m` : `${Math.floor(todayTotalTime/60)}m ${todayTotalTime%60}s`;
         const todayXP = todayEntries.reduce((s, e) => s + (e.xp || 0), 0);
-        html += `<div style="display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:10px;padding:8px 6px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.05);">
-            <div style="font-size:0.55rem;color:#888;letter-spacing:1.5px;font-weight:bold;width:100%;margin-bottom:2px;">TODAY</div>
-            <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">Games</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${escapeHtml(todayGames > 0 ? todayGames : '—')}</div></div>
-            <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">Best Score</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${todayBestScore > 0 ? todayBestScore.toLocaleString() : '—'}</div></div>
-            <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">Avg Score</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${todayAvgScore > 0 ? todayAvgScore.toLocaleString() : '—'}</div></div>
-            <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">Time Played</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${todayTotalTime > 0 ? todayTimeFmt : '—'}</div></div>
-            <div style="flex:1;min-width:80px;"><span style="font-size:0.52rem;color:#555;text-transform:uppercase;">XP Earned</span><div style="font-size:0.82rem;font-weight:bold;color:#fff;">${escapeHtml(todayXP > 0 ? todayXP.toLocaleString() : '—')}</div></div>
-        </div>`;
+        html += `<h3>Today</h3><dl class="lb-stats-metrics lb-stats-today">
+            <div><dt>Games</dt><dd>${todayGames > 0 ? todayGames : '—'}</dd></div>
+            <div><dt>Best score</dt><dd>${todayBestScore > 0 ? todayBestScore.toLocaleString() : '—'}</dd>${todayBestPercent === null ? '' : `<dd class="lb-stats-comparison">${todayBestPercent}% of today's average</dd>`}</div>
+            <div><dt>Average score</dt><dd>${Math.round(todayAvgScore) > 0 ? Math.round(todayAvgScore).toLocaleString() : '—'}</dd></div>
+            <div><dt>Time played</dt><dd>${todayTotalTime > 0 ? todayTimeFmt : '—'}</dd></div>
+            <div><dt>XP earned</dt><dd>${todayXP > 0 ? todayXP.toLocaleString() : '—'}</dd></div>
+        </dl>`;
 
         container.innerHTML = html;
 
         requestAnimationFrame(() => {
             // After render: compute actual cell size and position month labels
-            const grid = document.getElementById('cal-grid');
-            if (grid) {
+            const grid = container.querySelector('#cal-grid');
+            if (grid && grid.offsetWidth && !grid.querySelector('svg')) {
                 const gridW = grid.offsetWidth;
                 const cellW = Math.max(4, Math.floor((gridW - GAP * (totalWeeks - 1)) / totalWeeks));
                 const rowH = cellW; // square cells
@@ -3888,9 +3870,11 @@
                     calGrid2.appendChild(svgEl);
                 }
             }
-            // Year tab clicks
-            container.querySelectorAll('[data-cal-year]').forEach(btn => {
-                btn.addEventListener('click', () => _renderActivityCalendar(parseInt(btn.dataset.calYear)));
+        });
+        container.querySelectorAll('[data-cal-year]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                _renderActivityCalendar(Number(btn.dataset.calYear));
+                container.querySelector('[aria-pressed="true"]').focus();
             });
         });
         // Tooltips
@@ -3909,37 +3893,44 @@
         });
     }
     function statsLbTab(tab) {
-        const _statOv = document.getElementById('stats-overlay');
-        const _prevStatTab = _statOv ? _statOv._statTab : null;
-        if (_statOv) _statOv._statTab = tab;
-        const lbEl = document.getElementById('leaderboard-container');
-        const pinEl = document.getElementById('pinned-container');
-        const hsEl = document.getElementById('highscores-container');
-        const funEl = document.getElementById('fun-container');
-        const tabLb = document.getElementById('stats-tab-lb');
-        const tabPin = document.getElementById('stats-tab-pin');
-        const tabHs = document.getElementById('stats-tab-hs');
-        const tabFun = document.getElementById('stats-tab-fun');
-        if (lbEl) lbEl.style.display = tab === 'leaderboard' ? '' : 'none';
-        if (pinEl) pinEl.style.display = tab === 'pinned' ? '' : 'none';
-        if (hsEl) hsEl.style.display = tab === 'highscores' ? '' : 'none';
-        if (funEl) funEl.style.display = tab === 'fun' ? '' : 'none';
-        if (tabLb) tabLb.classList.toggle('active', tab === 'leaderboard');
-        if (tabPin) tabPin.classList.toggle('active', tab === 'pinned');
-        if (tabHs) tabHs.classList.toggle('active', tab === 'highscores');
-        if (tabFun) tabFun.classList.toggle('active', tab === 'fun');
-        if (tab === 'leaderboard') drawLeaderboard();
+        if (!statsTabs.some(button => button.dataset.statsTab === tab)) return;
+        for (const button of statsTabs) {
+            const active = button.dataset.statsTab === tab;
+            button.setAttribute('aria-selected', active);
+            button.tabIndex = active ? 0 : -1;
+            document.getElementById(button.getAttribute('aria-controls')).hidden = !active;
+        }
+        if (tab === 'general') drawGeneralStats();
+        if (tab === 'leaderboard') statsLeaderboardMode('standard');
         if (tab === 'pinned') drawPinnedScores();
         if (tab === 'highscores') _drawHighscoreHistory();
-        if (tab === 'fun') _drawFunLeaderboard();
-        if (_prevStatTab && _prevStatTab !== tab) {
-            const _ord = ['leaderboard', 'pinned', 'highscores', 'fun'];
-            const _oi = _ord.indexOf(_prevStatTab), _ni = _ord.indexOf(tab);
-            const _ids = { leaderboard: lbEl, pinned: pinEl, highscores: hsEl, fun: funEl };
-            const _p = _ids[tab];
-            if (_p) _animateIn(_p, _ni > _oi ? 'tab-slide-in-right' : 'tab-slide-in-left');
-        }
     }
+
+    function statsLeaderboardMode(mode) {
+        for (const button of document.querySelectorAll('#leaderboard-container [data-stats-board]')) {
+            const active = button.dataset.statsBoard === mode;
+            button.setAttribute('aria-pressed', active);
+            document.getElementById(button.getAttribute('aria-controls')).hidden = !active;
+        }
+        if (mode === 'fun') _drawFunLeaderboard();
+        else drawLeaderboard();
+    }
+
+    const statsTabs = Array.from(document.querySelectorAll('#stats-overlay [data-stats-tab]'));
+    statsTabs.forEach((button, index) => {
+        button.addEventListener('click', () => statsLbTab(button.dataset.statsTab));
+        button.addEventListener('keydown', event => {
+            const last = statsTabs.length - 1;
+            const next = { ArrowLeft: index === 0 ? last : index - 1, ArrowRight: index === last ? 0 : index + 1, Home: 0, End: last }[event.key];
+            if (!Number.isInteger(next)) return;
+            event.preventDefault();
+            statsTabs[next].focus();
+            statsLbTab(statsTabs[next].dataset.statsTab);
+        });
+    });
+    document.querySelectorAll('#leaderboard-container [data-stats-board]').forEach(button => {
+        button.addEventListener('click', () => statsLeaderboardMode(button.dataset.statsBoard));
+    });
 
     function _drawFunLeaderboard() {
         const container = document.getElementById('fun-list');
@@ -3947,7 +3938,7 @@
         container.innerHTML = '';
         const fl = saveData.funLeaderboard || [];
         if (!fl.length) {
-            container.innerHTML = "<div style='color:#666;text-align:center;padding:15px 0;'>No fun mode games yet!</div>";
+            container.innerHTML = '<p class="lb-card lb-empty">No Fun mode games yet.</p>';
             return;
         }
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
@@ -3965,12 +3956,9 @@
                 container.appendChild(div);
             }
             if (max < fl.length) {
-                const moreBtn = document.createElement('div');
-                moreBtn.className = 'lb-load-more';
-                moreBtn.style.cssText = 'text-align:center;padding:12px;cursor:pointer;color:var(--primary);font-size:0.7rem;font-weight:bold;letter-spacing:1px;opacity:0.7;transition:opacity 0.2s;';
+                const moreBtn = document.createElement('button');
+                moreBtn.className = 'lb-btn lb-load-more';
                 moreBtn.textContent = `LOAD MORE (${fl.length - max} remaining)`;
-                moreBtn.addEventListener('mouseenter', () => moreBtn.style.opacity = '1');
-                moreBtn.addEventListener('mouseleave', () => moreBtn.style.opacity = '0.7');
                 moreBtn.addEventListener('click', () => { _shown += 50; _renderRows(_shown); });
                 container.appendChild(moreBtn);
             }
@@ -3980,7 +3968,9 @@
 
     function closeStats() {
         const _mEl = document.getElementById('menu-overlay');
-        _animateOut(document.getElementById('stats-overlay'), 'anim-out-right');
+        _animateOut(document.getElementById('stats-overlay'), 'anim-out-right', () => {
+            if (!_mEl.classList.contains('hidden')) document.getElementById('btn-stats').focus();
+        });
         if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
     }
 
@@ -5112,20 +5102,31 @@
         saveDataToFile();
         drawPinnedScores();
     }
-    function _showScorePinPopup(x, y, label, action) {
+    function _showScorePinPopup(event, label, action) {
         let popup = document.getElementById('score-pin-popup');
         if (!popup) {
-            popup = document.createElement('div');
+            popup = document.createElement('button');
             popup.id = 'score-pin-popup';
-            popup.style.cssText = 'position:fixed;z-index:2200;background:rgba(5,5,20,0.97);border:1px solid rgba(255,215,0,0.5);border-radius:8px;padding:7px 14px;font-size:0.72rem;cursor:pointer;color:#ffd700;font-family:inherit;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.6);transition:opacity 0.1s;';
+            popup.className = 'lb-btn';
             document.body.appendChild(popup);
             document.addEventListener('click', (e) => { if (!popup.contains(e.target)) popup.style.display = 'none'; });
         }
+        const trigger = event.currentTarget;
+        const keyboard = event.detail === 0;
+        const bounds = trigger.getBoundingClientRect();
+        const left = keyboard ? bounds.left : event.clientX + 6;
+        const top = keyboard ? bounds.top : event.clientY - 36;
         popup.textContent = label;
-        popup.style.display = 'block';
-        popup.style.left = Math.min(x + 6, window.innerWidth - 210) + 'px';
-        popup.style.top = (y - 36) + 'px';
-        popup.onclick = (e) => { e.stopPropagation(); popup.style.display = 'none'; action(); };
+        popup.style.display = '';
+        popup.style.left = Math.max(8, Math.min(left, window.innerWidth - popup.offsetWidth - 8)) + 'px';
+        popup.style.top = Math.max(8, Math.min(top, window.innerHeight - popup.offsetHeight - 8)) + 'px';
+        const dismiss = () => {
+            popup.style.display = 'none';
+            if (keyboard) (trigger.isConnected ? trigger : document.getElementById('pinned-container')).focus();
+        };
+        popup.onclick = (e) => { e.stopPropagation(); action(); dismiss(); };
+        popup.onkeydown = (e) => { if (e.key === 'Escape') { e.stopPropagation(); dismiss(); } };
+        if (keyboard) popup.focus();
     }
     function _lbIcons() {
         const _ico = (p, w, h) => `<svg viewBox="0 0 16 16" width="${w||12}" height="${h||12}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;opacity:0.8">${p}</svg>`;
@@ -5140,28 +5141,34 @@
         const container = document.getElementById('pinned-list');
         if (!container) return;
         const pins = saveData.pinnedScores || [];
-        if (pins.length === 0) { container.innerHTML = "<div style='color:#666;text-align:center;padding:15px 0;'>No pinned scores yet.<br><span style='font-size:0.65rem;'>Pin scores from leaderboard.</span></div>"; return; }
+        if (pins.length === 0) { container.innerHTML = '<p class="lb-card lb-empty">No pinned scores yet. Pin a score from the leaderboard.</p>'; return; }
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
-        const tipEl = document.getElementById('lb-tooltip-global');
         container.innerHTML = '';
         [...pins].reverse().forEach((e, ri) => {
             const realIdx = pins.length - 1 - ri;
-            const div = document.createElement('div'); div.className = 'lb-row';
-            div.style.cssText = 'border-left:2px solid #ffd700;padding-left:8px;';
+            const div = document.createElement('button'); div.className = 'lb-row lb-stats-pin';
             const details = e.lines != null
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
-            const noteHtml = e.note ? `<span style="font-size:0.55rem;color:#888;margin-left:6px;">${escapeHtml(e.note)}</span>` : '';
-            div.innerHTML = `<span class="lb-rank" style="color:#ffd700;min-width:24px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffd700" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
-            div.style.cursor = 'pointer';
+            const noteHtml = e.note ? `<span class="lb-stats-meta">${escapeHtml(e.note)}</span>` : '';
+            div.innerHTML = `<span class="lb-rank" style="color:#ffd700;min-width:24px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffd700" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${e.score.toLocaleString()} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
             div.addEventListener('click', (ev) => {
                 ev.stopPropagation();
-                _showScorePinPopup(ev.clientX, ev.clientY, '📌 Unpin', () => unpinScore(realIdx));
+                _showScorePinPopup(ev, '📌 Unpin', () => unpinScore(realIdx));
             });
             container.appendChild(div);
         });
     }
+    function statsHighscoresBySpeed(entries) {
+        const bestBySpeed = new Map();
+        for (const { maxSpeed, score } of entries) {
+            if (!Number.isInteger(maxSpeed) || maxSpeed < 1 || !(score > 0)) continue;
+            if (score > (bestBySpeed.get(maxSpeed) || 0)) bestBySpeed.set(maxSpeed, score);
+        }
+        return [...bestBySpeed].sort(([left], [right]) => left - right);
+    }
+
     function _drawHighscoreHistory() {
         const container = document.getElementById('highscores-list');
         if (!container) return;
@@ -5172,7 +5179,11 @@
             const _hsd = saveData.highscoreData;
             all.push({ score: saveData.highscore, date: 'Current', isCurrent: true, lines: _hsd?.lines, time: _hsd?.time, maxSpeed: _hsd?.maxSpeed });
         }
-        if (all.length === 0) { container.innerHTML = "<div style='color:#666;text-align:center;padding:15px 0;'>No highscores yet.<br><span style='font-size:0.65rem;'>Play to set your first record!</span></div>"; return; }
+        const records = statsHighscoresBySpeed([...all, ...saveData.leaderboard]);
+        document.getElementById('highscores-by-speed').innerHTML = records.length
+            ? `<table class="lb-stats-table" aria-label="Records by speed level"><thead><tr><th scope="col">Speed level</th><th scope="col">Best score</th></tr></thead><tbody>${records.map(([speed, score]) => `<tr><th scope="row">${speed}</th><td>${score.toLocaleString()}</td></tr>`).join('')}</tbody></table>`
+            : '<p class="lb-empty">No scores with a recorded speed level yet.</p>';
+        if (all.length === 0) { container.innerHTML = '<p class="lb-card lb-empty">No highscores yet. Play to set your first record!</p>'; return; }
         container.innerHTML = '';
         // Sort descending by score
         all.sort((a, b) => b.score - a.score);
@@ -5181,18 +5192,17 @@
         all.forEach((e, i) => {
             const div = document.createElement('div'); div.className = 'lb-row';
             const isCur = e.isCurrent;
-            div.style.cssText = isCur ? 'border-left:2px solid var(--primary);padding-left:8px;' : 'padding-left:10px;';
-            const rankColor = i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#e8922a' : '#666';
+            if (isCur) div.classList.add('lb-stats-current');
             const details = e.lines != null
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}spd ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
-            div.innerHTML = `<span class="lb-rank" style="color:${rankColor};min-width:24px;font-weight:bold;">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date" style="${isCur?'color:var(--primary);font-weight:bold;':''}">${escapeHtml(isCur ? '⭐ CURRENT' : e.date)}</span>`;
+            div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${e.score.toLocaleString()} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(isCur ? '⭐ CURRENT' : e.date)}</span>`;
             container.appendChild(div);
         });
     }
     function drawLeaderboard() {
         const container = document.getElementById('lb-list'); container.innerHTML = "";
-        if (saveData.leaderboard.length === 0) { container.innerHTML = "<div style='color:#666;text-align:center;padding:15px 0;'>Play your first game!</div>"; return; }
+        if (saveData.leaderboard.length === 0) { container.innerHTML = '<p class="lb-card lb-empty">Play your first game to enter the leaderboard.</p>'; return; }
         const lb = saveData.leaderboard;
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
@@ -5205,22 +5215,17 @@
             lb[2] ? { e: lb[2], rank: 3, medal: '🥉', color: '#e8922a', h: 40, lbIdx: 2 } : null,
         ].filter(Boolean);
         const podiumWrap = document.createElement('div');
-        podiumWrap.style.cssText = 'display:flex;align-items:flex-end;justify-content:center;gap:3px;margin-bottom:4px;';
+        podiumWrap.className = 'lb-stats-podium';
         podiumOrder.forEach(p => {
-            const block = document.createElement('div');
-            block.style.cssText = `display:flex;flex-direction:column;align-items:center;flex:1;max-width:130px;`;
-            const scoreDiv = document.createElement('div');
-            scoreDiv.style.cssText = `font-size:0.7rem;font-weight:bold;color:${p.color};margin-bottom:5px;font-family:'Orbitron',sans-serif;letter-spacing:0.5px;`;
-            scoreDiv.innerHTML = `${escapeHtml(p.e.score.toLocaleString())} <span style="font-weight:normal;opacity:0.5;font-size:0.6rem;">pts</span>`;
-            const podBlock = document.createElement('div');
-            podBlock.style.cssText = `width:100%;height:${p.h}px;background:linear-gradient(180deg,${p.color}28,${p.color}0d);border:1px solid ${p.color}55;border-bottom:none;border-radius:6px 6px 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;`;
-            podBlock.innerHTML = `<div style="font-size:1.5rem;line-height:1;">${p.medal}</div>`;
-            block.style.cursor = 'pointer';
-            block.appendChild(scoreDiv);
-            block.appendChild(podBlock);
+            const block = document.createElement('button');
+            block.className = 'lb-btn lb-stats-podium-place';
+            block.style.setProperty('--tone', p.color);
+            block.style.minHeight = `${p.h + 32}px`;
+            block.setAttribute('aria-label', `Rank ${p.rank}: ${p.e.score.toLocaleString()} points`);
+            block.innerHTML = `<span class="lb-score">${p.e.score.toLocaleString()}</span><span aria-hidden="true">${p.medal}</span>`;
             block.addEventListener('click', (ev) => {
                 ev.stopPropagation();
-                _showScorePinPopup(ev.clientX, ev.clientY, '📌 Pin this score', () => pinLeaderboardEntry(p.lbIdx));
+                _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(p.lbIdx));
             });
             block.addEventListener('mouseenter', (ev) => {
                 if (!tipEl) return;
@@ -5248,10 +5253,7 @@
             block.addEventListener('mouseleave', () => { if (tipEl) tipEl.style.display = 'none'; });
             podiumWrap.appendChild(block);
         });
-        const ground = document.createElement('div');
-        ground.style.cssText = 'height:3px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent);border-radius:2px;margin-bottom:14px;';
         container.appendChild(podiumWrap);
-        container.appendChild(ground);
 
         // --- Regular rows (4th+) with Load More ---
         let _lbShown = 50;
@@ -5261,27 +5263,22 @@
             const max = Math.min(upTo, lb.length);
             for (let i = 3; i < max; i++) {
                 const e = lb[i];
-                const div = document.createElement('div'); div.className = 'lb-row';
-                const rankColor = i < 10 ? '#9b59b6' : i < 20 ? '#3d85c8' : '#666';
+                const div = document.createElement('button'); div.className = 'lb-row';
                 const details = e.lines != null
                     ? `<span class="lb-detail">${ico.time}${lbFmt(e.time)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed)}</span>`
                     : '';
-                div.innerHTML = `<span class="lb-rank" style="font-size:0.85rem;font-weight:bold;color:${rankColor};min-width:52px;text-align:center;">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
-                div.style.cursor = 'pointer';
+                div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${e.score.toLocaleString()} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(e.date)}</span>`;
                 div.addEventListener('click', (ev) => {
                     ev.stopPropagation();
-                    _showScorePinPopup(ev.clientX, ev.clientY, '📌 Pin this score', () => pinLeaderboardEntry(i));
+                    _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(i));
                 });
                 container.appendChild(div);
             }
             // Load More button
             if (max < lb.length) {
-                const moreBtn = document.createElement('div');
-                moreBtn.className = 'lb-load-more';
-                moreBtn.style.cssText = 'text-align:center;padding:12px;cursor:pointer;color:var(--primary);font-size:0.7rem;font-weight:bold;letter-spacing:1px;opacity:0.7;transition:opacity 0.2s;';
+                const moreBtn = document.createElement('button');
+                moreBtn.className = 'lb-btn lb-load-more';
                 moreBtn.textContent = `LOAD MORE (${lb.length - max} remaining)`;
-                moreBtn.addEventListener('mouseenter', () => moreBtn.style.opacity = '1');
-                moreBtn.addEventListener('mouseleave', () => moreBtn.style.opacity = '0.7');
                 moreBtn.addEventListener('click', () => {
                     _lbShown += 50;
                     _renderLbRows(_lbShown);
