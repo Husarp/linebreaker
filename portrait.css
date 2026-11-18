@@ -1,0 +1,99 @@
+/* Ticket 13: all layout overrides stay inside the phone portrait boundary. */
+@media (orientation: portrait) and (max-width: 600px) {
+    html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+    body { touch-action: pan-y; }
+    .overlay, [id$="-modal"], [id$="-overlay"] { touch-action: pan-y; }
+    .overlay {
+        position: fixed; height: 100dvh; overflow-y: auto; overflow-x: hidden;
+        padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    }
+    .overlay > * { flex-shrink: 0; min-width: 0; max-width: 100%; }
+    .overlay button, .overlay select { min-height: 44px; }
+    .overlay button { overflow-wrap: anywhere; }
+    .overlay button:focus-visible, .btn-pause-pc:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+    .overlay.lb-fullscreen {
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    .lb-fullscreen > :first-child {
+        position: sticky !important; top: 0 !important; z-index: 25 !important;
+        flex-shrink: 0; gap: 8px !important; padding: 8px 16px !important;
+    }
+    .lb-fullscreen > :nth-child(2) { padding: 16px !important; }
+    .lb-fullscreen :is(.settings-row, .xp-row) { flex-wrap: wrap; gap: 8px; }
+    .settings-row > * { min-width: 0; max-width: 100%; }
+    .settings-row > span:first-child { flex-basis: 100%; }
+    .lb-fullscreen [style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
+    .lb-fullscreen :is(div:has(> [data-invtab]), div:has(> [data-achtab]), div:has(> [data-rulestab])) {
+        display: flex !important; flex-wrap: nowrap !important; overflow-x: auto; justify-content: flex-start !important;
+    }
+    .lb-fullscreen :is([data-invtab], [data-achtab], [data-rulestab]) { flex-shrink: 0; }
+    :is(.modal-box, .transfer-box, .lb-run-panel, .lb-reward-panel) {
+        width: 100% !important; max-width: 100% !important; min-width: 0 !important;
+        max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        overflow-y: auto; overflow-x: hidden; padding: 16px;
+    }
+    [id$="-modal"] { max-width: 100vw; touch-action: pan-y; }
+    [id$="-modal"] > div {
+        max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        overflow-y: auto; overflow-x: hidden;
+    }
+    #rules-overlay div:has(> a[href^="#rules-"]) { flex-wrap: nowrap !important; overflow-x: auto; }
+    #rules-overlay a[href^="#rules-"] { flex-shrink: 0; min-height: 44px; display: inline-flex; align-items: center; }
+    #rules-overlay [id^="rules-"] { scroll-margin-top: 80px; }
+    [id$="-modal"] > div { max-width: calc(100vw - 32px) !important; min-width: 0 !important; }
+    #go-overlay, #mode-select-overlay { justify-content: flex-start; }
+    #go-overlay > *, #go-xp-breakdown { max-width: 100% !important; }
+    #go-title { font-size: 1.3rem; }
+    #credits-overlay > :first-child { position: static !important; }
+    #credits-overlay > div > :first-child { position: sticky; top: 0; z-index: 25; }
+    #credits-overlay [style*="font-size:2rem"] { font-size: 1.35rem !important; letter-spacing: 2px !important; }
+    #playlist-overlay > :first-child { display: flex !important; flex-direction: column; align-items: stretch !important; }
+    #playlist-panel-content [style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) auto auto !important; }
+    #playlist-panel-content [style*="grid-template-columns"] > :last-child { grid-column: 1 / -1; }
+    /* Missions keep their cards and progress art; only the two-column shell moves. */
+    #missions-overlay { overflow-y: auto !important; }
+    #missions-overlay > :first-child { flex-wrap: wrap; }
+    #missions-overlay > :first-child > [style*="position:absolute"] { position: static !important; transform: none !important; margin-left: auto; }
+    #missions-overlay > :nth-child(2) { flex-direction: column; overflow: visible !important; flex: none !important; }
+    #missions-overlay > :nth-child(2) > div { width: 100% !important; overflow: visible !important; padding: 0 !important; }
+    #missions-overlay > :nth-child(2) > div + div { margin-top: 16px; border-left: 0 !important; }
+    /* Protected menu: retain the button cluster, rank drawing and XP typography. */
+    #menu-overlay { justify-content: flex-start; }
+    .menu-scale-wrapper { transform: none; width: 100%; margin: auto 0; }
+    #level-badge-container { width: 220px; height: 220px; margin: 4px auto; }
+    #rank-canvas { width: 220px !important; height: 220px !important; }
+    #menu-overlay .btn-neon { max-width: 100%; }
+    #menu-overlay .menu-scale-wrapper > div:has(#btn-play) { width: 100%; }
+    #menu-overlay .menu-scale-wrapper > div:has(#btn-play) > div { width: 100%; max-width: 360px; }
+    #music-widget { width: 100%; max-width: 320px; }
+    #mw-controls button { min-width: 44px; }
+    #splash-quote { max-width: 100%; }
+    #dev-list { width: calc(100vw - 32px) !important; }
+    /* Existing HUD nodes form two compact rows above the centred well. */
+    #app.active-game {
+        display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));
+        grid-template-rows: 64px 48px minmax(0, 1fr); gap: 8px;
+        padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) calc(72px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+        align-items: stretch;
+    }
+    #app .pc-panel { display: contents; }
+    #app .glass-box { padding: 4px; min-width: 0; border-radius: 8px; }
+    #app .label { font-size: 10px; letter-spacing: .5px; margin-bottom: 2px; }
+    #app .value { font-size: 14px; overflow-wrap: anywhere; }
+    #hold-panel { grid-area: 1 / 1 / 2 / 4; }
+    #pc-next-wrap { grid-area: 1 / 4 / 2 / 10; display: flex; flex-wrap: wrap; justify-content: center; align-content: center; }
+    #pc-next-wrap > .label { flex-basis: 100%; }
+    #app :is(#pc-hold-canvas, #pc-next-canvas, #pc-next2-canvas, #pc-next3-canvas) { width: 38px; height: 38px; margin: 0 auto; }
+    #pc-next-wrap > div { margin-top: 0 !important; }
+    #app .btn-pause-pc { grid-area: 1 / 10 / 2 / 13; min-height: 44px; }
+    #app .btn-pause-pc .label { font-size: 8px; }
+    .portrait-left > :nth-child(2) { grid-area: 2 / 1 / 3 / 5; }
+    .portrait-left > :nth-child(3) { grid-area: 2 / 5 / 3 / 9; }
+    .portrait-left > :nth-child(4) { display: none; }
+    .portrait-left > :nth-child(5) { grid-area: 2 / 9 / 3 / 11; }
+    .portrait-right > :nth-child(2) { grid-area: 2 / 11 / 3 / 13; }
+    #game-wrapper { grid-area: 3 / 1 / 4 / -1; height: 100%; min-height: 0; width: 100%; }
+    #game-container { width: auto; max-width: 100%; max-height: 100%; aspect-ratio: 1 / 2; height: min(100%, calc((100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)) * 2)); }
+    #game-ach-feed { display: none !important; }
+    #mode-badge, #booster-hud { top: 124px !important; font-size: 8px !important; max-width: 45%; }
+}

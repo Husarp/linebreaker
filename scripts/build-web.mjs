@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, rm } from 'node:fs/promises';
 
 await rm('dist-web', { recursive: true, force: true });
 await mkdir('dist-web/assets', { recursive: true });
-for (const file of ['index.html', 'app.js', 'style.css']) {
+for (const file of ['index.html', 'app.js', 'style.css', 'portrait.css', 'touch.css', 'touch.js']) {
   await cp(file, 'dist-web/' + file);
 }
 await mkdir('dist-web/ui', { recursive: true });

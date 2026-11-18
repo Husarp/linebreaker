@@ -1,0 +1,17 @@
+/* Hidden outside portrait phones; the row's height is reserved by portrait.css. */
+#touch-controls { display: none; }
+@media (orientation: portrait) and (max-width: 600px) {
+    body:has(#app.active-game) #touch-controls {
+        display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px;
+        position: fixed; bottom: max(8px, env(safe-area-inset-bottom));
+        left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right));
+        height: 56px; z-index: 2; touch-action: none;
+    }
+    #touch-controls button {
+        min-width: 0; min-height: 44px; padding: 0; border: 1px solid var(--primary);
+        border-radius: 8px; background: #141c2b; color: var(--primary);
+        font-family: var(--font-body); font-size: 12px; font-weight: 700; touch-action: none;
+    }
+    #touch-controls button:active { background: #202b3d; }
+    #touch-controls button:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+}

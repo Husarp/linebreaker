@@ -7,6 +7,8 @@
     <link rel="preload" href="assets/fonts/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="ui/tokens.css">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="touch.css">
+    <link rel="stylesheet" href="portrait.css">
 </head>
 <body>
 
@@ -1027,7 +1029,7 @@
 <div id="app">
     <div id="booster-hud" style="display:none; position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.8); border:1px solid var(--primary); border-radius:8px; padding:4px 10px; font-size:0.65rem; color:var(--primary); z-index:10; font-family:'Orbitron'; letter-spacing:1px;"></div>
     <div id="mode-badge" style="display:none; position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:10; background:rgba(0,0,0,0.75); border:1px solid #cc44ff; border-radius:6px; padding:3px 10px; font-size:0.55rem; letter-spacing:2px; pointer-events:none;"></div>
-<div class="pc-panel">
+<div class="pc-panel portrait-left">
         <div class="glass-box" id="hold-panel" style="display:none;">
             <div class="label">HOLD <span style="font-size:0.5rem; color:#888;">(H)</span></div>
             <canvas id="pc-hold-canvas" width="150" height="150"></canvas>
@@ -1040,7 +1042,7 @@
     
     <div id="game-wrapper"><div id="game-container"><canvas id="tetris" width="300" height="600"></canvas></div></div>
     
-    <div class="pc-panel">
+    <div class="pc-panel portrait-right">
         <div class="glass-box" id="pc-next-wrap">
             <div class="label">NEXT</div>
             <canvas id="pc-next-canvas" width="150" height="150"></canvas>
@@ -1052,13 +1054,22 @@
             </div>
         </div>
         <div class="glass-box"><div class="label">TIME</div><div class="value" id="pc-time">00:00</div></div>
-        <div class="glass-box btn-pause-pc" onclick="window.togglePause()">
+        <div class="glass-box btn-pause-pc" role="button" tabindex="0" aria-label="Pause game" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.togglePause()}" onclick="window.togglePause()">
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--primary)" stroke-width="2" fill="none" style="margin-bottom: 5px;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
             <div class="label" style="margin:0; color:var(--primary);">PAUSE (ESC)</div>
         </div>
         <div id="game-ach-feed" style="display:flex;flex-direction:column;gap:0;margin-top:4px;"></div>
     </div>
     
+</div>
+
+<div id="touch-controls" role="group" aria-label="Game controls">
+    <button type="button" data-key="KeyH" aria-label="Hold piece">HOLD</button>
+    <button type="button" data-key="ArrowLeft" aria-label="Move left">←</button>
+    <button type="button" data-key="ArrowDown" aria-label="Soft drop">↓</button>
+    <button type="button" data-key="ArrowRight" aria-label="Move right">→</button>
+    <button type="button" data-key="ArrowUp" aria-label="Rotate clockwise">↻</button>
+    <button type="button" data-key="Space" aria-label="Hard drop">DROP</button>
 </div>
 
 <!-- DAILY GIFT OVERLAY -->
@@ -1190,5 +1201,6 @@
 <div id="mode-opt-tooltip" style="display:none;position:fixed;z-index:9999;background:rgba(5,5,20,0.97);border:1px solid color-mix(in srgb, var(--primary) 30%, transparent);border-radius:8px;padding:8px 12px;font-size:0.62rem;color:#bbb;line-height:1.6;pointer-events:none;max-width:220px;font-family:inherit;"></div>
 <script src="app.js"></script>
 <script src="desktop.js"></script>
+<script src="touch.js"></script>
 </body>
 </html>
