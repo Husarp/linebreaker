@@ -2,8 +2,14 @@
 use std::{fs, io::Write, sync::Mutex};
 use tauri::Manager;
 
+mod desktop_update;
+use desktop_update::{PendingUpdate, SmokeTest};
+
 struct SaveLock(Mutex<()>);
 fn save_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    if let Some(output) = &app.state::<SmokeTest>().0 {
+        return output.parent().map(|dir| dir.join("save")).ok_or("Invalid smoke test output path".into());
+    }
     app.path().app_data_dir().map_err(|e| e.to_string())
 }
 #[tauri::command]
@@ -39,11 +45,29 @@ fn write_save(app: tauri::AppHandle, lock: tauri::State<SaveLock>, json: String)
     fs::rename(temp, save).map_err(|e| e.to_string())
 }
 fn main() {
+    let mut args = std::env::args_os().skip(1);
+    let smoke = args.next().filter(|arg| arg == "--desktop-smoke-test")
+        .and_then(|_| args.next()).map(std::path::PathBuf::from);
     tauri::Builder::default()
         .manage(SaveLock(Mutex::new(())))
+        .manage(PendingUpdate::default())
+        .manage(SmokeTest(smoke))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![load_save, write_save])
+        .setup(|app| {
+            let window = tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?;
+            let smoke = app.state::<SmokeTest>();
+            if let Some(directory) = smoke.0.as_ref().and_then(|path| path.parent()) {
+                window.visible(false).data_directory(directory.join("webview")).build()?;
+            } else {
+                window.build()?;
+                desktop_update::clean_old_installers(app.handle());
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![load_save, write_save, desktop_update::desktop_smoke_ready,
+            desktop_update::desktop_update_info, desktop_update::check_desktop_update,
+            desktop_update::download_desktop_update, desktop_update::install_desktop_update])
         .run(tauri::generate_context!())
         .expect("Failed to run Linebreaker");
 }

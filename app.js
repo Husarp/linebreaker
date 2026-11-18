@@ -874,6 +874,7 @@
         } catch { return null; }
     }
     let _saveWritePromise = null;
+    if (_desktopSave) window.flushLinebreakerSave = () => _saveWritePromise;
     let _pendingSaveJSON = null;
     function writeSaveFile(data) {
         if (_desktopSave && !_desktopSaveReady) return Promise.resolve();

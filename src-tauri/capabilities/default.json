@@ -3,5 +3,5 @@
   "identifier": "main",
   "description": "Desktop window, signed updates and explicit release-page opening",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-is-fullscreen", "core:window:allow-set-fullscreen", "updater:default", { "identifier": "opener:allow-open-url", "allow": [{ "url": "https://github.com/Husarp/linebreaker/releases*" }] }]
+  "permissions": ["core:default", "core:window:allow-is-fullscreen", "core:window:allow-set-fullscreen", { "identifier": "opener:allow-open-url", "allow": [{ "url": "https://github.com/Husarp/linebreaker/releases*" }] }]
 }

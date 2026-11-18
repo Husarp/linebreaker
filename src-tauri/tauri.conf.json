@@ -6,11 +6,12 @@
   "build": {
     "beforeDevCommand": "npm run build:web",
     "beforeBuildCommand": "node scripts/prepare-desktop-build.mjs",
+    "beforeBundleCommand": "node scripts/prepare-desktop-bundle.mjs",
     "frontendDist": "../dist-web"
   },
   "app": {
     "withGlobalTauri": true,
-    "windows": [{ "title": "Linebreaker", "width": 1280, "height": 800, "minWidth": 960, "minHeight": 600, "resizable": true, "center": true }],
+    "windows": [{ "create": false, "title": "Linebreaker", "width": 1280, "height": 800, "minWidth": 960, "minHeight": 600, "resizable": true, "center": true }],
     "security": { "csp": null }
   },
   "bundle": {
@@ -18,13 +19,21 @@
     "targets": ["nsis"],
     "createUpdaterArtifacts": true,
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
-    "windows": { "nsis": { "installMode": "currentUser", "displayLanguageSelector": false } }
+    "windows": {
+      "allowDowngrades": false,
+      "webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "template": "installer/setup.nsi",
+        "installerHooks": "installer/hooks.nsh"
+      }
+    }
   },
   "plugins": {
     "updater": {
       "pubkey": "PLACEHOLDER_REPLACE_WITH_PUBLIC_UPDATER_KEY_BEFORE_RELEASE",
-      "endpoints": ["https://github.com/Husarp/linebreaker/releases/latest/download/latest.json"],
-      "windows": { "installMode": "passive" }
+      "endpoints": ["https://github.com/Husarp/linebreaker/releases/latest/download/latest.json"]
     }
   }
 }

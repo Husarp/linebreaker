@@ -1,5 +1,6 @@
 {
   "name": "linebreaker-characterization",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +9,8 @@
     "android:sync": "npm run build:web && cap sync android",
     "android:open": "cap open android",
     "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build"
+    "desktop:build": "tauri build --target x86_64-pc-windows-msvc --ci",
+    "desktop:release": "node scripts/release-desktop.mjs"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.2",
