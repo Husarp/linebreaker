@@ -1,10 +1,12 @@
 (function() {
 
+    const _visualReview = window.__LB_TEST__ === true && window.__LB_VISUAL_REVIEW__ === true;
     const _devMode = (() => {
-        if (new URLSearchParams(window.location.search).has('dev')) return true;
+        if (_visualReview || new URLSearchParams(window.location.search).has('dev')) return true;
         try { return localStorage.getItem('lb_dev') === '1'; } catch(e) { return false; }
     })();
     const _testSkins = ['bubble','gameboy','monochrome','modern','candy','vim','aerolab','classic','window'];
+    const SKIN_NAMES = { neon:'Neon', retro:'Retro', glass:'Glass', shadow:'Shadow', outline:'Outline', holo:'Holo', journey:'Journey', gem:'Gem', bubble:'Bubble (test)', gameboy:'Gameboy (test)', monochrome:'Monochrome (test)', modern:'Modern (test)', candy:'Candy (test)', vim:'Vim (test)', aerolab:'Aerolab (test)', classic:'Classic (test)', window:'Window (test)' };
     function _skinAvailable(key) { return _devMode || !_testSkins.includes(key); }
     function _renderSkin() { return _skinAvailable(settings.skin) ? (settings.skin || 'neon') : 'neon'; }
     const _devPanel = document.getElementById('dev-panel');
@@ -4533,7 +4535,7 @@
         // Owned skins (in Blocks tab)
         const ownedSkinContainer = document.getElementById('owned-skin-btns');
         if (ownedSkinContainer) {
-            const skinNames = { neon:'Neon', retro:'Retro', glass:'Glass', shadow:'Shadow', outline:'Outline', holo:'Holo', journey:'Journey', gem:'Gem', bubble:'Bubble (test)', gameboy:'Gameboy (test)', monochrome:'Monochrome (test)', modern:'Modern (test)', candy:'Candy (test)', vim:'Vim (test)', aerolab:'Aerolab (test)', classic:'Classic (test)', window:'Window (test)' };
+            const skinNames = SKIN_NAMES;
             const ownedSkins = (saveData.ownedSkins || ['neon']).filter(_skinAvailable).filter(s => !['matrix','gold','golddragon','lava','circuit','marble','fire','toxic'].includes(s));
             const allSkinKeys = Object.keys(skinNames).filter(_skinAvailable);
             const skinCountEl = document.getElementById('skin-owned-count');
@@ -12299,6 +12301,71 @@
         input.value = dot.dataset.v;
         input.dispatchEvent(new Event('input', { bubbles: true }));
     });
+
+    if (_visualReview) {
+        const sfxPacks = { default: 'Default', cyber: 'Cyber', retro: 'Retro', zen: 'Zen', arcade: 'Arcade' };
+        window.__lb ??= {};
+        window.__lb.visualReview = {
+            catalog: JSON.parse(JSON.stringify({
+                skins: SKIN_NAMES, testSkins: _testSkins, defaults: defaultSettings, palettes: BLOCK_PALETTES,
+                themes: THEMES, grids: GRID_STYLES, shapes: BLOCK_SHAPES, backgrounds: BG_STYLES,
+                sfxPacks, pieces: BASE_PIECES
+            })),
+            partCost: _getItemCost,
+            drawSample(context, { cell, swatches, stack, ghost, skin = defaultSettings.skin, palette = defaultSettings.colorPalette,
+                colors, grid = defaultSettings.gridStyle, ghostColor = defaultSettings.ghostColor, shape = defaultSettings.blockShape }) {
+                const oldSettings = settings, oldSave = saveData, oldColors = COLORS.slice();
+                const dimensions = [COLS, ROWS, BLOCK, canvas._logicalWidth];
+                settings = { ...defaultSettings, skin, gridStyle: grid, ghostColor, blockShape: shape };
+                saveData = { customPickerColors: colors, ghostColorUnlocked: true };
+                context.save();
+                try {
+                    _applyColorPalette(palette);
+                    if (swatches) {
+                        [1, 2, 3, 4, 5, 6, 7].forEach((id, index) => drawGameBlock(context, index + 1.5, 0, id, cell));
+                        context.translate(0, cell + 12);
+                    }
+                    if (stack) {
+                        COLS = stack[0].length; ROWS = stack.length + SPAWN_ROWS; BLOCK = cell;
+                        canvas._logicalWidth = COLS * cell;
+                        context.fillStyle = '#000';
+                        context.fillRect(0, 0, COLS * cell, stack.length * cell);
+                        context.save();
+                        context.translate(0, -SPAWN_ROWS * cell);
+                        _paintGrid(context);
+                        context.restore();
+                        stack.forEach((row, y) => row.forEach((id, x) => drawGameBlock(context, x, y, id, cell)));
+                        if (ghost) ghost.cells.forEach(([x, y]) => drawGameBlock(context, x, y, ghost.id, cell, true));
+                    }
+                } finally {
+                    context.restore();
+                    [COLS, ROWS, BLOCK, canvas._logicalWidth] = dimensions;
+                    settings = oldSettings; saveData = oldSave;
+                    oldColors.forEach((color, index) => { COLORS[index] = color; });
+                }
+            },
+            drawBackground(context, key, width, height) {
+                const style = BG_STYLES[key];
+                for (let index = 0; index < style.count; index++) {
+                    const size = (style.sizeMin + (index % 5) * (style.sizeMax - style.sizeMin) / 4) / 2;
+                    context.save();
+                    context.translate(width * ((0.12 + index * 0.618) % 1), height * ((0.25 + index * 0.387) % 1));
+                    context.rotate(index * 0.7);
+                    BgBlock.prototype._paint.call({ style, size, shape: BASE_PIECES[index % 7 + 1],
+                        color: COLORS[index % 7 + 1], skin: ['glass', 'shadow', 'retro', 'neon'][index % 4] }, context);
+                    context.restore();
+                }
+            },
+            async playSound(pack, sound) {
+                initAudio();
+                if (audioCtx.state === 'suspended') await audioCtx.resume();
+                const previousPack = settings.sfxPack;
+                settings.sfxPack = pack;
+                try { playSFX(sound); } finally { settings.sfxPack = previousPack; }
+            }
+        };
+        return;
+    }
 
     _setLoadProgress(5, 'Initializing…');
     loadSettings();
