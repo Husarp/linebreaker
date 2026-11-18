@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="44-art-pack.css">
     <link rel="stylesheet" href="42-line-clear.css">
     <link rel="stylesheet" href="41-season-pass.css">
+    <link rel="stylesheet" href="43-crates-daily-gift.css">
 </head>
 <body>
 
@@ -175,6 +176,10 @@
                 <span id="mw-total">0:00</span>
             </div>
         </div>
+        <button id="lb43-daily-gift" class="lb43-gift-button" type="button" aria-disabled="true" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h16v10H4zM3 7h18v4H3zM12 7v14M12 7H8.5A2.5 2.5 0 1 1 11 4.5L12 7Zm0 0h3.5A2.5 2.5 0 1 0 13 4.5L12 7Z"/></svg>
+            <span>Daily Gift <small class="lb43-gift-status">Checking save…</small></span>
+        </button>
 
         <!-- Collapsible DEV panel -->
         <div id="dev-panel" class="lb-r3" style="position:relative; margin-top:10px; display:none; justify-content:center;">
@@ -1031,6 +1036,7 @@
 <script src="native-save.js"></script>
 <script src="41-season-pass.js"></script>
 <script src="save-sanitize.js"></script>
+<script src="43-crates-daily-gift.js"></script>
 <script src="controls.js"></script>
 <script src="gamepad.js"></script>
 <script src="45-music-tempo.js"></script>

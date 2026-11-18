@@ -150,5 +150,7 @@ it('does not ship local MP3s or catalogue entries without the private build flag
     expect(existsSync(path('dist-web/assets/ui/41-season-pass-banner.webp'))).toBe(true);
     expect(existsSync(path('dist-web/assets/ui/41-season-pass-skin.svg'))).toBe(true);
     expect(readFileSync(path('dist-web/data/season.json'), 'utf8')).toBe(readFileSync(path('data/season.json'), 'utf8'));
+    expect(existsSync(path('dist-web/assets/ui/crates/mythic.png'))).toBe(true);
+    expect(existsSync(path('dist-web/assets/ui/crates/mythic-rainbow.png'))).toBe(false);
   } finally { rmSync(fixture, { recursive: true, force: true }); }
 });

@@ -11,7 +11,7 @@
     const version = 1;
     const scoreKeys = ['highscoreHistory', 'pinnedScores', 'funLeaderboard', 'leaderboard'];
     const keyGroups = [
-        ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'levelRewardsThrough', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
+        ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'dailyGiftStreak', 'lastSeenTime', 'levelRewardsThrough', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
         ['parts', 'universalParts', 'boosters', 'boxes', 'ghostColorUnlocked', 'ownedSkins', 'ownedThemes', 'ownedBtnStyles', 'ownedGridStyles', 'ownedSfxPacks', 'ownedPalettes', 'customPaletteOverrides', 'customPickerColors', 'customThemeColor', '_cpmBaseColor', '_cpmMode', 'menuPlaylist', 'gamePlaylist', 'actionPlaylist'],
         ['missions'], ['season', 'lastSeenTime', 'seasonBlockedUntil'], ['achievements', 'pendingAchievementClaims'], ['stats'], scoreKeys,
     ];
@@ -172,7 +172,9 @@
         for (const key of Object.keys(out)) if (!allowed.has(key)) delete out[key];
         for (const [key, value] of entries(data)) {
             if (!allowed.has(key) || key === 'schemaVersion') continue;
-            if (typeof defaults[key] === 'number' || key === 'levelRewardsThrough' || key === 'skinCatalogVersion') out[key] = number(value, defaults[key] || 0);
+            if (key === 'lastSeenTime') out[key] = Number.isSafeInteger(value) && value >= 0 && value <= 253_402_300_799_999 ? value : 0;
+            else if (key === 'dailyGiftStreak') out[key] = Math.floor(number(value, 0, 100000));
+            else if (typeof defaults[key] === 'number' || key === 'levelRewardsThrough' || key === 'skinCatalogVersion') out[key] = number(value, defaults[key] || 0);
             else if (typeof defaults[key] === 'boolean') out[key] = value === true;
             else if (key.endsWith('Playlist')) out[key] = Array.isArray(value) ? list(value).filter(trackName) : (defaults[key] || []);
             else if (key === 'ownedSkins') out[key] = Array.isArray(value) ? list(value) : (defaults[key] || []);
@@ -182,6 +184,7 @@
             else if (/Color$/.test(key)) out[key] = colour(value, '#00ffff');
             else if (['_cpmMode'].includes(key)) out[key] = string(value);
         }
+        if (!out.lastDailyGift) out.dailyGiftStreak = 0;
         out.ownedSkins = [...new Set(list(out.ownedSkins).filter(key => typeof key === 'string' && Object.hasOwn(skins, key)))];
         for (const k of scoreKeys) out[k] = list(data[k]).filter(object).map(cleanScore);
         out.leaderboard.sort((first, second) => (second.score || 0) - (first.score || 0));
@@ -201,9 +204,9 @@
             id: claim.id, name: string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common', xp: number(claim.xp, 0, 100000),
             ...(claim.tierNum ? { tierNum: Math.floor(number(claim.tierNum, 0, 100)) } : {}),
         }));
-        out.season = window.LBSeason.sanitizeSeason(data.season);
-        out.lastSeenTime = window.LBSeason.timestamp(data.lastSeenTime);
-        out.seasonBlockedUntil = window.LBSeason.timestamp(data.seasonBlockedUntil);
+        out.season = (window.LBSeason || globalThis.LBSeason).sanitizeSeason(data.season);
+        out.lastSeenTime = (window.LBSeason || globalThis.LBSeason).timestamp(data.lastSeenTime);
+        out.seasonBlockedUntil = (window.LBSeason || globalThis.LBSeason).timestamp(data.seasonBlockedUntil);
         out.missions = null;
         if (object(data.missions)) {
             const missionDefaults = definitions.missionDefaults || {
