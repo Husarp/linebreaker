@@ -5,16 +5,23 @@
         if (_visualReview || new URLSearchParams(window.location.search).has('dev')) return true;
         try { return localStorage.getItem('lb_dev') === '1'; } catch(e) { return false; }
     })();
-    const _testSkins = ['bubble','gameboy','monochrome','modern','candy','vim','aerolab','classic','window'];
-    const SKIN_NAMES = { neon:'Neon', retro:'Retro', glass:'Glass', shadow:'Shadow', outline:'Outline', holo:'Holo', journey:'Journey', gem:'Gem', bubble:'Bubble (test)', gameboy:'Gameboy (test)', monochrome:'Monochrome (test)', modern:'Modern (test)', candy:'Candy (test)', vim:'Vim (test)', aerolab:'Aerolab (test)', classic:'Classic (test)', window:'Window (test)' };
-    function _skinAvailable(key) { return _devMode || !_testSkins.includes(key); }
-    function _renderSkin() { return _skinAvailable(settings.skin) ? (settings.skin || 'neon') : 'neon'; }
+    const DEFAULT_BLOCK_SKIN = 'retro';
+    const SKIN_CATALOG_VERSION = 1;
+    const IMAGE_SKINS = new Map(window.LBImageSkins.map(skin => [skin.key, skin]));
+    const SKIN_NAMES = { retro:'Retro', glass:'Glass', shadow:'Shadow', outline:'Outline', holo:'Holo', journey:'Journey', bubble:'Bubble',
+        ...Object.fromEntries(window.LBImageSkins.map(({ key, name }) => [key, name])) };
+    const REMOVED_SKINS = new Set(['neon','gem','gameboy','monochrome','modern','candy','vim','aerolab','classic','window',
+        'matrix','gold','golddragon','circuit','marble','fire','toxic','ice','flat','glossy','metal','puffy','bordered','gloss2k','lumines','minimal']);
+    const BG_BLOCK_SKINS = ['glass','shadow','retro','outline'];
+    function _skinAvailable(key) { return Object.hasOwn(SKIN_NAMES, key); }
+    function _renderSkin() { return _skinAvailable(settings.skin) ? settings.skin : DEFAULT_BLOCK_SKIN; }
     const _devPanel = document.getElementById('dev-panel');
     if (_devPanel && _devMode) _devPanel.style.display = 'flex';
 
     const _hasFileAPI = 'showOpenFilePicker' in window; // false on Firefox/Safari
 
     const COLORS=[null,'#00ffff','#3388ff','#ff9900','#ffff33','#33ff33','#cc33ff','#ff3366'];
+    const CLASSIC_COLOR_KEY = COLORS.join(',');
 
     const BLOCK_PALETTES = {
         classic:    { name: 'Classic',    free: true, colors: ['#00ffff','#3388ff','#ff9900','#ffff33','#33ff33','#cc33ff','#ff3366'] },
@@ -109,7 +116,7 @@
             this.sprite = null;
             this.shape = BASE_PIECES[Math.floor(Math.random() * 7) + 1];
             this.color = COLORS[Math.floor(Math.random() * 7) + 1];
-            this.skin = ['glass','shadow','retro','neon'][Math.floor(Math.random() * 4)];
+            this.skin = BG_BLOCK_SKINS[Math.floor(Math.random() * BG_BLOCK_SKINS.length)];
             this.size = Math.random() * (this.style.sizeMax - this.style.sizeMin) + this.style.sizeMin;
             const margin = this.size * 2;
             this.x = Math.random() * (bgCanvas.width - margin * 2) + margin;
@@ -138,7 +145,7 @@
             paintCtx.save();
             paintCtx.globalAlpha = this.style.alpha;
             const offset = (this.shape.length * this.size) / 2;
-            const s = this.size, col = this.color, sk = this.skin || 'neon';
+            const s = this.size, col = this.color, sk = this.skin || DEFAULT_BLOCK_SKIN;
             for (let r = 0; r < this.shape.length; r++) {
                 for (let c = 0; c < this.shape[r].length; c++) {
                     if (this.shape[r][c]) {
@@ -155,8 +162,8 @@
                             paintCtx.strokeStyle = col; paintCtx.lineWidth = 1.5; paintCtx.shadowColor = col; paintCtx.shadowBlur = 6;
                             paintCtx.strokeRect(cx+2, cy+2, s-4, s-4); paintCtx.shadowBlur = 0;
                         } else {
-                            paintCtx.fillStyle = col; paintCtx.fillRect(cx, cy, s-1, s-1);
-                            paintCtx.fillStyle = 'rgba(0,0,0,0.4)'; paintCtx.fillRect(cx+s*0.2, cy+s*0.2, s*0.6, s*0.6);
+                            paintCtx.strokeStyle = col; paintCtx.lineWidth = 1.5;
+                            paintCtx.strokeRect(cx+1, cy+1, s-2, s-2);
                         }
                     }
                 }
@@ -279,7 +286,7 @@
                 const _rItem = _items[Math.floor(Math.random() * _items.length)];
                 if (!saveData.parts) saveData.parts = {};
                 saveData.parts[_rItem.key] = (saveData.parts[_rItem.key] || 0) + 1;
-                const _iName = _rItem.key === 'ghostColor' ? 'Colored Ghost' : _rItem.key.charAt(0).toUpperCase() + _rItem.key.slice(1);
+                const _iName = _getPartLabel(_rItem.key);
                 rewardText = `+1 Part: ${_iName}`;
                 rewardColor = '#4499ff';
             }
@@ -796,7 +803,7 @@
 
     let saveData = {}; let gainedXPThisRound = 0; let _boosterUsedThisRound = false; let _leveledUpThisGame = false;
     let _gameInProgress = false; // true between startGame and gameOver — blocks mid-game file saves
-    const defaultSaveData = { totalXP: 0, highscore: 0, parts: {}, universalParts: 0, ownedSkins: ['neon'], ownedFonts: ['Orbitron'], ownedThemes: [], ownedBtnStyles: [], ownedBlockShapes: [], ownedBgStyles: ['default'], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, dailyGiftUnlockReq: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, seenMasterRules: false, pendingLevelBox: null, missions: null, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, dailyStreak: 0, highestDailyStreak: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
+    const defaultSaveData = { totalXP: 0, highscore: 0, parts: {}, universalParts: 0, ownedSkins: [DEFAULT_BLOCK_SKIN], skinCatalogVersion: SKIN_CATALOG_VERSION, ownedFonts: ['Orbitron'], ownedThemes: [], ownedBtnStyles: [], ownedBgStyles: ['default'], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, dailyGiftUnlockReq: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, seenMasterRules: false, pendingLevelBox: null, missions: null, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, dailyStreak: 0, highestDailyStreak: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
 
     // --- FILE SYSTEM ACCESS API ---
     const _nativeAdapter = window.Capacitor?.isNativePlatform()
@@ -904,7 +911,7 @@
     }
 
     // Settings
-    const defaultSettings = { classicColors: false, musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: 'neon', fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false };
+    const defaultSettings = { classicColors: false, musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: DEFAULT_BLOCK_SKIN, fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false };
     let settings = { ...defaultSettings };
     function loadSettings() {
         try { settings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}') }; } catch(e) {}
@@ -986,10 +993,6 @@
         boxes:    { name: 'Cell Boxes' },
         dotboxes: { name: 'Dot Boxes' },
     };
-    const BLOCK_SHAPES = {
-        square: { name: 'Square', free: true },
-        round:  { name: 'Round',  free: true },
-    };
     const _SVG_GIFT = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v10H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>`;
     const _SVG_STATS = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-4"/></svg>`;
     const _SVG_SETTINGS = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 3px currentColor);"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
@@ -998,7 +1001,7 @@
     const _SVG_TIMER = `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:2px"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 15.5"/><path d="M9 2h6"/></svg>`;
     const STYLE_PACKS = {
         modern: {
-            name: 'Modern', desc: 'SVG icons · Square buttons', blockShape: 'square', btnRadius: '4px', free: true,
+            name: 'Modern', desc: 'SVG icons · Square buttons', btnRadius: '4px', free: true,
             font: "Tahoma, Arial, sans-serif",
             icons: { gift: _SVG_GIFT, stats: _SVG_STATS, settings: _SVG_SETTINGS, achievements: _SVG_ACHIEVEMENTS, inventory: _SVG_INVENTORY },
         },
@@ -1160,10 +1163,8 @@
 
     // --- Block hover preview tooltip ---
     function _swatchHtml(i, color, showHex) {
-        const bs = settings.blockShape || 'square';
-        const br = bs === 'round' ? '50%' : bs === 'square' ? '2px' : '4px';
         const hoverHandler = ' onmouseenter="window._showBlockPreview(this,' + i + ',\'' + color + '\')" onmouseleave="window._hideBlockPreview()"';
-        const swatch = '<div style="width:24px;height:24px;border-radius:' + br + ';background:' + color + ';flex-shrink:0;border:2px solid rgba(0,0,0,0.3);"></div>';
+        const swatch = '<div style="width:24px;height:24px;border-radius:2px;background:' + color + ';flex-shrink:0;border:2px solid rgba(0,0,0,0.3);"></div>';
         const hex = showHex ? '<span style="font-size:0.72rem;color:#888;font-family:Orbitron,sans-serif;">' + color + '</span>' : '';
         return '<div class="pal-swatch" data-piece="' + i + '" style="display:flex;align-items:center;gap:8px;cursor:pointer;border-radius:6px;height:34px;"' + hoverHandler + '>' + swatch + hex + '</div>';
     }
@@ -1522,7 +1523,7 @@
 
     function applyBlockSkin(skin) {
         if (!_skinAvailable(skin)) return;
-        const owned = (saveData.ownedSkins || ['neon']).includes(skin);
+        const owned = (saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).includes(skin);
         if (!owned) {
             customAlert(`This skin is not yet unlocked.<br><br>Collect <b>parts</b> from the daily gift to unlock it.`, 'NOT OWNED', true);
             return;
@@ -1532,21 +1533,9 @@
         const sc = document.getElementById('owned-skin-btns');
         if (sc) _populateVisualCustomize();
     }
-    function applyBlockShape(shape) {
-        const s = BLOCK_SHAPES[shape];
-        if (!s) return;
-        if (!s.free && !(saveData.ownedBlockShapes||[]).includes(shape)) {
-            customAlert(`This block shape is not yet unlocked.`, 'NOT OWNED', true);
-            return;
-        }
-        settings.blockShape = shape;
-        saveSettings();
-        document.querySelectorAll('[data-blockshape]').forEach(btn => btn.classList.toggle('active', btn.dataset.blockshape === shape));
-    }
-    function applyStylePack(key) {
+    function applyStylePack(key, persist = true) {
         const pack = STYLE_PACKS[key] || STYLE_PACKS.modern;
         settings.stylePack = key;
-        settings.blockShape = pack.blockShape;
         document.documentElement.style.setProperty('--btn-radius', pack.btnRadius);
         document.documentElement.style.setProperty('--btn-clip', 'none');
         document.body.dataset.pack = key;
@@ -1562,7 +1551,7 @@
             document.head.appendChild(link);
         });
         if (pack.font) document.documentElement.style.setProperty('--ui-font', pack.font);
-        saveSettings();
+        if (persist) saveSettings();
     }
 
     let audioCtx = null, masterGain = null, sfxGain = null, musicPlaying = false;
@@ -2492,12 +2481,16 @@
         }, 350);
     }
 
-    function applyLoadedData(data) {
-        data = sanitizeSave(data, { ...defaultSaveData, _settings: defaultSettings }, { palettes: BLOCK_PALETTES, boosters: BOOSTER_INFO, ranks: [...RANKS, CELESTITE_RANK], missionDefaults: _defaultMissions(), items: _getAllPartsItems() });
+    function applyLoadedData(data, showSkinNotice = true) {
+        const legacySkins = data != null && !(Number.isFinite(data.skinCatalogVersion) && data.skinCatalogVersion >= SKIN_CATALOG_VERSION);
+        data = sanitizeSave(data, { ...defaultSaveData, _settings: defaultSettings }, { palettes: BLOCK_PALETTES, boosters: BOOSTER_INFO, ranks: [...RANKS, CELESTITE_RANK], missionDefaults: _defaultMissions(), skins: SKIN_NAMES, partCost: _getItemCost, partLabel: _getPartLabel });
+        let skinNotice = '', skinSettingsChanged = false;
         if (data && typeof data.totalXP === 'number') {
-            saveData = { ...JSON.parse(JSON.stringify(defaultSaveData)), ...data };
+            const { _settings: fileSettings, ...progress } = data;
+            const useFileSettings = fileSettings && !localStorage.getItem('tetrisRPG_settings');
+            saveData = { ...JSON.parse(JSON.stringify(defaultSaveData)), ...progress };
+            if (useFileSettings) Object.assign(settings, defaultSettings, fileSettings);
             if (data.stats) saveData.stats = { ...defaultSaveData.stats, ...data.stats };
-            if (!saveData.ownedSkins) saveData.ownedSkins = ['neon'];
             if (!saveData.ownedThemes) saveData.ownedThemes = [];
             if (!saveData.boosters) saveData.boosters = {};
             if (!saveData.parts) saveData.parts = {};
@@ -2511,16 +2504,24 @@
             // Migrate old booster keys
             if (saveData.boosters['1.3x_game']) { saveData.boosters['1.25x_game'] = (saveData.boosters['1.25x_game']||0) + saveData.boosters['1.3x_game']; delete saveData.boosters['1.3x_game']; }
             if (saveData.boosters['1.6x_game']) { saveData.boosters['1.5x_game'] = (saveData.boosters['1.5x_game']||0) + saveData.boosters['1.6x_game']; delete saveData.boosters['1.6x_game']; }
-            // Remove deprecated/removed skins from owned
-            saveData.ownedSkins = saveData.ownedSkins.filter(s => !['matrix','gold','golddragon','lava','circuit','marble','fire','toxic','ice','flat','glossy','metal','puffy','bordered','gloss2k','lumines','minimal'].includes(s));
-            // If active skin is a removed one, reset to neon
-            const _removedSkins = ['metal','puffy','bordered','gloss2k','lumines','minimal'];
-            if (_removedSkins.includes(settings.skin)) { settings.skin = 'neon'; saveSettings(); }
-            // If active skin/theme from localStorage is not in ownedSkins (e.g. file write lagged), restore ownership
-            const _validSkins = ['neon','retro','glass','shadow','outline','holo','journey','gem','bubble','gameboy','monochrome','modern','candy','vim','aerolab','classic','window'];
-            const _activeSkin = settings.skin || 'neon';
-            if (_skinAvailable(_activeSkin) && _validSkins.includes(_activeSkin) && !saveData.ownedSkins.includes(_activeSkin)) {
-                saveData.ownedSkins.push(_activeSkin);
+            const wasRemoved = key => REMOVED_SKINS.has(key) || (legacySkins && key === 'lava');
+            const ownedSkins = new Set(saveData.ownedSkins);
+            const removed = [...ownedSkins].filter(wasRemoved);
+            const resetSkin = removed.length > 0 || wasRemoved(settings.skin) || wasRemoved(fileSettings?.skin);
+            const refund = removed.reduce((total, key) => total + Math.max(1, Math.floor((ITEM_PART_COST[key] || 10) / 10)), 0);
+            if (refund) addUniversalParts(refund);
+            const legacyLavaParts = legacySkins && Object.hasOwn(saveData.parts, 'lava');
+            if (legacyLavaParts) delete saveData.parts.lava;
+            skinSettingsChanged = legacyLavaParts || resetSkin || !_skinAvailable(settings.skin)
+                || settings.blockShape !== 'square' || Boolean(fileSettings && fileSettings.blockShape !== 'square');
+            if (resetSkin || !_skinAvailable(settings.skin)) settings.skin = DEFAULT_BLOCK_SKIN;
+            settings.blockShape = 'square';
+            saveData.ownedSkins = [...new Set([DEFAULT_BLOCK_SKIN,
+                ...[...ownedSkins].filter(key => _skinAvailable(key) && !wasRemoved(key)), settings.skin])];
+            saveData.skinCatalogVersion = SKIN_CATALOG_VERSION;
+            if (resetSkin) {
+                skinNotice = 'Retired block skins have been removed. Retro is now equipped.';
+                if (refund) skinNotice += ` You received ${refund} universal ${refund === 1 ? 'part' : 'parts'} for retired skins you owned.`;
             }
             const _validThemes = ['default','ocean','forest','fire','dragon','void','sunset','arctic','midnight','sakura'];
             const _activeTheme = settings.theme || 'default';
@@ -2536,20 +2537,19 @@
             if (!saveData.funLeaderboard) saveData.funLeaderboard = [];
             // Load settings from file only when no local settings exist (new device / first run)
             // localStorage is authoritative — avoids stale file overwriting fresh settings on reload
-            if (data._settings && !localStorage.getItem('tetrisRPG_settings')) {
-                Object.assign(settings, { ...defaultSettings, ...data._settings });
+            if (useFileSettings) {
                 localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
                 _doApplyTheme(settings.theme || 'default');
                 applyFontSize(settings.fontSize || '5');
                 applyGameScale(settings.gameScale || '5');
-                applyStylePack(settings.stylePack || 'modern');
+                applyStylePack(settings.stylePack || 'modern', false);
                 _applyColorPalette(settings.colorPalette || 'classic');
             } else {
                 // Always apply visual/scale from localStorage (already loaded by loadSettings())
                 _doApplyTheme(settings.theme || 'default');
                 applyFontSize(settings.fontSize || '5');
                 applyGameScale(settings.gameScale || '5');
-                applyStylePack(settings.stylePack || 'modern');
+                applyStylePack(settings.stylePack || 'modern', false);
                 _applyColorPalette(settings.colorPalette || 'classic');
                 // Migration: reset btn style to square if current style is not owned/free
                 if (settings.btnStyle && !BTN_STYLES[settings.btnStyle]?.free && !(saveData.ownedBtnStyles||[]).includes(settings.btnStyle)) {
@@ -2575,6 +2575,9 @@
         _checkMissionsRefresh();
             _reminders?.refresh();
         _initTrackCatalog(); // re-run now that saveData is loaded
+        if (skinSettingsChanged) saveSettings();
+        if (skinNotice && showSkinNotice) customAlert(skinNotice, 'BLOCK SKINS UPDATED');
+        return { skinNotice, skinSettingsChanged };
     }
 
     async function showFileSetup(existingHandle) {
@@ -2589,8 +2592,9 @@
             _desktopLoadPromise ||= _nativeAdapter.load();
             try {
                 const json = await _desktopLoadPromise;
-                applyLoadedData(json === null ? null : JSON.parse(json));
+                const { skinSettingsChanged } = applyLoadedData(json === null ? null : JSON.parse(json));
                 _desktopSaveReady = true;
+                if (skinSettingsChanged) saveDataToFile();
                 checkAchievementsOnLoad();
                 if (overlay) overlay.classList.add('hidden');
                 randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
@@ -2616,8 +2620,9 @@
             try {
                 const autoP = await existingHandle.queryPermission({ mode: 'readwrite' });
                 if (autoP === 'granted') {
-                    applyLoadedData(await readSaveFile(existingHandle));
+                    const data = await readSaveFile(existingHandle);
                     fileHandle = existingHandle;
+                    applyLoadedData(data);
                     checkAchievementsOnLoad();
                     overlay.classList.add('hidden');
                     randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
@@ -2635,8 +2640,9 @@
                 try {
                     const perm = await existingHandle.requestPermission({ mode: 'readwrite' });
                     if (perm === 'granted') {
-                        applyLoadedData(await readSaveFile(existingHandle));
+                        const data = await readSaveFile(existingHandle);
                         fileHandle = existingHandle;
+                        applyLoadedData(data);
                         checkAchievementsOnLoad();
                         overlay.classList.add('hidden');
                         randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
@@ -2660,8 +2666,9 @@
                         types: [{ description: 'Linebreaker Save', accept: { 'application/json': ['.json'] } }],
                         excludeAcceptAllOption: true
                     });
-                    applyLoadedData(await readSaveFile(handle));
+                    const data = await readSaveFile(handle);
                     fileHandle = handle;
+                    applyLoadedData(data);
                     checkAchievementsOnLoad();
                     await saveHandleToIDB(handle);
                     overlay.classList.add('hidden');
@@ -2675,8 +2682,11 @@
                         types: [{ description: 'Linebreaker Save', accept: { 'application/json': ['.json'] } }]
                     });
                     saveData = JSON.parse(JSON.stringify(defaultSaveData));
+                    settings.skin = DEFAULT_BLOCK_SKIN;
+                    settings.blockShape = 'square';
                     fileHandle = handle;
-                    await writeSaveFile(saveData);
+                    localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
+                    await saveDataToFile();
                     await saveHandleToIDB(handle);
                     overlay.classList.add('hidden');
                     randomizePlayButton(); drawRankBadge(); startMusic();
@@ -2738,12 +2748,15 @@
     }
 
     const ITEM_PART_COST = { ghostColor: 20, boxes: 10, dots: 5, dotboxes: 15, sfxCyber: 30, sfxRetro: 15, sfxZen: 30, sfxArcade: 20, pastel: 10, neon: 15, dark: 10, greyscale: 5, synthwave: 10, earth: 10, ice: 5 };
-    function _getItemCost(key) { return ITEM_PART_COST[key] || 10; }
+    function _getItemCost(key) { return IMAGE_SKINS.get(key)?.cost || ITEM_PART_COST[key] || 10; }
+    function _getPartLabel(key) {
+        if (key === 'ghostColor') return 'Colored Ghost';
+        return _skinAvailable(key) ? SKIN_NAMES[key] : key.charAt(0).toUpperCase() + key.slice(1);
+    }
 
     function _getAllPartsItems() {
         const items = [];
-        const skinNames = ['retro','glass','shadow','outline','holo','journey','gem','bubble','gameboy','monochrome','modern','candy','vim','aerolab','classic','window'];
-        skinNames.filter(_skinAvailable).forEach(k => { if (!(saveData.ownedSkins||['neon']).includes(k)) items.push({cat:'skin',key:k}); });
+        Object.keys(SKIN_NAMES).forEach(k => { if (!(saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).includes(k)) items.push({cat:'skin',key:k}); });
         const themeNames = ['ocean','forest','fire','dragon','void','sunset','arctic','midnight','sakura'];
         themeNames.forEach(k => { if (!(saveData.ownedThemes||[]).includes(k)) items.push({cat:'theme',key:k}); });
         // Fonts are tied to style packs — not separately unlockable via parts
@@ -2786,7 +2799,7 @@
     }
     function giveItemDirectly(cat, key) {
         if (cat === 'skin' && !_skinAvailable(key)) return;
-        if (cat === 'skin') { if (!saveData.ownedSkins) saveData.ownedSkins = ['neon']; if (!saveData.ownedSkins.includes(key)) saveData.ownedSkins.push(key); }
+        if (cat === 'skin') { if (!saveData.ownedSkins) saveData.ownedSkins = [DEFAULT_BLOCK_SKIN]; if (!saveData.ownedSkins.includes(key)) saveData.ownedSkins.push(key); }
         else if (cat === 'theme') { if (!saveData.ownedThemes) saveData.ownedThemes = []; if (!saveData.ownedThemes.includes(key)) saveData.ownedThemes.push(key); }
         else if (cat === 'font') { if (!saveData.ownedFonts) saveData.ownedFonts = ['Orbitron']; if (!saveData.ownedFonts.includes(key)) saveData.ownedFonts.push(key); }
         else if (cat === 'ghostColor') { saveData.ghostColorUnlocked = true; }
@@ -2811,7 +2824,6 @@
     function openUseUniversalPart() {
         if ((saveData.universalParts || 0) < 1) return;
         document.getElementById('uni-modal-overlay')?.remove();
-        const SKIN_NAMES = {retro:'Retro',glass:'Glass',shadow:'Shadow',outline:'Outline',holo:'Holo',journey:'Journey',gem:'Gem',bubble:'Bubble (test)',gameboy:'Gameboy (test)',monochrome:'Monochrome (test)',modern:'Modern (test)',candy:'Candy (test)',vim:'Vim (test)',aerolab:'Aerolab (test)',classic:'Classic (test)',window:'Window (test)'};
         const THEME_NAMES = {ocean:'Ocean',forest:'Forest',fire:'Fire',dragon:'Golden',void:'Void',sunset:'Sunset',arctic:'Arctic',midnight:'Midnight',sakura:'Sakura'};
         const _inputVals = {};
         let _holdRaf = null, _holdStart = null;
@@ -3243,7 +3255,7 @@
                 }
             }
             Object.entries(partMap).forEach(([key, info]) => {
-                const displayKey = key === 'ghostColor' ? 'Colored Ghost' : key.charAt(0).toUpperCase() + key.slice(1);
+                const displayKey = _getPartLabel(key);
                 const cost = _getItemCost(key);
                 if (info.count > 0) {
                     const partCount = saveData.parts[key] || 0;
@@ -3424,8 +3436,8 @@
         picks.forEach(item => {
             addPartsToItem(item.key, 1);
             const partCount = saveData.parts[item.key] || 0;
-            const displayKey = item.key === 'ghostColor' ? 'Colored Ghost' : item.key.charAt(0).toUpperCase() + item.key.slice(1);
-            rewards.push({ icon: '🧩', label: `+1 Part: ${displayKey}`, desc: `${partCount}/10 parts`, rarity: item.cat === 'ghostColor' ? 'epic' : 'common' });
+            rewards.push({ type: 'parts', key: item.key, icon: '🧩', label: `+1 Part: ${_getPartLabel(item.key)}`,
+                desc: `${partCount}/${_getItemCost(item.key)} parts`, rarity: item.cat === 'ghostColor' ? 'epic' : 'common' });
         });
         // Pad with universal parts if fewer than 10 unique items available
         const partsGiven = picks.length;
@@ -3646,17 +3658,17 @@
         customAlert('Daily gift reset! Gift is now available.', 'DEV');
     }
     function devResetStore() {
-        saveData.ownedSkins = ['neon'];
+        saveData.ownedSkins = [DEFAULT_BLOCK_SKIN];
+        settings.skin = DEFAULT_BLOCK_SKIN;
         saveData.ownedFonts = ['Orbitron'];
         saveData.ownedThemes = [];
         saveData.ownedBtnStyles = [];
-        saveData.ownedBlockShapes = [];
         saveData.ownedGridStyles = [];
         saveData.ghostColorUnlocked = false;
         saveData.boosters = {};
         saveData.parts = {};
         saveData.universalParts = 0;
-        saveDataToFile();
+        saveSettings();
         customAlert('Items reset! All unlocked items removed.', 'DEV');
     }
     function devAddRandomScores() {
@@ -3819,7 +3831,7 @@
         // Items Collected (X / Y)
         const bestXpEl = document.getElementById('stat-best-xp');
         if (bestXpEl) {
-            const _ownedSkins = (saveData.ownedSkins || ['neon']).filter(_skinAvailable).length;
+            const _ownedSkins = (saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).filter(_skinAvailable).length;
             const _totalSkins = _devMode ? 17 : 8;
             const _ownedThemes = (saveData.ownedThemes || []).length + 1; // +1 for default
             const _totalThemes = Object.keys(THEMES).length;
@@ -4363,8 +4375,8 @@
         const ownedSkinContainer = document.getElementById('owned-skin-btns');
         if (ownedSkinContainer) {
             const skinNames = SKIN_NAMES;
-            const ownedSkins = (saveData.ownedSkins || ['neon']).filter(_skinAvailable).filter(s => !['matrix','gold','golddragon','lava','circuit','marble','fire','toxic'].includes(s));
-            const allSkinKeys = Object.keys(skinNames).filter(_skinAvailable);
+            const ownedSkins = (saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).filter(_skinAvailable);
+            const allSkinKeys = Object.keys(skinNames);
             const skinCountEl = document.getElementById('skin-owned-count');
             if (skinCountEl) skinCountEl.innerText = `(${ownedSkins.length}/${allSkinKeys.length})`;
             const rows = allSkinKeys.map(s => {
@@ -4387,14 +4399,7 @@
                 canvas.width = 96; canvas.height = 64;
                 canvas.setAttribute('role', 'img');
                 canvas.setAttribute('aria-label', `${skinNames[row.dataset.itemKey]} block preview`);
-                const ctx = canvas.getContext('2d');
-                const previousSkin = settings.skin;
-                try {
-                    settings.skin = row.dataset.itemKey;
-                    BASE_PIECES[6].forEach((cells, y) => cells.forEach((cell, x) => {
-                        if (cell) drawGameBlock(ctx, x, y, 6, 30);
-                    }));
-                } finally { settings.skin = previousSkin; }
+                _drawSkinPreview(canvas, row.dataset.itemKey, 6, 30);
                 row.prepend(canvas);
             });
             // Hover preview for owned skins
@@ -4414,13 +4419,8 @@
                     const cols = piece[0].length, rows2 = piece.length;
                     const pc = document.createElement('canvas');
                     pc.width = cols * bs; pc.height = rows2 * bs;
-                    const pCtx = pc.getContext('2d');
-                    pCtx.fillStyle = '#111'; pCtx.fillRect(0, 0, pc.width, pc.height);
                     const colorId = Math.floor(Math.random() * 7) + 1;
-                    const oldSkin = settings.skin;
-                    settings.skin = skinName;
-                    piece.forEach((row2, y) => row2.forEach((v, x) => { if (v) drawGameBlock(pCtx, x, y, colorId, bs); }));
-                    settings.skin = oldSkin;
+                    _drawSkinPreview(pc, skinName, colorId, bs, '#111');
                     skinTip.innerHTML = '';
                     skinTip.appendChild(pc);
                     skinTip.style.display = 'block';
@@ -5115,7 +5115,7 @@
             overlay.remove();
             saveData = JSON.parse(JSON.stringify(defaultSaveData));
             // Reset visual settings to defaults so owned items show correctly
-            settings.skin = 'neon';
+            settings.skin = DEFAULT_BLOCK_SKIN;
             settings.theme = 'default';
             settings.ghostColor = 'white';
             settings.gridStyle = 'lines';
@@ -5314,12 +5314,12 @@
             if (importedData && typeof importedData.totalXP === 'number') {
                 const confirmed = await customConfirm("Importing will <b>OVERWRITE</b> your current progress. Proceed?");
                 if (!confirmed) { document.getElementById('file-import-input').value = ''; return; }
-                applyLoadedData(importedData);
+                const { skinNotice } = applyLoadedData(importedData, false);
                 // save_transfer achievement
                 if (!saveData.achievements) saveData.achievements = {};
                 if (!saveData.achievements['save_transfer']?.unlocked) unlockAchievement('save_transfer');
                 saveDataToFile(); drawRankBadge();
-                customAlert("Progress restored from file!", "SUCCESS", false, () => { closeTransferMenu(); });
+                customAlert(`Progress restored from file!${skinNotice ? `<br><br>${skinNotice}` : ''}`, "SUCCESS", false, () => { closeTransferMenu(); });
             } else {
                 customAlert("Invalid or unrecognised save file!", "ERROR", true);
             }
@@ -6407,7 +6407,7 @@
     (function() {
         const coll = ACHIEVEMENTS_DEF.find(a => a.id === 'collector');
         if (!coll || !coll.tiers) return;
-        // Count buyable items (exclude defaults: neon skin, default theme, lines grid, classic palette, default sfx)
+        // Count buyable items (exclude defaults: Retro skin, default theme, lines grid, classic palette, default sfx)
         const _buyable = 7 + (Object.keys(THEMES).length - 1) + (Object.keys(GRID_STYLES).length - 1) + (Object.keys(BLOCK_PALETTES).length - 1) + 4 + 1;
         const finalTier = coll.tiers[coll.tiers.length - 1];
         if (finalTier) finalTier.progress = { path: '_computed.itemsBought', target: _buyable };
@@ -6415,7 +6415,7 @@
 
     function _getProgressVal(path) {
         if (path === '_computed.itemsCollected') {
-            const _os = (saveData.ownedSkins || ['neon']).length;
+            const _os = (saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).length;
             const _ot = (saveData.ownedThemes || []).length + 1;
             const _og = (saveData.ownedGridStyles || []).length + 1;
             const _op = (saveData.ownedPalettes || ['classic']).length;
@@ -6425,7 +6425,7 @@
         }
         if (path === '_computed.itemsBought') {
             // Count only non-default/non-free items
-            const _os = (saveData.ownedSkins || ['neon']).filter(s => s !== 'neon').length;
+            const _os = (saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).filter(s => s !== DEFAULT_BLOCK_SKIN).length;
             const _ot = (saveData.ownedThemes || []).length; // default not in array
             const _og = (saveData.ownedGridStyles || []).length; // free 'lines' not in array
             const _op = (saveData.ownedPalettes || ['classic']).filter(p => p !== 'classic').length;
@@ -7895,37 +7895,98 @@
         }
     }
 
+    const _skinAtlases = new Map();
+    const _skinTints = new Map();
+    const _pieceAtlasCells = [null, 0, 5, 6, 1, 3, 2, 4];
+    const _greyAtlasCell = 7, _whiteAtlasCell = 8;
+    function imageSkinAtlasCell(id, defaultPalette = true) {
+        if (!id) return null;
+        const cell = _pieceAtlasCells[id];
+        return cell == null ? _greyAtlasCell : defaultPalette ? cell : _whiteAtlasCell;
+    }
+    function imageSkinTintKey(skin, color) {
+        return `${skin}|${color.toLowerCase()}`;
+    }
+    function _getSkinAtlas(skin) {
+        const metadata = IMAGE_SKINS.get(skin);
+        if (!metadata) return null;
+        if (!_skinAtlases.has(skin)) {
+            const image = new Image();
+            const atlas = { image, cell: metadata.cell, ready: false };
+            atlas.promise = new Promise(resolve => {
+                image.onload = () => {
+                    atlas.ready = true;
+                    resolve(true);
+                    if (!_visualReview && _gameInProgress && _renderSkin() === skin) {
+                        drawGame(); drawNext();
+                        if (settings.optHold) drawHold();
+                    }
+                };
+                image.onerror = () => resolve(false);
+            });
+            _skinAtlases.set(skin, atlas);
+            image.src = `assets/skins/${metadata.file}`;
+        }
+        return _skinAtlases.get(skin);
+    }
+    function _tintedSkinCell(skin, atlas, color) {
+        const key = imageSkinTintKey(skin, color);
+        if (!_skinTints.has(key)) {
+            const {image, cell} = atlas;
+            const tile = document.createElement('canvas');
+            tile.width = tile.height = cell;
+            const context = tile.getContext('2d');
+            context.drawImage(image, _whiteAtlasCell * cell, 0, cell, cell, 0, 0, cell, cell);
+            context.globalCompositeOperation = 'multiply';
+            context.fillStyle = color;
+            context.fillRect(0, 0, cell, cell);
+            if (_skinTints.size >= 128) _skinTints.delete(_skinTints.keys().next().value);
+            _skinTints.set(key, tile);
+        }
+        return _skinTints.get(key);
+    }
+    function _drawSkinPreview(canvas, skin, id, size, background) {
+        const context = canvas.getContext('2d');
+        const draw = () => {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            if (background) {
+                context.fillStyle = background;
+                context.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            BASE_PIECES[6].forEach((row, y) => row.forEach((cell, x) => {
+                if (cell) drawGameBlock(context, x, y, id, size, false, skin);
+            }));
+        };
+        draw();
+        const atlas = _getSkinAtlas(skin);
+        if (atlas && !atlas.ready) atlas.promise.then(loaded => { if (loaded && canvas.isConnected) draw(); });
+    }
+
     const _blockCache = new Map();
     let _blockCacheStyle = '';
-    function drawGameBlock(c,x,y,id,s,g=false){
+    function drawGameBlock(c,x,y,id,s,g=false,skin=_renderSkin()){
         if (!id) return;
-        const style = [_renderSkin(), COLORS.join(','), settings.blockShape, settings.ghostColor, saveData.ghostColorUnlocked, window.devicePixelRatio].join('|');
+        const atlas = g ? null : _getSkinAtlas(skin);
+        const colors = COLORS.join(',');
+        const defaultPalette = settings.colorPalette === 'classic' && !saveData.customPaletteOverrides?.classic && colors === CLASSIC_COLOR_KEY;
+        const style = [colors, defaultPalette, settings.ghostColor, saveData.ghostColorUnlocked, window.devicePixelRatio].join('|');
         if (style !== _blockCacheStyle) { _blockCache.clear(); _blockCacheStyle = style; }
-        const key = [id,s,g].join('|');
+        const key = [atlas && !atlas.ready ? DEFAULT_BLOCK_SKIN : skin,id,s,g].join('|');
         let tile = _blockCache.get(key);
         const pad = 24, dpr = Math.min(2, window.devicePixelRatio || 1);
         if (!tile) {
             tile = document.createElement('canvas');
             tile.width = tile.height = Math.ceil((s+pad*2)*dpr);
             const tc = tile.getContext('2d'); tc.scale(dpr,dpr); tc.translate(pad,pad); tc._pixelRatio=dpr;
-            _paintGameBlock(tc,0,0,id,s,g);
+            _paintGameBlock(tc,0,0,id,s,g,skin,atlas,defaultPalette);
             _blockCache.set(key,tile);
         }
         c.drawImage(tile,x*s-pad,y*s-pad,tile.width/dpr,tile.height/dpr);
     }
-    function _paintGameBlock(c,x,y,id,s,g=false){
-        if(id===0)return;
-        const col=COLORS[id];
-        const blockShape = settings.blockShape || 'square';
+    function _paintGameBlock(c,x,y,id,s,g,skin,atlas,defaultPalette){
+        const col=COLORS[id] || '#888888';
         if(g){
             c.save();
-            if (blockShape !== 'square') {
-                c.beginPath();
-                const px=x*s+2,py=y*s+2,pw=s-4,ph=s-4;
-                if(blockShape==='round'){c.arc(px+pw/2,py+ph/2,pw/2,0,Math.PI*2);}
-                else{const cut=pw*0.22;c.moveTo(px+cut,py);c.lineTo(px+pw-cut,py);c.lineTo(px+pw,py+cut);c.lineTo(px+pw,py+ph-cut);c.lineTo(px+pw-cut,py+ph);c.lineTo(px+cut,py+ph);c.lineTo(px,py+ph-cut);c.lineTo(px,py+cut);c.closePath();}
-                c.clip();
-            }
             if ((settings.ghostColor === 'colored') && saveData.ghostColorUnlocked) {
                 c.strokeStyle=col; c.lineWidth=2; c.globalAlpha=0.35; c.strokeRect(x*s+2,y*s+2,s-4,s-4);
                 c.fillStyle=col; c.globalAlpha=0.08; c.fillRect(x*s,y*s,s,s);
@@ -7935,16 +7996,17 @@
             }
             c.restore(); return;
         }
-        const skin = _renderSkin();
-        if (blockShape !== 'square') {
-            c.save();
-            c.beginPath();
-            const px=x*s+1,py=y*s+1,pw=s-2,ph=s-2;
-            if(blockShape==='round'){c.arc(px+pw/2,py+ph/2,pw/2,0,Math.PI*2);}
-            else{const cut=pw*0.22;c.moveTo(px+cut,py);c.lineTo(px+pw-cut,py);c.lineTo(px+pw,py+cut);c.lineTo(px+pw,py+ph-cut);c.lineTo(px+pw-cut,py+ph);c.lineTo(px+cut,py+ph);c.lineTo(px,py+ph-cut);c.lineTo(px,py+cut);c.closePath();}
-            c.clip();
+        if (atlas?.ready) {
+            const index = imageSkinAtlasCell(id, defaultPalette);
+            const {image, cell} = atlas;
+            if (index === _whiteAtlasCell) {
+                c.drawImage(_tintedSkinCell(skin, atlas, col), x*s+1, y*s+1, s-2, s-2);
+            } else {
+                c.drawImage(image, index * cell, 0, cell, cell, x*s+1, y*s+1, s-2, s-2);
+            }
+            return;
         }
-        if (skin === 'retro') {
+        if (skin === DEFAULT_BLOCK_SKIN || atlas) {
             c.fillStyle=col; c.fillRect(x*s+1,y*s+1,s-2,s-2);
             c.fillStyle='rgba(255,255,255,0.55)'; c.fillRect(x*s+1,y*s+1,s-2,2); c.fillRect(x*s+1,y*s+1,2,s-2);
             c.fillStyle='rgba(0,0,0,0.45)'; c.fillRect(x*s+1,y*s+s-3,s-2,2); c.fillRect(x*s+s-3,y*s+1,2,s-2);
@@ -7973,93 +8035,13 @@
             _jg.addColorStop(0,'rgba(255,255,255,0.22)');_jg.addColorStop(0.5,'rgba(255,255,255,0)');_jg.addColorStop(1,'rgba(0,0,0,0.3)');
             _jrr(); c.fillStyle=_jg; c.fill();
             _jrr(); c.strokeStyle='rgba(0,0,0,0.38)'; c.lineWidth=1.5; c.stroke();
-        } else if (skin === 'gem') {
-            c.fillStyle=col; c.fillRect(x*s+1,y*s+1,s-2,s-2);
-            c.fillStyle='rgba(0,0,0,0.28)';
-            c.beginPath(); c.moveTo(x*s+s-1,y*s+1); c.lineTo(x*s+s-1,y*s+s-1); c.lineTo(x*s+1,y*s+s-1); c.closePath(); c.fill();
-            c.fillStyle='rgba(255,255,255,0.3)';
-            c.beginPath(); c.moveTo(x*s+1,y*s+1); c.lineTo(x*s+s-1,y*s+1); c.lineTo(x*s+1,y*s+s-1); c.closePath(); c.fill();
-            c.fillStyle='rgba(255,255,255,0.28)';
-            c.beginPath(); c.moveTo(x*s+1,y*s+1); c.lineTo(x*s+Math.floor(s*0.58),y*s+1); c.lineTo(x*s+1,y*s+Math.floor(s*0.58)); c.closePath(); c.fill();
-            c.fillStyle='rgba(255,255,255,0.6)';
-            c.beginPath(); c.arc(x*s+s*0.28,y*s+s*0.28,s*0.09,0,Math.PI*2); c.fill();
-            c.strokeStyle='rgba(255,255,255,0.38)'; c.lineWidth=0.8;
-            c.beginPath(); c.moveTo(x*s+1,y*s+Math.floor(s*0.52)); c.lineTo(x*s+Math.floor(s*0.52),y*s+1); c.stroke();
-            c.strokeStyle='rgba(0,0,0,0.6)'; c.lineWidth=1; c.strokeRect(x*s+0.5,y*s+0.5,s-1,s-1);
         } else if (skin === 'bubble') {
             // Rounded gel block — inspired by ambar/Tetris bubble theme
             const _br=s*0.28,_bx=x*s+1,_by=y*s+1,_bw=s-2,_bh=s-2;
             const _bp=()=>{c.beginPath();c.moveTo(_bx+_br,_by);c.lineTo(_bx+_bw-_br,_by);c.arcTo(_bx+_bw,_by,_bx+_bw,_by+_br,_br);c.lineTo(_bx+_bw,_by+_bh-_br);c.arcTo(_bx+_bw,_by+_bh,_bx+_bw-_br,_by+_bh,_br);c.lineTo(_bx+_br,_by+_bh);c.arcTo(_bx,_by+_bh,_bx,_by+_bh-_br,_br);c.lineTo(_bx,_by+_br);c.arcTo(_bx,_by,_bx+_br,_by,_br);c.closePath();};
             _bp(); c.fillStyle=col; c.fill();
-            const _rg=c.createRadialGradient(_bx+_bw*0.35,_by+_bh*0.3,0,_bx+_bw*0.5,_by+_bh*0.5,_bw*0.75);
-            _rg.addColorStop(0,'rgba(255,255,255,0.52)');_rg.addColorStop(0.45,'rgba(255,255,255,0.07)');_rg.addColorStop(1,'rgba(0,0,0,0.32)');
-            _bp(); c.fillStyle=_rg; c.fill();
-            _bp(); c.strokeStyle='rgba(0,0,0,0.22)'; c.lineWidth=1; c.stroke();
-        } else if (skin === 'gameboy') {
-            // Classic Game Boy LCD palette — ignores piece color; inspired by blockrain.js gameboy theme
-            c.fillStyle='#9bbc0f'; c.fillRect(x*s,y*s,s,s);
-            c.fillStyle='#306230'; c.fillRect(x*s+1,y*s+1,s-2,s-2);
-            c.fillStyle='#8bac0f'; c.fillRect(x*s+1,y*s+1,s-2,2); c.fillRect(x*s+1,y*s+1,2,s-2);
-            c.fillStyle='#0f380f'; c.fillRect(x*s+1,y*s+s-3,s-2,2); c.fillRect(x*s+s-3,y*s+1,2,s-2);
-            c.fillStyle='#4a7c2f'; c.fillRect(x*s+3,y*s+3,s-6,s-6);
-        } else if (skin === 'monochrome') {
-            // Grayscale raised bevel — ignores piece color; inspired by blockrain.js monochrome theme
-            c.fillStyle='#c0c0c0'; c.fillRect(x*s+1,y*s+1,s-2,s-2);
-            c.fillStyle='rgba(255,255,255,0.88)'; c.fillRect(x*s+1,y*s+1,s-2,2); c.fillRect(x*s+1,y*s+1,2,s-2);
-            c.fillStyle='rgba(0,0,0,0.38)'; c.fillRect(x*s+1,y*s+s-3,s-2,2); c.fillRect(x*s+s-3,y*s+1,2,s-2);
-            c.fillStyle='#d8d8d8'; c.fillRect(x*s+3,y*s+3,s-6,s-6);
-            c.strokeStyle='#444'; c.lineWidth=1; c.strokeRect(x*s+0.5,y*s+0.5,s-1,s-1);
-        } else if (skin === 'modern') {
-            // Clean flat block with linear top-to-bottom gradient; inspired by blockrain.js modern theme
-            c.fillStyle=col; c.fillRect(x*s+1,y*s+1,s-2,s-2);
-            const _mg=c.createLinearGradient(x*s,y*s,x*s,y*s+s);
-            _mg.addColorStop(0,'rgba(255,255,255,0.22)'); _mg.addColorStop(1,'rgba(0,0,0,0.22)');
-            c.fillStyle=_mg; c.fillRect(x*s+1,y*s+1,s-2,s-2);
-            c.strokeStyle='rgba(0,0,0,0.38)'; c.lineWidth=1; c.strokeRect(x*s+0.5,y*s+0.5,s-1,s-1);
-        } else if (skin === 'candy') {
-            // Pastel rounded with top-fade shine + glint dot; inspired by blockrain.js candy theme
-            const _cr=s*0.3,_cx=x*s+1,_cy=y*s+1,_cw=s-2,_ch=s-2;
-            const _cp=()=>{c.beginPath();c.moveTo(_cx+_cr,_cy);c.lineTo(_cx+_cw-_cr,_cy);c.arcTo(_cx+_cw,_cy,_cx+_cw,_cy+_cr,_cr);c.lineTo(_cx+_cw,_cy+_ch-_cr);c.arcTo(_cx+_cw,_cy+_ch,_cx+_cw-_cr,_cy+_ch,_cr);c.lineTo(_cx+_cr,_cy+_ch);c.arcTo(_cx,_cy+_ch,_cx,_cy+_ch-_cr,_cr);c.lineTo(_cx,_cy+_cr);c.arcTo(_cx,_cy,_cx+_cr,_cy,_cr);c.closePath();};
-            _cp(); c.fillStyle=col; c.fill();
-            const _cg=c.createLinearGradient(_cx,_cy,_cx,_cy+_ch);
-            _cg.addColorStop(0,'rgba(255,255,255,0.5)'); _cg.addColorStop(0.45,'rgba(255,255,255,0.08)'); _cg.addColorStop(1,'rgba(0,0,0,0.18)');
-            _cp(); c.fillStyle=_cg; c.fill();
-            c.fillStyle='rgba(255,255,255,0.72)';
-            c.beginPath(); c.arc(_cx+_cw*0.28,_cy+_ch*0.25,s*0.1,0,Math.PI*2); c.fill();
-        } else if (skin === 'vim') {
-            // Dark terminal bg + colored border + inner cursor block; inspired by blockrain.js vim theme
-            c.fillStyle='#1e1e2e'; c.fillRect(x*s,y*s,s,s);
-            c.strokeStyle=col; c.lineWidth=1.5; c.shadowColor=col; c.shadowBlur=3*(c._pixelRatio||1);
-            c.strokeRect(x*s+1.5,y*s+1.5,s-3,s-3); c.shadowBlur=0;
-            const _vi=Math.round(s*0.3);
-            c.fillStyle=col; c.globalAlpha=0.55; c.fillRect(x*s+_vi,y*s+_vi,s-_vi*2,s-_vi*2); c.globalAlpha=1;
-        } else if (skin === 'aerolab') {
-            // Diagonal gradient with subtle scan lines; inspired by blockrain.js aerolab theme
-            const _ag=c.createLinearGradient(x*s,y*s,x*s+s,y*s+s);
-            _ag.addColorStop(0,'rgba(255,255,255,0.28)'); _ag.addColorStop(0.45,col); _ag.addColorStop(1,'rgba(0,0,0,0.4)');
-            c.fillStyle=_ag; c.fillRect(x*s+1,y*s+1,s-2,s-2);
-            c.fillStyle='rgba(255,255,255,0.1)';
-            for(let _ai=y*s+2;_ai<y*s+s-1;_ai+=3) c.fillRect(x*s+2,_ai,s-4,1);
-            c.strokeStyle='rgba(255,255,255,0.45)'; c.lineWidth=1; c.strokeRect(x*s+1,y*s+1,s-2,s-2);
-        } else if (skin === 'classic') {
-            // Plain solid block with single-pixel border + faint top highlight; inspired by ambar/Tetris classic theme
-            c.fillStyle=col; c.fillRect(x*s,y*s,s,s);
-            c.strokeStyle='rgba(0,0,0,0.7)'; c.lineWidth=1; c.strokeRect(x*s+0.5,y*s+0.5,s-1,s-1);
-            c.fillStyle='rgba(255,255,255,0.2)'; c.fillRect(x*s+2,y*s+2,s-4,2); c.fillRect(x*s+2,y*s+2,2,s-4);
-        } else if (skin === 'window') {
-            // Windows 95-style raised 3D bevel; inspired by ambar/Tetris window theme
-            c.fillStyle=col; c.fillRect(x*s+2,y*s+2,s-4,s-4);
-            c.fillStyle='#fff'; c.fillRect(x*s,y*s,s,2); c.fillRect(x*s,y*s,2,s);
-            c.fillStyle='#333'; c.fillRect(x*s,y*s+s-2,s,2); c.fillRect(x*s+s-2,y*s,2,s);
-            c.fillStyle='rgba(255,255,255,0.55)'; c.fillRect(x*s+2,y*s+2,s-4,2); c.fillRect(x*s+2,y*s+2,2,s-4);
-            c.fillStyle='rgba(0,0,0,0.4)'; c.fillRect(x*s+2,y*s+s-4,s-4,2); c.fillRect(x*s+s-4,y*s+2,2,s-4);
-        } else { // neon (default)
-            c.fillStyle=col;c.shadowBlur=10*(c._pixelRatio||1);c.shadowColor=col;c.fillRect(x*s+1,y*s+1,s-2,s-2);c.shadowBlur=0;
-            const _ni=Math.round(s*0.27);
-            c.fillStyle="rgba(0,0,0,.5)";c.fillRect(x*s+_ni,y*s+_ni,s-_ni*2,s-_ni*2);
-            c.strokeStyle="rgba(255,255,255,.8)";c.lineWidth=1;c.strokeRect(x*s+1,y*s+1,s-2,s-2);
+            c.strokeStyle='rgba(0,0,0,0.16)'; c.lineWidth=1; c.stroke();
         }
-        if (blockShape !== 'square') c.restore();
     }
     const SPAWN_ROWS = 2;
     let _gridCache = null, _lineFlash = null;
@@ -9109,7 +9091,7 @@
         _wallTouchedLeft = false; _wallTouchedRight = false;
         _sessionGamesPlayed++;
         // skin_loyal tracking
-        { const curSkin = settings.skin || 'neon'; if (curSkin === (saveData.stats._lastSkin || curSkin)) { saveData.stats.sameSkinStreak = (saveData.stats.sameSkinStreak || 0) + 1; } else { saveData.stats.sameSkinStreak = 1; } saveData.stats._lastSkin = curSkin; if ((saveData.stats.sameSkinStreak || 0) >= 50 && !saveData.achievements?.['skin_loyal']?.unlocked) unlockAchievement('skin_loyal'); }
+        { const curSkin = _renderSkin(); if (curSkin === (saveData.stats._lastSkin || curSkin)) { saveData.stats.sameSkinStreak = (saveData.stats.sameSkinStreak || 0) + 1; } else { saveData.stats.sameSkinStreak = 1; } saveData.stats._lastSkin = curSkin; if ((saveData.stats.sameSkinStreak || 0) >= 50 && !saveData.achievements?.['skin_loyal']?.unlocked) unlockAchievement('skin_loyal'); }
         if (currentGameMode === 'fun') { speedLevel = Math.max(1, funModeConfig.startSpeed); dropInterval = 1000 / speedLevel; }
         // Rebuild speed tape for current mode
         ['m-speed-inner','pc-speed-inner'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
@@ -10764,10 +10746,10 @@
                 const item = items[Math.floor(Math.random() * items.length)];
                 if ((saveData.parts?.[item.key] || 0) >= _getItemCost(item.key)) {
                     addUniversalParts(0.2);
-                    rewards.push({ icon:'⭐', label:'+0.2 Universal Parts', desc:`Duplicate: ${item.key}`, rarity:'rare' });
+                    rewards.push({ icon:'⭐', label:'+0.2 Universal Parts', desc:`Duplicate: ${_getPartLabel(item.key)}`, rarity:'rare' });
                 } else {
                     addPartsToItem(item.key, 1);
-                    rewards.push({ icon:'🧩', label:`+1 Part: ${item.key}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
+                    rewards.push({ icon:'🧩', label:`+1 Part: ${_getPartLabel(item.key)}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
                 }
             }
         }
@@ -11434,8 +11416,7 @@
     window.devSpawnParachute = function() { _doSpawnParachute(); customAlert('Parachute spawned!', 'DEV MODE'); };
     window.devUnlockShop = function() {
         // Unlock all skins
-        const allSkins = ['neon','retro','glass','shadow','outline','holo','journey','gem','bubble','gameboy','monochrome','modern','candy','vim','aerolab','classic','window'];
-        saveData.ownedSkins = [...allSkins];
+        saveData.ownedSkins = Object.keys(SKIN_NAMES);
         // Unlock all themes
         const allThemes = Object.keys(THEMES).filter(k => k !== 'default');
         saveData.ownedThemes = [...allThemes];
@@ -11631,7 +11612,6 @@
     window.giveItemDirectly = giveItemDirectly;
     window.applyBtnStyle = applyBtnStyle;
     window.applyGridStyle = applyGridStyle;
-    window.applyBlockShape = applyBlockShape;
     window.openCredits = function() { const _crEl = document.getElementById('credits-overlay'); if (!_crEl) return; _crEl.classList.remove('hidden'); _animateIn(_crEl, 'anim-in-right'); };
     if (_devMode) {
     window.devTriggerMilestone = function() {
@@ -11816,16 +11796,17 @@
         window.__lb ??= {};
         window.__lb.visualReview = {
             catalog: JSON.parse(JSON.stringify({
-                skins: SKIN_NAMES, testSkins: _testSkins, defaults: defaultSettings, palettes: BLOCK_PALETTES,
-                themes: THEMES, grids: GRID_STYLES, shapes: BLOCK_SHAPES, backgrounds: BG_STYLES,
+                skins: SKIN_NAMES, defaults: defaultSettings, palettes: BLOCK_PALETTES,
+                themes: THEMES, grids: GRID_STYLES, backgrounds: BG_STYLES,
                 sfxPacks, pieces: BASE_PIECES
             })),
             partCost: _getItemCost,
+            loadSkinAtlases: () => Promise.all([...IMAGE_SKINS.keys()].map(key => _getSkinAtlas(key).promise)),
             drawSample(context, { cell, swatches, stack, ghost, skin = defaultSettings.skin, palette = defaultSettings.colorPalette,
-                colors, grid = defaultSettings.gridStyle, ghostColor = defaultSettings.ghostColor, shape = defaultSettings.blockShape }) {
+                colors, grid = defaultSettings.gridStyle, ghostColor = defaultSettings.ghostColor }) {
                 const oldSettings = settings, oldSave = saveData, oldColors = COLORS.slice();
                 const dimensions = [COLS, ROWS, BLOCK, canvas._logicalWidth];
-                settings = { ...defaultSettings, skin, gridStyle: grid, ghostColor, blockShape: shape };
+                settings = { ...defaultSettings, skin, colorPalette: palette, gridStyle: grid, ghostColor };
                 saveData = { customPickerColors: colors, ghostColorUnlocked: true };
                 context.save();
                 try {
@@ -11861,7 +11842,7 @@
                     context.translate(width * ((0.12 + index * 0.618) % 1), height * ((0.25 + index * 0.387) % 1));
                     context.rotate(index * 0.7);
                     BgBlock.prototype._paint.call({ style, size, shape: BASE_PIECES[index % 7 + 1],
-                        color: COLORS[index % 7 + 1], skin: ['glass', 'shadow', 'retro', 'neon'][index % 4] }, context);
+                        color: COLORS[index % 7 + 1], skin: BG_BLOCK_SKINS[index % BG_BLOCK_SKINS.length] }, context);
                     context.restore();
                 }
             },
@@ -11905,7 +11886,7 @@
         _doApplyTheme(settings.theme || 'default');
         applyFontSize(settings.fontSize || '5');
         applyGameScale(settings.gameScale || '5');
-        applyStylePack(settings.stylePack || 'modern');
+        applyStylePack(settings.stylePack || 'modern', false);
     } catch(e) { console.error('Startup error:', e); }
     _setLoadProgress(40, 'Applying theme…');
     loadData();
@@ -11937,6 +11918,7 @@
             spawn: resetPlayer, move: playerMove, rotate: playerRotate, hardDrop: playerHardDrop,
             hold: doHold, drop: playerDrop, sweep: arenaSweep, tick(dtMs) { update(lastTime + dtMs); },
             nextPiece: getNextPiece, gameOver, getLevelInfo, drawRankBadge,
+            imageSkinAtlasCell, imageSkinTintKey, drawGameBlock, partsItems: _getAllPartsItems, partCost: _getItemCost,
             missionWeekKey: _missionWeekKey, missionDateKey: _missionDateKey,
             achievementOverview: _achievementOverview, selectAchievementCards: _selectAchievementCards,
             encSave: _encSave, decSave: _decSave,

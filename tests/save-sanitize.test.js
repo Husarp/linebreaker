@@ -40,7 +40,7 @@ it('loads a defaults-based real save with progress, dates, missions and legacy b
  fixture.missions.weekly.weekKey = a.missionWeekKey(); fixture.missions.weekly.isoWeekKey=true;
  fixture.missions.stats.totalPts=25;
  a.applyLoadedData(fixture);
- expect(a.save).toMatchObject({totalXP:12345,highscore:5000,parts:{shadow:4},universalParts:2.4,boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
+ expect(a.save).toMatchObject({totalXP:12345,highscore:5000,parts:{shadow:4},universalParts:3.4,ownedSkins:['retro'],boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
  expect(a.save.leaderboard[0].date).toBe('18.11.2026 12:30');
  expect(a.save.pinnedScores[0].note).toBe('Nice run');
  expect(a.save.pendingLevelBox.rewards).toHaveLength(2);
@@ -77,7 +77,7 @@ it('repairs malformed nested structures, clamps numbers, and blocks entity paylo
  expect(clean.missions.daily.quests).toEqual([]);
  expect(clean.missions.weekly.missions[0]).toMatchObject({target:0,completed:false});
  expect(clean.customPaletteOverrides.classic.slice(0,2)).toEqual(['#00ffff','#abcdef']);
- expect(clean.ownedSkins).toEqual(['neon']);
+ expect(clean.ownedSkins).toEqual(['retro']);
  expect(clean.pendingLevelBoxes[0].rewards).toHaveLength(1);
  expect(clean.pinnedScores[0].note).not.toContain('&');
 });

@@ -17,6 +17,7 @@ for (const file of (await readdir('.')).filter(f => f === 'index.html' || /\.(js
 await mkdir('dist-web/ui', { recursive: true });
 await cp('ui', 'dist-web/ui', { recursive: true });
 await cp('assets/fonts', 'dist-web/assets/fonts', { recursive: true });
+await cp('assets/skins', 'dist-web/assets/skins', { recursive: true });
 if (localMusic) {
   const local = JSON.parse(await readFile('assets/music.json', 'utf8'));
   const files = await readdir('assets/music', { withFileTypes: true }).catch(error => {

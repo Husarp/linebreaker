@@ -43,7 +43,7 @@ function section(key, title, description, variant = '') {
     return { key, cards };
 }
 
-function card(group, key, name, detail, { test = false, like = false, preview = () => {} } = {}) {
+function card(group, key, name, detail, { like = false, preview = () => {} } = {}) {
     const previous = (Object.hasOwn(saved[group.key] ?? {}, key) ? saved[group.key][key] : null) ?? {};
     const decision = decisions.map(label => label.toLowerCase()).includes(previous.decision) ? previous.decision : null;
     const value = { ...previous, name, decision, note: typeof previous.note === 'string' ? previous.note : '' };
@@ -55,7 +55,6 @@ function card(group, key, name, detail, { test = false, like = false, preview = 
     const heading = element('h3', '', name);
     const meta = element('div', 'review-meta');
     meta.append(element('code', '', key), element('small', '', detail));
-    if (test) meta.append(element('span', 'lb-pill', 'Dev only'));
     panel.append(heading, meta);
 
     function save(patch) {
@@ -132,9 +131,11 @@ async function gamePreviews() {
         window.__LB_VISUAL_REVIEW__ = true;
         window.setInterval = window.requestAnimationFrame = () => 0;`;
     shell.head.replaceChildren(base, setup);
-    const script = shell.createElement('script');
-    script.src = 'app.js';
-    shell.body.append(script);
+    for (const src of ['assets/skins/catalog.js', 'app.js']) {
+        const script = shell.createElement('script');
+        script.src = src;
+        shell.body.append(script);
+    }
 
     const frame = element('iframe');
     frame.hidden = true;
@@ -143,7 +144,7 @@ async function gamePreviews() {
     return new Promise((resolve, reject) => {
         frame.addEventListener('load', () => {
             const review = frame.contentWindow.__lb?.visualReview;
-            if (review) resolve(review);
+            if (review) review.loadSkinAtlases().then(() => resolve(review), reject);
             else {
                 frame.remove();
                 reject(new Error('The game drawing hook did not initialize.'));
@@ -179,7 +180,7 @@ function miniMenu(theme, title, background) {
 }
 
 function renderGame(review) {
-    const { skins, testSkins, defaults, palettes, themes, grids, shapes, backgrounds, sfxPacks, pieces } = review.catalog;
+    const { skins, defaults, palettes, themes, grids, backgrounds, sfxPacks, pieces } = review.catalog;
     const partLabel = key => `${review.partCost(key)} parts to unlock`;
     const title = key => key.charAt(0).toUpperCase() + key.slice(1);
     const stack = Array.from({ length: 6 }, () => Array(10).fill(0));
@@ -212,7 +213,6 @@ function renderGame(review) {
     const skinGroup = section('skins', 'Current block skins', 'Seven piece colours, the same 10 × 6 stack, and a ghost at both sizes.', 'review-grid--skins');
     for (const [key, name] of Object.entries(skins)) {
         card(skinGroup, key, name, key === defaults.skin ? 'Owned by default' : partLabel(key), {
-            test: testSkins.includes(key),
             preview(panel) {
                 const pair = element('div', 'review-specimens');
                 for (const size of [24, 40]) {
@@ -291,13 +291,6 @@ function renderGame(review) {
     for (const key of ['white', 'colored']) {
         card(ghostGroup, key, `${title(key)} Ghost`, key === defaults.ghostColor ? 'Default · picker at Silver I' : `${partLabel('ghostColor')} · picker at Silver I`, {
             preview: panel => sample(panel, `${title(key)} ghost outline`, 24, { ghostColor: key, swatches: false }),
-        });
-    }
-
-    const shapeGroup = section('shapes', 'Block shapes', 'The same Neon tiles clipped to each available shape.');
-    for (const [key, { name }] of Object.entries(shapes)) {
-        card(shapeGroup, key, name, key === defaults.blockShape ? 'Default' : 'Alternate shape', {
-            preview: panel => sample(panel, `${name} blocks`, 24, { shape: key }),
         });
     }
 

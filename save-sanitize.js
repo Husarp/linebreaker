@@ -83,21 +83,27 @@
         const colours = (v, fallback) => fallback.slice(0, 7).map((c,i) => colour(Array.isArray(v) ? v[i] : null, c));
         if ('customPickerColors' in data) out.customPickerColors = colours(data.customPickerColors, classic);
         out.customPaletteOverrides = Object.fromEntries(entries(data.customPaletteOverrides).filter(([k]) => Object.hasOwn(palettes, k)).map(([k,v]) => [k, colours(v, palettes[k].colors)]));
-        const items = new Map((definitions.items || []).map(i => [i.key, i]));
-        for (const key of ('retro glass shadow outline holo journey gem bubble gameboy monochrome modern candy vim aerolab classic window ocean forest fire dragon void sunset arctic midnight sakura ghostColor dots boxes dotboxes sfxCyber sfxRetro sfxZen sfxArcade').split(' ').concat(Object.keys(palettes))) items.set(key, {key});
+        const items = new Set([
+            ...(definitions.items || []).map(item => item.key),
+            ...Object.keys(definitions.skins || {retro:true, glass:true, shadow:true, outline:true, holo:true, journey:true, bubble:true}),
+            ...('ocean forest fire dragon void sunset arctic midnight sakura ghostColor dots boxes dotboxes sfxCyber sfxRetro sfxZen sfxArcade').split(' '),
+            ...Object.keys(palettes),
+        ]);
+        const partLabel = definitions.partLabel || (key => key === 'ghostColor' ? 'Colored Ghost' : key.charAt(0).toUpperCase() + key.slice(1));
+        const partCost = definitions.partCost || (() => 10);
         function reward(r) {
             if (!object(r)) return null;
             let type = r.type, key = r.key;
             // Older boxes stored only display text; accept exact game-generated forms.
             if (!type && r.label === '+1 Universal Part') type = 'universal_parts';
             if (!type && typeof r.label === 'string' && r.label.startsWith('+1 Part: ')) {
-                key = [...items.keys()].find(k => r.label === '+1 Part: ' + (k === 'ghostColor' ? 'Colored Ghost' : k.charAt(0).toUpperCase() + k.slice(1)));
+                key = [...items].find(k => r.label === '+1 Part: ' + partLabel(k));
                 if (key) type = 'parts';
             }
             const amount = number(r.amount, 1, 1000);
             const rarity = ['common','rare','epic','legendary'].includes(r.rarity) ? r.rarity : 'common';
             if (type === 'universal_parts') return { type, amount, rarity, icon:'⭐', label:`+${amount} Universal Part${amount === 1 ? '' : 's'}`, desc:'Added to your inventory' };
-            if (type === 'parts' && items.has(key)) return { type, key, amount, rarity, icon:'🧩', label:`+${amount} Part: ${key === 'ghostColor' ? 'Colored Ghost' : key.charAt(0).toUpperCase() + key.slice(1)}`, desc:`${number(out.parts[key])}/10 parts` };
+            if (type === 'parts' && items.has(key)) return { type, key, amount, rarity, icon:'🧩', label:`+${amount} Part: ${partLabel(key)}`, desc:`${number(out.parts[key])}/${partCost(key)} parts` };
             if (type === 'booster' && Object.hasOwn(definitions.boosters || {}, key)) {
                 const b = definitions.boosters[key];
                 return { type, key, amount, rarity:b.rarity, icon:b.icon, label:b.label, desc:'Booster added to inventory' };
