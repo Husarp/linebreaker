@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Tetris RPG: Optimized & Clean</title>
+    <title>Linebreaker</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,7 +20,7 @@
             <div class="ls-block" style="--c:#cc33ff"></div>
             <div class="ls-block" style="--c:#ff3366"></div>
         </div>
-        <div id="ls-title">TETRIS RPG</div>
+        <div id="ls-title">LINEBREAKER</div>
         <div id="ls-bar-wrap"><div id="ls-bar"></div></div>
         <div id="ls-status">Loading…</div>
     </div>
@@ -78,7 +78,7 @@
     <!-- Kontener grupujący dla skalowania na PC -->
     <div class="menu-scale-wrapper">
         <div style="position:relative;display:inline-block;">
-            <h1 id="main-title">TETRIS RPG</h1>
+            <h1 id="main-title">LINEBREAKER</h1>
             <div id="splash-quote"></div>
         </div>
         <div id="level-badge-container">
@@ -156,7 +156,7 @@
         </div>
 
         <!-- Collapsible DEV panel -->
-        <div id="dev-panel" style="position:relative; margin-top:10px; display:flex; justify-content:center;">
+        <div id="dev-panel" style="position:relative; margin-top:10px; display:none; justify-content:center;">
             <button onclick="document.getElementById('dev-list').classList.toggle('hidden')"
                     style="font-size:0.55rem;padding:3px 10px;background:rgba(255,0,0,0.1);border:1px solid rgba(255,0,0,0.3);border-radius:4px;color:#ff6666;cursor:pointer;font-family:inherit;letter-spacing:1px;">
                 DEV ▼
@@ -593,12 +593,12 @@
 <div id="transfer-overlay" class="overlay hidden" style="z-index: 1020;">
     <div class="transfer-box">
         <h2 style="color: var(--primary); margin-bottom: 15px; font-family: 'Press Start 2P'; font-size:0.72rem;">SAVE TRANSFER</h2>
-        <p style="font-size: 0.75rem; color: #ccc; margin-bottom: 14px; line-height: 1.5;">Export your progress to a <b>.tetris</b> file and keep it as a backup. Import it on any device — your progress will <b style="color:var(--primary);">not</b> be wiped on export.</p>
-        <button class="btn-secondary" style="width: 100%; margin-bottom:8px;" onclick="window.startExportProcess()">⬇ EXPORT TO .TETRIS FILE</button>
+        <p style="font-size: 0.75rem; color: #ccc; margin-bottom: 14px; line-height: 1.5;">Export your progress to a <b>.lbsave</b> file and keep it as a backup. Import it on any device — your progress will <b style="color:var(--primary);">not</b> be wiped on export.</p>
+        <button class="btn-secondary" style="width: 100%; margin-bottom:8px;" onclick="window.startExportProcess()">⬇ EXPORT SAVE FILE</button>
         <div class="transfer-divider"></div>
-        <p style="font-size: 0.75rem; color: #ccc; margin-bottom: 10px;">To IMPORT, select a <b>.tetris</b> file. This will overwrite current progress.</p>
-        <input type="file" id="file-import-input" accept=".tetris" style="display: none;" onchange="window.handleFileImport(event)">
-        <button class="btn-secondary" style="background: rgba(0, 255, 255, 0.1); width: 100%; border-color: rgba(0,255,255,0.3);" onclick="document.getElementById('file-import-input').click()">📁 IMPORT FROM .TETRIS FILE</button>
+        <p style="font-size: 0.75rem; color: #ccc; margin-bottom: 10px;">To IMPORT, select a <b>.lbsave</b> or legacy save file. This will overwrite current progress.</p>
+        <input type="file" id="file-import-input" accept=".lbsave,.tetris" style="display: none;" onchange="window.handleFileImport(event)">
+        <button class="btn-secondary" style="background: rgba(0, 255, 255, 0.1); width: 100%; border-color: rgba(0,255,255,0.3);" onclick="document.getElementById('file-import-input').click()">📁 IMPORT SAVE FILE</button>
         <button class="btn-secondary" style="margin-top: 25px; border: none; font-size:0.9rem;" onclick="window.closeTransferMenu()">BACK TO MENU</button>
     </div>
 </div>
@@ -615,7 +615,7 @@
             <!-- Normal Mode -->
             <div class="mode-card selected" data-mode="normal" onclick="window.selectMode('normal')">
                 <div class="mode-card-title"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><rect x="1" y="8" width="6" height="6" rx="1" fill="currentColor" stroke="none" opacity="0.9"/><rect x="8" y="8" width="6" height="6" rx="1" fill="currentColor" stroke="none" opacity="0.9"/><rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" stroke="none" opacity="0.9"/><rect x="8" y="1" width="6" height="6" rx="1" fill="currentColor" stroke="none" opacity="0.3"/><rect x="15" y="8" width="4" height="4" rx="1" fill="currentColor" stroke="none" opacity="0.55"/></svg>NORMAL</div>
-                <div class="mode-card-desc">Classic Tetris RPG</div>
+                <div class="mode-card-desc">Classic mode</div>
             </div>
             <!-- Fun Mode -->
             <div class="mode-card" data-mode="fun" onclick="window.selectMode('fun')">
@@ -786,7 +786,7 @@
                 <span style="font-family:var(--ui-font);font-size:0.6rem;font-weight:bold;letter-spacing:0.2em;color:var(--primary);">NORMAL MODE</span>
             </div>
             <div style="background:rgba(0,255,255,0.03);border:1px solid rgba(0,255,255,0.12);border-radius:10px;padding:16px;">
-                <p style="font-size:0.7rem;color:#ccc;line-height:1.7;margin-bottom:10px;">Classic Tetris. Stack pieces to complete horizontal lines — each line cleared earns points and XP. Speed increases over time. Earn XP, level up, and unlock new features.</p>
+                <p style="font-size:0.7rem;color:#ccc;line-height:1.7;margin-bottom:10px;">Classic block stacking. Stack pieces to complete horizontal lines — each line cleared earns points and XP. Speed increases over time. Earn XP, level up, and unlock new features.</p>
                 <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;background:rgba(0,255,255,0.05);border-radius:7px;border-left:2px solid rgba(0,255,255,0.4);">
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="rgba(0,255,255,0.7)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16" stroke-width="2.5"/></svg>
                     <span style="font-size:0.63rem;color:rgba(0,220,220,0.85);line-height:1.6;">Clear multiple lines at once for combo bonuses. Higher speed = more XP per game!</span>
@@ -1130,9 +1130,9 @@
 
         <!-- Game title block -->
         <div style="text-align:center;margin-bottom:32px;">
-            <div style="font-size:2rem;font-weight:900;letter-spacing:6px;color:#00ffff;text-shadow:0 0 24px rgba(0,255,255,0.5);">TETRIS</div>
+            <div style="font-size:2rem;font-weight:900;letter-spacing:6px;color:#00ffff;text-shadow:0 0 24px rgba(0,255,255,0.5);">LINEBREAKER</div>
             <div style="font-size:0.65rem;letter-spacing:3px;color:#aaa;margin-top:4px;">RPG EDITION</div>
-            <div style="font-size:0.7rem;color:#555;margin-top:8px;letter-spacing:1px;">VERSION 1.22.0</div>
+            <div style="font-size:0.7rem;color:#555;margin-top:8px;letter-spacing:1px;">VERSION 1.23.1</div>
         </div>
 
         <!-- Created by -->
@@ -1176,7 +1176,6 @@
         <!-- Disclaimer -->
         <div style="text-align:center;font-size:0.62rem;color:#444;line-height:1.6;margin-top:24px;">
             This is a fan-made project created for fun.<br>
-            Tetris® is a registered trademark of The Tetris Company.<br>
             All music belongs to their respective artists.
         </div>
     </div>

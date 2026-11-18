@@ -1,5 +1,15 @@
 (function() {
 
+    const _devMode = (() => {
+        if (new URLSearchParams(window.location.search).has('dev')) return true;
+        try { return localStorage.getItem('lb_dev') === '1'; } catch(e) { return false; }
+    })();
+    const _testSkins = ['bubble','gameboy','monochrome','modern','candy','vim','aerolab','classic','window'];
+    function _skinAvailable(key) { return _devMode || !_testSkins.includes(key); }
+    function _renderSkin() { return _skinAvailable(settings.skin) ? (settings.skin || 'neon') : 'neon'; }
+    const _devPanel = document.getElementById('dev-panel');
+    if (_devPanel && _devMode) _devPanel.style.display = 'flex';
+
     const _hasFileAPI = 'showOpenFilePicker' in window; // false on Firefox/Safari
 
     const COLORS=[null,'#00ffff','#3388ff','#ff9900','#ffff33','#33ff33','#cc33ff','#ff3366'];
@@ -240,7 +250,7 @@
             if (_items.length === 0) {
                 // All items owned → give XP
                 const xpGain = 1000;
-                saveData.totalXP += xpGain;
+                _grantXP(xpGain);
                 rewardText = `+${xpGain.toLocaleString()} XP`;
                 rewardColor = '#44ffaa';
             } else if (Math.random() < 0.05) {
@@ -311,7 +321,7 @@
         "High scores not guaranteed.",
         "Just one more line!",
         "I-piece speedrun any%",
-        "T is for Tetris!",
+        "B is for blocks!",
         "Built with vanilla JS!",
         "No floating point errors!",
         "Rotation not included.",
@@ -324,9 +334,9 @@
         "Clearing lines, taking names.",
         "No Z-piece, no problem.",
         "Gravity is the only law here.",
-        "Touch grass? Later. One more Tetris.",
+        "Touch grass? Later. One more quad.",
         "The L-piece is not a personal attack.",
-        "Tetris: the original block party.",
+        "Block stacking: the original block party.",
         "Pro tip: blocks go down.",
         "I-piece ETA: 14 pieces.",
         "Chat: place it left. Place it left!",
@@ -343,11 +353,11 @@
         "The wall kick will remember that.",
         "Game over is just a reset button.",
         "Stacking anxieties... and blocks.",
-        "Going for the Tetris? Bold.",
+        "Going for the quad? Bold.",
         "Board full? That's a skill.",
         "Silver I unlocks the ghost. Spooky.",
         "Aim for the top 10. Or top 1.",
-        "Tetris taught me to let things go.",
+        "Block stacking taught me to let things go.",
         "No undo. No mercy. Only blocks.",
         "T-spin detected. Legend behavior.",
         "This app has no ads. Just blocks.",
@@ -356,7 +366,7 @@
         "4 lines at once? Absolute madness.",
         "Ghost mode: optional. Suffering: not.",
         "Rotate. Stack. Repeat.",
-        "The perfect Tetris? It exists.",
+        "The perfect quad? It exists.",
         "Hard drop go brrr.",
         "Floor kicks are legal here.",
         "Mirror mode: for true mastery only.",
@@ -778,17 +788,28 @@
             });
         } catch { return null; }
     }
-    async function writeSaveFile(data) {
-        if (fileHandle) {
-            try {
-                const writable = await fileHandle.createWritable();
-                await writable.write(JSON.stringify(data, null, 2));
-                await writable.close();
-            } catch(e) { console.error('Save failed:', e); }
-        } else if (!_hasFileAPI) {
-            // Android WebView: persist to IDB instead of a file
-            await writeIDBSave(data);
+    let _saveWritePromise = null;
+    let _pendingSaveJSON = null;
+    function writeSaveFile(data) {
+        _pendingSaveJSON = JSON.stringify(data, null, 2);
+        if (!_saveWritePromise) {
+            _saveWritePromise = (async () => {
+                while (_pendingSaveJSON !== null) {
+                    const json = _pendingSaveJSON;
+                    _pendingSaveJSON = null;
+                    try {
+                        if (fileHandle) {
+                            const writable = await fileHandle.createWritable();
+                            await writable.write(json);
+                            await writable.close();
+                        } else {
+                            await writeIDBSave(JSON.parse(json));
+                        }
+                    } catch(e) { console.error('Save failed:', e); }
+                }
+            })().finally(() => { _saveWritePromise = null; });
         }
+        return _saveWritePromise;
     }
 
     // === MUSIC SYSTEM ===
@@ -1460,6 +1481,7 @@
     };
 
     function applyBlockSkin(skin) {
+        if (!_skinAvailable(skin)) return;
         const owned = (saveData.ownedSkins || ['neon']).includes(skin);
         if (!owned) {
             customAlert(`This skin is not yet unlocked.<br><br>Collect <b>parts</b> from the daily gift to unlock it.`, 'NOT OWNED', true);
@@ -2543,14 +2565,14 @@
                 if (saveData.boosters['1.3x_game']) { saveData.boosters['1.25x_game'] = (saveData.boosters['1.25x_game']||0) + saveData.boosters['1.3x_game']; delete saveData.boosters['1.3x_game']; }
                 if (saveData.boosters['1.6x_game']) { saveData.boosters['1.5x_game'] = (saveData.boosters['1.5x_game']||0) + saveData.boosters['1.6x_game']; delete saveData.boosters['1.6x_game']; }
                 // Remove deprecated/removed skins from owned
-                saveData.ownedSkins = saveData.ownedSkins.filter(s => !['matrix','gold','golddragon','lava','candy','circuit','marble','fire','toxic','ice','flat','classic','glossy','metal','puffy','bordered','gloss2k','lumines','minimal'].includes(s));
+                saveData.ownedSkins = saveData.ownedSkins.filter(s => !['matrix','gold','golddragon','lava','circuit','marble','fire','toxic','ice','flat','glossy','metal','puffy','bordered','gloss2k','lumines','minimal'].includes(s));
                 // If active skin is a removed one, reset to neon
                 const _removedSkins = ['metal','puffy','bordered','gloss2k','lumines','minimal'];
                 if (_removedSkins.includes(settings.skin)) { settings.skin = 'neon'; saveSettings(); }
                 // If active skin/theme from localStorage is not in ownedSkins (e.g. file write lagged), restore ownership
                 const _validSkins = ['neon','retro','glass','shadow','outline','holo','journey','gem','bubble','gameboy','monochrome','modern','candy','vim','aerolab','classic','window'];
                 const _activeSkin = settings.skin || 'neon';
-                if (_validSkins.includes(_activeSkin) && !saveData.ownedSkins.includes(_activeSkin)) {
+                if (_skinAvailable(_activeSkin) && _validSkins.includes(_activeSkin) && !saveData.ownedSkins.includes(_activeSkin)) {
                     saveData.ownedSkins.push(_activeSkin);
                 }
                 const _validThemes = ['default','ocean','forest','fire','dragon','void','sunset','arctic','midnight','sakura'];
@@ -2662,7 +2684,7 @@
             btnOpen.onclick = async () => {
                 try {
                     const [handle] = await window.showOpenFilePicker({
-                        types: [{ description: 'Tetris Save', accept: { 'application/json': ['.json'] } }],
+                        types: [{ description: 'Linebreaker Save', accept: { 'application/json': ['.json'] } }],
                         excludeAcceptAllOption: true
                     });
                     applyLoadedData(await readSaveFile(handle));
@@ -2676,8 +2698,8 @@
             btnNew.onclick = async () => {
                 try {
                     const handle = await window.showSaveFilePicker({
-                        suggestedName: 'tetris_save.json',
-                        types: [{ description: 'Tetris Save', accept: { 'application/json': ['.json'] } }]
+                        suggestedName: 'Linebreaker_save.json',
+                        types: [{ description: 'Linebreaker Save', accept: { 'application/json': ['.json'] } }]
                     });
                     saveData = JSON.parse(JSON.stringify(defaultSaveData));
                     fileHandle = handle;
@@ -2748,7 +2770,7 @@
     function _getAllPartsItems() {
         const items = [];
         const skinNames = ['retro','glass','shadow','outline','holo','journey','gem','bubble','gameboy','monochrome','modern','candy','vim','aerolab','classic','window'];
-        skinNames.forEach(k => { if (!(saveData.ownedSkins||['neon']).includes(k)) items.push({cat:'skin',key:k}); });
+        skinNames.filter(_skinAvailable).forEach(k => { if (!(saveData.ownedSkins||['neon']).includes(k)) items.push({cat:'skin',key:k}); });
         const themeNames = ['ocean','forest','fire','dragon','void','sunset','arctic','midnight','sakura'];
         themeNames.forEach(k => { if (!(saveData.ownedThemes||[]).includes(k)) items.push({cat:'theme',key:k}); });
         // Fonts are tied to style packs — not separately unlockable via parts
@@ -2790,6 +2812,7 @@
         saveData.universalParts = Math.round(((saveData.universalParts || 0) + count) * 10) / 10;
     }
     function giveItemDirectly(cat, key) {
+        if (cat === 'skin' && !_skinAvailable(key)) return;
         if (cat === 'skin') { if (!saveData.ownedSkins) saveData.ownedSkins = ['neon']; if (!saveData.ownedSkins.includes(key)) saveData.ownedSkins.push(key); }
         else if (cat === 'theme') { if (!saveData.ownedThemes) saveData.ownedThemes = []; if (!saveData.ownedThemes.includes(key)) saveData.ownedThemes.push(key); }
         else if (cat === 'font') { if (!saveData.ownedFonts) saveData.ownedFonts = ['Orbitron']; if (!saveData.ownedFonts.includes(key)) saveData.ownedFonts.push(key); }
@@ -2802,6 +2825,7 @@
         if (saveData.parts) delete saveData.parts[key];
     }
     function playerUnlockItem(cat, key) {
+        if (cat === 'skin' && !_skinAvailable(key)) return;
         const partsHave = saveData.parts?.[key] || 0;
         if (partsHave < _getItemCost(key)) return;
         giveItemDirectly(cat, key);
@@ -3067,7 +3091,7 @@
             if (v < 1) return;
             const xpGain = v * XP_PER_PART;
             saveData.universalParts = Math.max(0, (saveData.universalParts || 0) - v);
-            saveData.totalXP = (saveData.totalXP || 0) + xpGain;
+            _grantXP(xpGain);
             document.getElementById('uni-xch-overlay')?.remove();
             drawRankBadge();
             _populateInventoryOther();
@@ -3261,7 +3285,7 @@
             // All items owned — give XP instead
             const numParts = _partsRoll();
             const xpGain = numParts * 1000;
-            saveData.totalXP += xpGain;
+            _grantXP(xpGain);
             rewards.push({ icon:'✨', label:`+${xpGain.toLocaleString()} XP`, desc:'All items collected! Parts converted to XP.', rarity:'epic' });
         }
 
@@ -3270,7 +3294,7 @@
             if (_getAllPartsItems().length === 0) {
                 // All items owned — convert universal part to XP
                 const uniXp = 5000;
-                saveData.totalXP += uniXp;
+                _grantXP(uniXp);
                 rewards.push({ icon:'✨', label:`+${uniXp.toLocaleString()} XP`, desc:'Universal Part converted to XP!', rarity:'epic' });
             } else {
                 addUniversalParts(1);
@@ -3332,14 +3356,21 @@
     }
 
     function _checkMilestoneBoxes() {
-        if (!saveData.pendingMilestoneBoxes?.length || _levelBoxShowing) return;
-        const lv = saveData.pendingMilestoneBoxes[0];
+        if ((!saveData.pendingMilestoneReward && !saveData.pendingMilestoneBoxes?.length) || _levelBoxShowing) return;
+        const lv = saveData.pendingMilestoneReward?.level || saveData.pendingMilestoneBoxes[0];
         _showMilestoneBox(lv);
     }
     function _showMilestoneBox(lv) {
         if (_levelBoxShowing) return;
         _levelBoxShowing = true;
-        const rewards = _generateLevelBoxRewards();
+        let box = saveData.pendingMilestoneReward;
+        if (!box) {
+            box = { level: lv, rewards: _generateLevelBoxRewards() };
+            saveData.pendingMilestoneReward = box;
+            saveData.pendingMilestoneBoxes.shift();
+            saveDataToFile();
+        }
+        const rewards = box.rewards;
         const overlay = document.createElement('div');
         overlay.id = 'level-box-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;z-index:3100;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
@@ -3396,12 +3427,12 @@
         const claim = () => {
             overlay.remove();
             _levelBoxShowing = false;
-            saveData.pendingMilestoneBoxes = (saveData.pendingMilestoneBoxes || []).filter(x => x !== lv);
+            saveData.pendingMilestoneReward = null;
             saveDataToFile();
             drawRankBadge();
             _populateVisualCustomize();
             // Show next pending milestone box if any
-            if (saveData.pendingMilestoneBoxes?.length) {
+            if (saveData.pendingMilestoneReward || saveData.pendingMilestoneBoxes?.length) {
                 setTimeout(() => _checkMilestoneBoxes(), 400);
             }
         };
@@ -3429,6 +3460,81 @@
         addUniversalParts(1);
         rewards.push({ icon: '⭐', label: '+1 Universal Part', desc: 'Added to your inventory', rarity: 'rare' });
         return rewards;
+    }
+
+    function _queueLevelBox(box) {
+        if (!saveData.pendingLevelBox) saveData.pendingLevelBox = box;
+        else {
+            if (!saveData.pendingLevelBoxes) saveData.pendingLevelBoxes = [];
+            saveData.pendingLevelBoxes.push(box);
+        }
+    }
+    function _grantXP(amount) {
+        const oldLevel = getLevelInfo(saveData.totalXP).level;
+        saveData.totalXP += amount;
+        _processLevelUps(oldLevel, getLevelInfo(saveData.totalXP).level);
+    }
+    function _processLevelUps(oldLevel, newLevel) {
+        // Level-up milestone rewards
+        const LEVEL_MILESTONE_REWARDS = {
+            11: [{ type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Silver milestone reward', rarity:'rare' }],
+            21: [{ type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Gold milestone reward', rarity:'rare' }],
+            31: [{ type:'skin', key:'shadow', icon:'🎨', label:'Shadow Skin', desc:'Unlocked at Emerald!', rarity:'rare' }, { type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Emerald milestone reward', rarity:'rare' }],
+            41: [{ type:'skin', key:'holo', icon:'🎨', label:'Holo Skin', desc:'Unlocked at Sapphire!', rarity:'rare' }, { type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Sapphire milestone reward', rarity:'rare' }],
+            51: [{ type:'universal_parts', amount:6, icon:'⭐', label:'+6 Universal Parts', desc:'Ruby milestone reward', rarity:'rare' }],
+            61: [{ type:'ghostColor', key:'ghostColor', icon:'👻', label:'Colored Ghost', desc:'Unlocked at Amethyst!', rarity:'epic' }, { type:'universal_parts', amount:5, icon:'⭐', label:'+5 Universal Parts', desc:'Amethyst milestone reward', rarity:'epic' }],
+            71: [{ type:'universal_parts', amount:8, icon:'⭐', label:'+8 Universal Parts', desc:'Diamond milestone reward', rarity:'legendary' }],
+            81: [{ type:'universal_parts', amount:10, icon:'⭐', label:'+10 Universal Parts', desc:'Celestite milestone reward', rarity:'legendary' }],
+        };
+        const MID_TIER_BOOSTER = {
+            5:  '1.25x_game',
+            15: '1.25x_game',
+            25: '1.5x_game',
+            35: '1.5x_game',
+            45: '1.5x_game',
+            55: '2xp_game',
+            65: '2xp_game',
+        };
+        let _levelUpRewards = [];
+        for (let lv = Math.max(oldLevel, saveData.levelRewardsThrough || oldLevel) + 1; lv <= newLevel; lv++) {
+            if (LEVEL_MILESTONE_REWARDS[lv]) {
+                LEVEL_MILESTONE_REWARDS[lv].forEach(r => {
+                    if (r.type === 'stylePack') { giveItemDirectly('stylePack', r.key); _levelUpRewards.push(r); }
+                    else if (r.type === 'skin') { giveItemDirectly('skin', r.key); _levelUpRewards.push(r); }
+                    else if (r.type === 'ghostColor') { giveItemDirectly('ghostColor', r.key); _levelUpRewards.push(r); }
+                    else if (r.type === 'universal_parts') { addUniversalParts(r.amount); _levelUpRewards.push(r); }
+                });
+            }
+            if (MID_TIER_BOOSTER[lv]) {
+                addBoosterToSave(MID_TIER_BOOSTER[lv]);
+                const bInfo = BOOSTER_INFO[MID_TIER_BOOSTER[lv]];
+                _levelUpRewards.push({ icon:'⚡', label:bInfo.label, desc:`Level ${lv} reward`, rarity: bInfo.rarity });
+            }
+            // Level box at each new rarity tier start
+            const _LEVEL_BOX_BOUNDARIES = [11, 21, 31, 41, 51, 61, 71, 81];
+            if (_LEVEL_BOX_BOUNDARIES.includes(lv)) {
+                const _boxRankInfo = { rank: RANKS[(lv - 1) / 10] || CELESTITE_RANK };
+                const _boxRewards = _generateLevelBoxRewards();
+                _queueLevelBox({ level: lv, rankName: _boxRankInfo.rank.name, rankColor: _boxRankInfo.rank.c, rewards: _boxRewards });
+            }
+            // Milestone box every 10th level (10, 20, 30, ...)
+            if (lv % 10 === 0) {
+                if (!saveData.pendingMilestoneBoxes) saveData.pendingMilestoneBoxes = [];
+                if (!saveData.pendingMilestoneBoxes.includes(lv)) saveData.pendingMilestoneBoxes.push(lv);
+            }
+        }
+        saveData.levelRewardsThrough = Math.max(saveData.levelRewardsThrough || oldLevel, newLevel);
+        if (_levelUpRewards.length > 0) {
+            setTimeout(() => _showLevelUpRewardPopup(newLevel, _levelUpRewards), 2500);
+        }
+        if (saveData.pendingLevelBox) {
+            const _boxDelay = _levelUpRewards.length > 0 ? 4500 : 2500;
+            setTimeout(() => _showLevelBox(), _boxDelay);
+        }
+        if (saveData.pendingMilestoneReward || saveData.pendingMilestoneBoxes?.length) {
+            const _mDelay = (_levelUpRewards.length > 0 ? 4500 : 2500) + (saveData.pendingLevelBox ? 2000 : 0);
+            setTimeout(() => _checkMilestoneBoxes(), _mDelay);
+        }
     }
 
     let _levelBoxShowing = false;
@@ -3504,7 +3610,8 @@
         const claim = () => {
             overlay.remove();
             _levelBoxShowing = false;
-            saveData.pendingLevelBox = null;
+            saveData.pendingLevelBox = (saveData.pendingLevelBoxes || []).shift() || null;
+            setTimeout(() => _showLevelBox(), 0);
             saveDataToFile();
             drawRankBadge();
             _populateVisualCustomize();
@@ -3520,7 +3627,9 @@
         if (choice) {
             const input = prompt("Enter total XP:", saveData.totalXP);
             if (input !== null && !isNaN(input) && input.trim() !== '') {
+                const oldLevel = getLevelInfo(saveData.totalXP).level;
                 saveData.totalXP = Math.max(0, parseInt(input));
+                _processLevelUps(oldLevel, getLevelInfo(saveData.totalXP).level);
                 saveDataToFile(); drawRankBadge();
                 customAlert(`XP set to ${saveData.totalXP}`, 'DEV MODE');
             }
@@ -3538,7 +3647,9 @@
                     const celestiteCost = 24000;
                     while (lvl < targetLevel - 1) { xp += celestiteCost; lvl++; }
                 }
+                const oldLevel = getLevelInfo(saveData.totalXP).level;
                 saveData.totalXP = xp;
+                _processLevelUps(oldLevel, getLevelInfo(saveData.totalXP).level);
                 saveDataToFile(); drawRankBadge();
                 customAlert(`Level set to ${targetLevel} (XP: ${xp})`, 'DEV MODE');
             }
@@ -3723,8 +3834,8 @@
         // Items Collected (X / Y)
         const bestXpEl = document.getElementById('stat-best-xp');
         if (bestXpEl) {
-            const _ownedSkins = (saveData.ownedSkins || ['neon']).length;
-            const _totalSkins = 17;
+            const _ownedSkins = (saveData.ownedSkins || ['neon']).filter(_skinAvailable).length;
+            const _totalSkins = _devMode ? 17 : 8;
             const _ownedThemes = (saveData.ownedThemes || []).length + 1; // +1 for default
             const _totalThemes = Object.keys(THEMES).length;
             const _ownedGrid = (saveData.ownedGridStyles || []).length + 1; // +1 for lines (free)
@@ -4267,8 +4378,8 @@
         const ownedSkinContainer = document.getElementById('owned-skin-btns');
         if (ownedSkinContainer) {
             const skinNames = { neon:'Neon', retro:'Retro', glass:'Glass', shadow:'Shadow', outline:'Outline', holo:'Holo', journey:'Journey', gem:'Gem', bubble:'Bubble (test)', gameboy:'Gameboy (test)', monochrome:'Monochrome (test)', modern:'Modern (test)', candy:'Candy (test)', vim:'Vim (test)', aerolab:'Aerolab (test)', classic:'Classic (test)', window:'Window (test)' };
-            const ownedSkins = (saveData.ownedSkins || ['neon']).filter(s => !['matrix','gold','golddragon','lava','candy','circuit','marble','fire','toxic'].includes(s));
-            const allSkinKeys = Object.keys(skinNames);
+            const ownedSkins = (saveData.ownedSkins || ['neon']).filter(_skinAvailable).filter(s => !['matrix','gold','golddragon','lava','circuit','marble','fire','toxic'].includes(s));
+            const allSkinKeys = Object.keys(skinNames).filter(_skinAvailable);
             const skinCountEl = document.getElementById('skin-owned-count');
             if (skinCountEl) skinCountEl.innerText = `(${ownedSkins.length}/${allSkinKeys.length})`;
             const rows = allSkinKeys.map(s => {
@@ -5154,22 +5265,29 @@
 
     const _SK = ['T','e','t','R','P','G','_','x','4','K','9','#','m','Q','2','$','v','L','5','@','n','P','8','!','w','R','3','&','z','J','6','%'].join('');
     function _encSave(s) {
+        const bytes = new TextEncoder().encode(s);
         let o = '';
-        for (let i = 0; i < s.length; i++) o += String.fromCharCode(s.charCodeAt(i) ^ _SK.charCodeAt(i % _SK.length));
-        return 'TRPG1:' + btoa(o);
+        for (let i = 0; i < bytes.length; i++) o += String.fromCharCode(bytes[i] ^ _SK.charCodeAt(i % _SK.length));
+        return 'TRPG2:' + btoa(o);
     }
     function _decSave(s) {
-        if (!s.startsWith('TRPG1:')) return null;
-        let d; try { d = atob(s.slice(6)); } catch(e) { return null; }
-        let o = '';
-        for (let i = 0; i < d.length; i++) o += String.fromCharCode(d.charCodeAt(i) ^ _SK.charCodeAt(i % _SK.length));
-        return o;
+        if (!s.startsWith('TRPG1:') && !s.startsWith('TRPG2:')) return null;
+        try {
+            const d = atob(s.slice(6));
+            const bytes = Uint8Array.from(d, (c, i) => c.charCodeAt(0) ^ _SK.charCodeAt(i % _SK.length));
+            if (s.startsWith('TRPG2:')) return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+            return Array.from(bytes, b => String.fromCharCode(b)).join('');
+        } catch(e) { return null; }
     }
 
     async function startExportProcess() {
-        const tetrisFile = _encSave(JSON.stringify({ version: 3, data: saveData }, null, 2));
-        downloadFile('TetrisRPG_Save.tetris', tetrisFile);
-        customAlert("Save file (.tetris) downloaded. Your progress was NOT reset.", "EXPORT SUCCESS", false);
+        try {
+            const saveFile = _encSave(JSON.stringify({ version: 3, data: saveData }, null, 2));
+            downloadFile('Linebreaker_Save.lbsave', saveFile);
+            customAlert('Save file (.lbsave) downloaded. Your progress was NOT reset.', 'EXPORT SUCCESS', false);
+        } catch(e) {
+            customAlert('Could not export your save. Please try again.', 'EXPORT ERROR', false);
+        }
     }
 
     function handleFileImport(event) {
@@ -6768,7 +6886,7 @@
                     let totalXpGained = 0;
                     const claims = [...saveData.pendingAchievementClaims];
                     saveData.pendingAchievementClaims = [];
-                    claims.forEach(c => { saveData.totalXP += c.xp; totalXpGained += c.xp; });
+                    claims.forEach(c => { _grantXP(c.xp); totalXpGained += c.xp; });
                     playSFX('unlock');
                     // Floating text for total
                     const rect = claimAllBtn.getBoundingClientRect();
@@ -6795,7 +6913,7 @@
                 claimBtn.style.cssText = `font-size:0.5rem;padding:4px 10px;min-height:unset;background:${rc.color}18;border:1px solid ${rc.color}60;color:${rc.color};cursor:pointer;border-radius:5px;font-weight:bold;letter-spacing:1px;`;
                 claimBtn.textContent = 'CLAIM';
                 claimBtn.addEventListener('click', () => {
-                    saveData.totalXP += claim.xp;
+                    _grantXP(claim.xp);
                     saveData.pendingAchievementClaims.splice(idx, 1);
                     playSFX('unlock');
                     // Floating text
@@ -7778,7 +7896,7 @@
         if (saveData.pendingLevelBox && !_levelBoxShowing && !document.getElementById('level-box-overlay')) {
             setTimeout(() => _showLevelBox(), 600);
         }
-        if (saveData.pendingMilestoneBoxes?.length && !_levelBoxShowing && !document.getElementById('level-box-overlay')) {
+        if ((saveData.pendingMilestoneReward || saveData.pendingMilestoneBoxes?.length) && !_levelBoxShowing && !document.getElementById('level-box-overlay')) {
             setTimeout(() => _checkMilestoneBoxes(), saveData.pendingLevelBox ? 2000 : 600);
         }
     }
@@ -7904,7 +8022,7 @@
     let _lastPlacedTime=0;
     let timeInterval;
     let speedLevel=1, linesClearedThisGame=0, blocksPlacedThisGame=0, _surgeonLinesThisGame=0, _highStackBlocksThisGame=0;
-    let xpFromBlocksThisGame=0, xpFromLinesThisGame=0;
+    let xpFromBlocksThisGame=0, xpFromLinesThisGame=0, rawGameplayXPThisGame=0;
     let _gameOverProtect = false;
     // Mission tracking per game
     let _mq_hatTrickDone = false;
@@ -7991,7 +8109,7 @@
             }
             c.restore(); return;
         }
-        const skin = settings.skin || 'neon';
+        const skin = _renderSkin();
         if (blockShape !== 'square') {
             c.save();
             c.beginPath();
@@ -8209,9 +8327,9 @@
             player.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v)drawGameBlock(ctx,player.pos.x+x,gY+y,v,BLOCK,true)}));}
             player.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v)drawGameBlock(ctx,player.pos.x+x,player.pos.y+y,v,BLOCK)}));
         }
-        particles.forEach((p,i)=>{p.update();p.draw(ctx);if(p.life<=0)particles.splice(i,1)});
-        shockwaves.forEach((s,i)=>{s.update();s.draw(ctx);if(s.l<=0)shockwaves.splice(i,1)});
-        floatingTexts.forEach((ft,i)=>{ft.update();ft.draw(ctx);if(ft.l<=0)floatingTexts.splice(i,1)});
+        for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.update(); p.draw(ctx); if (p.l <= 0) particles.splice(i, 1); }
+        for (let i = shockwaves.length - 1; i >= 0; i--) { const s = shockwaves[i]; s.update(); s.draw(ctx); if (s.l <= 0) shockwaves.splice(i, 1); }
+        for (let i = floatingTexts.length - 1; i >= 0; i--) { const ft = floatingTexts[i]; ft.update(); ft.draw(ctx); if (ft.l <= 0) floatingTexts.splice(i, 1); }
 
         if(isAnimating&&animatingLines.length){ctx.fillStyle="rgba(255,255,255,.8)";ctx.shadowBlur=20;ctx.shadowColor="#fff";animatingLines.forEach(y=>ctx.fillRect(0,y*BLOCK,canvas.width,BLOCK));ctx.shadowBlur=0;}
         ctx.restore()
@@ -8380,6 +8498,7 @@
         const _cnt60 = _blockTimestampsThisGame.filter(t => t >= gameTime - 60).length;
         if (_cnt60 > _maxBlocksIn60sThisGame) _maxBlocksIn60sThisGame = _cnt60;
         let pts = Math.floor(1 * SPEED_MULTIPLIERS[speedLevel-1]);
+        rawGameplayXPThisGame += pts;
         const _bPts = Math.round(pts * currentScoreMultiplier);
         xpFromBlocksThisGame += _bPts; score += _bPts; _spawnScoreFly(_bPts); updateUI();
         // Let It Stack: 30+ placements without a line clear
@@ -8423,7 +8542,7 @@
         if (holdPiece) _loyalPieceCounter++; else _loyalPieceCounter = 0;
     }
     const _LINE_PTS = [0, 10, 20, 30, 40];
-    const _CLEAR_LABELS = ['', '', 'Double Clear', 'Triple Clear', 'TETRIS!'];
+    const _CLEAR_LABELS = ['', '', 'Double Clear', 'Triple Clear', 'QUAD!'];
     const _COMBO_COLORS = { 2: '#ffaa44', 3: '#ffdd22', 4: '#22ffaa', 5: '#00eeff', 6: '#aa44ff', 7: '#ff44ff', default: '#ff2222' };
     function _getComboColor(n) { return _COMBO_COLORS[Math.min(n, 7)] || _COMBO_COLORS.default; }
 
@@ -8540,6 +8659,7 @@
                 for(let i=0;i<lR;i++)newB.unshift(Array(COLS).fill(0));board=newB;
 
                 const basePts = _LINE_PTS[lR] || lR * 10;
+                rawGameplayXPThisGame += Math.floor(basePts * SPEED_MULTIPLIERS[speedLevel-1]);
                 let actualPts = Math.round(Math.floor(basePts * SPEED_MULTIPLIERS[speedLevel-1]) * currentScoreMultiplier);
                 xpFromLinesThisGame += actualPts; score += actualPts; _spawnScoreFly(actualPts); linesClearedThisGame+=lR;
                 playSFX('clear');
@@ -8563,6 +8683,7 @@
                 ftY += 22;
                 // Combo display (starting at combo 2)
                 if (_comboCount >= 2) {
+                    rawGameplayXPThisGame += (_comboCount - 1) * 10;
                     const comboBonus = Math.round((_comboCount - 1) * 10 * currentScoreMultiplier);
                     score += comboBonus; xpFromLinesThisGame += comboBonus; _spawnScoreFly(comboBonus);
                     const cColor = _getComboColor(_comboCount);
@@ -8873,65 +8994,7 @@
             }
         }
 
-        // Level-up milestone rewards
-        const LEVEL_MILESTONE_REWARDS = {
-            11: [{ type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Silver milestone reward', rarity:'rare' }],
-            21: [{ type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Gold milestone reward', rarity:'rare' }],
-            31: [{ type:'skin', key:'shadow', icon:'🎨', label:'Shadow Skin', desc:'Unlocked at Emerald!', rarity:'rare' }, { type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Emerald milestone reward', rarity:'rare' }],
-            41: [{ type:'skin', key:'holo', icon:'🎨', label:'Holo Skin', desc:'Unlocked at Sapphire!', rarity:'rare' }, { type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Sapphire milestone reward', rarity:'rare' }],
-            51: [{ type:'universal_parts', amount:6, icon:'⭐', label:'+6 Universal Parts', desc:'Ruby milestone reward', rarity:'rare' }],
-            61: [{ type:'ghostColor', key:'ghostColor', icon:'👻', label:'Colored Ghost', desc:'Unlocked at Amethyst!', rarity:'epic' }, { type:'universal_parts', amount:5, icon:'⭐', label:'+5 Universal Parts', desc:'Amethyst milestone reward', rarity:'epic' }],
-            71: [{ type:'universal_parts', amount:8, icon:'⭐', label:'+8 Universal Parts', desc:'Diamond milestone reward', rarity:'legendary' }],
-            81: [{ type:'universal_parts', amount:10, icon:'⭐', label:'+10 Universal Parts', desc:'Celestite milestone reward', rarity:'legendary' }],
-        };
-        const MID_TIER_BOOSTER = {
-            5:  '1.25x_game',
-            15: '1.25x_game',
-            25: '1.5x_game',
-            35: '1.5x_game',
-            45: '1.5x_game',
-            55: '2xp_game',
-            65: '2xp_game',
-        };
-        let _levelUpRewards = [];
-        for (let lv = _lvlBefore + 1; lv <= _lvlAfter; lv++) {
-            if (LEVEL_MILESTONE_REWARDS[lv]) {
-                LEVEL_MILESTONE_REWARDS[lv].forEach(r => {
-                    if (r.type === 'stylePack') { giveItemDirectly('stylePack', r.key); _levelUpRewards.push(r); }
-                    else if (r.type === 'skin') { giveItemDirectly('skin', r.key); _levelUpRewards.push(r); }
-                    else if (r.type === 'ghostColor') { giveItemDirectly('ghostColor', r.key); _levelUpRewards.push(r); }
-                    else if (r.type === 'universal_parts') { addUniversalParts(r.amount); _levelUpRewards.push(r); }
-                });
-            }
-            if (MID_TIER_BOOSTER[lv]) {
-                addBoosterToSave(MID_TIER_BOOSTER[lv]);
-                const bInfo = BOOSTER_INFO[MID_TIER_BOOSTER[lv]];
-                _levelUpRewards.push({ icon:'⚡', label:bInfo.label, desc:`Level ${lv} reward`, rarity: bInfo.rarity });
-            }
-            // Level box at each new rarity tier start
-            const _LEVEL_BOX_BOUNDARIES = [11, 21, 31, 41, 51, 61, 71, 81];
-            if (_LEVEL_BOX_BOUNDARIES.includes(lv)) {
-                const _boxRankInfo = getLevelInfo(saveData.totalXP);
-                const _boxRewards = _generateLevelBoxRewards();
-                saveData.pendingLevelBox = { level: lv, rankName: _boxRankInfo.rank.name, rankColor: _boxRankInfo.rank.c, rewards: _boxRewards };
-            }
-            // Milestone box every 10th level (10, 20, 30, ...)
-            if (lv % 10 === 0) {
-                if (!saveData.pendingMilestoneBoxes) saveData.pendingMilestoneBoxes = [];
-                if (!saveData.pendingMilestoneBoxes.includes(lv)) saveData.pendingMilestoneBoxes.push(lv);
-            }
-        }
-        if (_levelUpRewards.length > 0) {
-            setTimeout(() => _showLevelUpRewardPopup(_lvlAfter, _levelUpRewards), 2500);
-        }
-        if (saveData.pendingLevelBox) {
-            const _boxDelay = _levelUpRewards.length > 0 ? 4500 : 2500;
-            setTimeout(() => _showLevelBox(), _boxDelay);
-        }
-        if (saveData.pendingMilestoneBoxes?.length) {
-            const _mDelay = (_levelUpRewards.length > 0 ? 4500 : 2500) + (saveData.pendingLevelBox ? 2000 : 0);
-            setTimeout(() => _checkMilestoneBoxes(), _mDelay);
-        }
+        _processLevelUps(_lvlBefore, _lvlAfter);
         saveData.stats.gamesPlayed++; saveData.stats.totalTimePlayed+=gameTime; saveData.stats.totalBlocksPlaced+=blocksPlacedThisGame; saveData.stats.totalLinesCleared+=linesClearedThisGame;
         saveData.stats.totalScore = (saveData.stats.totalScore || 0) + Math.round(score);
         saveData.stats.surgeonLines = (saveData.stats.surgeonLines || 0) + _surgeonLinesThisGame;
@@ -8977,7 +9040,7 @@
         // mirror_score tracking
         if (settings.optMirror && score > (saveData.stats.bestMirrorScore || 0)) saveData.stats.bestMirrorScore = Math.round(score);
         // daily_xp tracking
-        { const _today = new Date().toISOString().split('T')[0]; if (saveData.stats.dailyXPDate !== _today) { saveData.stats.dailyXPDate = _today; saveData.stats.dailyXPAmount = 0; } saveData.stats.dailyXPAmount = (saveData.stats.dailyXPAmount || 0) + finalXP; if (saveData.stats.dailyXPAmount > (saveData.stats.bestDailyXP || 0)) saveData.stats.bestDailyXP = saveData.stats.dailyXPAmount; }
+        { const _today = _missionDateKey(); if (saveData.stats.dailyXPDate !== _today) { saveData.stats.dailyXPDate = _today; saveData.stats.dailyXPAmount = 0; } saveData.stats.dailyXPAmount = (saveData.stats.dailyXPAmount || 0) + rawGameplayXPThisGame; if (saveData.stats.dailyXPAmount > (saveData.stats.bestDailyXP || 0)) saveData.stats.bestDailyXP = saveData.stats.dailyXPAmount; }
         // loyal_piece tracking - save best
         if (_loyalPieceCounter > (saveData.stats.bestLoyalPiece || 0)) saveData.stats.bestLoyalPiece = _loyalPieceCounter;
         // --- END NEW ACHIEVEMENT TRACKING ---
@@ -9042,7 +9105,7 @@
         const originalXP = gainedXPThisRound;
         const bonus = Math.round(originalXP * (mult - 1));
         gainedXPThisRound += bonus;
-        saveData.totalXP += bonus;
+        _grantXP(bonus);
         document.getElementById('go-total-xp').innerText = gainedXPThisRound + ' XP';
         _renderGoBoostRow(gainedXPThisRound);
         animateXPGain();
@@ -9077,7 +9140,7 @@
         const overlay = document.getElementById('start-animation-overlay');
         const container = document.getElementById('start-text-container');
         overlay.classList.remove('hidden');
-        const letters = "TETRIS".split(""); let html = ""; let lastColor = 0;
+        const letters = "LINEBREAKER".split(""); let html = ""; let lastColor = 0;
         for (let l of letters) {
             let c; do { c = Math.floor(Math.random() * 7) + 1; } while (c === lastColor);
             lastColor = c; html += `<span style="color: ${COLORS[c]}">${l}</span>`;
@@ -9158,7 +9221,7 @@
         if (_gc) _gc.style.transform = settings.optMirror ? 'scaleY(-1)' : '';
         isPaused=true;isGameOver=false; score=0;gameTime=0;particles=[];shockwaves=[];pieceBag=[];_nextQueue=[];floatingTexts=[];lastPieceColor=0;
         currentScoreMultiplier = currentGameMode === 'fun' ? 1.0 : Math.max(0.1, _calcModeXpMult());
-        speedLevel=1;linesClearedThisGame=0;blocksPlacedThisGame=0; _surgeonLinesThisGame=0; _highStackBlocksThisGame=0; xpFromBlocksThisGame=0; xpFromLinesThisGame=0; dropInterval=1000;
+        speedLevel=1;linesClearedThisGame=0;blocksPlacedThisGame=0; _surgeonLinesThisGame=0; _highStackBlocksThisGame=0; xpFromBlocksThisGame=0; xpFromLinesThisGame=0; rawGameplayXPThisGame=0; dropInterval=1000;
         _quadraKillThisGame = false;
         _nextPieceType = 0; _currentPieceType = 0;
         _maxLineStreakThisGame = 0; _currentLineStreak = 0;
@@ -9714,10 +9777,17 @@
         };
     }
     function _missionDateKey() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
-    function _missionWeekKey() {
+    function _legacyMissionWeekKey() {
         const d = new Date(); const jan1 = new Date(d.getFullYear(), 0, 1);
         const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
         return `${d.getFullYear()}-W${week}`;
+    }
+    function _missionWeekKey(date = new Date()) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+        const year = d.getUTCFullYear();
+        const week = Math.ceil(((d - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7);
+        return `${year}-W${String(week).padStart(2, '0')}`;
     }
     const _MISSION_RANK_MULTS = [1.00, 1.20, 1.40, 1.60, 1.80, 2.00, 2.20, 2.40, 2.60];
     function _missionRankMult() {
@@ -9757,6 +9827,10 @@
         for (let i = BOUNDS.length - 1; i >= 0; i--) { if (lv >= BOUNDS[i]) { rank = i; break; } }
         return THRESHOLDS[rank] || 50;
     }
+    function _missionTarget(q, mult) {
+        const rankMult = ['maxSpeed', 'maxCombo'].includes(q.metric) ? 1 : mult;
+        return _applyVariation(q.target * rankMult);
+    }
     function _generateDailyQuests() {
         const mult = _missionRankMult();
         const byTier = t => DAILY_QUEST_POOL.filter(q => q.tier === t);
@@ -9774,7 +9848,7 @@
                 const q = pools[tier][idx[tier]++];
                 used.add(q.id);
                 usedMetrics.add(q.metric);
-                const scaled = _applyVariation(q.target * mult);
+                const scaled = _missionTarget(q, mult);
                 quests.push({ ...q, target: scaled, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(q.metric, q.desc, scaled) });
             }
         }
@@ -9785,7 +9859,7 @@
             if (sq) {
                 const displayTier = Math.random() < 0.5 ? 'normal' : 'hard';
                 // Secret quest targets are mostly 1 (binary), apply variation only to non-binary
-                const scaledTarget = sq.target > 1 ? _applyVariation(sq.target * mult) : sq.target;
+                const scaledTarget = sq.target > 1 ? _missionTarget(sq, mult) : sq.target;
                 secret = { ...sq, target: scaledTarget, progress: 0, completed: false, ptsClaimed: false, displayTier };
             }
         }
@@ -9807,7 +9881,7 @@
                 const m = pools[tier][idx[tier]++];
                 used.add(m.id);
                 usedMetrics.add(m.metric);
-                const _scaledT = _applyVariation(m.target * mult);
+                const _scaledT = _missionTarget(m, mult);
                 missions.push({ ...m, target: _scaledT, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(m.metric, m.desc, _scaledT) });
             }
         }
@@ -9880,7 +9954,14 @@
         const today = _missionDateKey();
         const thisWeek = _missionWeekKey();
         let changed = false;
+        let recovered = false;
+        if (!m.weekly.isoWeekKey && m.weekly.weekKey === _legacyMissionWeekKey()) {
+            m.weekly.weekKey = thisWeek;
+            m.weekly.isoWeekKey = true;
+            changed = true;
+        }
         if (m.daily.lastRefreshDate !== today) {
+            recovered = _autoClaimMissions(false) || recovered;
             // Check "Lazy or Lucky?" badge before daily reset
             { const _tryU = id => { if (!saveData.achievements?.[id]?.unlocked) unlockAchievement(id); };
               const _regDone = m.daily.quests?.filter(q => q.completed).length || 0;
@@ -9893,13 +9974,15 @@
             if (diff === 1 && (m.daily.rawXPToday || 0) >= _xpThresh) {
                 m.streaks.daily++;
                 if (m.streaks.daily > (m.streaks.bestDaily || 0)) m.streaks.bestDaily = m.streaks.daily;
-            } else if (diff > 1) { m.streaks.daily = 0; }
+            } else if (diff >= 1) { m.streaks.daily = 0; }
             const { quests, secret } = _generateDailyQuests();
             m.daily = { quests, secret, lastRefreshDate: today, changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: true, rawXPToday: 0 };
             if (m.specialBox) m.specialBox.excessTracked = 0;
             changed = true;
         }
+        if (!m.weekly.isoWeekKey) { m.weekly.isoWeekKey = true; changed = true; }
         if (m.weekly.weekKey !== thisWeek) {
+            recovered = _autoClaimMissions(true) || recovered;
             // Check week-end badges before weekly reset
             { const _tryU = id => { if (!saveData.achievements?.[id]?.unlocked) unlockAchievement(id); };
               const wm = m.weekly.missions || [];
@@ -9914,10 +9997,11 @@
               if (_allWeeklyDone && (m.weekly.dailyAllCompleteCount || 0) >= 7) _tryU('mq_all_cleared');
             }
             const missions = _generateWeeklyMissions();
-            m.weekly = { missions, weekKey: thisWeek, changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, daysPlayedThisWeek: {}, dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0, hitAnyMilestone: false, dailyAllCompleteCount: 0, dailyAllCompleteDate: '' };
+            m.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, daysPlayedThisWeek: {}, dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0, hitAnyMilestone: false, dailyAllCompleteCount: 0, dailyAllCompleteDate: '' };
             changed = true;
         }
         if (changed) saveDataToFile();
+        if (recovered) customAlert('Unclaimed rewards from the last day/week were added.', 'REWARDS ADDED');
     }
 
     function _resetMissionGameTracking() {
@@ -10280,7 +10364,7 @@
             const starCol = isGolden ? '#ffcc44' : '#2a2a3a';
             const starFilter = isGolden ? 'filter:drop-shadow(0 0 6px rgba(255,204,68,0.55));' : '';
             const starSvg = `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="${starCol}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
-            return `<div class="mq-pb-icon-wrap" style="left:${gPct}%;top:10px;"><span class="mq-star-tip" data-mqctip="175+ pts: earn +1 Universal Part per extra point" style="${starFilter}cursor:help;display:block;">${starSvg}</span></div>`;
+            return `<div class="mq-pb-icon-wrap" style="left:${gPct}%;top:10px;"><span class="mq-star-tip" data-mqctip="${MQ_WEEKLY_GOLDEN_THRESHOLD}+ pts: earn +1 Universal Part per extra point" style="${starFilter}cursor:help;display:block;">${starSvg}</span></div>`;
         })() : '';
         const ptsColor = isGolden ? '#ffcc44' : (isWeekly ? '#ffcc44' : '#4499ff');
         const ptsDimColor = isWeekly ? '#664400' : '#223355';
@@ -10466,7 +10550,17 @@
                 ${!xpDone ? `<div style="font-size:0.42rem;color:#555;margin-top:5px;">Hit ${xpThresh} XP to keep your streak alive</div>` : ''}
             </div>
             </div>
-            <div id="mq-bonus-box" style="padding:14px 16px;background:rgba(255,204,68,0.04);border:1px solid rgba(255,204,68,0.2);border-radius:10px;transition:box-shadow 0.3s,border-color 0.3s;">
+            <button id="mq-change-toggle" class="mq-change-toggle${window._mqChangeMode ? ' mq-change-toggle--active' : ''}" ${(tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) && !window._mqChangeMode ? 'disabled' : ''} onclick="event.stopPropagation();window._toggleChangeMode()">
+                <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 20.75C10.08 20.75 8.23 19.99 6.87 18.63C5.51 17.27 4.75 15.42 4.75 13.5C4.75 11.58 5.51 9.73 6.87 8.37C8.23 7.01 10.08 6.25 12 6.25H14.5C14.9 6.25 15.25 6.6 15.25 7C15.25 7.4 14.9 7.75 14.5 7.75H12C10.86 7.75 9.75 8.09 8.81 8.72C7.86 9.35 7.12 10.25 6.69 11.3C6.25 12.35 6.14 13.51 6.36 14.62C6.58 15.74 7.13 16.76 7.93 17.57C8.74 18.37 9.76 18.92 10.88 19.14C11.99 19.36 13.15 19.25 14.2 18.81C15.25 18.38 16.15 17.64 16.78 16.69C17.41 15.75 17.75 14.64 17.75 13.5C17.75 13.1 18.1 12.75 18.5 12.75C18.9 12.75 19.25 13.1 19.25 13.5C19.25 15.42 18.48 17.26 17.12 18.62C15.76 19.98 13.92 20.75 12 20.75Z"/><path d="M12 10.75C11.6 10.75 11.25 10.4 11.25 10C11.25 9.8 11.33 9.61 11.47 9.47L13.94 7L11.47 4.53C11.18 4.24 11.18 3.76 11.47 3.47C11.76 3.18 12.24 3.18 12.53 3.47L15.53 6.47C15.67 6.61 15.75 6.8 15.75 7C15.75 7.2 15.67 7.39 15.53 7.53L12.53 10.53C12.39 10.67 12.2 10.75 12 10.75Z"/></svg>
+                    ${window._mqChangeMode ? 'CANCEL SWAP' : (tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) ? 'SWAP USED' : 'SWAP QUEST'}
+                </div>
+                <div style="font-size:0.42rem;letter-spacing:0.06em;font-weight:normal;opacity:0.5;margin-top:2px;">once per ${tab === 'weekly' ? 'week' : 'day'}</div>
+            </button>`;
+        const streakPanelEl = document.getElementById('mq-streak-panel');
+        if (streakPanelEl) streakPanelEl.innerHTML = streakPanelHtml;
+
+        const bonusBoxHtml = `            <div id="mq-bonus-box" style="padding:14px 16px;background:rgba(255,204,68,0.04);border:1px solid rgba(255,204,68,0.2);border-radius:10px;transition:box-shadow 0.3s,border-color 0.3s;">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                     <span style="line-height:0;flex-shrink:0;"><svg viewBox="0 0 24 24" width="22" height="22" fill="white" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 3.66333L20.25 7.7398V17.01L12 21.0865L3.75 17.01V7.7398L12 3.66333ZM5.25 9.41292V16.078L11.25 19.0427V12.3776L5.25 9.41292ZM12.75 12.3776V19.0427L18.75 16.078V9.41292L16.5 10.5247V13.4999L15 14.2499V11.2659L12.75 12.3776ZM17.807 8.20577L15.8527 9.17139C15.8099 9.13606 15.7624 9.10498 15.7106 9.07908L10.1015 6.27454L12 5.33645L17.807 8.20577ZM8.41452 7.1081L14.1871 9.9944L12 11.0751L6.19304 8.20577L8.41452 7.1081Z"/></svg></span>
                     <div style="flex:1;">
@@ -10478,16 +10572,7 @@
                     <div style="height:100%;width:${sbPct}%;background:linear-gradient(90deg,#aa8800,#ffcc44);transition:width 0.4s;"></div>
                 </div>
             </div>
-            <button id="mq-change-toggle" class="mq-change-toggle${window._mqChangeMode ? ' mq-change-toggle--active' : ''}" ${(tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) && !window._mqChangeMode ? 'disabled' : ''} onclick="event.stopPropagation();window._toggleChangeMode()">
-                <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 20.75C10.08 20.75 8.23 19.99 6.87 18.63C5.51 17.27 4.75 15.42 4.75 13.5C4.75 11.58 5.51 9.73 6.87 8.37C8.23 7.01 10.08 6.25 12 6.25H14.5C14.9 6.25 15.25 6.6 15.25 7C15.25 7.4 14.9 7.75 14.5 7.75H12C10.86 7.75 9.75 8.09 8.81 8.72C7.86 9.35 7.12 10.25 6.69 11.3C6.25 12.35 6.14 13.51 6.36 14.62C6.58 15.74 7.13 16.76 7.93 17.57C8.74 18.37 9.76 18.92 10.88 19.14C11.99 19.36 13.15 19.25 14.2 18.81C15.25 18.38 16.15 17.64 16.78 16.69C17.41 15.75 17.75 14.64 17.75 13.5C17.75 13.1 18.1 12.75 18.5 12.75C18.9 12.75 19.25 13.1 19.25 13.5C19.25 15.42 18.48 17.26 17.12 18.62C15.76 19.98 13.92 20.75 12 20.75Z"/><path d="M12 10.75C11.6 10.75 11.25 10.4 11.25 10C11.25 9.8 11.33 9.61 11.47 9.47L13.94 7L11.47 4.53C11.18 4.24 11.18 3.76 11.47 3.47C11.76 3.18 12.24 3.18 12.53 3.47L15.53 6.47C15.67 6.61 15.75 6.8 15.75 7C15.75 7.2 15.67 7.39 15.53 7.53L12.53 10.53C12.39 10.67 12.2 10.75 12 10.75Z"/></svg>
-                    ${window._mqChangeMode ? 'CANCEL SWAP' : (tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) ? 'SWAP USED' : 'SWAP QUEST'}
-                </div>
-                <div style="font-size:0.42rem;letter-spacing:0.06em;font-weight:normal;opacity:0.5;margin-top:2px;">once per ${tab === 'weekly' ? 'week' : 'day'}</div>
-            </button>`;
-        const streakPanelEl = document.getElementById('mq-streak-panel');
-        if (streakPanelEl) streakPanelEl.innerHTML = streakPanelHtml;
-
+`;
         let bodyHtml = '';
         if (tab === 'daily') {
             const pts = m.daily.pointsToday || 0;
@@ -10546,6 +10631,8 @@
                 _exitEl.addEventListener('animationend', () => _exitEl.remove(), { once: true });
             }
             body.innerHTML = bodyHtml;
+            const cards = body.querySelector('.mq-cards');
+            if (cards) cards.insertAdjacentHTML('beforeend', bonusBoxHtml);
             if (_isTabSwitch) {
                 const _inClass = tab === 'weekly' ? 'mq-tab-in-right' : 'mq-tab-in-left';
                 body.classList.remove('mq-tab-in-right', 'mq-tab-in-left');
@@ -10579,18 +10666,18 @@
             const isNew = b.dataset.tab === 'daily' ? !!m.daily.newVisit : !!m.weekly.newVisit;
             b.classList.toggle('mq-tab-new', isNew);
             // Dim tab buttons in swap mode so user knows they're locked
-            b.style.opacity = window._mqChangeMode ? '0.3' : '';
+            b.classList.toggle('mq-swap-disabled', !!window._mqChangeMode);
             b.style.pointerEvents = window._mqChangeMode ? 'none' : '';
         });
         // Dim BACK button in swap mode
         const backBtn = el.querySelector('.btn-back');
         if (backBtn) {
-            backBtn.style.opacity = window._mqChangeMode ? '0.3' : '';
+            backBtn.classList.toggle('mq-swap-disabled', !!window._mqChangeMode);
             backBtn.style.pointerEvents = window._mqChangeMode ? 'none' : '';
         }
         const rulesBtn = el.querySelector('.mq-v4-rules');
         if (rulesBtn) {
-            rulesBtn.style.opacity = window._mqChangeMode ? '0.3' : '';
+            rulesBtn.classList.toggle('mq-swap-disabled', !!window._mqChangeMode);
             rulesBtn.style.pointerEvents = window._mqChangeMode ? 'none' : '';
         }
         _updateMissionCountdown();
@@ -10714,7 +10801,7 @@
                     const pool = _shuffleArr(WEEKLY_MISSION_POOL.filter(p => p.tier === tier && !existingIds.has(p.id)));
                     if (!pool.length) return;
                     const mult = _missionRankMult();
-                    const _ct = _niceRound(pool[0].target * mult);
+                    const _ct = _niceRound(pool[0].target * (['maxSpeed', 'maxCombo'].includes(pool[0].metric) ? 1 : mult));
                     missions[idx] = { ...pool[0], target: _ct, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(pool[0].metric, pool[0].desc, _ct) };
                     m.weekly.changeUsed = true;
                 } else {
@@ -10730,7 +10817,7 @@
                     const pool = _shuffleArr(DAILY_QUEST_POOL.filter(p => p.tier === tier && !existingIds.has(p.id)));
                     if (!pool.length) return;
                     const mult = _missionRankMult();
-                    const _ct = _niceRound(pool[0].target * mult);
+                    const _ct = _niceRound(pool[0].target * (['maxSpeed', 'maxCombo'].includes(pool[0].metric) ? 1 : mult));
                     quests[idx] = { ...pool[0], target: _ct, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(pool[0].metric, pool[0].desc, _ct) };
                     m.daily.changeUsed = true;
                 }
@@ -10741,7 +10828,31 @@
         );
     };
 
-    window._claimMissionMilestone = function(pts, isWeekly) {
+    function _autoClaimMissions(isWeekly) {
+        const m = saveData.missions;
+        const period = isWeekly ? m.weekly : m.daily;
+        const quests = isWeekly ? (period.missions || []) : [...(period.quests || []), period.secret].filter(Boolean);
+        let recovered = false;
+        quests.forEach(q => {
+            if (q.completed && !q.ptsClaimed) {
+                window._claimQuestPts(q.id, isWeekly, null, null, true);
+                recovered = true;
+            }
+        });
+        (isWeekly ? MQ_WEEKLY_MILESTONES : MQ_DAILY_MILESTONES).forEach(ms => {
+            if ((isWeekly ? period.points : period.pointsToday) >= ms.pts && !period.claimedMilestones.includes(ms.pts)) {
+                window._claimMissionMilestone(ms.pts, isWeekly, true);
+                recovered = true;
+            }
+        });
+        if ((m.weekly.pendingUniversalParts || 0) > 0) {
+            window._claimWeeklyUniversalParts(true);
+            recovered = true;
+        }
+        return recovered;
+    }
+
+    window._claimMissionMilestone = function(pts, isWeekly, silent = false) {
         if (!saveData.missions) return;
         const m = saveData.missions;
         const milestones = isWeekly ? MQ_WEEKLY_MILESTONES : MQ_DAILY_MILESTONES;
@@ -10754,28 +10865,43 @@
         claimed.push(pts);
         if (m.weekly) m.weekly.hitAnyMilestone = true;
         const r = ms.reward;
+        const rewards = [];
         if (r.type === 'parts') {
-            const skin = settings.skin || 'neon';
-            saveData.parts[skin] = (saveData.parts[skin] || 0) + r.amount;
-            saveData.universalParts = (saveData.universalParts || 0) + r.amount;
+            for (let i = 0; i < r.amount; i++) {
+                const items = _getAllPartsItems();
+                if (!items.length) {
+                    addUniversalParts(1);
+                    rewards.push({ icon:'⭐', label:'+1 Universal Part', desc:'All items collected', rarity:'rare' });
+                    continue;
+                }
+                const item = items[Math.floor(Math.random() * items.length)];
+                if ((saveData.parts?.[item.key] || 0) >= _getItemCost(item.key)) {
+                    addUniversalParts(0.2);
+                    rewards.push({ icon:'⭐', label:'+0.2 Universal Parts', desc:`Duplicate: ${item.key}`, rarity:'rare' });
+                } else {
+                    addPartsToItem(item.key, 1);
+                    rewards.push({ icon:'🧩', label:`+1 Part: ${item.key}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
+                }
+            }
         }
         saveDataToFile();
-        _showMilestoneRewardBox(ms, isWeekly);
+        if (!silent) _showMilestoneRewardBox(ms, isWeekly, rewards);
     };
 
-    window._claimWeeklyUniversalParts = function() {
+    window._claimWeeklyUniversalParts = function(silent = false) {
         if (!saveData.missions?.weekly) return;
         const pending = saveData.missions.weekly.pendingUniversalParts || 0;
         if (pending <= 0) return;
         saveData.missions.weekly.pendingUniversalParts = 0;
         saveData.universalParts = (saveData.universalParts || 0) + pending;
         saveDataToFile();
+        if (silent) return;
         _showMissionReward(`+${pending} Universal Part${pending !== 1 ? 's' : ''}!`);
         renderMissionsOverlay('weekly');
         _checkGlowNotifications();
     };
 
-    window._claimQuestPts = function(questId, isWeekly, color, btnEl) {
+    window._claimQuestPts = function(questId, isWeekly, color, btnEl, silent = false) {
         if (!saveData.missions) return;
         const m = saveData.missions;
         let q;
@@ -10825,7 +10951,7 @@
                 if (m.specialBox.pts >= MQ_SPECIAL_BOX_CAP) {
                     m.specialBox.pts -= MQ_SPECIAL_BOX_CAP;
                     saveData.universalParts = (saveData.universalParts || 0) + 5;
-                    _showMissionReward('+5 Universal Parts — Bonus Box!');
+                    if (!silent) _showMissionReward('+5 Universal Parts — Bonus Box!');
                 }
             }
         }
@@ -10833,6 +10959,7 @@
         // Capture button position BEFORE re-render destroys it
         const _fromRect = btnEl ? btnEl.getBoundingClientRect() : null;
         saveDataToFile();
+        if (silent) return;
         // Re-render immediately so correct pts are visible even if Chrome live-reloads
         renderMissionsOverlay(isWeekly ? 'weekly' : 'daily');
         _checkGlowNotifications();
@@ -10934,19 +11061,10 @@
         setTimeout(() => { banner.classList.remove('mq-reward-show'); setTimeout(() => banner.remove(), 400); }, 2200);
     }
 
-    function _showMilestoneRewardBox(ms, isWeekly) {
+    function _showMilestoneRewardBox(ms, isWeekly, rewards) {
         const color = isWeekly ? '#ff9900' : '#44ff88';
         const bgColor = isWeekly ? 'rgba(255,153,0,0.1)' : 'rgba(68,255,136,0.1)';
         const RARITY_COLS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
-        const rewards = [];
-        const r = ms.reward;
-        if (r.type === 'parts') {
-            rewards.push({ icon: '🧩', label: `+${r.amount} Skin Part${r.amount !== 1 ? 's' : ''}`, desc: 'Added to inventory', rarity: 'rare' });
-        }
-        // Temporary extra rewards so the multi-card UI is visible
-        rewards.push({ icon: '⭐', label: '+1 Universal Part', desc: 'Bonus milestone reward', rarity: 'epic' });
-        rewards.push({ icon: '🎯', label: 'Mission Streak', desc: 'Keep completing quests!', rarity: 'common' });
-
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;inset:0;z-index:3200;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
         const panel = document.createElement('div');
@@ -11426,6 +11544,7 @@
     window._dStepsSync = _dStepsSync;
     window._eStepChange = _eStepChange;
     window.toggleInstructions = toggleInstructions;
+    if (_devMode) {
     window.devSetXP = devSetXP;
     window.devSetXPorLevel = devSetXPorLevel;
     window.devResetDailyGift = devResetDailyGift;
@@ -11543,6 +11662,7 @@
             });
         });
     };
+    }
     window.openSfxPackPreview = function() {
         const existing = document.getElementById('sfx-preview-modal');
         if (existing) { existing.remove(); return; }
@@ -11654,6 +11774,7 @@
     window.applyGridStyle = applyGridStyle;
     window.applyBlockShape = applyBlockShape;
     window.openCredits = function() { const _crEl = document.getElementById('credits-overlay'); if (!_crEl) return; _crEl.classList.remove('hidden'); _animateIn(_crEl, 'anim-in-right'); };
+    if (_devMode) {
     window.devTriggerMilestone = function() {
         if (_levelBoxShowing || document.getElementById('level-box-overlay')) { customAlert('A box is already showing!', 'DEV'); return; }
         const _MS = {
@@ -11684,7 +11805,7 @@
             const lv = parseInt(btn.dataset.msLv);
             const m = _MS[lv];
             if (!m) return;
-            saveData.pendingLevelBox = { level: lv, rankName: m.rankName, rankColor: m.rankColor, rewards: m.rewards };
+            _queueLevelBox({ level: lv, rankName: m.rankName, rankColor: m.rankColor, rewards: m.rewards });
             _showLevelBox();
         });
         document.body.appendChild(_sel);
@@ -11702,7 +11823,7 @@
         if (!saveData.missions) saveData.missions = _defaultMissions();
         const missions = _generateWeeklyMissions();
         const thisWeek = _missionWeekKey();
-        saveData.missions.weekly = { missions, weekKey: thisWeek, changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, daysPlayedThisWeek: {}, dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
+        saveData.missions.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, daysPlayedThisWeek: {}, dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
         saveDataToFile();
         if (!document.getElementById('missions-overlay').classList.contains('hidden')) renderMissionsOverlay('weekly');
         customAlert('Weekly missions reset!', 'DEV MODE');
@@ -11748,6 +11869,7 @@
         if (!document.getElementById('missions-overlay').classList.contains('hidden')) renderMissionsOverlay(tab);
         customAlert(`+${amt} pts added to ${which} bar!`, 'DEV MODE');
     };
+    }
     window.closeCredits = function() {
         const _mEl = document.getElementById('menu-overlay');
         _animateOut(document.getElementById('credits-overlay'), 'anim-out-right');
