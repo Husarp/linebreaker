@@ -909,9 +909,12 @@
     // Settings
     const defaultSettings = { musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: DEFAULT_BLOCK_SKIN, fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
     Object.assign(defaultSettings, { bgBlockMotion: 'spinning', showRunMissions: false });
+    defaultSettings.themeBackground = 'image';
     let settings = { ...defaultSettings };
+    const _themeBackgroundSelect = document.getElementById('setting-theme-background');
     const _bgBlockMotionSelect = document.getElementById('setting-bg-block-motion');
     const _runMissionsSelect = document.getElementById('setting-run-missions');
+    _themeBackgroundSelect.addEventListener('change', () => onSettingChange('themeBackground', _themeBackgroundSelect.value));
     _bgBlockMotionSelect.addEventListener('change', () => onSettingChange('bgBlockMotion', _bgBlockMotionSelect.value));
     _runMissionsSelect.addEventListener('change', () => onSettingChange('showRunMissions', _runMissionsSelect.value === 'on'));
     function loadSettings() {
@@ -1020,6 +1023,8 @@
         _doApplyTheme(name);
     }
     function _doApplyTheme(name, { persist = true } = {}) {
+        const background = document.querySelector('.bg-gradient');
+        LBArtPack.applyThemeBackground(background, name, settings.themeBackground);
         if (name === 'custom' && saveData.customThemeColor) {
             const _ch = hexColor(saveData.customThemeColor, '#ff00ff');
             document.documentElement.style.setProperty('--primary', _ch);
@@ -1033,7 +1038,7 @@
         const t = THEMES[name] || THEMES.default;
         document.documentElement.style.setProperty('--primary', t.primary);
         document.documentElement.style.setProperty('--primary-dim', hexToRgba(t.primary, 0.35));
-        document.querySelector('.bg-gradient').style.background = t.bg;
+        background.style.background = t.bg;
         const playBtn = document.getElementById('btn-play');
         if (playBtn) {
             // Use theme primary as base hue for the color cycle
@@ -4219,7 +4224,6 @@
         const container = document.getElementById('inventory-other-content');
         if (!container) return;
         const boosters = saveData.boosters || {};
-        const rowStyle = 'display:flex;align-items:center;padding:8px 4px;gap:8px;';
         const secTitle = 'font-size:0.6rem;color:var(--primary);letter-spacing:2px;font-weight:bold;margin:16px 0 8px;padding-bottom:5px;';
 
         const xchSvg = `<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>`;
@@ -4247,12 +4251,9 @@
             const canExchange = count >= 3;
             const xchBtnHtml = nextKey ? _xchBtn(meta.color, key, nextKey, 'booster', canExchange) : '';
             const rarityColor = (RARITY_ACH[meta.rarity] || RARITY_ACH.common).color;
-            const labelParts = meta.label.split(' ');
-            const multiplier = labelParts[0];
-            const boosterText = labelParts.slice(1).join(' ');
-            return `<div style="${rowStyle}display:grid;grid-template-columns:50px 65px 1fr 36px 100px;align-items:center;">
-                <span style="font-size:0.75rem;color:${rarityColor};font-weight:600;">${multiplier}</span>
-                <span style="font-size:0.75rem;color:${rarityColor};font-weight:600;">${boosterText}</span>
+            return `<div class="lb-booster-inventory-row">
+                ${LBArtPack.boosterIcon(key)}
+                <span style="font-size:0.75rem;color:${rarityColor};font-weight:600;">${meta.label}</span>
                 <span style="font-size:0.55rem;color:${rarityColor};opacity:0.7;text-transform:uppercase;letter-spacing:1px;text-align:center;">${meta.rarity}</span>
                 <span style="font-size:0.85rem;font-weight:700;color:#fff;text-align:center;">${escapeHtml(count)}</span>
                 <div style="display:flex;gap:5px;justify-content:flex-end;">${xchBtnHtml}</div>
@@ -4566,6 +4567,7 @@
         const hbSlider = document.getElementById('slider-heavybg');
         if (hbSlider) { hbSlider.value = hbV; _dStepsSync('heavybg-dtrack','',hbSlider,1,3); }
         const hbVal = document.getElementById('setting-heavybg-val'); if (hbVal) hbVal.innerText = ['','Light','Medium','Heavy'][hbV] || '';
+        _themeBackgroundSelect.value = LBArtPack.backgroundMode(settings.themeBackground);
         _bgBlockMotionSelect.value = settings.bgBlockMotion === 'falling' ? 'falling' : 'spinning';
         _runMissionsSelect.value = settings.showRunMissions === true ? 'on' : 'off';
         const _pauseVisible = !document.getElementById('pause-overlay').classList.contains('hidden');
@@ -4685,6 +4687,9 @@
             const _hbLabels = ['','Light','Medium','Heavy'];
             const hbVal = document.getElementById('setting-heavybg-val'); if (hbVal) hbVal.innerText = _hbLabels[settings.heavyBg] || '';
             _dStepsSync('heavybg-dtrack','',document.getElementById('slider-heavybg'),1,3);
+        } else if (key === 'themeBackground') {
+            settings.themeBackground = LBArtPack.backgroundMode(value);
+            LBArtPack.applyThemeBackground(document.querySelector('.bg-gradient'), settings.theme, settings.themeBackground);
         } else if (key === 'bgBlockMotion') {
             settings.bgBlockMotion = value === 'falling' ? 'falling' : 'spinning';
             _rebuildBgBlocks();
@@ -8469,9 +8474,12 @@
         row.style.width = 'min(480px, 94vw)';
         row.innerHTML = `<div class="lb-help-label" style="font-size:0.65rem;color:#cc44ff;margin-bottom:6px;font-weight:bold;letter-spacing:1px;">USE BOOSTER: <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About score boosters" title="About score boosters"></button></div>` +
             available.map(b => `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0;">
-                <div style="display:flex;flex-direction:column;gap:1px;">
-                    <span style="font-size:0.72rem;color:#cc44ff;white-space:nowrap;">${b.label}</span>
-                    <span style="font-size:0.6rem;color:#888;">left: ${escapeHtml(saveData.boosters[b.key])}</span>
+                <div class="lb-booster-result-label">
+                    ${LBArtPack.boosterIcon(b.key)}
+                    <div style="display:flex;flex-direction:column;gap:1px;">
+                        <span style="font-size:0.72rem;color:#cc44ff;white-space:nowrap;">${b.label}</span>
+                        <span style="font-size:0.6rem;color:#888;">left: ${escapeHtml(saveData.boosters[b.key])}</span>
+                    </div>
                 </div>
                 <button class="btn-secondary" style="border-color:#cc44ff;color:#cc44ff;font-size:0.65rem;padding:4px 14px;flex-shrink:0;" onclick="window.useScoreBooster('${b.key}')">USE</button>
             </div>`).join('');

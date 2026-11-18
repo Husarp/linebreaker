@@ -120,6 +120,7 @@ it('does not ship local MP3s or catalogue entries without the private build flag
   try {
     mkdirSync(path('assets/music'), { recursive: true });
     mkdirSync(path('assets/fonts'));
+    mkdirSync(path('assets/ui'));
     cpSync(new URL('../assets/skins', import.meta.url), path('assets/skins'), { recursive: true });
     mkdirSync(path('ui'));
     mkdirSync(path('data'));

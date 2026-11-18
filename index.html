@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Linebreaker</title>
+    <link rel="icon" type="image/png" href="assets/ui/favicon.png">
     <link rel="preload" href="assets/fonts/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="ui/tokens.css">
     <link rel="stylesheet" href="android-update.css">
@@ -18,6 +19,7 @@
     <link rel="stylesheet" href="29-stats.css">
     <link rel="stylesheet" href="27-help-info.css">
     <link rel="stylesheet" href="32-small-notes.css">
+    <link rel="stylesheet" href="44-art-pack.css">
 </head>
 <body>
 
@@ -606,6 +608,13 @@
                     </div>
                     <div class="settings-tip">Intensity of background blocks. Light = fewer blocks, Heavy = more blocks. In spinning mode, higher intensity also makes them faster.</div>
                 </div>
+                <label class="settings-row" for="setting-theme-background">
+                    <span>Theme background</span>
+                    <select class="lb-select" id="setting-theme-background">
+                        <option value="image">Image</option>
+                        <option value="plain">Plain</option>
+                    </select>
+                </label>
                 <label class="settings-row" for="setting-bg-block-motion">
                     <span>Background blocks</span>
                     <select class="lb-select" id="setting-bg-block-motion">
@@ -1010,6 +1019,7 @@
 <script src="notifications.js"></script>
 <script src="color-picker.js"></script>
 <script src="assets/skins/catalog.js"></script>
+<script src="44-art-pack.js"></script>
 <script src="app.js"></script>
 <script src="touch.js"></script>
 <script src="desktop.js"></script>
