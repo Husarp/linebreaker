@@ -1,0 +1,18 @@
+{
+  "menu": [
+    { "synth": "glass-harbor", "title": "Glass Harbor", "tags": ["chill", "electronic"] },
+    { "synth": "fernlight", "title": "Fernlight", "tags": ["chill"] },
+    { "synth": "paper-orbits", "title": "Paper Orbits", "tags": ["chill", "electronic"] },
+    { "synth": "blue-hour", "title": "Blue Hour", "tags": ["chill"] }
+  ],
+  "game": [
+    { "synth": "copper-relay", "title": "Copper Relay", "tags": ["retro", "upbeat"] },
+    { "synth": "vector-bloom", "title": "Vector Bloom", "tags": ["electronic", "upbeat"] },
+    { "synth": "switchyard", "title": "Switchyard", "tags": ["retro", "upbeat"] },
+    { "synth": "tidal-engine", "title": "Tidal Engine", "tags": ["electronic", "upbeat"] }
+  ],
+  "intense": [
+    { "synth": "redline-echo", "title": "Redline Echo", "tags": ["intense", "retro"] },
+    { "synth": "fault-current", "title": "Fault Current", "tags": ["intense", "electronic"] }
+  ]
+}

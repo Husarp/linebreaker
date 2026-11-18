@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { IDBFactory } from 'fake-indexeddb';
-export async function loadGame(flag = true, desktopInvoke = null, capacitor = null) {
+export async function loadGame(flag = true, desktopInvoke = null, capacitor = null, fetchImpl = async () => ({ok:true, json:async () => []})) {
   const dom = new JSDOM(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), {url:'https://linebreaker.test/', runScripts:'outside-only', pretendToBeVisual:true});
   const w = dom.window;
   const RealDate = w.Date;
   w.Date = class extends RealDate { constructor(...args) { super(...(args.length ? args : ['2026-11-18T12:00:00Z'])); } static now() { return Date.parse('2026-11-18T12:00:00Z'); } };
-  w.fetch = async () => ({ok:true, json:async () => []});
+  w.fetch = fetchImpl;
   Object.defineProperty(w.HTMLElement.prototype, 'innerText', {get(){return this.textContent;},set(v){this.textContent=v;}});
   let now = 0, id = 0;
   const timers = new Map(), frames = new Map(), calls = [];
@@ -23,10 +23,11 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   };
   class AudioContext {
     constructor(){this.destination = {}; this.currentTime = 0; this.state = 'running'; this.sampleRate = 44100;}
-    createGain(){return {gain:{value:0, cancelScheduledValues(){}, setValueAtTime(){}, linearRampToValueAtTime(){}, exponentialRampToValueAtTime(){}},connect(){}};}
-    createOscillator(){return {frequency:{value:0,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},start(){},stop(){}};}
+    createGain(){return {gain:{value:0, cancelScheduledValues(){}, setValueAtTime(){}, linearRampToValueAtTime(){}, exponentialRampToValueAtTime(){}},connect(){},disconnect(){}};}
+    createOscillator(){return {frequency:{value:0,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){},start(){},stop(){}};}
+    createBiquadFilter(){return {frequency:{value:0},Q:{value:0},connect(){},disconnect(){}};}
     createBuffer(channels, length){return {getChannelData:() => new Float32Array(length)};}
-    createBufferSource(){return {connect(){},start(){},stop(){},playbackRate:{value:1}};}
+    createBufferSource(){return {connect(){},disconnect(){},start(){},stop(){},playbackRate:{value:1}};}
     decodeAudioData(){return Promise.resolve(this.createBuffer(1,1));}
     suspend(){return Promise.resolve();}
     close(){return Promise.resolve();}
@@ -47,8 +48,9 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   w.eval(readFileSync(new URL('../save-sanitize.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../controls.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../gamepad.js', import.meta.url), 'utf8'));
+  w.eval(readFileSync(new URL('../music-synth.js', import.meta.url), 'utf8'));
   w.__LB_TEST__ = flag;
-  w.eval(readFileSync(new URL('../app.js', import.meta.url), 'utf8').replace('window.__lb = {', 'window.__lb = { writeSaveFile, applyLoadedData,'));
+  w.eval(readFileSync(new URL('../app.js', import.meta.url), 'utf8').replace('window.__lb = {', 'window.__lb = { writeSaveFile, applyLoadedData, startMusic, switchMusicMode, _initTrackCatalog, _getPlaylist,'));
   // Let IndexedDB-backed startup finish before tests mutate state or close the window.
   for (let i = 0; i < 30; i++) await new Promise(resolve => setImmediate(resolve));
   function advance(ms) {
