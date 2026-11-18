@@ -15,7 +15,9 @@ The built-in soundtrack consists of ten original synth scores. Each score makes 
 | Intense | Redline Echo | 172 | 67 s |
 | Intense | Fault Current | 184 | 73 s |
 
-Menu tracks shuffle without immediate repeats. Gameplay draws from the Game and Intense playlists, with a 38% chance of using Intense when both are enabled. Older saved playlists that reference only unavailable tracks fall back to the built-in selections.
+Menu tracks shuffle without immediate repeats. Below speed level 5, gameplay draws from the Game and Intense playlists, with a 38% chance of using Intense when both are enabled. At level 5 and above, enabled Intense tracks take priority; a regular synth track finishes its bar before switching. Older saved playlists that reference only unavailable tracks fall back to the built-in selections.
+
+**Music follows speed** is on by default. Synth tracks start at normal tempo in menus and at the start of a run, then add 4% per level above speed 1, capped at 50%. Changes take effect at bar boundaries without changing pitch. Turning the option off during a run holds the current tempo target until the run ends or the option is turned back on. Recorded tracks keep their original tempo.
 
 ## Define a score
 

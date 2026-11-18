@@ -908,12 +908,14 @@
 
     // Settings
     const defaultSettings = { musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: DEFAULT_BLOCK_SKIN, fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
-    Object.assign(defaultSettings, { bgBlockMotion: 'spinning', showRunMissions: false });
+    Object.assign(defaultSettings, { bgBlockMotion: 'spinning', showRunMissions: false, musicFollowsSpeed: true });
     let settings = { ...defaultSettings };
     const _bgBlockMotionSelect = document.getElementById('setting-bg-block-motion');
     const _runMissionsSelect = document.getElementById('setting-run-missions');
+    const _musicFollowsSpeedToggle = document.getElementById('setting-music-follows-speed');
     _bgBlockMotionSelect.addEventListener('change', () => onSettingChange('bgBlockMotion', _bgBlockMotionSelect.value));
     _runMissionsSelect.addEventListener('change', () => onSettingChange('showRunMissions', _runMissionsSelect.value === 'on'));
+    _musicFollowsSpeedToggle.addEventListener('change', () => onSettingChange('musicFollowsSpeed', _musicFollowsSpeedToggle.checked));
     function loadSettings() {
         try { settings = { ...defaultSettings, ...LBSave.cleanSettings(JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}')) }; } catch(e) {}
         if (!settings.gridStyle) settings.gridStyle = 'lines';
@@ -2017,6 +2019,7 @@
     let _trackPauseOffset = 0;
     let _trackDuration = 0;
     let _musicPaused = false;
+    const _runMusicTempo = LBMusicTempo.createRunTempo();
     let _widgetIntervalId = null;
     const _trackPool = new Map();
     let _settingsTrackPollId = null;
@@ -2100,11 +2103,16 @@
         updateNowPlaying(name, entry.artist);
         if (!document.getElementById('playlist-overlay')?.classList.contains('hidden')) _renderPlaylistPanel();
     }
-    function _startGameMusicForCurrentSpeed() {
+    function _syncGameMusicTempo() {
+        if (_currentMode !== 'game') return;
+        const tempo = _runMusicTempo.update(speedLevel, settings.musicFollowsSpeed);
+        _gameSourceNode?.setTempo?.(tempo);
+    }
+    function _startGameMusicForCurrentSpeed(continuing = false) {
         if (!musicPlaying || !audioCtx || _currentMode !== 'game') return;
         const game = _getPlaylist('game');
         const intense = _getPlaylist('action');
-        const playlist = intense.length && (!game.length || Math.random() < 0.38) ? intense : game;
+        const playlist = intense.length && (!game.length || LBMusicTempo.isIntenseSpeed(speedLevel) || Math.random() < 0.38) ? intense : game;
         if (!playlist.length) return;
         const choices = playlist.length > 1 ? playlist.filter(name => name !== _nowPlayingName) : playlist;
         const name = choices[Math.floor(Math.random() * choices.length)];
@@ -2113,12 +2121,14 @@
         const src = _createMusicSource(entry.buf);
         src.connect(masterGain);
         src.onended = () => {
-            if (_gameSourceNode === src) _startGameMusicForCurrentSpeed();
+            if (_gameSourceNode === src) _startGameMusicForCurrentSpeed(true);
         };
         _gameSourceNode = src;
         _trackStartTime = audioCtx.currentTime;
         _trackDuration = entry.buf.duration;
+        if (continuing) _syncGameMusicTempo();
         src.start();
+        if (!continuing) _syncGameMusicTempo();
         updateNowPlaying(name, entry.artist);
     }
     async function _startMenuMusic() {
@@ -2152,6 +2162,7 @@
     }
     async function switchMusicMode(mode) {
         _stopMusicSources();
+        _runMusicTempo.reset();
         _currentMode = mode;
         _menuShuffleQueue = [];
         updateNowPlaying('');
@@ -4487,6 +4498,7 @@
     function openSettings() {
         controlsEditor.render();
         _reminders?.render();
+        _musicFollowsSpeedToggle.checked = settings.musicFollowsSpeed !== false;
         const mv = settings.musicVol, sv = settings.sfxVol;
         document.getElementById('setting-music-vol').value = mv;
         document.getElementById('setting-sfx-vol').value = sv;
@@ -4640,7 +4652,11 @@
         document.getElementById('instr-arrow').innerText = hidden ? '▶' : '▼';
     }
     function onSettingChange(key, value) {
-        if (key === 'musicVol') {
+        if (key === 'musicFollowsSpeed') {
+            settings.musicFollowsSpeed = value === true;
+            _syncGameMusicTempo();
+            saveSettingsDebounced(); return;
+        } else if (key === 'musicVol') {
             settings.musicVol = parseInt(value);
             _cPillSync('music', value);
             const mvEl = document.getElementById('setting-music-val'); if (mvEl) mvEl.innerText = value + '%';
@@ -8052,6 +8068,11 @@
                 if (speedLevel >= 5 && !_mq_speedRun && gameTime < 180) _mq_speedRun = true;
                 if (speedLevel >= 4 && !_mq_speedQueen && gameTime < 120) _mq_speedQueen = true;
                 if (speedLevel > oldSpeed) {
+                    _syncGameMusicTempo();
+                    if (!LBMusicTempo.isIntenseSpeed(oldSpeed) && LBMusicTempo.isIntenseSpeed(speedLevel)) {
+                        const intense = _getPlaylist('action');
+                        if (intense.length && !intense.includes(_nowPlayingName)) _gameSourceNode?.finishAtBar?.();
+                    }
                     playSFX('levelup');
                     if (settings.showSpeedUp !== false) {
                         floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, canvas._logicalHeight / 2 - 20, `SPEED UP!`, '#ffcc00', 32));

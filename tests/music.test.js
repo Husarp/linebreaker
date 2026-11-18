@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it, vi } from 'vitest';
+import '../45-music-tempo.js';
 import '../music-synth.js';
 import { loadGame } from './loader.js';
 

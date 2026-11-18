@@ -430,6 +430,13 @@
                     </div>
                     <div class="settings-tip">Background music volume. Drag to 0 or click the button to mute.</div>
                 </div>
+                <label class="settings-row">
+                    <span>Music follows speed</span>
+                    <span class="toggle">
+                        <input type="checkbox" id="setting-music-follows-speed" checked>
+                        <span class="toggle-slider"></span>
+                    </span>
+                </label>
                 <div style="margin-top:8px;display:flex;justify-content:center;">
                     <button class="btn-secondary" style="font-size:0.75rem;display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 28px;border-radius:10px;" onclick="window.openPlaylistPanel()"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>MANAGE PLAYLIST</button>
                 </div>
@@ -1006,6 +1013,7 @@
 <script src="save-sanitize.js"></script>
 <script src="controls.js"></script>
 <script src="gamepad.js"></script>
+<script src="45-music-tempo.js"></script>
 <script src="music-synth.js"></script>
 <script src="notifications.js"></script>
 <script src="color-picker.js"></script>
