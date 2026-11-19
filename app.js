@@ -1104,10 +1104,9 @@
     };
 
     function _colorPickerButton(id, label, swatch, active, handler) {
-        return `<button type="button" id="${id}" class="lb-btn lb-btn--ghost lb-color-launch" data-equipped="${active}" onclick="window.${handler}()">
+        return `<button type="button" id="${id}" class="lb-block-btn lb-colors-launch" data-equipped="${active}" onclick="window.${handler}()">
             <span class="lb-color-launch-mark" aria-hidden="true" style="--swatch:${swatch}"></span>
-            <span>${label}</span>
-            <span class="lb-color-launch-state">${active ? 'Enabled' : 'Edit…'}</span>
+            <span>${label}</span>${active ? `<span class="lb-colors-state">${_colorInventoryStatus(true)}</span>` : '<span class="lb-colors-state">Edit</span>'}
         </button>`;
     }
 
@@ -1191,37 +1190,38 @@
 
         const ov = document.createElement('div');
         ov.id = 'pal-edit-modal';
-        ov.className = 'lb-r3 lb-r3-picker';
+        ov.className = 'lb-palette-window';
         ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;';
 
         let pickersHtml = '';
         _PIECE_LABELS.forEach((lbl, i) => {
             const c = _palEditState.colors[i] || '#ffffff';
-            pickersHtml += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-                <span style="font-size:0.72rem;color:#ccc;font-weight:bold;min-width:16px;">${lbl}</span>
-                <div style="position:relative;width:34px;height:34px;flex-shrink:0;">
-                    <input type="color" id="pe-c${i}-native" aria-label="Piece ${i + 1} native color" value="${c}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="window._palEditChange(${i},this.value)">
-                    <div style="width:100%;height:100%;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:${c};pointer-events:none;box-sizing:border-box;"></div>
+            pickersHtml += `<div class="lb-palette-edit-row">
+                <span>${lbl}</span>
+                <div class="lb-palette-native">
+                    <input type="color" id="pe-c${i}-native" aria-label="Piece ${i + 1} native color" value="${c}" oninput="window._palEditChange(${i},this.value)">
+                    <div style="background:${c}" aria-hidden="true"></div>
                 </div>
-                <input type="text" id="pe-c${i}-hex" aria-label="Piece ${i + 1} hex color" value="${c}" maxlength="7" style="width:80px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 8px;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.78rem;letter-spacing:1px;outline:none;height:34px;box-sizing:border-box;" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
-                <button onclick="window._palEditEyedrop(${i})" title="Eyedropper" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${_SVG_EYEDROPPER}</button>
-                <button onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" title="Copy hex" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${_SVG_COPY}</button>
+                <input type="text" id="pe-c${i}-hex" aria-label="Piece ${i + 1} hex color" value="${c}" maxlength="7" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
+                <button class="lb-block-btn lb-block-btn--icon" onclick="window._palEditEyedrop(${i})" aria-label="Eyedropper for ${lbl}" title="Eyedropper">${_SVG_EYEDROPPER}</button>
+                <button class="lb-block-btn lb-block-btn--icon" onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
             </div>`;
         });
 
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:24px;width:min(420px,92vw);max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.9);">
-            <button aria-label="Close" onclick="window._closeModal('pal-edit-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">&#10005;</button>
-            <div style="font-size:0.6rem;letter-spacing:2px;color:#888;margin-bottom:6px;">EDIT PALETTE</div>
-            <div style="font-size:0.82rem;color:#fff;margin-bottom:14px;font-weight:bold;">${pal.name}</div>
+        ov.innerHTML = `<div class="lb-block-dialog" role="dialog" aria-modal="true" aria-labelledby="palette-edit-title">
+            <header class="lb-palette-header">
+                <div><h2 id="palette-edit-title">Edit Palette</h2><p>${pal.name}</p></div>
+                <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Close" onclick="this.closest('.lb-palette-window').remove()">×</button>
+            </header>
             ${pickersHtml}
-            <div id="pe-preview-row" style="display:flex;gap:4px;margin:16px 0 12px;justify-content:center;"></div>
-            <div style="display:flex;gap:8px;">
-                <button onclick="window._palEditApply()" style="flex:1;padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid var(--primary,#00ffff);background:rgba(0,255,255,0.08);color:var(--primary,#00ffff);cursor:pointer;font-weight:bold;letter-spacing:1px;">APPLY</button>
-                <button onclick="window._palEditReset()" style="padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid #ff5555;background:rgba(255,85,85,0.08);color:#ff5555;cursor:pointer;letter-spacing:1px;" title="Reset to default colors">RESET</button>
-                <button onclick="window._closeModal('pal-edit-modal')" style="flex:1;padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#888;cursor:pointer;letter-spacing:1px;">CANCEL</button>
+            <div id="pe-preview-row" aria-hidden="true"></div>
+            <div class="lb-palette-actions">
+                <button class="lb-block-btn lb-block-btn--primary" onclick="window._palEditApply()">Apply</button>
+                <button class="lb-block-btn" onclick="window._palEditReset()" title="Reset to default colors">Reset</button>
+                <button class="lb-block-btn" onclick="this.closest('.lb-palette-window').remove()">Cancel</button>
             </div>
         </div>`;
-        ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('pal-edit-modal'); });
+        ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
         document.body.appendChild(ov);
         _animateIn(ov.querySelector('div'), 'anim-in-up');
         window._palEditRefreshPreview();
@@ -1249,11 +1249,7 @@
     window._palEditRefreshPreview = function() {
         const row = document.getElementById('pe-preview-row');
         if (!row || !_palEditState) return;
-        row.innerHTML = _palEditState.colors.map((c, i) => `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <div style="width:36px;height:36px;border-radius:6px;background:${c};border:1px solid rgba(255,255,255,0.1);box-shadow:0 0 8px ${c}33;"></div>
-            <span style="font-size:0.55rem;color:#666;">${_PIECE_LABELS[i]}</span>
-            <span style="font-size:0.5rem;color:#555;font-family:'Orbitron',sans-serif;">${c}</span>
-        </div>`).join('');
+        row.innerHTML = _palEditState.colors.map((c, i) => `<span><i style="--swatch:${c}"></i>${_PIECE_LABELS[i]}</span>`).join('');
     };
 
     window._palEditApply = function() {
@@ -1265,7 +1261,7 @@
         saveSettings();
         saveDataToFile();
         _populateInventoryOther();
-        window._closeModal('pal-edit-modal');
+        document.getElementById('pal-edit-modal')?.remove();
     };
 
     window._palEditReset = function() {
@@ -1276,7 +1272,7 @@
         saveSettings();
         saveDataToFile();
         _populateInventoryOther();
-        window._closeModal('pal-edit-modal');
+        document.getElementById('pal-edit-modal')?.remove();
     };
 
     function _allPalettesOwned() {
@@ -1298,24 +1294,25 @@
         let rowsHtml = '';
         _PIECE_LABELS.forEach((lbl, i) => {
             const c = displayColors[i] || '#ffffff';
-            rowsHtml += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;">
+            rowsHtml += `<div class="lb-palette-view-row">
                 ${_swatchHtml(i, c, true)}
-                <span style="flex:1;"></span>
-                <button onclick="navigator.clipboard?.writeText('${c}');_showCopyFeedback(event.clientX,event.clientY)" title="Copy hex" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${_SVG_COPY}</button>
+                <button class="lb-block-btn lb-block-btn--icon" onclick="navigator.clipboard?.writeText('${c}');_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
             </div>`;
         });
 
         const ov = document.createElement('div');
         ov.id = 'palette-view-modal';
-        ov.className = 'lb-r3 lb-r3-picker';
+        ov.className = 'lb-palette-window';
         ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;';
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:24px;width:min(340px,88vw);position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.9);">
-            <button aria-label="Close" onclick="window._closeModal('palette-view-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">&#10005;</button>
-            <div style="font-size:0.6rem;letter-spacing:2px;color:#888;margin-bottom:14px;">${pal.name.toUpperCase()} PALETTE</div>
+        ov.innerHTML = `<div class="lb-block-dialog" role="dialog" aria-modal="true" aria-labelledby="palette-view-title">
+            <header class="lb-palette-header">
+                <h2 id="palette-view-title">${pal.name} Palette</h2>
+                <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Close" onclick="this.closest('.lb-palette-window').remove()">×</button>
+            </header>
             ${rowsHtml}
-            <button onclick="window._closeModal('palette-view-modal')" style="width:100%;margin-top:14px;padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#888;cursor:pointer;letter-spacing:1px;">CLOSE</button>
+            <button class="lb-block-btn" onclick="this.closest('.lb-palette-window').remove()">Close</button>
         </div>`;
-        ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('palette-view-modal'); });
+        ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
         document.body.appendChild(ov);
         _animateIn(ov.querySelector('div'), 'anim-in-up');
     }
@@ -3879,6 +3876,23 @@
         </div>`;
     }
 
+    function _colorInventoryStatus(equipped) {
+        const icon = equipped ? '<path d="m5 12 4 4L19 6"/>' : '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>';
+        return `<svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>${equipped ? 'Equipped' : 'Locked'}`;
+    }
+
+    function _colorInventoryCard({ key, label, owned, equipped = false, preview = '', detail = '', actions = '', unlock = '' }) {
+        const cost = !owned && unlock ? _getItemCost(key) : 0;
+        const parts = Math.max(0, Math.min(cost, Number(saveData.parts?.[key]) || 0));
+        if (cost && parts === cost) actions += `<button type="button" class="lb-block-btn lb-block-btn--primary" onclick="${unlock}">Unlock</button>`;
+        return `<article class="lb-block-card lb-colors-card"${key ? ` data-item-key="${key}"` : ''} data-owned="${owned}" data-equipped="${equipped}">
+            <header><h3>${label}</h3>${equipped || !owned ? `<span class="lb-colors-state">${_colorInventoryStatus(equipped)}</span>` : ''}</header>
+            ${preview}${detail ? `<p>${detail}</p>` : ''}
+            ${cost ? `<div class="lb-colors-parts"><progress class="lb-block-progress" aria-label="${label} parts" value="${parts}" max="${cost}"></progress><span>${parts}/${cost} parts</span></div>` : ''}
+            ${actions ? `<div class="lb-colors-actions">${actions}</div>` : ''}
+        </article>`;
+    }
+
     function _populateVisualCustomize() {
         function _positionTip(tip, e) {
             const mx = e.clientX, my = e.clientY;
@@ -3981,130 +3995,54 @@
             });
         }
 
-        // Themes (in Colors tab)
         const ownedThemeContainer = document.getElementById('owned-theme-btns');
         if (ownedThemeContainer) {
             const themeNames = { default:'Default', ocean:'Ocean', forest:'Forest', fire:'Fire', dragon:'Golden', void:'Void', sunset:'Sunset', arctic:'Arctic', midnight:'Midnight', sakura:'Sakura' };
-            const ownedThemes = ['default', ...(saveData.ownedThemes||[])];
-            const themeCountEl = document.getElementById('theme-owned-count');
-            if (themeCountEl) themeCountEl.innerText = `(${ownedThemes.length}/${Object.keys(themeNames).length})`;
-            const rows = Object.keys(themeNames).map(t => {
-                const isOwned = ownedThemes.includes(t);
-                const isActive = settings.theme === t;
-                const parts = saveData.parts?.[t] || 0;
-                return _makeTrackRow(
-                    themeNames[t], isActive, isOwned, parts,
-                    `window.applyTheme('${t}')`,
-                    `window.playerUnlockItem('theme','${t}')`,
-                    '', t
-                );
+            const themes = Object.entries(themeNames);
+            const ownedThemes = new Set([...FREE_THEMES, ...(saveData.ownedThemes || [])]);
+            document.getElementById('theme-owned-count').textContent = `${themes.filter(([key]) => ownedThemes.has(key)).length}/${themes.length}`;
+            const rows = themes.map(([key, label]) => {
+                const owned = ownedThemes.has(key);
+                const equipped = settings.theme === key;
+                const color = THEMES[key].primary;
+                return _colorInventoryCard({ key, label, owned, equipped,
+                    preview: `<button type="button" class="lb-colors-theme-sample" aria-label="Copy ${label} hex ${color}" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)">
+                        <span class="lb-colors-chip" style="--swatch:${color}"></span><code>${color}</code><span aria-hidden="true">${_SVG_COPY}</span></button>`,
+                    actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.applyTheme('${key}')">Equip</button>` : '',
+                    unlock: `window.playerUnlockItem('theme','${key}')` });
             }).join('');
-            // Custom color picker — unlocks when all themes owned
-            let customThemeRow = '';
-            if (_allThemesOwned()) {
-                const isCustomTheme = settings.theme === 'custom';
-                const curColor = LBColorPicker.normalizeHex(saveData.customThemeColor) || '#ff00ff';
-                customThemeRow = _colorPickerButton('custom-theme-picker-button', 'Custom Color', curColor, isCustomTheme, '_openColorPickerModal');
-            } else {
-                customThemeRow = _makeTrackRow('Custom Color', false, false, 0, '', '', 'Own all themes to unlock');
-            }
-            ownedThemeContainer.innerHTML = rows + customThemeRow;
-            // Hover preview for themes (color swatch)
-            const _THEME_COLORS = { default:'#00ffff', ocean:'#0099ff', forest:'#00dd55', fire:'#ff3300', dragon:'#ffcc00', void:'#cc44ff', sunset:'#ff7722', arctic:'#88ddff', midnight:'#aa77ff', sakura:'#ff88cc' };
-            let themeTip = document.getElementById('theme-preview-tip');
-            if (!themeTip) {
-                themeTip = document.createElement('div');
-                themeTip.id = 'theme-preview-tip';
-                themeTip.style.cssText = 'position:fixed;z-index:9999;background:#0d0d1a;border:1px solid #333;border-radius:10px;padding:10px 14px;display:none;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,0.8);min-width:110px;';
-                document.body.appendChild(themeTip);
-            }
-            ownedThemeContainer.querySelectorAll('[data-item-key]').forEach(row => {
-                row.addEventListener('mouseenter', (e) => {
-                    const key = row.dataset.itemKey;
-                    const col = _THEME_COLORS[key] || '#fff';
-                    const name = themeNames[key] || key;
-                    themeTip.innerHTML = `<div style="font-size:0.5rem;color:#666;letter-spacing:1.5px;margin-bottom:6px;text-transform:uppercase;">${name}</div><div style="display:flex;gap:8px;align-items:center;"><div style="width:28px;height:28px;border-radius:50%;background:${col};box-shadow:0 0 10px ${col}88;flex-shrink:0;"></div><span style="font-size:0.7rem;font-weight:bold;color:${col};text-shadow:0 0 8px ${col}66;">${col}</span></div><div style="margin-top:8px;font-size:0.65rem;font-weight:bold;color:${col};letter-spacing:2px;text-shadow:0 0 6px ${col}66;">${name.toUpperCase()}</div>`;
-                    themeTip.style.display = 'block';
-                    _positionTip(themeTip, e);
-                });
-                row.addEventListener('mousemove', (e) => { if (themeTip.style.display !== 'none') _positionTip(themeTip, e); });
-                row.addEventListener('mouseleave', () => { themeTip.style.display = 'none'; });
-            });
-            // Theme row click -> copy hex color (override enable behavior); buttons still work
-            ownedThemeContainer.querySelectorAll('[data-item-key]').forEach(row => {
-                const key = row.dataset.itemKey;
-                const col = _THEME_COLORS[key];
-                if (!col) return;
-                const sample = document.createElement('div');
-                sample.className = 'lb-theme-sample';
-                sample.style.setProperty('--sample', col);
-                sample.textContent = col;
-                row.querySelector('.lb-inventory-heading').after(sample);
-                row.onclick = (e) => {
-                    if (e.target.closest('button')) return; // let Enable/Unlock button clicks through
-                    navigator.clipboard?.writeText(col).catch(() => {});
-                    _showCopyFeedback(e.clientX, e.clientY);
-                };
-                row.style.cursor = 'pointer';
-            });
+            ownedThemeContainer.innerHTML = rows + (_allThemesOwned()
+                ? _colorPickerButton('custom-theme-picker-button', 'Custom Color', LBColorPicker.normalizeHex(saveData.customThemeColor) || '#ff00ff', settings.theme === 'custom', '_openColorPickerModal')
+                : _colorInventoryCard({ label: 'Custom Color', owned: false, detail: 'Own all themes to unlock' }));
         }
 
-        // Color palettes (in Colors/Themes tab)
         const ownedPaletteContainer = document.getElementById('owned-palette-btns');
         if (ownedPaletteContainer) {
-            const ownedPals = saveData.ownedPalettes || ['classic'];
-            const _activePal = settings.colorPalette || 'classic';
-            const _allPalsOwned = typeof _allPalettesOwned === 'function' ? _allPalettesOwned() : false;
-            const palCountEl = document.getElementById('palette-owned-count');
-            if (palCountEl) palCountEl.innerText = `(${ownedPals.length}/${Object.keys(BLOCK_PALETTES).length})`;
-            const palRows = Object.entries(BLOCK_PALETTES).map(([k, p]) => {
-                const isOwned = p.free || ownedPals.includes(k);
-                const isActive = _activePal === k;
-                const parts = saveData.parts?.[k] || 0;
-                const displayColors = paletteColors(saveData.customPaletteOverrides?.[k], p.colors);
-                const swatches = displayColors.slice(0,7).map(c => `<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${c};"></span>`).join('');
-                let extra = `<div class="lb-palette-preview" aria-label="${p.name} block colors">${displayColors.slice(0,7).map(c => `<span style="--piece-color:${c}"></span>`).join('')}</div><div style="display:flex;gap:2px;margin-top:2px;">${swatches}</div>`;
-                // Palette name click opens color view popup (handled via data attribute below)
-                const enableJs = `window.onSettingChange('colorPalette','${k}')`;
-                return _makeTrackRow(p.name, isActive, isOwned, parts,
-                    enableJs,
-                    `window.playerUnlockItem('palette','${k}')`,
-                    extra, k);
+            const palettes = Object.entries(BLOCK_PALETTES);
+            const ownedPalettes = new Set(saveData.ownedPalettes || []);
+            const allPalettesOwned = _allPalettesOwned();
+            document.getElementById('palette-owned-count').textContent = `${palettes.filter(([key, palette]) => palette.free || ownedPalettes.has(key)).length}/${palettes.length}`;
+            const rows = palettes.map(([key, palette]) => {
+                const owned = palette.free || ownedPalettes.has(key);
+                const equipped = (settings.colorPalette || 'classic') === key;
+                const colors = paletteColors(saveData.customPaletteOverrides?.[key], palette.colors);
+                return _colorInventoryCard({ key, label: palette.name, owned: !!owned, equipped,
+                    preview: `<button type="button" class="lb-palette-preview" aria-label="Preview ${palette.name} palette" onclick="window._openPaletteViewModal('${key}')">${colors.map(color => `<span style="--piece-color:${color}"></span>`).join('')}</button>`,
+                    actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.onSettingChange('colorPalette','${key}')">Equip</button>` : '',
+                    unlock: `window.playerUnlockItem('palette','${key}')` });
             }).join('');
-            let customPickerHtml = '';
-            if (_allPalsOwned) {
-                const isCustomActive = settings.colorPalette === '_custom_picker';
-                const gradient = `conic-gradient(${_customPaletteColors().join(', ')})`;
-                customPickerHtml = _colorPickerButton('custom-palette-picker-button', 'Custom Palette', gradient, isCustomActive, '_openCustomPaletteModal');
-            } else {
-                customPickerHtml = _makeTrackRow('Custom Palette', false, false, 0, '', '', 'Own all palettes to unlock');
-            }
-            const _shuffleHtml = `<div class="inv-row" style="display:flex;align-items:center;padding:7px 4px;gap:8px;border-radius:6px;">
-                <div style="flex:1;text-align:left;"><div style="font-size:0.8rem;color:#fff;">Shuffle Colors</div><div style="font-size:0.62rem;color:#666;margin-top:2px;">Colors not fixed to piece types</div></div>
-                <label class="toggle" style="flex-shrink:0;"><input type="checkbox" ${settings.randomPieceColors ? 'checked' : ''} onchange="window.onSettingChange('randomPieceColors',this.checked)"><span class="toggle-slider"></span></label>
+            const shuffle = `<div class="lb-colors-shuffle">
+                <div><strong>Shuffle Colors</strong><p>Colors not fixed to piece types</p></div>
+                <label class="lb-block-switch"><input type="checkbox" role="switch" aria-label="Shuffle Colors" ${settings.randomPieceColors ? 'checked' : ''} onchange="window.onSettingChange('randomPieceColors',this.checked)"><span class="toggle-slider" aria-hidden="true"></span></label>
             </div>`;
-            const _allPalOwned = Object.keys(BLOCK_PALETTES).every(k => BLOCK_PALETTES[k].free || ownedPals.includes(k));
-            let _randomHtml;
-            if (_allPalOwned) {
-                const _randomActive = !!settings.randomBlockColors;
-                _randomHtml = _makeTrackRow('Random Colors', _randomActive, true, 10,
-                    "window.onSettingChange('randomBlockColors',true);window.onSettingChange('colorPalette','_random')",
-                    '', 'Every block is a different random color', '_randomColors');
-            } else {
-                _randomHtml = _makeTrackRow('Random Colors', false, false, 0, '', '', 'Own all palettes to unlock');
-            }
-            ownedPaletteContainer.innerHTML = _shuffleHtml + palRows + _randomHtml + customPickerHtml;
-            // Palette row click -> open palette view modal (override enable behavior); buttons still work
-            ownedPaletteContainer.querySelectorAll('[data-item-key]').forEach(row => {
-                const key = row.dataset.itemKey;
-                if (!BLOCK_PALETTES[key]) return;
-                row.onclick = (e) => {
-                    if (e.target.closest('button')) return; // let Enable/Unlock button clicks through
-                    if (key === '_custom_picker') { window._openCustomPaletteModal(); }
-                    else { window._openPaletteViewModal(key); }
-                };
-                row.style.cursor = 'pointer';
-            });
+            const randomEquipped = allPalettesOwned && !!settings.randomBlockColors;
+            const random = _colorInventoryCard({ key: '_randomColors', label: 'Random Colors', owned: allPalettesOwned, equipped: randomEquipped,
+                detail: allPalettesOwned ? 'Every block is a different random color' : 'Own all palettes to unlock',
+                actions: allPalettesOwned && !randomEquipped ? `<button type="button" class="lb-block-btn" onclick="window.onSettingChange('randomBlockColors',true);window.onSettingChange('colorPalette','_random')">Equip</button>` : '' });
+            const custom = allPalettesOwned
+                ? _colorPickerButton('custom-palette-picker-button', 'Custom Palette', `conic-gradient(${_customPaletteColors().join(', ')})`, settings.colorPalette === '_custom_picker', '_openCustomPaletteModal')
+                : _colorInventoryCard({ label: 'Custom Palette', owned: false, detail: 'Own all palettes to unlock' });
+            ownedPaletteContainer.innerHTML = shuffle + rows + random + custom;
         }
 
         // Button styles (in Blocks tab)

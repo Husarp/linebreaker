@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="41-season-pass.css">
     <link rel="stylesheet" href="43-crates-daily-gift.css">
     <link rel="stylesheet" href="60-foundation.css">
+    <link rel="stylesheet" href="63-colors.css">
 </head>
 <body>
 
@@ -331,14 +332,22 @@
 
         <!-- ===== COLORS TAB ===== -->
         <div data-invtab-content="colors" class="hidden">
-            <div class="settings-section">
-                <div class="settings-title lb-help-label">THEME COLOR <span id="theme-owned-count" style="font-size:0.55rem;color:#666;font-weight:normal;"></span> <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About theme color" title="About theme color"></button></div>
-                <div id="owned-theme-btns" style="margin-top:6px;"></div>
-            </div>
-            <div class="settings-section">
-                <div class="settings-title lb-help-label">BLOCK PALETTE <span id="palette-owned-count" style="font-size:0.55rem;color:#666;font-weight:normal;"></span> <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About block palette" title="About block palette"></button></div>
-                <div id="owned-palette-btns" style="margin-top:6px;"></div>
-            </div>
+            <section class="lb-block-panel" aria-labelledby="inventory-theme-title">
+                <header class="lb-block-panel-head">
+                    <h2 class="lb-block-section-title" id="inventory-theme-title">Theme Color</h2>
+                    <span id="theme-owned-count" class="lb-colors-count"></span>
+                    <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About theme color" title="About theme color"></button>
+                </header>
+                <div id="owned-theme-btns"></div>
+            </section>
+            <section class="lb-block-panel" aria-labelledby="inventory-palette-title">
+                <header class="lb-block-panel-head">
+                    <h2 class="lb-block-section-title" id="inventory-palette-title">Block Palette</h2>
+                    <span id="palette-owned-count" class="lb-colors-count"></span>
+                    <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About block palette" title="About block palette"></button>
+                </header>
+                <div id="owned-palette-btns"></div>
+            </section>
         </div>
 
         <!-- ===== OTHER TAB ===== -->

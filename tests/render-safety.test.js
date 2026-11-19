@@ -199,6 +199,28 @@ it('applies the custom theme colour from the picker to the page', () => {
   expect(game.save.customThemeColor).toBe('#12abef');
 });
 
+it('shows distinct inventory colour states and keeps palette preview separate from equip', () => {
+  game.setup({ save: { ownedThemes: ['ocean'], ownedPalettes: ['ice'], parts: { forest: 1 } } });
+  window.inventoryTab('colors');
+  const card = key => document.querySelector(`[data-invtab-content="colors"] [data-item-key="${key}"]`);
+  expect(card('default').querySelector('.lb-colors-state').textContent).toBe('Equipped');
+  expect(card('ocean').querySelector('.lb-colors-state')).toBeNull();
+  expect(card('forest').querySelector('.lb-colors-state').textContent).toBe('Locked');
+  expect(card('forest').querySelector('progress').value).toBe(1);
+  expect(document.getElementById('theme-owned-count').textContent).toBe('2/10');
+
+  const preview = card('ice').querySelector('.lb-palette-preview');
+  expect(preview.children).toHaveLength(7);
+  preview.click();
+  const dialog = document.getElementById('palette-view-modal');
+  expect(dialog).not.toBeNull();
+  dialog.querySelector('[aria-label="Close"]').click();
+  expect(dialog.isConnected).toBe(false);
+  expect(card('classic').dataset.equipped).toBe('true');
+  card('ice').querySelector('.lb-colors-actions button').click();
+  expect(card('ice').dataset.equipped).toBe('true');
+});
+
 it('shows one inventory status, actions and locked-only progress, and counts catalog skins', () => {
   const manifest = JSON.parse(readFileSync(new URL('../assets/skins/skins.json', import.meta.url), 'utf8'));
   const builtInSkinCount = 7;
