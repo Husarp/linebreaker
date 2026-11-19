@@ -3671,7 +3671,7 @@
 
     function settingsTab(tab) { /* tabs removed — settings is a single scroll */ }
     let inventoryPreviewTimer;
-    let inventoryPreviewColor = 6;
+    let inventoryPreviewColor = 1;
     function inventoryTab(tab) {
         const _invOv = document.getElementById('inventory-overlay');
         const _prevInvTab = _invOv ? _invOv._invTab : null;
@@ -3691,7 +3691,7 @@
                 if (document.hidden || _invOv.classList.contains('hidden')) return;
                 inventoryPreviewColor = inventoryPreviewColor % (COLORS.length - 1) + 1;
                 document.querySelectorAll('#owned-skin-btns canvas').forEach(canvas => {
-                    _drawSkinPreview(canvas, canvas.parentElement.dataset.itemKey, inventoryPreviewColor, 40);
+                    _drawSkinPreview(canvas, canvas.parentElement.dataset.itemKey, inventoryPreviewColor);
                 });
             }, 3000);
         }
@@ -3863,11 +3863,14 @@
             const skinNames = SKIN_NAMES;
             const allSkinKeys = Object.keys(skinNames).filter(key => !IMAGE_SKINS.get(key)?.exclusive || saveData.ownedSkins?.includes(key));
             const ownedSkins = allSkinKeys.filter(key => (saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).includes(key));
+            const activeSkin = _renderSkin();
+            const displayKeys = ownedSkins.includes(activeSkin)
+                ? [activeSkin, ...allSkinKeys.filter(key => key !== activeSkin)] : allSkinKeys;
             const skinCountEl = document.getElementById('skin-owned-count');
             if (skinCountEl) skinCountEl.innerText = `(${ownedSkins.length}/${allSkinKeys.length})`;
-            const rows = allSkinKeys.map(s => {
+            const rows = displayKeys.map(s => {
                 const isOwned = ownedSkins.includes(s);
-                const isActive = settings.skin === s;
+                const isActive = activeSkin === s;
                 const parts = saveData.parts?.[s] || 0;
                 return _makeInventoryRow(
                     skinNames[s],
@@ -3884,8 +3887,8 @@
                 canvas.width = 120; canvas.height = 80;
                 canvas.setAttribute('role', 'img');
                 canvas.setAttribute('aria-label', `${skinNames[row.dataset.itemKey]} block preview`);
-                _drawSkinPreview(canvas, row.dataset.itemKey, inventoryPreviewColor, 40);
                 row.querySelector('.lb-inventory-heading').after(canvas);
+                _drawSkinPreview(canvas, row.dataset.itemKey, inventoryPreviewColor);
             });
         }
 
@@ -7501,18 +7504,23 @@
         }
         return _skinTints.get(key);
     }
-    function _drawSkinPreview(canvas, skin, id, size) {
+    function _drawSkinPreview(canvas, skin, id) {
         canvas.dataset.previewColor = id;
         const context = canvas.getContext('2d');
+        const piece = BASE_PIECES[6].slice(0, 2);
+        const size = 36;
         const draw = () => {
             context.clearRect(0, 0, canvas.width, canvas.height);
-            BASE_PIECES[6].forEach((row, y) => row.forEach((cell, x) => {
+            context.save();
+            context.translate((canvas.width - piece[0].length * size) / 2, (canvas.height - piece.length * size) / 2);
+            piece.forEach((row, y) => row.forEach((cell, x) => {
                 if (cell) drawGameBlock(context, x, y, id, size, false, skin);
             }));
+            context.restore();
         };
-        draw();
         const atlas = _getSkinAtlas(skin);
-        if (atlas && !atlas.ready) atlas.promise.then(loaded => {
+        if (!atlas || atlas.ready) draw();
+        else atlas.promise.then(loaded => {
             if (loaded && canvas.isConnected && Number(canvas.dataset.previewColor) === id) draw();
         });
     }
@@ -10802,7 +10810,7 @@
                 row.disabled = true;
                 row.className = 'lb69-modifier lb69-locked-row lb-block-btn lb-block-btn--locked';
                 row.dataset.playModifier = key;
-                row.innerHTML = `${playIcon('lock')}<strong>${name}</strong><span class="lb69-lock">Locked · ${rank}</span>`;
+                row.innerHTML = `${playIcon('lock')}<strong>${name}</strong><span class="lb69-lock">Unlocks at ${rank}</span>`;
                 return row;
             }
             const row = document.createElement('label');

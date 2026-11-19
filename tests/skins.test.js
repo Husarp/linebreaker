@@ -83,9 +83,9 @@ it('keys multiply tints by skin and normalized palette color and reuses them acr
   const colorInput = picker.querySelector('.lb-color-hex');
   colorInput.value = '#123456';
   colorInput.dispatchEvent(new game.w.Event('input', { bubbles: true }));
+  game.calls.length = 0;
   picker.querySelector('.lb-color-apply').click();
   expect(game.api.save.customPickerColors[0]).toBe('#123456');
-  game.calls.length = 0;
   drawGameBlock(context, 0, 0, 1, 24, false, 'aztec');
   expect(game.calls.filter(call => call[0] === 'drawImage' && call[1] === image))
     .toEqual([['drawImage', image, 512, 0, 64, 64, 0, 0, 64, 64]]);

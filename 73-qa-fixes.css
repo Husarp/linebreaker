@@ -1,0 +1,21 @@
+.overlay:is(#mode-select-overlay, #pause-overlay, #go-overlay) {
+    background: rgb(5 7 10 / 58%);
+    backdrop-filter: blur(3px);
+}
+
+.overlay:is(#settings-overlay, #inventory-overlay, #stats-overlay, #rules-overlay,
+    #achievements-overlay, #playlist-overlay, #tutorial-overlay, #credits-overlay) {
+    background: rgb(5 7 10 / 42%);
+    backdrop-filter: blur(6px);
+}
+
+#mode-select-overlay .lb69-modifier.lb69-locked-row {
+    grid-template-columns: auto minmax(0, 1fr) fit-content(55%);
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.lb69-locked-row .lb69-lock {
+    justify-self: end;
+    text-align: end;
+}

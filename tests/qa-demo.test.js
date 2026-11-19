@@ -124,6 +124,32 @@ it('opens the documented screenshot targets through real UI handlers', async () 
   await expect(w.__LB_QA.open('typo')).rejects.toThrow('Unknown QA screen');
 }, 15_000);
 
+it('shows the equipped inventory items and moves the active block skin to the first card', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
+  const { w } = game;
+  const query = selector => w.document.querySelector(selector);
+  const activeSkin = () => query('#owned-skin-btns > :first-child[data-equipped="true"]');
+  await w.__LB_QA.open('inventory');
+  expect(activeSkin()?.dataset.itemKey).toBe('aztec');
+  expect(activeSkin().querySelector('[aria-label="Equipped"]')).not.toBeNull();
+  expect(query('#owned-skin-btns [data-item-key="outline"][data-owned="false"] [aria-label="Locked"]')).not.toBeNull();
+  expect(query('#ghost-section-wrap [data-equipped="true"]').textContent).toContain('White Ghost');
+
+  expect(query('#owned-skin-btns [data-item-key="retro"] button').textContent).toBe('Equip');
+  w.applyBlockSkin('retro');
+  expect(activeSkin()?.dataset.itemKey).toBe('retro');
+  expect(query('#owned-skin-btns [data-item-key="aztec"]').dataset.equipped).toBe('false');
+
+  await w.__LB_QA.open('inventory-colors');
+  expect(query('#owned-theme-btns [data-equipped="true"]').dataset.itemKey).toBe('default');
+  expect(query('#owned-palette-btns [data-equipped="true"]').dataset.itemKey).toBe('classic');
+  await w.__LB_QA.open('inventory-other');
+  expect(query('#owned-grid-style-btns [data-equipped="true"]').dataset.itemKey).toBe('lines');
+  const sfx = query('#inventory-other-content .lb-inventory-section [data-equipped="true"]');
+  expect(sfx.textContent).toContain('Default SFX');
+  expect(sfx.querySelector('[aria-label="Equipped"]')).not.toBeNull();
+});
+
 it('shows booster costs and disables exchanges the player cannot afford', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w, api } = game;

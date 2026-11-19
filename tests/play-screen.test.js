@@ -30,7 +30,7 @@ it('keeps locked modifiers off and unlocks each at its previous rank', async () 
     for (const [key, rank] of locks) {
         const row = modifier(key);
         expect(row.disabled).toBe(true);
-        expect(row.textContent).toContain(`Locked · ${rank}`);
+        expect(row.textContent).toContain(`Unlocks at ${rank}`);
         expect(row.querySelector('use').getAttribute('href')).toBe('#play-icon-lock');
         row.click();
         expect(savedSettings()[key]).toBe(false);
