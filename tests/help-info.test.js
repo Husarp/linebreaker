@@ -43,10 +43,32 @@ it('shows current bindings and routes Settings subtopics within Basics', () => {
   settings.querySelector('[data-help-section="sound"]').click();
   expect(document.activeElement.id).toBe('help-sound');
   expect(document.querySelector('#rules-overlay [aria-current="location"]').dataset.helpJump).toBe('basics');
-  expect(Array.from(document.querySelectorAll('[data-help-topic="basics"] dd'), node => node.textContent)).toContain('Q');
+  expect(Array.from(document.querySelectorAll('[data-help-topic="basics"] dd kbd'), node => node.textContent)).toContain('Q');
+
+  game.w.openHelp('display');
+  expect(document.activeElement.id).toBe('help-display');
+  expect(document.querySelector('#rules-overlay [aria-current="location"]').dataset.helpJump).toBe('basics');
 
   game.w.openHelp('invalid-section');
   expect(document.activeElement.id).toBe('help-basics');
+});
+
+it('organizes each chapter into headed blocks and illustrates pieces and scores', () => {
+  const { document } = game.w;
+  game.w.openHelp('scoring');
+  const help = document.getElementById('rules-overlay');
+
+  expect(help.querySelector('#help-title svg[aria-hidden="true"]')).not.toBeNull();
+  for (const topic of help.querySelectorAll('[data-help-topic]')) {
+    expect(topic.querySelectorAll('.lb-help-block > h3').length).toBeGreaterThanOrEqual(2);
+  }
+  const pieces = Array.from(help.querySelectorAll('.lb-help-pieces li'));
+  expect(pieces.map(piece => piece.textContent)).toEqual(['I', 'J', 'L', 'O', 'S', 'T', 'Z']);
+  expect(pieces.map(piece => piece.querySelectorAll('rect').length)).toEqual(Array(7).fill(4));
+  const scoreRows = Array.from(help.querySelectorAll('[data-help-topic="scoring"] tbody tr'));
+  expect(scoreRows.map(row => Array.from(row.cells, cell => cell.textContent))).toEqual([
+    ['Single', '1', '10'], ['Double', '2', '20'], ['Triple', '3', '30'], ['Quad', '4', '40']
+  ]);
 });
 
 it('uses the existing XP tooltip and opens the rank topic from the menu info control', () => {
@@ -65,8 +87,10 @@ it('keeps the daily streak multiplier at each documented boundary', () => {
   const cases = [[0, 1], [2, 1], [3, 1.25], [5, 1.25], [6, 1.5], [10, 1.5], [11, 1.75], [20, 1.75], [21, 2], [50, 2]];
   expect(cases.map(([days]) => game.api.streakMultiplier(days))).toEqual(cases.map(([, multiplier]) => multiplier));
   game.w.openHelp('streaks');
-  const multipliers = document => Array.from(document.querySelectorAll('[data-help-topic="streaks"] dl dd'), node => node.textContent);
-  expect(multipliers(game.w.document)).toEqual([3, 6, 11, 21].map(days => `×${game.api.streakMultiplier(days).toFixed(2)} run XP`));
+  const headings = game.w.document.querySelectorAll('[data-help-topic="streaks"] h3');
+  const bonuses = Array.from(headings).find(heading => heading.textContent === 'Streak bonuses').parentElement;
+  const multipliers = Array.from(bonuses.querySelectorAll('dd'), node => node.textContent);
+  expect(multipliers).toEqual([3, 6, 11, 21].map(days => `×${game.api.streakMultiplier(days).toFixed(2)} run XP`));
 });
 
 it('adds enabled Normal-mode modifiers and ignores disabled modifiers', () => {
