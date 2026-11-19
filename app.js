@@ -3432,242 +3432,147 @@
     }
     function _renderActivityCalendar(year) {
         const container = document.getElementById('stat-activity-calendar');
-        if (!container) return;
-
-        // Build history: start from playHistory, add leaderboard entries
         const history = { ...saveData.stats.playHistory };
-        // Supplement from leaderboard for historical data (before playHistory was tracked)
-        const lbCounted = {};
-        (saveData.leaderboard || []).forEach(entry => {
+        const entriesByDate = new Map();
+        for (const entry of saveData.leaderboard || []) {
             const key = LBSave.date(entry.date);
-            if (!key) return;
-            lbCounted[key] = (lbCounted[key] || 0) + 1;
-        });
-        // Use max(playHistory[d], lbCounted[d]) — playHistory is accurate for new games,
-        // leaderboard fills in old dates where playHistory has no record
-        Object.keys(lbCounted).forEach(k => {
-            if ((lbCounted[k] || 0) > (history[k] || 0)) history[k] = lbCounted[k];
-        });
+            if (!key) continue;
+            if (!entriesByDate.has(key)) entriesByDate.set(key, []);
+            const entries = entriesByDate.get(key);
+            entries.push(entry);
+            history[key] = Math.max(history[key] || 0, entries.length);
+        }
 
-        const now = new Date();
-        const nowYear = now.getFullYear();
-        const yearSet = new Set([nowYear]);
-        Object.keys(history).forEach(d => { const y = parseInt(d.split('-')[0]); if (!isNaN(y)) yearSet.add(y); });
-        const years = Array.from(yearSet).sort((a, b) => a - b);
-        if (year === undefined || year === null) year = parseInt(container.dataset.calYear) || nowYear;
-        if (!years.includes(year)) year = years[years.length - 1];
+        const today = new Date();
+        const todayKey = LBSave.localDate(today);
+        const currentYear = today.getFullYear();
+        const years = [...new Set([currentYear, ...Object.keys(history).map(key => Number(key.split('-')[0]))])].sort((left, right) => left - right);
+        year ??= Number(container.dataset.calYear) || currentYear;
+        if (!years.includes(year)) year = currentYear;
         container.dataset.calYear = year;
 
-        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-        const _ldk = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-
-        // Build cell data
         const firstDay = new Date(year, 0, 1);
-        const lastDay = new Date(year, 11, 31);
-        const startDow = (firstDay.getDay() + 6) % 7; // Mon=0, Sun=6
-        const totalDays = Math.round((lastDay - firstDay) / 86400000) + 1;
-        const totalWeeks = Math.ceil((startDow + totalDays) / 7);
-
+        const offset = (firstDay.getDay() + 6) % 7;
+        const daysInYear = Math.round((new Date(year, 11, 31) - firstDay) / 86400000) + 1;
+        const weeks = Math.ceil((offset + daysInYear) / 7);
+        const dateFormat = new Intl.DateTimeFormat('en', { dateStyle: 'full' });
+        const monthFormat = new Intl.DateTimeFormat('en', { month: 'short' });
+        const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         const cells = [];
-        for (let w = 0; w < totalWeeks; w++) {
-            for (let d = 0; d < 7; d++) {
-                const dayIndex = w * 7 + d - startDow;
-                if (dayIndex < 0 || dayIndex >= totalDays) { cells.push(null); continue; }
-                const date = new Date(year, 0, 1 + dayIndex);
-                const key = _ldk(date);
-                cells.push({ key, count: history[key] || 0 });
-            }
-        }
-
-        const GAP = 4;
-        const ROW_LBL = 34; // px for day labels
-
-        // Year tabs
-        let html = `<div class="lb-actions lb-stats-years" role="group" aria-label="Activity year">`;
-        years.forEach(y => {
-            html += `<button class="lb-btn" type="button" data-cal-year="${y}" aria-pressed="${y === year}">${y}</button>`;
-        });
-        html += `</div><div class="lb-stats-calendar-scroll" role="region" aria-label="Activity calendar" tabindex="0"><div class="lb-stats-calendar">`;
-
-        // Month labels (absolutely positioned over week columns)
-        // We compute month positions using week index * (CELL+GAP) + ROW_LBL
-        // We'll use a data attribute and compute positions after render
-        html += `<div id="cal-month-row" style="position:relative;height:14px;margin-bottom:3px;padding-left:${ROW_LBL}px;" data-start-dow="${startDow}" data-first-year="${year}">`;
-        for (let m = 0; m < 12; m++) {
-            const firstOfMonth = new Date(year, m, 1);
-            const dayIdx = Math.round((firstOfMonth - firstDay) / 86400000);
-            const weekCol = Math.floor((startDow + dayIdx) / 7);
-            const dow = (startDow + dayIdx) % 7;
-            const lastOfMonth = new Date(year, m+1, 0);
-            const lastDayIdx = Math.round((lastOfMonth - firstDay) / 86400000);
-            const wcEnd = Math.floor((startDow + lastDayIdx) / 7);
-            // Separator is drawn at the boundary AFTER the last day of the previous month (shift +1 day)
-            const sepDayIdx = dayIdx + 1;
-            const sepWc = Math.floor((startDow + sepDayIdx) / 7);
-            const sepDow = (startDow + sepDayIdx) % 7;
-            html += `<span data-week-col="${weekCol}" data-dow="${dow}" data-wc-end="${wcEnd}" data-sep-wc="${sepWc}" data-sep-dow="${sepDow}">${MONTHS[m]}</span>`;
-        }
-        html += `</div>`;
-
-        // Grid: day labels + week columns
-        html += `<div style="display:flex;gap:0;">`;
-        // Day labels
-        html += `<div id="cal-day-labels" style="display:flex;flex-direction:column;gap:${GAP}px;width:${ROW_LBL}px;flex-shrink:0;">`;
-        DAY_LABELS.forEach(l => {
-            html += `<div>${l}</div>`;
-        });
-        html += `</div>`;
-        // Week columns wrapper
-        html += `<div id="cal-grid" style="display:flex;gap:${GAP}px;flex:1;">`;
-        for (let w = 0; w < totalWeeks; w++) {
-            html += `<div style="display:flex;flex-direction:column;gap:${GAP}px;flex:1;">`;
-            for (let d = 0; d < 7; d++) {
-                const cell = cells[w * 7 + d];
-                if (!cell) {
-                    html += `<div style="flex:1;min-height:4px;"></div>`;
-                } else {
-                    const c = cell.count;
-                    let bg, op, extra = '';
-                    if (c === 0) {
-                        bg = 'rgba(255,255,255,0.07)'; op = '1';
-                    } else if (c === 1) {
-                        bg = 'var(--primary)'; op = '0.55';
-                    } else if (c === 2) {
-                        bg = 'var(--primary)'; op = '0.70';
-                    } else if (c <= 4) {
-                        bg = 'var(--primary)'; op = '0.84';
-                    } else if (c <= 7) {
-                        bg = 'var(--primary)'; op = '0.94';
-                    } else {
-                        bg = 'var(--primary)'; op = '1'; extra = 'box-shadow:0 0 5px var(--primary);';
-                    }
-                    const isToday = cell.key === _ldk(now);
-                    if (isToday) {
-                        op = '1';
-                        const bdrColor = c === 0 ? 'var(--primary)' : 'rgba(255,255,255,0.85)';
-                        extra += `outline:2px solid ${bdrColor};outline-offset:-1px;border-radius:1px;`;
-                    }
-                    const [cy, cm, cd] = cell.key.split('-');
-                    const fmtDate = `${cd}.${cm}.${cy}`;
-                    const tip = c > 0 ? `${fmtDate} — ${c} game${c>1?'s':''}` : fmtDate;
-                    html += `<div data-ctip="${escapeHtml(tip)}" style="flex:1;min-height:4px;border-radius:2px;background:${bg};opacity:${op};${extra}"></div>`;
+        const months = [];
+        const separators = [];
+        let selectedIndex = 0;
+        for (let index = 0; index < daysInYear; index++) {
+            const date = new Date(year, 0, index + 1);
+            const key = LBSave.localDate(date);
+            const week = Math.floor((offset + index) / 7);
+            const weekday = (offset + index) % 7;
+            if (date.getDate() === 1) {
+                months.push({ label: monthFormat.format(date), start: week, end: week });
+                if (index > 0) {
+                    const edge = week * 7;
+                    const step = weekday * 7;
+                    separators.push(step ? `M${edge + 7} 0V${step}H${edge}V49` : `M${edge} 0V49`);
                 }
             }
-            html += `</div>`;
+            months.at(-1).end = week;
+            if (key === todayKey) selectedIndex = index;
+            const count = history[key] || 0;
+            const level = count >= 8 ? 4 : count >= 5 ? 3 : count >= 2 ? 2 : count > 0 ? 1 : 0;
+            cells.push({ key, week, weekday, level, label: `${dateFormat.format(date)} — ${count.toLocaleString()} ${count === 1 ? 'game' : 'games'}` });
         }
-        html += `</div></div></div></div>`;
 
-        // --- TODAY's stats section ---
-        const todayKey = _ldk(now);
+        container.innerHTML = `<div class="lb-stats-chart-toolbar">
+                <div class="lb-actions lb-stats-years" role="group" aria-label="Activity year">
+                    ${years.map(value => `<button class="lb-block-btn lb-block-tab" type="button" data-cal-year="${value}" aria-pressed="${value === year}">${value}</button>`).join('')}
+                </div>
+                <p id="cal-instructions" class="lb-stats-chart-hint">Select a day for game counts. Scroll for more months on small screens.</p>
+            </div>
+            <div class="lb-stats-chart">
+                <div id="cal-day-labels" aria-hidden="true">${dayLabels.map(label => `<span>${label}</span>`).join('')}</div>
+                <div class="lb-stats-calendar-scroll" role="region" aria-label="Activity calendar" tabindex="0">
+                    <div class="lb-stats-calendar" style="--calendar-weeks:${weeks}">
+                        <div id="cal-month-row" aria-hidden="true">${months.map(({ label, start, end }) => `<span style="grid-column:${start + 1}/${end + 2}">${label}</span>`).join('')}</div>
+                        <div id="cal-grid" role="group" aria-label="${year} daily activity" aria-describedby="cal-instructions">
+                            <svg class="lb-stats-month-edges" aria-hidden="true" viewBox="0 0 ${weeks * 7} 49" preserveAspectRatio="none"><path d="${separators.join(' ')}" vector-effect="non-scaling-stroke"/></svg>
+                            ${cells.map(({ key, week, weekday, level, label }, index) => `<button type="button" class="lb-stats-day" style="grid-area:${weekday + 1}/${week + 1}" data-cal-day="${index}" data-level="${level}" tabindex="${index === selectedIndex ? 0 : -1}" aria-pressed="${index === selectedIndex}" ${key === todayKey ? 'aria-current="date"' : ''} aria-label="${escapeHtml(label)}"></button>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="lb-stats-chart-foot">
+                <output class="lb-stats-day-value">${escapeHtml(cells[selectedIndex].label)}</output>
+                <div class="lb-stats-chart-key" aria-label="Games per day: 0, 1, 2 to 4, 5 to 7, 8 or more">
+                    <span>Fewer</span>${[0, 1, 2, 3, 4].map(level => `<i data-level="${level}" aria-hidden="true"></i>`).join('')}<span>More</span>
+                </div>
+            </div>`;
+
         const todayGames = history[todayKey] || 0;
-        const todayEntries = (saveData.leaderboard || []).filter(entry => LBSave.date(entry.date) === todayKey);
-        const todayBestScore = todayEntries.length > 0 ? Math.max(...todayEntries.map(e => e.score || 0)) : 0;
-        const todayAvgScore = todayEntries.length > 0 ? todayEntries.reduce((s, e) => s + (e.score || 0), 0) / todayEntries.length : 0;
+        const todayEntries = entriesByDate.get(todayKey) || [];
+        const todayBestScore = todayEntries.reduce((best, entry) => Math.max(best, entry.score || 0), 0);
+        const todayAvgScore = todayEntries.length ? todayEntries.reduce((sum, entry) => sum + (entry.score || 0), 0) / todayEntries.length : 0;
         const todayBestPercent = statsPercentOfAverage(todayBestScore, todayAvgScore);
-        const todayTotalTime = todayEntries.reduce((s, e) => s + (e.time || 0), 0);
-        const todayTimeFmt = todayTotalTime >= 3600 ? `${Math.floor(todayTotalTime/3600)}h ${Math.floor((todayTotalTime%3600)/60)}m` : `${Math.floor(todayTotalTime/60)}m ${todayTotalTime%60}s`;
-        const todayXP = todayEntries.reduce((s, e) => s + (e.xp || 0), 0);
-        html += `<h3>Today</h3><dl class="lb-stats-metrics lb-stats-today">
-            <div><dt>Games</dt><dd>${todayGames > 0 ? todayGames : '—'}</dd></div>
+        const todayTotalTime = todayEntries.reduce((sum, entry) => sum + (entry.time || 0), 0);
+        const todayXP = todayEntries.reduce((sum, entry) => sum + (entry.xp || 0), 0);
+        container.insertAdjacentHTML('beforeend', `<h3>Today</h3><dl class="lb-stats-metrics lb-stats-today">
+            <div><dt>Games</dt><dd>${todayGames.toLocaleString()}</dd></div>
             <div><dt>Best score</dt><dd>${todayBestScore > 0 ? todayBestScore.toLocaleString() : '—'}</dd>${todayBestPercent === null ? '' : `<dd class="lb-stats-comparison">${todayBestPercent}% of today's average</dd>`}</div>
             <div><dt>Average score</dt><dd>${Math.round(todayAvgScore) > 0 ? Math.round(todayAvgScore).toLocaleString() : '—'}</dd></div>
-            <div><dt>Time played</dt><dd>${todayTotalTime > 0 ? todayTimeFmt : '—'}</dd></div>
+            <div><dt>Time played</dt><dd>${todayTotalTime > 0 ? formatTime(todayTotalTime) : '—'}</dd></div>
             <div><dt>XP earned</dt><dd>${todayXP > 0 ? todayXP.toLocaleString() : '—'}</dd></div>
-        </dl>`;
+        </dl>`);
 
-        container.innerHTML = html;
-
-        requestAnimationFrame(() => {
-            // After render: compute actual cell size and position month labels
-            const grid = container.querySelector('#cal-grid');
-            if (grid && grid.offsetWidth && !grid.querySelector('svg')) {
-                const gridW = grid.offsetWidth;
-                const cellW = Math.max(4, Math.floor((gridW - GAP * (totalWeeks - 1)) / totalWeeks));
-                const rowH = cellW; // square cells
-                // Apply sizes
-                grid.querySelectorAll(':scope > div').forEach(col => {
-                    col.style.flex = 'none';
-                    col.style.width = cellW + 'px';
-                    col.querySelectorAll(':scope > div').forEach(cell => {
-                        cell.style.flex = 'none';
-                        cell.style.height = rowH + 'px';
-                        cell.style.minHeight = '';
-                        cell.style.borderRadius = Math.max(1, Math.round(cellW * 0.2)) + 'px';
-                    });
-                });
-                // Fix day label heights
-                const dayLabels = document.getElementById('cal-day-labels');
-                if (dayLabels) {
-                    dayLabels.querySelectorAll('div').forEach(el => {
-                        el.style.height = rowH + 'px';
-                        el.style.lineHeight = rowH + 'px';
-                    });
-                }
-                // Position month labels (centered over each month's span)
-                const monthRow = document.getElementById('cal-month-row');
-                if (monthRow) {
-                    monthRow.querySelectorAll('span').forEach(span => {
-                        const wcStart = parseInt(span.dataset.weekCol);
-                        const wcEnd = parseInt(span.dataset.wcEnd) || wcStart;
-                        const xCenter = ((wcStart + wcEnd + 1) / 2) * (cellW + GAP) - GAP / 2;
-                        span.style.left = (ROW_LBL + xCenter) + 'px';
-                    });
-                }
-                // Month separator lines — L-shaped to follow actual month boundaries
-                const calGrid2 = document.getElementById('cal-grid');
-                if (calGrid2 && monthRow) {
-                    calGrid2.style.position = 'relative';
-                    const gridH = rowH * 7 + GAP * 6;
-                    // Build single SVG overlay for all separators
-                    const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    svgEl.style.cssText = `position:absolute;left:0;top:0;pointer-events:none;z-index:1;overflow:visible;`;
-                    svgEl.setAttribute('width', totalWeeks * (cellW + GAP));
-                    svgEl.setAttribute('height', gridH);
-                    monthRow.querySelectorAll('span').forEach((span, idx) => {
-                        if (idx === 0) return;
-                        const wc = parseInt(span.dataset.sepWc ?? span.dataset.weekCol);
-                        const dow = parseInt(span.dataset.sepDow ?? span.dataset.dow) || 0;
-                        if (isNaN(wc) || wc === 0) return;
-                        const xL = wc * (cellW + GAP) - GAP / 2;       // left of gap before col wc
-                        const xR = (wc + 1) * (cellW + GAP) - GAP / 2; // right of col wc
-                        const yStep = Math.round(dow * (rowH + GAP) - GAP / 2);
-                        let pathD;
-                        if (dow === 0) {
-                            pathD = `M ${xL} 0 L ${xL} ${gridH}`;
-                        } else {
-                            pathD = `M ${xR} 0 L ${xR} ${yStep} L ${xL} ${yStep} L ${xL} ${gridH}`;
-                        }
-                        const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        pathEl.setAttribute('d', pathD);
-                        pathEl.setAttribute('stroke', getComputedStyle(document.documentElement).getPropertyValue('--primary-dim').trim() || 'rgba(0,255,255,0.2)');
-                        pathEl.setAttribute('stroke-width', '1');
-                        pathEl.setAttribute('fill', 'none');
-                        svgEl.appendChild(pathEl);
-                    });
-                    calGrid2.appendChild(svgEl);
-                }
-            }
-        });
-        container.querySelectorAll('[data-cal-year]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                _renderActivityCalendar(Number(btn.dataset.calYear));
-                container.querySelector('[aria-pressed="true"]').focus();
+        for (const button of container.querySelectorAll('button[data-cal-year]')) {
+            button.addEventListener('click', () => {
+                _renderActivityCalendar(Number(button.dataset.calYear));
+                container.querySelector('.lb-stats-years [aria-pressed="true"]').focus({ preventScroll: true });
             });
-        });
-        // Tooltips
-        let calTip = document.getElementById('cal-tip');
-        if (!calTip) {
-            calTip = document.createElement('div');
-            calTip.id = 'cal-tip';
-            calTip.style.cssText = 'display:none;position:fixed;z-index:2300;background:rgba(5,5,20,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 10px;font-size:0.6rem;pointer-events:none;color:#ccc;font-family:inherit;white-space:nowrap;';
-            document.body.appendChild(calTip);
         }
-        container.querySelectorAll('[data-ctip]').forEach(el => {
-            const _origOutline = el.style.outline || '';
-            el.addEventListener('mouseenter', e => { calTip.textContent = el.dataset.ctip; calTip.style.display = 'block'; calTip.style.left=(e.clientX+12)+'px'; calTip.style.top=(e.clientY-30)+'px'; el.style.outline = '1.5px solid rgba(255,255,255,0.7)'; });
-            el.addEventListener('mouseleave', () => { calTip.style.display = 'none'; el.style.outline = _origOutline; });
-            el.addEventListener('mousemove', e => { calTip.style.left=(e.clientX+12)+'px'; calTip.style.top=(e.clientY-30)+'px'; });
+        const grid = container.querySelector('#cal-grid');
+        const scroller = container.querySelector('.lb-stats-calendar-scroll');
+        const dayButtons = [...grid.querySelectorAll('[data-cal-day]')];
+        const value = container.querySelector('.lb-stats-day-value');
+        const showValue = index => { value.textContent = cells[index].label; };
+        const selectDay = index => {
+            dayButtons[selectedIndex].tabIndex = -1;
+            dayButtons[selectedIndex].setAttribute('aria-pressed', 'false');
+            selectedIndex = index;
+            dayButtons[index].tabIndex = 0;
+            dayButtons[index].setAttribute('aria-pressed', 'true');
+            showValue(index);
+        };
+        const revealDay = index => {
+            const { left, right } = dayButtons[index].getBoundingClientRect();
+            const bounds = scroller.getBoundingClientRect();
+            if (left < bounds.left + 3) scroller.scrollLeft += left - bounds.left - 3;
+            if (right > bounds.right - 3) scroller.scrollLeft += right - bounds.right + 3;
+        };
+        grid.addEventListener('pointerover', event => {
+            if (event.pointerType === 'mouse' && event.target.matches('[data-cal-day]')) showValue(Number(event.target.dataset.calDay));
+        });
+        grid.addEventListener('pointerleave', () => showValue(selectedIndex));
+        grid.addEventListener('click', event => {
+            if (event.target.matches('[data-cal-day]')) selectDay(Number(event.target.dataset.calDay));
+        });
+        grid.addEventListener('keydown', event => {
+            if (!event.target.matches('[data-cal-day]')) return;
+            const index = Number(event.target.dataset.calDay);
+            const weekday = cells[index].weekday;
+            const targets = { ArrowLeft: index - 7, ArrowRight: index + 7, ArrowUp: weekday === 0 ? index : index - 1, ArrowDown: weekday === 6 ? index : index + 1, Home: 0, End: daysInYear - 1 };
+            if (!Object.hasOwn(targets, event.key)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const next = targets[event.key];
+            if (next < 0 || next >= daysInYear || next === index) return;
+            selectDay(next);
+            dayButtons[next].focus({ preventScroll: true });
+            revealDay(next);
+        });
+        grid.addEventListener('focusin', event => {
+            if (event.target.matches('[data-cal-day]')) revealDay(Number(event.target.dataset.calDay));
+        });
+        requestAnimationFrame(() => {
+            if (scroller.isConnected) revealDay(selectedIndex);
         });
     }
     function statsLbTab(tab) {
@@ -3716,7 +3621,7 @@
         container.innerHTML = '';
         const fl = saveData.funLeaderboard || [];
         if (!fl.length) {
-            container.innerHTML = '<p class="lb-card lb-empty">No Fun mode games yet.</p>';
+            container.innerHTML = '<p class="lb-block-card lb-empty">No Fun mode games yet.</p>';
             return;
         }
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
@@ -3735,7 +3640,7 @@
             }
             if (max < fl.length) {
                 const moreBtn = document.createElement('button');
-                moreBtn.className = 'lb-btn lb-load-more';
+                moreBtn.className = 'lb-block-btn lb-load-more';
                 moreBtn.textContent = `LOAD MORE (${fl.length - max} remaining)`;
                 moreBtn.addEventListener('click', () => { _shown += 50; _renderRows(_shown); });
                 container.appendChild(moreBtn);
@@ -4854,7 +4759,7 @@
         if (!popup) {
             popup = document.createElement('button');
             popup.id = 'score-pin-popup';
-            popup.className = 'lb-btn';
+            popup.className = 'lb-block-btn';
             document.body.appendChild(popup);
             document.addEventListener('click', (e) => { if (!popup.contains(e.target)) popup.style.display = 'none'; });
         }
@@ -4888,7 +4793,7 @@
         const container = document.getElementById('pinned-list');
         if (!container) return;
         const pins = saveData.pinnedScores || [];
-        if (pins.length === 0) { container.innerHTML = '<p class="lb-card lb-empty">No pinned scores yet. Pin a score from the leaderboard.</p>'; return; }
+        if (pins.length === 0) { container.innerHTML = '<p class="lb-block-card lb-empty">No pinned scores yet. Pin a score from the leaderboard.</p>'; return; }
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
         container.innerHTML = '';
@@ -4927,7 +4832,7 @@
         document.getElementById('highscores-by-speed').innerHTML = records.length
             ? `<table class="lb-stats-table" aria-label="Records by speed level"><thead><tr><th scope="col">Speed level</th><th scope="col">Best score</th></tr></thead><tbody>${records.map(([speed, score]) => `<tr><th scope="row">${speed}</th><td>${score.toLocaleString()}</td></tr>`).join('')}</tbody></table>`
             : '<p class="lb-empty">No scores with a recorded speed level yet.</p>';
-        if (all.length === 0) { container.innerHTML = '<p class="lb-card lb-empty">No highscores yet. Play to set your first record!</p>'; return; }
+        if (all.length === 0) { container.innerHTML = '<p class="lb-block-card lb-empty">No highscores yet. Play to set your first record!</p>'; return; }
         container.innerHTML = '';
         // Sort descending by score
         all.sort((a, b) => b.score - a.score);
@@ -4946,7 +4851,7 @@
     }
     function drawLeaderboard() {
         const container = document.getElementById('lb-list'); container.innerHTML = "";
-        if (saveData.leaderboard.length === 0) { container.innerHTML = '<p class="lb-card lb-empty">Play your first game to enter the leaderboard.</p>'; return; }
+        if (saveData.leaderboard.length === 0) { container.innerHTML = '<p class="lb-block-card lb-empty">Play your first game to enter the leaderboard.</p>'; return; }
         const lb = saveData.leaderboard;
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
@@ -4958,15 +4863,19 @@
             lb[0] ? { e: lb[0], rank: 1, medal: '🥇', color: '#ffd700', h: 88, lbIdx: 0 } : null,
             lb[2] ? { e: lb[2], rank: 3, medal: '🥉', color: '#e8922a', h: 40, lbIdx: 2 } : null,
         ].filter(Boolean);
+        const podiumPanel = document.createElement('section');
+        podiumPanel.className = 'lb-block-panel lb-stats-podium-panel';
+        podiumPanel.innerHTML = '<div class="lb-block-panel-head"><h2>Best scores</h2></div>';
         const podiumWrap = document.createElement('div');
         podiumWrap.className = 'lb-stats-podium';
         podiumOrder.forEach(p => {
             const block = document.createElement('button');
-            block.className = 'lb-btn lb-stats-podium-place';
+            block.className = 'lb-block-btn lb-stats-podium-place';
             block.style.setProperty('--tone', p.color);
-            block.style.minHeight = `${p.h + 32}px`;
+            block.style.minHeight = `${p.h + 68}px`;
+            block.style.gridColumn = p.rank === 1 ? 2 : p.rank === 2 ? 1 : 3;
             block.setAttribute('aria-label', `Rank ${p.rank}: ${p.e.score.toLocaleString()} points`);
-            block.innerHTML = `<span class="lb-score">${escapeHtml(p.e.score.toLocaleString())}</span><span aria-hidden="true">${p.medal}</span>`;
+            block.innerHTML = `<span class="lb-score">${escapeHtml(p.e.score.toLocaleString())}</span><span aria-hidden="true">${p.medal}</span><span class="lb-stats-place-rank" aria-hidden="true">#${p.rank}</span>`;
             block.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(p.lbIdx));
@@ -4997,7 +4906,8 @@
             block.addEventListener('mouseleave', () => { if (tipEl) tipEl.style.display = 'none'; });
             podiumWrap.appendChild(block);
         });
-        container.appendChild(podiumWrap);
+        podiumPanel.appendChild(podiumWrap);
+        container.appendChild(podiumPanel);
 
         // --- Regular rows (4th+) with Load More ---
         let _lbShown = 50;
@@ -5021,7 +4931,7 @@
             // Load More button
             if (max < lb.length) {
                 const moreBtn = document.createElement('button');
-                moreBtn.className = 'lb-btn lb-load-more';
+                moreBtn.className = 'lb-block-btn lb-load-more';
                 moreBtn.textContent = `LOAD MORE (${lb.length - max} remaining)`;
                 moreBtn.addEventListener('click', () => {
                     _lbShown += 50;

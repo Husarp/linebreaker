@@ -55,6 +55,38 @@ it('shows best counts alongside percentages of unrounded, comparable averages', 
   expect(byId('stat-best-score-pct').textContent).toBe('11969% of your average');
 });
 
+it('renders the full leap-year calendar and exposes counts on hover, tap and keyboard', () => {
+  const save = game.api.save;
+  save.stats.playHistory = { '2024-02-29': 6 };
+  save.leaderboard = [{ score: 75, date: '29.02.2024 10:30' }, { score: 55, date: '03.03.2024 10:30' }];
+  game.api.setSave(save);
+  game.w.openStats();
+  const year = query('button[data-cal-year="2024"]');
+  year.click();
+  expect(game.w.document.activeElement).toBe(query('button[data-cal-year="2024"]'));
+  expect(all('#cal-month-row span').map(month => month.textContent)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
+  expect(all('#cal-day-labels span').map(day => day.textContent)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+  const days = all('#cal-grid button');
+  expect(days).toHaveLength(366);
+  expect(days[59].getAttribute('aria-label')).toContain('February 29, 2024 — 6 games');
+  expect(days[62].getAttribute('aria-label')).toContain('March 3, 2024 — 1 game');
+  expect(days[59].dataset.level).toBe('3');
+  const value = query('.lb-stats-day-value');
+  const hover = new game.w.Event('pointerover', { bubbles: true });
+  Object.defineProperty(hover, 'pointerType', { value: 'mouse' });
+  days[59].dispatchEvent(hover);
+  expect(value.textContent).toBe(days[59].getAttribute('aria-label'));
+  query('#cal-grid').dispatchEvent(new game.w.Event('pointerleave'));
+  expect(value.textContent).toBe(days[0].getAttribute('aria-label'));
+  days[59].click();
+  expect(value.textContent).toBe(days[59].getAttribute('aria-label'));
+  days[59].dispatchEvent(new game.w.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  expect(game.w.document.activeElement).toBe(days[66]);
+  expect(days.filter(day => day.tabIndex === 0)).toEqual([days[66]]);
+  expect(days.filter(day => day.getAttribute('aria-pressed') === 'true')).toEqual([days[66]]);
+  expect(value.textContent).toBe(days[66].getAttribute('aria-label'));
+});
+
 it('keeps raw records visible when legacy saves lack a positive average', () => {
   const save = game.api.save;
   save.stats.bestEarnedXP = 500;

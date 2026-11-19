@@ -31,6 +31,7 @@
     <link rel="stylesheet" href="64-daily-gift.css">
     <link rel="stylesheet" href="65-game-over.css">
     <link rel="stylesheet" href="66-help.css">
+    <link rel="stylesheet" href="67-stats.css">
 </head>
 <body>
 
@@ -249,17 +250,17 @@
 <div id="stats-overlay" class="overlay hidden lb-fullscreen" role="region" aria-labelledby="stats-title">
     <div class="lb-stats-shell">
         <header class="lb-header lb-block-topbar">
-            <button class="lb-btn lb-btn--ghost" type="button" onclick="window.closeStats()">Back</button>
+            <button class="lb-block-back" type="button" onclick="window.closeStats()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h8a4 4 0 1 1 0 8h-3M7 4 3 8l4 4"/></svg>Back</button>
             <h1 id="stats-title">Statistics</h1>
         </header>
-        <div class="lb-tabs lb-stats-tabs" role="tablist" aria-label="Statistics views">
-            <button class="lb-btn" type="button" role="tab" id="stats-tab-general" aria-controls="general-stats-container" aria-selected="true" data-stats-tab="general">General stats</button>
-            <button class="lb-btn" type="button" role="tab" id="stats-tab-lb" aria-controls="leaderboard-container" aria-selected="false" tabindex="-1" data-stats-tab="leaderboard">Leaderboard</button>
-            <button class="lb-btn" type="button" role="tab" id="stats-tab-pin" aria-controls="pinned-container" aria-selected="false" tabindex="-1" data-stats-tab="pinned">Pinned</button>
-            <button class="lb-btn" type="button" role="tab" id="stats-tab-hs" aria-controls="highscores-container" aria-selected="false" tabindex="-1" data-stats-tab="highscores">Highscores</button>
+        <div class="lb-block-tabs lb-stats-tabs" role="tablist" aria-label="Statistics views">
+            <button class="lb-block-btn" type="button" role="tab" id="stats-tab-general" aria-controls="general-stats-container" aria-selected="true" data-stats-tab="general">General stats</button>
+            <button class="lb-block-btn" type="button" role="tab" id="stats-tab-lb" aria-controls="leaderboard-container" aria-selected="false" tabindex="-1" data-stats-tab="leaderboard">Leaderboard</button>
+            <button class="lb-block-btn" type="button" role="tab" id="stats-tab-pin" aria-controls="pinned-container" aria-selected="false" tabindex="-1" data-stats-tab="pinned">Pinned</button>
+            <button class="lb-block-btn" type="button" role="tab" id="stats-tab-hs" aria-controls="highscores-container" aria-selected="false" tabindex="-1" data-stats-tab="highscores">Highscores</button>
         </div>
         <section id="general-stats-container" role="tabpanel" aria-labelledby="stats-tab-general" tabindex="0">
-            <dl class="lb-card lb-stats-metrics">
+            <dl class="lb-block-card lb-stats-metrics">
                 <div><dt>Best score</dt><dd id="stat-best-score">—</dd><dd class="lb-stats-comparison" id="stat-best-score-pct" hidden></dd></div>
                 <div><dt>Average score</dt><dd id="stat-average-score">—</dd></div>
                 <div><dt>Best earned XP</dt><dd id="stat-best-xp">—</dd><dd class="lb-stats-comparison" id="stat-best-xp-pct" hidden></dd></div>
@@ -273,15 +274,15 @@
                 <div><dt>Daily streak</dt><dd id="stat-daily-streak">—</dd></div>
                 <div><dt>Items collected</dt><dd id="stat-items-collected">—</dd></div>
             </dl>
-            <section class="lb-card">
-                <h2>Activity</h2>
+            <section class="lb-block-panel">
+                <div class="lb-block-panel-head"><h2>Activity</h2></div>
                 <div id="stat-activity-calendar"></div>
             </section>
         </section>
         <section id="leaderboard-container" role="tabpanel" aria-labelledby="stats-tab-lb" tabindex="0" hidden>
             <div class="lb-actions" role="group" aria-label="Leaderboard mode">
-                <button class="lb-btn" type="button" aria-pressed="true" aria-controls="lb-list" data-stats-board="standard">Standard</button>
-                <button class="lb-btn" type="button" aria-pressed="false" aria-controls="fun-list" data-stats-board="fun">Fun mode</button>
+                <button class="lb-block-btn lb-block-tab" type="button" aria-pressed="true" aria-controls="lb-list" data-stats-board="standard">Standard</button>
+                <button class="lb-block-btn lb-block-tab" type="button" aria-pressed="false" aria-controls="fun-list" data-stats-board="fun">Fun mode</button>
             </div>
             <div id="lb-list"></div>
             <div id="fun-list" hidden></div>
@@ -290,14 +291,16 @@
             <div id="pinned-list"></div>
         </section>
         <section id="highscores-container" role="tabpanel" aria-labelledby="stats-tab-hs" tabindex="0" hidden>
-            <section class="lb-card">
-                <h2>Records by speed level</h2>
-                <p class="lb-stats-meta">Best score for each maximum speed reached.</p>
-                <div id="highscores-by-speed"></div>
+            <section class="lb-block-panel">
+                <div class="lb-block-panel-head"><h2>Records by speed level</h2></div>
+                <div class="lb-stats-panel-body">
+                    <p class="lb-stats-meta">Best score for each maximum speed reached.</p>
+                    <div id="highscores-by-speed"></div>
+                </div>
             </section>
-            <section>
-                <h2>Highscore history</h2>
-                <div id="highscores-list"></div>
+            <section class="lb-block-panel">
+                <div class="lb-block-panel-head"><h2>Highscore history</h2></div>
+                <div id="highscores-list" class="lb-stats-panel-body"></div>
             </section>
         </section>
     </div>
