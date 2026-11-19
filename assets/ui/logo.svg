@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="linebreaker-wordmark" viewBox="0 0 1256 230" role="img" aria-labelledby="wordmark-title">
+  <title id="wordmark-title">LINEBREAKER</title>
+  <defs>
+    <linearGradient id="wordmark-color" gradientUnits="userSpaceOnUse" x1="125" x2="1125" y1="115" y2="115">
+      <stop style="stop-color:var(--logo-accent,var(--primary,#00ffff))"/>
+      <stop offset="1" style="stop-color:var(--logo-secondary,#ff34de)"/>
+    </linearGradient>
+    <linearGradient id="wordmark-sheen" x2="0" y2="1">
+      <stop stop-color="#fff" stop-opacity=".26"/>
+      <stop offset=".46" stop-color="#fff" stop-opacity=".05"/>
+      <stop offset=".54" stop-color="#060820" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#060820" stop-opacity=".05"/>
+    </linearGradient>
+    <clipPath id="wordmark-break">
+      <path d="M0 0H1256V101H827L800 104L780 100L754 105L729 100L711 105L689 98L674 105L653 95L634 105L619 99L602 105L582 97L560 104L543 99L521 105L497 101L474 104L447 101H0Z
+               M0 129H447L471 126L496 130L519 125L540 129L562 124L584 131L602 125L618 134L638 125L655 133L675 125L691 130L711 125L733 130L757 126L779 130L801 126L827 129H1256V230H0Z"/>
+    </clipPath>
+    <g id="wordmark-letterforms" transform="matrix(1 0 -.15 1 17.25 0)" fill-rule="evenodd">
+      <path d="M130 52H160V149H210V178H130Z"/>
+      <path d="M222 52H252V178H222Z"/>
+      <path d="M264 52H294L330 115V52H359V178H329L293 115V178H264Z"/>
+      <path d="M371 52H452V77H401V87H444V113H401V151H452V178H371Z"/>
+      <path d="M464 52H530L550 72V99L537 112L552 127V158L532 178H464Z M494 77V102H516L522 96V83L516 77Z M494 127V153H517L523 147V133L517 127Z"/>
+      <path d="M564 52H631L652 73V108L631 129H624L658 178H624L593 132V178H564Z M593 78V105H617L623 99V84L617 78Z"/>
+      <path d="M668 52H749V77H698V87H741V113H698V151H749V178H668Z"/>
+      <path d="M795 52H826L872 178H840L831 151H788L779 178H748Z M809 88L796 127H823Z"/>
+      <path d="M877 52H907V101L945 52H980L932 112L982 178H945L907 126V178H877Z"/>
+      <path d="M988 52H1069V77H1018V87H1061V113H1018V151H1069V178H988Z"/>
+      <path d="M1081 52H1148L1169 73V108L1148 129H1141L1175 178H1141L1110 132V178H1081Z M1110 78V105H1134L1140 99V84L1134 78Z"/>
+    </g>
+    <g id="wordmark-letters" clip-path="url(#wordmark-break)">
+      <use href="#wordmark-letterforms"/>
+    </g>
+    <mask id="wordmark-cells" maskUnits="userSpaceOnUse" x="0" y="0" width="1256" height="230">
+      <path d="M27 115H552M702 115H1230" fill="none" stroke="#fff" stroke-width="16" stroke-dasharray="16 9"/>
+      <path fill="#fff" d="M551 115l9-9 9 9-9 9z M574 114l10-10 10 10-10 10z M595 117l11-11 11 11-11 11z
+                           M614 110l14-14 14 14-14 14z M639 122l11-11 11 11-11 11z M663 113l10-10 10 10-10 10z
+                           M685 116l8-8 8 8-8 8z M584 143l-7 12 15-4z M607 84l6-13 10 10-5 9z
+                           M635 145l13 6 3 16-15-10z M653 79l5-16 7 3z M680 92l11-8 2 8z M669 141l8 3-4 7z"/>
+    </mask>
+    <filter id="wordmark-glow" x="-10%" y="-35%" width="120%" height="170%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+  <use href="#wordmark-letters" fill="url(#wordmark-color)" opacity=".46" filter="url(#wordmark-glow)"/>
+  <use href="#wordmark-letters" fill="url(#wordmark-color)"/>
+  <use href="#wordmark-letters" fill="url(#wordmark-sheen)" stroke="#fff" stroke-opacity=".32" stroke-width="1.25"/>
+  <g mask="url(#wordmark-cells)">
+    <rect width="1256" height="230" fill="url(#wordmark-color)"/>
+    <rect width="1256" height="230" fill="#fff" opacity=".55"/>
+  </g>
+  <g filter="url(#wordmark-glow)" opacity=".95">
+    <rect width="1256" height="230" fill="url(#wordmark-color)" mask="url(#wordmark-cells)"/>
+  </g>
+</svg>
