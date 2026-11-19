@@ -23,6 +23,16 @@
     <link rel="stylesheet" href="41-season-pass.css">
     <link rel="stylesheet" href="43-crates-daily-gift.css">
     <link rel="stylesheet" href="60-foundation.css">
+    <link rel="stylesheet" href="61-achievements.css">
+    <link rel="stylesheet" href="71-backgrounds.css">
+    <link rel="stylesheet" href="72-pause.css">
+    <link rel="stylesheet" href="62-booster-exchange.css">
+    <link rel="stylesheet" href="63-colors.css">
+    <link rel="stylesheet" href="64-daily-gift.css">
+    <link rel="stylesheet" href="65-game-over.css">
+    <link rel="stylesheet" href="66-help.css">
+    <link rel="stylesheet" href="67-stats.css">
+    <link rel="stylesheet" href="69-play.css">
     <link rel="stylesheet" href="68-inventory.css">
 </head>
 <body>
@@ -84,13 +94,11 @@
 <div id="pause-overlay" class="overlay hidden lb-run-overlay" style="z-index: 999;" role="dialog" aria-modal="true" aria-labelledby="pause-title">
     <div class="lb-run-panel">
         <h1 id="pause-title">PAUSED</h1>
-        <p>Take a breath. Your next move can wait.</p>
-        <p class="lb-run-note">Leaving saves your score and XP in the run results. Restart begins a fresh run.</p>
-        <button class="lb-run-primary" data-lb-drift="accent" onclick="window.resumeGame()">RESUME</button>
+        <button type="button" class="lb-run-primary" onclick="window.resumeGame()">RESUME</button>
         <div class="lb-run-icons" role="group" aria-label="Run actions">
-            <button data-lb-drift="surface" aria-label="Restart run" title="Restart run" onclick="window.startGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/></svg></button>
-            <button aria-label="Main menu via run results" title="End run — return through results" onclick="window.quitGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/></svg></button>
-            <button aria-label="Settings" title="Settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 4 4 1v8l-4 1-1 4H9l-1-4-4-1V8l4-1z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            <button type="button" aria-label="Restart run" title="Restart run" onclick="window.restartPausedRun()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 2 8M4 4v6h6"/></svg></button>
+            <button type="button" aria-label="Settings" title="Settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3h4l1 3 2 1 3-1 2 4-2 2 2 2-2 4-3-1-2 1-1 3h-4l-1-3-2-1-3 1-2-4 2-2-2-2 2-4 3 1 2-1z"/><circle cx="12" cy="12" r="2.5"/></svg></button>
+            <button type="button" aria-label="Main menu via run results" title="End run and return through results" onclick="window.quitGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-7 9 7M5 10v10h14V10M10 20v-6h4v6"/></svg></button>
         </div>
     </div>
 </div>
@@ -244,17 +252,17 @@
 <div id="stats-overlay" class="overlay hidden lb-fullscreen" role="region" aria-labelledby="stats-title">
     <div class="lb-stats-shell">
         <header class="lb-header lb-block-topbar">
-            <button class="lb-btn lb-btn--ghost" type="button" onclick="window.closeStats()">Back</button>
+            <button class="lb-block-back" type="button" onclick="window.closeStats()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h8a4 4 0 1 1 0 8h-3M7 4 3 8l4 4"/></svg>Back</button>
             <h1 id="stats-title">Statistics</h1>
         </header>
-        <div class="lb-tabs lb-stats-tabs" role="tablist" aria-label="Statistics views">
-            <button class="lb-btn" type="button" role="tab" id="stats-tab-general" aria-controls="general-stats-container" aria-selected="true" data-stats-tab="general">General stats</button>
-            <button class="lb-btn" type="button" role="tab" id="stats-tab-lb" aria-controls="leaderboard-container" aria-selected="false" tabindex="-1" data-stats-tab="leaderboard">Leaderboard</button>
-            <button class="lb-btn" type="button" role="tab" id="stats-tab-pin" aria-controls="pinned-container" aria-selected="false" tabindex="-1" data-stats-tab="pinned">Pinned</button>
-            <button class="lb-btn" type="button" role="tab" id="stats-tab-hs" aria-controls="highscores-container" aria-selected="false" tabindex="-1" data-stats-tab="highscores">Highscores</button>
+        <div class="lb-block-tabs lb-stats-tabs" role="tablist" aria-label="Statistics views">
+            <button class="lb-block-btn" type="button" role="tab" id="stats-tab-general" aria-controls="general-stats-container" aria-selected="true" data-stats-tab="general">General stats</button>
+            <button class="lb-block-btn" type="button" role="tab" id="stats-tab-lb" aria-controls="leaderboard-container" aria-selected="false" tabindex="-1" data-stats-tab="leaderboard">Leaderboard</button>
+            <button class="lb-block-btn" type="button" role="tab" id="stats-tab-pin" aria-controls="pinned-container" aria-selected="false" tabindex="-1" data-stats-tab="pinned">Pinned</button>
+            <button class="lb-block-btn" type="button" role="tab" id="stats-tab-hs" aria-controls="highscores-container" aria-selected="false" tabindex="-1" data-stats-tab="highscores">Highscores</button>
         </div>
         <section id="general-stats-container" role="tabpanel" aria-labelledby="stats-tab-general" tabindex="0">
-            <dl class="lb-card lb-stats-metrics">
+            <dl class="lb-block-card lb-stats-metrics">
                 <div><dt>Best score</dt><dd id="stat-best-score">—</dd><dd class="lb-stats-comparison" id="stat-best-score-pct" hidden></dd></div>
                 <div><dt>Average score</dt><dd id="stat-average-score">—</dd></div>
                 <div><dt>Best earned XP</dt><dd id="stat-best-xp">—</dd><dd class="lb-stats-comparison" id="stat-best-xp-pct" hidden></dd></div>
@@ -268,15 +276,15 @@
                 <div><dt>Daily streak</dt><dd id="stat-daily-streak">—</dd></div>
                 <div><dt>Items collected</dt><dd id="stat-items-collected">—</dd></div>
             </dl>
-            <section class="lb-card">
-                <h2>Activity</h2>
+            <section class="lb-block-panel">
+                <div class="lb-block-panel-head"><h2>Activity</h2></div>
                 <div id="stat-activity-calendar"></div>
             </section>
         </section>
         <section id="leaderboard-container" role="tabpanel" aria-labelledby="stats-tab-lb" tabindex="0" hidden>
             <div class="lb-actions" role="group" aria-label="Leaderboard mode">
-                <button class="lb-btn" type="button" aria-pressed="true" aria-controls="lb-list" data-stats-board="standard">Standard</button>
-                <button class="lb-btn" type="button" aria-pressed="false" aria-controls="fun-list" data-stats-board="fun">Fun mode</button>
+                <button class="lb-block-btn lb-block-tab" type="button" aria-pressed="true" aria-controls="lb-list" data-stats-board="standard">Standard</button>
+                <button class="lb-block-btn lb-block-tab" type="button" aria-pressed="false" aria-controls="fun-list" data-stats-board="fun">Fun mode</button>
             </div>
             <div id="lb-list"></div>
             <div id="fun-list" hidden></div>
@@ -285,14 +293,16 @@
             <div id="pinned-list"></div>
         </section>
         <section id="highscores-container" role="tabpanel" aria-labelledby="stats-tab-hs" tabindex="0" hidden>
-            <section class="lb-card">
-                <h2>Records by speed level</h2>
-                <p class="lb-stats-meta">Best score for each maximum speed reached.</p>
-                <div id="highscores-by-speed"></div>
+            <section class="lb-block-panel">
+                <div class="lb-block-panel-head"><h2>Records by speed level</h2></div>
+                <div class="lb-stats-panel-body">
+                    <p class="lb-stats-meta">Best score for each maximum speed reached.</p>
+                    <div id="highscores-by-speed"></div>
+                </div>
             </section>
-            <section>
-                <h2>Highscore history</h2>
-                <div id="highscores-list"></div>
+            <section class="lb-block-panel">
+                <div class="lb-block-panel-head"><h2>Highscore history</h2></div>
+                <div id="highscores-list" class="lb-stats-panel-body"></div>
             </section>
         </section>
     </div>
@@ -332,14 +342,22 @@
 
         <!-- ===== COLORS TAB ===== -->
         <div id="inventory-colors" role="tabpanel" aria-labelledby="inventory-tab-colors" data-invtab-content="colors" class="hidden">
-            <div class="settings-section">
-                <div class="settings-title lb-help-label">THEME COLOR <span id="theme-owned-count" style="font-size:0.55rem;color:#666;font-weight:normal;"></span> <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About theme color" title="About theme color"></button></div>
-                <div id="owned-theme-btns" style="margin-top:6px;"></div>
-            </div>
-            <div class="settings-section">
-                <div class="settings-title lb-help-label">BLOCK PALETTE <span id="palette-owned-count" style="font-size:0.55rem;color:#666;font-weight:normal;"></span> <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About block palette" title="About block palette"></button></div>
-                <div id="owned-palette-btns" style="margin-top:6px;"></div>
-            </div>
+            <section class="lb-block-panel" aria-labelledby="inventory-theme-title">
+                <header class="lb-block-panel-head">
+                    <h2 class="lb-block-section-title" id="inventory-theme-title">Theme Color</h2>
+                    <span id="theme-owned-count" class="lb-colors-count"></span>
+                    <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About theme color" title="About theme color"></button>
+                </header>
+                <div id="owned-theme-btns"></div>
+            </section>
+            <section class="lb-block-panel" aria-labelledby="inventory-palette-title">
+                <header class="lb-block-panel-head">
+                    <h2 class="lb-block-section-title" id="inventory-palette-title">Block Palette</h2>
+                    <span id="palette-owned-count" class="lb-colors-count"></span>
+                    <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About block palette" title="About block palette"></button>
+                </header>
+                <div id="owned-palette-btns"></div>
+            </section>
         </div>
 
         <!-- ===== OTHER TAB ===== -->
@@ -698,63 +716,74 @@
 
 <!-- MODE SELECT -->
 <div id="mode-select-overlay" class="overlay hidden" role="dialog" aria-labelledby="play-title">
-    <div class="play-layout">
-        <header class="lb-header play-header lb-block-topbar">
-            <button type="button" class="lb-btn lb-btn--ghost" id="play-back"><span aria-hidden="true">←</span> Back</button>
-            <h1 id="play-title">Play</h1>
-            <button type="button" class="lb-btn lb-btn--ghost" id="play-rules">Rules</button>
-        </header>
-        <div class="lb-tabs play-tabs" role="group" aria-label="Game mode">
-            <button type="button" class="lb-btn" data-mode="normal" aria-pressed="true">Normal</button>
-            <button type="button" class="lb-btn" data-mode="fun" aria-label="Fun" aria-pressed="false" aria-describedby="play-fun-lock" disabled>
-                Fun <span id="play-fun-lock" class="play-lock">Locked · Silver I</span>
-            </button>
-        </div>
-        <div class="lb-card play-setup">
-            <section aria-labelledby="play-modifiers-title">
-                <h2 id="play-modifiers-title">Modifiers</h2>
-                <div id="mode-options-panel" class="play-modifiers"></div>
+    <svg class="lb69-icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <symbol id="play-icon-normal" viewBox="0 0 24 24"><path d="M3 3h6v6h12v6H3zM3 9h6v6m6-6v6"/></symbol>
+        <symbol id="play-icon-fun" viewBox="0 0 24 24"><path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.4-5.7-3-5.7 3 1.1-6.4-4.6-4.5 6.4-.9z"/></symbol>
+        <symbol id="play-icon-rules" viewBox="0 0 24 24"><path d="M12 6v14m0-14C9 4 5 4 3 5v14c2-1 6-1 9 1 3-2 7-2 9-1V5c-2-1-6-1-9 1Z"/></symbol>
+        <symbol id="play-icon-start" viewBox="0 0 24 24"><path d="m7 4 13 8-13 8z"/></symbol>
+        <symbol id="play-icon-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4m-4 4v2"/></symbol>
+        <symbol id="play-icon-mirror" viewBox="0 0 24 24"><path d="M12 3v18M9 6l-6 12h6M15 6l6 12h-6"/></symbol>
+        <symbol id="play-icon-ghost" viewBox="0 0 24 24"><path d="M9 4h6v5H9zm-5 9h16m-14 4h12m-10 4h8"/></symbol>
+        <symbol id="play-icon-hold" viewBox="0 0 24 24"><rect x="9" y="5" width="6" height="6" rx="1"/><path d="M4 12v7h16v-7"/></symbol>
+        <symbol id="play-icon-no-next" viewBox="0 0 24 24"><path d="M3 12s3-6 9-6 9 6 9 6-3 6-9 6-9-6-9-6Zm2 8L19 4"/></symbol>
+        <symbol id="play-icon-three-next" viewBox="0 0 24 24"><rect x="3" y="9" width="4" height="6" rx="1"/><rect x="10" y="9" width="4" height="6" rx="1"/><rect x="17" y="9" width="4" height="6" rx="1"/></symbol>
+    </svg>
+    <div class="lb69-layout">
+        <div class="lb69-panel lb-block-panel">
+            <header class="lb69-header lb-block-topbar">
+                <h1 id="play-title">Select Mode</h1>
+                <button type="button" class="lb-block-btn" id="play-rules"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-rules"/></svg> Rules</button>
+            </header>
+            <div class="lb69-modes" role="group" aria-label="Game mode">
+                <button type="button" class="lb-block-btn lb-block-tab lb69-mode" data-mode="normal" aria-pressed="true" aria-labelledby="play-normal-name" aria-describedby="play-normal-desc">
+                    <svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-normal"/></svg>
+                    <strong id="play-normal-name">Normal</strong>
+                    <span id="play-normal-desc" class="lb69-mode-detail">Classic Tetris RPG</span>
+                </button>
+                <button type="button" class="lb-block-btn lb-block-tab lb-block-btn--locked lb69-mode" data-mode="fun" aria-pressed="false" aria-labelledby="play-fun-name" aria-describedby="play-fun-lock" disabled>
+                    <svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-fun"/></svg>
+                    <strong id="play-fun-name">Fun</strong>
+                    <span id="play-fun-desc" class="lb69-mode-detail" hidden>Sandbox: custom board and speed. No ranking, XP, or achievements.</span>
+                    <span id="play-fun-lock" class="lb69-mode-detail lb69-lock"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-lock"/></svg> Locked · Silver I</span>
+                </button>
+            </div>
+            <div class="lb69-actions">
+                <button type="button" class="lb-block-btn lb-block-btn--primary" id="play-start" data-lb-drift="accent"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-start"/></svg> Start</button>
+                <button type="button" class="lb-block-btn" id="play-back">Cancel</button>
+            </div>
+            <section class="lb69-options" aria-labelledby="play-modifiers-title">
+                <h2 id="play-modifiers-title">Options</h2>
+                <div id="mode-options-panel"></div>
             </section>
-            <section id="fun-mode-config" aria-labelledby="play-board-title" hidden>
+            <section id="fun-mode-config" class="lb69-config" aria-labelledby="play-board-title" hidden>
                 <h2 id="play-board-title">Fun setup</h2>
-                <div class="play-range">
-                    <label for="fun-cols">Board columns</label>
+                <p>Modifiers don’t affect score in Fun.</p>
+                <div class="lb69-range">
+                    <label for="fun-cols">Columns</label>
                     <output id="fun-cols-val" for="fun-cols">10</output>
-                    <input type="range" class="lb-slider" id="fun-cols" min="6" max="16" value="10">
+                    <input type="range" class="lb-block-range" id="fun-cols" min="6" max="16" value="10">
                 </div>
-                <div class="play-range">
-                    <label for="fun-rows">Board rows</label>
+                <div class="lb69-range">
+                    <label for="fun-rows">Rows</label>
                     <output id="fun-rows-val" for="fun-rows">20</output>
-                    <input type="range" class="lb-slider" id="fun-rows" min="15" max="30" value="20">
+                    <input type="range" class="lb-block-range" id="fun-rows" min="15" max="30" value="20">
                 </div>
-                <div class="play-range">
-                    <label for="fun-speed">Starting speed</label>
+                <div class="lb69-range">
+                    <label for="fun-speed">Start speed</label>
                     <output id="fun-speed-val" for="fun-speed">1</output>
-                    <input type="range" class="lb-slider" id="fun-speed" min="1" max="15" value="1">
+                    <input type="range" class="lb-block-range" id="fun-speed" min="1" max="15" value="1">
                 </div>
-            </section>
-        </div>
-        <section class="lb-card play-summary" aria-labelledby="play-summary-title">
-            <div class="lb-card play-summary-card">
-                <h2 id="play-summary-title">Run summary</h2>
-                <div class="play-score" aria-live="polite" aria-atomic="true">
-                    <div class="lb-eyebrow">Score multiplier</div>
-                    <strong class="lb-number" id="mode-xp-mult-val">100%</strong>
-                </div>
-                <p class="play-mode-note" id="play-fun-note" hidden>Modifiers don’t affect score in Fun.</p>
-                <figure class="play-board-preview" id="play-board-preview" hidden>
-                    <div class="play-board-grid" aria-hidden="true"></div>
+                <figure class="lb69-board-preview" id="play-board-preview" hidden>
+                    <div class="lb69-board-grid" aria-hidden="true"></div>
                     <figcaption id="play-board-size">10 × 20 board</figcaption>
                 </figure>
-                <div class="play-preview">
-                    <h3>Active modifiers</h3>
-                    <p class="play-mode-note" id="play-no-modifiers">None active</p>
-                    <ul id="play-active-modifiers" class="play-active-modifiers" hidden></ul>
-                </div>
-            </div>
-            <div class="play-start-bar">
-                <button type="button" class="lb-btn lb-btn--primary" id="play-start" data-lb-drift="accent"><span aria-hidden="true">▶</span> START</button>
-            </div>
+            </section>
+        </div>
+        <section class="lb69-score lb-block-panel" aria-labelledby="play-score-title" aria-live="polite" aria-atomic="true">
+            <h2 id="play-score-title">Score multiplier</h2>
+            <strong id="mode-xp-mult-val">100%</strong>
+            <p id="play-no-modifiers">No active modifiers</p>
+            <ul id="play-active-modifiers" hidden></ul>
         </section>
     </div>
 </div>
@@ -804,8 +833,8 @@
 <!-- HELP SCREEN -->
 <div id="rules-overlay" class="overlay hidden lb-help" role="dialog" aria-modal="true" aria-labelledby="help-title">
     <header class="lb-help-header lb-block-topbar">
-        <button type="button" id="help-back" class="lb-btn lb-btn--ghost" onclick="window.closeHelp()">Back</button>
-        <h1 id="help-title">Game Help</h1>
+        <button type="button" id="help-back" class="lb-block-back" onclick="window.closeHelp()">Back</button>
+        <h1 id="help-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M9 7h7m-7 4h4" stroke-width="1.3"/></svg>Game Help</h1>
     </header>
     <div class="lb-help-layout">
         <nav class="lb-help-nav" aria-label="Help sections"></nav>
@@ -814,63 +843,27 @@
 </div>
 
 <!-- GAME OVER -->
-<div id="go-overlay" class="overlay hidden lb-run-overlay" role="dialog" aria-modal="true" aria-labelledby="go-title">
-    <h1 id="go-title" style="margin-bottom: 20px;">GAME OVER</h1>
-
-    <!-- Normal / Advanced mode: XP breakdown -->
-    <div id="go-xp-breakdown" class="xp-breakdown" style="padding: 20px; width: min(480px, 94vw);">
-        <div id="go-lb-position" style="display:none;text-align:center;margin-bottom:10px;"></div>
-        <div style="text-align:center; margin-bottom: 15px; font-weight:bold; color:var(--primary); font-size: 1rem;">XP BREAKDOWN</div>
-        <div class="game-stats-row" style="flex-wrap:wrap; gap:4px 16px;">
-            <span style="white-space:nowrap;">Time: <span id="go-time-played" style="color:#fff">00:00</span></span>
-            <span style="white-space:nowrap;">Speed: <span style="color:#fff"><span id="go-max-speed">1</span></span></span>
-            <span id="go-best-combo" style="white-space:nowrap; display:none;">Best Combo: <span id="go-combo-val" style="color:#00eeff;">×0</span></span>
-        </div>
-        <span class="xp-row penalty" id="go-penalty" style="display: none;">
-            ⚠️ No lines cleared! No XP earned.
-        </span>
-        <div id="go-stats-group">
-            <div class="xp-row" style="margin-bottom: 12px;"><span>Blocks (<span id="go-blocks-cnt">0</span>):</span><span id="go-blocks-xp">0 XP</span></div>
-            <div class="xp-row" style="margin-bottom: 12px;"><span>Lines (<span id="go-lines-cnt">0</span>):</span><span id="go-lines-xp">0 XP</span></div>
-            <div class="xp-row bonus" id="go-pb-row" style="display: none; margin-bottom: 12px;">
-                <span>Record! <span id="go-pb-pct" style="font-size:0.6rem; color:#aaa;">(+50% BONUS)</span></span>
-                <span id="go-pb-xp">+0 XP</span>
-            </div>
-        </div>
-        <div id="go-mission-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.07);font-size:0.58rem;color:#888;text-align:center;cursor:pointer;" onclick="openMissions()"></div>
-        <div class="xp-total" style="margin-top: 15px; padding-top: 15px;"><span>TOTAL:</span><span id="go-total-xp" style="color: var(--primary);">0 XP</span></div>
+<div id="go-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="go-title">
+    <h1 id="go-title">GAME OVER</h1>
+    <div class="go-panel lb-block-panel">
+        <dl class="go-stats" aria-label="Run results">
+            <div class="go-tile go-tile--score"><dt>Score</dt><dd id="go-score">0</dd></div>
+            <div class="go-tile go-tile--best"><dt id="go-best-label">Best</dt><dd id="go-best-score">0</dd></div>
+            <div class="go-tile"><dt>Lines</dt><dd id="go-lines-cnt">0</dd></div>
+            <div class="go-tile"><dt>Speed level</dt><dd id="go-max-speed">1</dd></div>
+            <div class="go-tile" id="go-xp-tile"><dt>XP gained</dt><dd id="go-total-xp" aria-live="polite">0</dd></div>
+        </dl>
+        <p id="go-record-bonus" hidden></p>
+        <button type="button" id="go-mission-row" class="lb-block-btn" onclick="openMissions()" hidden></button>
     </div>
 
-    <!-- Fun mode: clean stats only -->
-    <div id="go-fun-stats" style="display:none; text-align:center; padding: 10px 20px 20px;">
-        <div style="font-size:2rem; font-weight:900; color:var(--primary); font-family:'Orbitron';" id="go-fun-score">0</div>
-        <div style="font-size:0.65rem; color:#888; letter-spacing:2px; margin-bottom:6px;">SCORE</div>
-        <div id="go-fun-record" style="font-size:0.62rem; color:#888; margin-bottom:14px; min-height:1em;"></div>
-        <div style="display:flex; gap:24px; justify-content:center;">
-            <div style="text-align:center;">
-                <div style="font-size:1.2rem; font-weight:bold; color:#fff;" id="go-fun-time">00:00</div>
-                <div style="font-size:0.6rem; color:#888; letter-spacing:1px; margin-top:3px;">TIME</div>
-            </div>
-            <div style="text-align:center;">
-                <div style="font-size:1.2rem; font-weight:bold; color:#fff;" id="go-fun-lines">0</div>
-                <div style="font-size:0.6rem; color:#888; letter-spacing:1px; margin-top:3px;">LINES</div>
-            </div>
-            <div style="text-align:center;">
-                <div style="font-size:1.2rem; font-weight:bold; color:#fff;" id="go-fun-speed">1</div>
-                <div style="font-size:0.6rem; color:#888; letter-spacing:1px; margin-top:3px;">MAX SPEED</div>
-            </div>
-        </div>
-    </div>
+    <section id="go-boost-row" class="go-panel lb-block-panel" aria-labelledby="go-boost-title" hidden></section>
+    <section id="go-achievements-new" class="go-panel lb-block-panel" aria-labelledby="go-ach-title" hidden></section>
 
-    <div id="go-boost-row" style="display:none; flex-direction:column; margin-bottom:10px; background:rgba(204,68,255,0.1); border:1px solid #cc44ff; border-radius:8px; padding:8px 12px; gap:4px;"></div>
-
-    <!-- Newly unlocked achievements at game over -->
-    <div id="go-achievements-new" style="display:none; width:min(440px,94vw); margin:10px 0 0;"></div>
-
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
-        <button class="btn-main" data-lb-drift="accent" onclick="window.startGame()" style="padding:12px 30px;font-size:0.9rem;margin-bottom:0;">▶ AGAIN</button>
-        <button class="btn-secondary" onclick="window.resetGameToMenu()">MENU</button>
-        <button class="btn-secondary" onclick="window.pinCurrentScore()" style="font-size:0.75rem;border-color:rgba(255,215,0,0.5);color:#ffd700;" id="go-pin-btn">📌 PIN SCORE</button>
+    <div class="go-actions">
+        <button type="button" class="lb-block-btn lb-block-btn--primary" onclick="window.startGame()">Again</button>
+        <button type="button" class="lb-block-btn" onclick="window.resetGameToMenu()">Menu</button>
+        <button type="button" class="lb-block-btn" onclick="window.pinCurrentScore()" id="go-pin-btn">Pin score</button>
     </div>
 </div>
 
@@ -934,9 +927,9 @@
     <div style="width:100%; max-width:640px; margin:0 auto; padding:16px 20px;">
         <!-- Tabs -->
         <div style="display:flex; gap:6px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
-            <button class="opt-btn active" data-achtab="all">ALL</button>
-            <button class="opt-btn" data-achtab="unlocked">UNLOCKED</button>
-            <button class="opt-btn" data-achtab="locked">LOCKED</button>
+            <button class="lb-block-btn lb-block-tab" data-achtab="all" aria-pressed="true">ALL</button>
+            <button class="lb-block-btn lb-block-tab" data-achtab="unlocked" aria-pressed="false">UNLOCKED</button>
+            <button class="lb-block-btn lb-block-tab" data-achtab="locked" aria-pressed="false">LOCKED</button>
             <label style="margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;" title="Show unlock dates on hover">
                 <span style="font-size:0.55rem;color:#555;">Dates</span>
                 <span class="toggle">

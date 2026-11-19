@@ -92,7 +92,11 @@ it('renders achievement claims and saved reward cards as text and rejects an inv
   const box = document.querySelector('#level-box-overlay');
   expect(box.querySelector('.lb-rank-identity').textContent).toBe(markup);
   expect(box.querySelector('.lb-rank-identity').style.color).toBe('rgb(255, 215, 0)');
-  expect([...box.querySelector('.lb-reward-card').children].map(child => child.textContent)).toEqual(Array(4).fill(markup));
+  const card = box.querySelector('.lb-reward-card');
+  for (const selector of ['.lb64-reward-name', '.lb64-reward-desc', '.lb-reward-rarity']) {
+    expect(card.querySelector(selector).textContent).toBe(markup);
+  }
+  expect(card.querySelector('img').getAttribute('src')).toBe('assets/ui/64-item-part.svg');
   expect(box.querySelector('[data-render-probe]')).toBeNull();
 });
 
@@ -197,6 +201,38 @@ it('applies the custom theme colour from the picker to the page', () => {
   expect(rootStyle.getPropertyValue('--primary')).toBe('#12abef');
   expect(rootStyle.getPropertyValue('--primary-dim')).toBe('rgba(18,171,239,0.35)');
   expect(game.save.customThemeColor).toBe('#12abef');
+});
+
+it('shows distinct inventory colour states and keeps palette preview separate from equip', () => {
+  game.setup({ save: { ownedThemes: ['ocean'], ownedPalettes: ['ice'], parts: { forest: 1 } } });
+  window.openInventory();
+  const blocks = document.getElementById('inventory-tab-blocks');
+  blocks.focus();
+  blocks.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  const tab = document.activeElement;
+  expect(tab.id).toBe('inventory-tab-colors');
+  expect(tab.getAttribute('aria-selected')).toBe('true');
+  const panel = document.getElementById(tab.getAttribute('aria-controls'));
+  expect(panel.getAttribute('role')).toBe('tabpanel');
+  expect(panel.getAttribute('aria-labelledby')).toBe(tab.id);
+  expect(panel.classList.contains('hidden')).toBe(false);
+  const card = key => document.querySelector(`[data-invtab-content="colors"] [data-item-key="${key}"]`);
+  expect(card('default').querySelector('.lb-colors-state').textContent).toBe('Equipped');
+  expect(card('ocean').querySelector('.lb-colors-state')).toBeNull();
+  expect(card('forest').querySelector('.lb-colors-state').textContent).toBe('Locked');
+  expect(card('forest').querySelector('progress').value).toBe(1);
+  expect(document.getElementById('theme-owned-count').textContent).toBe('2/10');
+
+  const preview = card('ice').querySelector('.lb-palette-preview');
+  expect(preview.children).toHaveLength(7);
+  preview.click();
+  const dialog = document.getElementById('palette-view-modal');
+  expect(dialog).not.toBeNull();
+  dialog.querySelector('[aria-label="Close"]').click();
+  expect(dialog.isConnected).toBe(false);
+  expect(card('classic').dataset.equipped).toBe('true');
+  card('ice').querySelector('.lb-colors-actions button').click();
+  expect(card('ice').dataset.equipped).toBe('true');
 });
 
 it('marks equipped and locked inventory cards without adding owned tags', () => {

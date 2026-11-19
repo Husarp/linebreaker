@@ -20,14 +20,16 @@ it('maps each current booster key to the right rarity and multiplier', () => {
   expect(art.boosterIcon('unknown')).toBe('');
 });
 
-it('selects artwork only for the four mapped themes in image mode', () => {
-  for (const [theme, file] of [['ocean', 'ocean'], ['sakura', 'sakura'], ['void', 'void'], ['fire', 'forge']]) {
-    const path = `assets/ui/bg/${file}.jpg`;
-    expect(art.themeBackground(theme, 'image')).toBe(path);
-    expect(art.themeBackground(theme, 'plain')).toBeNull();
-    expect(statSync(projectFile(path)).size).toBeLessThan(300_000);
+it('selects compressed portrait and landscape artwork for all ten built-in themes in image mode', () => {
+  for (const theme of ['default', 'ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura']) {
+    for (const orientation of ['landscape', 'portrait']) {
+      const path = `assets/ui/bg/${theme}-${orientation}.jpg`;
+      expect(art.themeBackground(theme, 'image', orientation)).toBe(path);
+      expect(art.themeBackground(theme, 'plain', orientation)).toBeNull();
+      expect(statSync(projectFile(path)).size).toBeLessThan(400_000);
+    }
   }
-  for (const theme of ['default', 'forest', 'custom', 'toString']) {
+  for (const theme of ['custom', 'toString']) {
     expect(art.themeBackground(theme, 'image')).toBeNull();
   }
   expect(art.backgroundMode(undefined)).toBe('image');
@@ -39,7 +41,10 @@ it('keeps the existing gradient and falling-block setting when switching art mod
   try {
     const background = w.document.querySelector('.bg-gradient');
     const gradient = background.style.background;
-    const artLayer = () => background.style.getPropertyValue('--lb-theme-art');
+    const artLayers = () => ['landscape', 'portrait']
+      .map(orientation => background.style.getPropertyValue(`--lb-theme-art-${orientation}`));
+    const imageLayers = theme => ['landscape', 'portrait']
+      .map(orientation => `url("assets/ui/bg/${theme}-${orientation}.jpg")`);
     const select = w.document.getElementById('setting-theme-background');
     const selectMode = mode => {
       select.value = mode;
@@ -49,16 +54,16 @@ it('keeps the existing gradient and falling-block setting when switching art mod
 
     w.openSettings();
     expect(select.value).toBe('image');
-    expect(artLayer()).toContain('ocean.jpg');
+    expect(artLayers()).toEqual(imageLayers('ocean'));
     selectMode('plain');
-    expect(artLayer()).toBe('');
+    expect(artLayers()).toEqual(['', '']);
     expect(background.style.background).toBe(gradient);
     expect(stored()).toMatchObject({ theme: 'ocean', themeBackground: 'plain', bgBlockMotion: 'falling' });
-    selectMode('image');
-    expect(artLayer()).toContain('ocean.jpg');
-    expect(stored().themeBackground).toBe('image');
     w.applyTheme('default');
-    expect(artLayer()).toBe('');
+    expect(artLayers()).toEqual(['', '']);
+    selectMode('image');
+    expect(artLayers()).toEqual(imageLayers('default'));
+    expect(stored().themeBackground).toBe('image');
   } finally { close(); }
 });
 
@@ -77,5 +82,20 @@ it('uses the same tokens in the inventory and for eligible game-over boosters', 
     advance(200);
     api.gameOver();
     expect(images('#go-boost-row')).toEqual(Object.values(tokens).reverse());
+
+    const result = id => w.document.getElementById(id);
+    const runXP = api.save.leaderboard[0].xp;
+    expect(result('go-score').textContent).toBe('10');
+    expect(result('go-best-score').textContent).toBe('10');
+    expect(result('go-best-label').textContent).toBe('New best');
+    expect(result('go-lines-cnt').textContent).toBe('1');
+    expect(result('go-total-xp').textContent).toBe(String(runXP));
+
+    expect(result('go-boost-row').querySelector('[data-rarity="epic"]').getAttribute('onclick'))
+      .toBe("window.useScoreBooster('2xp_game')");
+    w.useScoreBooster('2xp_game');
+    expect(result('go-total-xp').textContent).toBe(String(2 * runXP));
+    expect(result('go-boost-row').hidden).toBe(true);
+    expect(api.save.boosters['2xp_game']).toBe(0);
   } finally { close(); }
 });

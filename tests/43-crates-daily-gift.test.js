@@ -83,6 +83,7 @@ it('grants a gift once and persists it before the player opens the animated reve
   advance(490);
   expect(crate.hidden).toBe(true);
   expect(dialog.querySelector('.lb43-crate-cards').parentElement.style.display).toBe('block');
+  expect(dialog.querySelector('.lb64-reward-tag')).toBeNull();
   expect(window.document.activeElement.textContent).toBe('Done');
   window.document.activeElement.click();
   expect(window.document.querySelector('#daily-gift-overlay')).toBeNull();
@@ -90,6 +91,32 @@ it('grants a gift once and persists it before the player opens the animated reve
   gift.click();
   expect(window.document.querySelector('#daily-gift-overlay')).toBeNull();
   expect(api.save.boosters['2xp_game']).toBe(3);
+});
+
+it('shows the full streak count and a new week of dots, with a separate bonus card', async () => {
+  game = await loadGame();
+  const { w: window, api } = game;
+  const yesterday = new window.Date(window.Date.now() - 86_400_000);
+  api.setup({ save: { lastDailyGift: window.LBSave.localDate(yesterday), dailyGiftStreak: 7 } });
+  window.Math.random = () => 0;
+  window.matchMedia = () => ({ matches: true });
+  const document = window.document;
+  document.querySelector('#lb43-daily-gift').click();
+  const dialog = document.querySelector('#daily-gift-overlay');
+  const streak = dialog.querySelector('.lb64-streak');
+  expect(streak.getAttribute('aria-label')).toBe('8-day gift streak, day 1 of 7 this cycle');
+  expect(streak.textContent).toBe('8');
+  expect(streak.querySelector('svg')).not.toBeNull();
+  expect(streak.querySelectorAll('.lb64-streak-dots > span')).toHaveLength(7);
+  expect(streak.querySelector('.lb64-streak-dots > :first-child').className).toBe('lb64-streak-today');
+  dialog.querySelector('button').click();
+  const cards = [...dialog.querySelectorAll('.lb-block-reward')];
+  const universal = cards.filter(card => card.querySelector('.lb64-reward-name').textContent === 'Universal Part');
+  expect(universal.map(card => card.querySelector('.lb-block-reward-amount').textContent)).toEqual(['×1', '×3']);
+  expect(universal[0].querySelector('.lb64-reward-tag')).toBeNull();
+  expect(universal[1].querySelector('.lb64-reward-tag').textContent).toBe('Streak bonus');
+  expect(cards.some(card => card.querySelector('img').getAttribute('src') === 'assets/ui/boosters/common-1.25x.png')).toBe(true);
+  expect(api.save.universalParts).toBe(4);
 });
 
 it('persists the high-water timestamp even if the clock rolls back before the first checkpoint', async () => {
@@ -133,6 +160,10 @@ it('uses the matching rarity art for rank, level, and mission milestone boxes', 
   advance(600);
   expect(rarity()).toBe('epic');
   document.querySelector('#lb-open-btn').click();
+  const levelCards = [...document.querySelectorAll('#level-box-overlay .lb-block-reward')];
+  const universal = levelCards.filter(card => card.querySelector('.lb64-reward-name').textContent === 'Universal Part' && !card.querySelector('.lb64-reward-desc'));
+  expect(universal).toHaveLength(1);
+  expect(universal[0].querySelector('.lb-block-reward-amount').textContent).toBe('×2');
   document.querySelector('#lb-claim-btn').click();
   api.refreshMissions();
   const save = api.save;
@@ -140,4 +171,6 @@ it('uses the matching rarity art for rank, level, and mission milestone boxes', 
   api.setSave(save);
   window._claimMissionMilestone(120, true);
   expect(rarity()).toBe('legendary');
+  document.querySelector('#ms-open-btn').click();
+  expect(document.querySelector('.lb64-mission-crate .lb-block-reward img').getAttribute('src')).toMatch(/^assets\/ui\/64-.*-part\.svg$/);
 });

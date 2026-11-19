@@ -166,6 +166,44 @@ it('starts a fresh run when a rebound restart key is pressed from pause', async 
   }
 });
 
+it.each([
+  ['Restart run', 'RESTART', 'start-animation-overlay'],
+  ['Main menu via run results', 'QUIT', 'go-overlay'],
+])('confirms the pause action %s before leaving the run', async (label, confirmLabel, destinationId) => {
+  const game = await loadGame();
+  try {
+    testLayout(game);
+    showRun(game);
+    key(game, 'Escape');
+    const { w } = game;
+    const get = id => w.document.getElementById(id);
+    const pause = get('pause-overlay');
+    const confirm = get('custom-confirm');
+    const actions = [...pause.querySelectorAll('.lb-run-icons button')];
+    expect(actions.map(button => button.getAttribute('aria-label'))).toEqual(['Restart run', 'Settings', 'Main menu via run results']);
+    expect(actions.every(button => !button.textContent.trim() && button.title && button.querySelector('svg[aria-hidden="true"]'))).toBe(true);
+    const action = actions.find(button => button.getAttribute('aria-label') === label);
+    const invoke = w.Function(`return ${action.getAttribute('onclick')}`);
+    const respond = async (buttonId, pending) => {
+      get(buttonId).click();
+      confirm.querySelector('.modal-box').dispatchEvent(new w.Event('animationend'));
+      await pending;
+    };
+
+    const declined = invoke();
+    expect(confirm.classList.contains('hidden')).toBe(false);
+    expect(get('confirm-yes').textContent).toBe(confirmLabel);
+    await respond('confirm-no', declined);
+    expect(pause.classList.contains('hidden')).toBe(false);
+    expect(get(destinationId).classList.contains('hidden')).toBe(true);
+
+    await respond('confirm-yes', invoke());
+    expect(get(destinationId).classList.contains('hidden')).toBe(false);
+  } finally {
+    game.close();
+  }
+});
+
 it('focuses and activates overlay buttons and handles Back without sending game actions', async () => {
   const game = await loadGame();
   try {

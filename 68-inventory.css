@@ -50,7 +50,7 @@
 .lb-inventory-item[data-owned="false"] :is(.lb-inventory-state, .lb-inventory-name, .lb-inventory-detail) { color: var(--inventory-locked); }
 .lb-inventory-item[data-owned="false"] canvas { filter: grayscale(1); opacity: .6; }
 .lb-inventory-item .lb-inventory-state { flex: none; }
-.lb-inventory-item .lb-inventory-name, .lb-booster-inventory-row .lb-inventory-name { color: var(--bb-ink); }
+.lb-inventory-item .lb-inventory-name { color: var(--bb-ink); }
 .lb-inventory-item :is(.lb-inventory-detail, .lb-inventory-progress) { color: var(--bb-muted); }
 .lb-inventory-item .lb-inventory-controls { margin-top: auto; }
 .lb-inventory-item .lb-inventory-progress { flex: 1 1 auto; }
@@ -74,31 +74,6 @@
 #inventory-other-content .lb-inventory-section > h2 { margin-bottom: 0; }
 #inventory-other-content .lb-inventory-heading { align-items: center; }
 #inventory-other-content .lb-inventory-heading .lb-inventory-name { margin-right: auto; }
-
-.lb-inventory-parts {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-}
-
-.lb-inventory-parts h2 { flex: 1; }
-.lb-inventory-parts h2 > svg { flex: none; color: var(--bb-rarity-legendary); }
-.lb-inventory-quantity { color: var(--bb-ink); font-weight: 700; font-variant-numeric: tabular-nums; }
-
-#inventory-overlay .lb-booster-inventory-row {
-    grid-template-columns: auto minmax(0, 1fr) minmax(1.5rem, auto) 6rem;
-    padding: 8px;
-    border: var(--bb-stroke) solid var(--bb-edge);
-    border-radius: var(--bb-cap);
-    background: var(--bb-heading);
-}
-
-.lb-booster-inventory-row[data-rarity="rare"] { --inventory-rarity: var(--bb-rarity-rare); }
-.lb-booster-inventory-row[data-rarity="epic"] { --inventory-rarity: var(--bb-rarity-epic); }
-.lb-inventory-rarity { color: var(--inventory-rarity, var(--bb-rarity-common)); font-size: .7rem; text-transform: capitalize; }
-.lb-inventory-exchange { justify-self: end; }
-.lb-booster-inventory-row .lb-inventory-quantity { text-align: center; }
 
 #sfx-inv-preview {
     z-index: 10002;

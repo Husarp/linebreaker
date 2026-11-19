@@ -1104,10 +1104,9 @@
     };
 
     function _colorPickerButton(id, label, swatch, active, handler) {
-        return `<button type="button" id="${id}" class="lb-btn lb-btn--ghost lb-color-launch" data-equipped="${active}" onclick="window.${handler}()">
+        return `<button type="button" id="${id}" class="lb-block-btn lb-colors-launch" data-equipped="${active}" onclick="window.${handler}()">
             <span class="lb-color-launch-mark" aria-hidden="true" style="--swatch:${swatch}"></span>
-            <span>${label}</span>
-            <span class="lb-color-launch-state">${active ? 'Enabled' : 'Edit…'}</span>
+            <span>${label}</span>${active ? `<span class="lb-colors-state">${_colorInventoryStatus(true)}</span>` : '<span class="lb-colors-state">Edit</span>'}
         </button>`;
     }
 
@@ -1191,37 +1190,38 @@
 
         const ov = document.createElement('div');
         ov.id = 'pal-edit-modal';
-        ov.className = 'lb-r3 lb-r3-picker';
+        ov.className = 'lb-palette-window';
         ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;';
 
         let pickersHtml = '';
         _PIECE_LABELS.forEach((lbl, i) => {
             const c = _palEditState.colors[i] || '#ffffff';
-            pickersHtml += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-                <span style="font-size:0.72rem;color:#ccc;font-weight:bold;min-width:16px;">${lbl}</span>
-                <div style="position:relative;width:34px;height:34px;flex-shrink:0;">
-                    <input type="color" id="pe-c${i}-native" aria-label="Piece ${i + 1} native color" value="${c}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" oninput="window._palEditChange(${i},this.value)">
-                    <div style="width:100%;height:100%;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:${c};pointer-events:none;box-sizing:border-box;"></div>
+            pickersHtml += `<div class="lb-palette-edit-row">
+                <span>${lbl}</span>
+                <div class="lb-palette-native">
+                    <input type="color" id="pe-c${i}-native" aria-label="Piece ${i + 1} native color" value="${c}" oninput="window._palEditChange(${i},this.value)">
+                    <div style="background:${c}" aria-hidden="true"></div>
                 </div>
-                <input type="text" id="pe-c${i}-hex" aria-label="Piece ${i + 1} hex color" value="${c}" maxlength="7" style="width:80px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:0 8px;color:#fff;font-family:'Orbitron',sans-serif;font-size:0.78rem;letter-spacing:1px;outline:none;height:34px;box-sizing:border-box;" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
-                <button onclick="window._palEditEyedrop(${i})" title="Eyedropper" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${_SVG_EYEDROPPER}</button>
-                <button onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" title="Copy hex" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${_SVG_COPY}</button>
+                <input type="text" id="pe-c${i}-hex" aria-label="Piece ${i + 1} hex color" value="${c}" maxlength="7" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
+                <button class="lb-block-btn lb-block-btn--icon" onclick="window._palEditEyedrop(${i})" aria-label="Eyedropper for ${lbl}" title="Eyedropper">${_SVG_EYEDROPPER}</button>
+                <button class="lb-block-btn lb-block-btn--icon" onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
             </div>`;
         });
 
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:24px;width:min(420px,92vw);max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.9);">
-            <button aria-label="Close" onclick="window._closeModal('pal-edit-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">&#10005;</button>
-            <div style="font-size:0.6rem;letter-spacing:2px;color:#888;margin-bottom:6px;">EDIT PALETTE</div>
-            <div style="font-size:0.82rem;color:#fff;margin-bottom:14px;font-weight:bold;">${pal.name}</div>
+        ov.innerHTML = `<div class="lb-block-dialog" role="dialog" aria-modal="true" aria-labelledby="palette-edit-title">
+            <header class="lb-palette-header">
+                <div><h2 id="palette-edit-title">Edit Palette</h2><p>${pal.name}</p></div>
+                <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Close" onclick="this.closest('.lb-palette-window').remove()">×</button>
+            </header>
             ${pickersHtml}
-            <div id="pe-preview-row" style="display:flex;gap:4px;margin:16px 0 12px;justify-content:center;"></div>
-            <div style="display:flex;gap:8px;">
-                <button onclick="window._palEditApply()" style="flex:1;padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid var(--primary,#00ffff);background:rgba(0,255,255,0.08);color:var(--primary,#00ffff);cursor:pointer;font-weight:bold;letter-spacing:1px;">APPLY</button>
-                <button onclick="window._palEditReset()" style="padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid #ff5555;background:rgba(255,85,85,0.08);color:#ff5555;cursor:pointer;letter-spacing:1px;" title="Reset to default colors">RESET</button>
-                <button onclick="window._closeModal('pal-edit-modal')" style="flex:1;padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#888;cursor:pointer;letter-spacing:1px;">CANCEL</button>
+            <div id="pe-preview-row" aria-hidden="true"></div>
+            <div class="lb-palette-actions">
+                <button class="lb-block-btn lb-block-btn--primary" onclick="window._palEditApply()">Apply</button>
+                <button class="lb-block-btn" onclick="window._palEditReset()" title="Reset to default colors">Reset</button>
+                <button class="lb-block-btn" onclick="this.closest('.lb-palette-window').remove()">Cancel</button>
             </div>
         </div>`;
-        ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('pal-edit-modal'); });
+        ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
         document.body.appendChild(ov);
         _animateIn(ov.querySelector('div'), 'anim-in-up');
         window._palEditRefreshPreview();
@@ -1249,11 +1249,7 @@
     window._palEditRefreshPreview = function() {
         const row = document.getElementById('pe-preview-row');
         if (!row || !_palEditState) return;
-        row.innerHTML = _palEditState.colors.map((c, i) => `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <div style="width:36px;height:36px;border-radius:6px;background:${c};border:1px solid rgba(255,255,255,0.1);box-shadow:0 0 8px ${c}33;"></div>
-            <span style="font-size:0.55rem;color:#666;">${_PIECE_LABELS[i]}</span>
-            <span style="font-size:0.5rem;color:#555;font-family:'Orbitron',sans-serif;">${c}</span>
-        </div>`).join('');
+        row.innerHTML = _palEditState.colors.map((c, i) => `<span><i style="--swatch:${c}"></i>${_PIECE_LABELS[i]}</span>`).join('');
     };
 
     window._palEditApply = function() {
@@ -1265,7 +1261,7 @@
         saveSettings();
         saveDataToFile();
         _populateInventoryOther();
-        window._closeModal('pal-edit-modal');
+        document.getElementById('pal-edit-modal')?.remove();
     };
 
     window._palEditReset = function() {
@@ -1276,7 +1272,7 @@
         saveSettings();
         saveDataToFile();
         _populateInventoryOther();
-        window._closeModal('pal-edit-modal');
+        document.getElementById('pal-edit-modal')?.remove();
     };
 
     function _allPalettesOwned() {
@@ -1298,24 +1294,25 @@
         let rowsHtml = '';
         _PIECE_LABELS.forEach((lbl, i) => {
             const c = displayColors[i] || '#ffffff';
-            rowsHtml += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;">
+            rowsHtml += `<div class="lb-palette-view-row">
                 ${_swatchHtml(i, c, true)}
-                <span style="flex:1;"></span>
-                <button onclick="navigator.clipboard?.writeText('${c}');_showCopyFeedback(event.clientX,event.clientY)" title="Copy hex" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;width:34px;height:34px;cursor:pointer;color:#aaa;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${_SVG_COPY}</button>
+                <button class="lb-block-btn lb-block-btn--icon" onclick="navigator.clipboard?.writeText('${c}');_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
             </div>`;
         });
 
         const ov = document.createElement('div');
         ov.id = 'palette-view-modal';
-        ov.className = 'lb-r3 lb-r3-picker';
+        ov.className = 'lb-palette-window';
         ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;';
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:24px;width:min(340px,88vw);position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.9);">
-            <button aria-label="Close" onclick="window._closeModal('palette-view-modal')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;">&#10005;</button>
-            <div style="font-size:0.6rem;letter-spacing:2px;color:#888;margin-bottom:14px;">${pal.name.toUpperCase()} PALETTE</div>
+        ov.innerHTML = `<div class="lb-block-dialog" role="dialog" aria-modal="true" aria-labelledby="palette-view-title">
+            <header class="lb-palette-header">
+                <h2 id="palette-view-title">${pal.name} Palette</h2>
+                <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Close" onclick="this.closest('.lb-palette-window').remove()">×</button>
+            </header>
             ${rowsHtml}
-            <button onclick="window._closeModal('palette-view-modal')" style="width:100%;margin-top:14px;padding:10px;font-size:0.75rem;font-family:inherit;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#888;cursor:pointer;letter-spacing:1px;">CLOSE</button>
+            <button class="lb-block-btn" onclick="this.closest('.lb-palette-window').remove()">Close</button>
         </div>`;
-        ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('palette-view-modal'); });
+        ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
         document.body.appendChild(ov);
         _animateIn(ov.querySelector('div'), 'anim-in-up');
     }
@@ -2694,6 +2691,9 @@
         _populateInventoryOther();
         _checkGlowNotifications();
     }
+    function _exchangePartsIcon() {
+        return '<img class="lb-exchange-parts-icon" src="assets/ui/62-parts.svg" alt="">';
+    }
     function openUseUniversalPart() {
         if ((saveData.universalParts || 0) < 1) return;
         document.getElementById('uni-modal-overlay')?.remove();
@@ -2721,10 +2721,10 @@
             if (pending > 0) {
                 bar.style.width = Math.min(100, total) + '%';
                 const splitPct = actualPct / Math.min(100, total) * 100;
-                bar.style.background = `linear-gradient(to right, #4477ff ${splitPct.toFixed(1)}%, #ffd700 ${splitPct.toFixed(1)}%)`;
+                bar.style.setProperty('--lb-exchange-owned-stop', `${splitPct.toFixed(1)}%`);
             } else {
                 bar.style.width = actualPct + '%';
-                bar.style.background = '#4477ff';
+                bar.style.removeProperty('--lb-exchange-owned-stop');
             }
             if (lbl) lbl.textContent = pending > 0 ? `${parts}+${pending}/${cost}` : `${parts}/${cost}`;
         }
@@ -2733,13 +2733,12 @@
             if (!btn) return;
             const total = _totalQueued();
             btn.disabled = total === 0;
-            btn.style.opacity = total === 0 ? '0.3' : '1';
             const lbl = document.getElementById('uni-apply-label');
             if (lbl) lbl.textContent = total > 0 ? `Hold to Apply (${total} part${total!==1?'s':''})` : 'Hold to Apply';
         }
         function _updateAvailLbl() {
             const el = document.getElementById('uni-avail-lbl');
-            if (el) el.textContent = `${Math.max(0, _avail() - _totalQueued())} available`;
+            if (el) el.textContent = `${Number(Math.max(0, _avail() - _totalQueued()).toFixed(1))} available`;
         }
         function _updateAllIncBtns() {
             const remaining = Math.max(0, _avail() - _totalQueued());
@@ -2747,55 +2746,54 @@
                 const key = btn.id.replace('uni-inc-', '');
                 const parts = saveData.parts?.[key] || 0;
                 const cur = _inputVals[key] || 0;
-                const canAdd = remaining > 0 && (_getItemCost(key) - parts - cur) > 0;
-                btn.style.opacity = canAdd ? '1' : '0.3';
-                btn.style.cursor = canAdd ? 'pointer' : 'default';
+                const canAdd = remaining >= 1 && (_getItemCost(key) - parts - cur) > 0;
+                btn.disabled = !canAdd;
             });
         }
         function _buildSection(label, items) {
             if (!items.length) return '';
-            const btnStyle = 'font-size:0.65rem;padding:3px 9px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.07);color:#bbb;cursor:pointer;font-family:inherit;line-height:1.4;user-select:none;';
-            return `<div style="font-size:0.62rem;color:var(--primary,#00ffcc);letter-spacing:2px;font-weight:bold;padding:18px 0 10px;text-shadow:0 0 8px rgba(0,255,200,0.3);">${label}</div>`
+            return `<section class="lb-exchange-section"><h3 class="lb-block-section-title">${label}</h3>`
                 + items.map(item => {
                     const parts = saveData.parts?.[item.key] || 0;
                     const cost = _getItemCost(item.key);
                     const maxAdd = Math.min(_avail(), cost - parts);
                     const pct = (parts / cost) * 100;
                     const cur = _inputVals[item.key] || 0;
-                    const showControls = maxAdd > 0 || cur > 0;
-                    return `<div style="display:flex;align-items:center;padding:9px 2px;gap:10px;">
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-size:0.74rem;color:#ddd;margin-bottom:5px;">${_getLabel(item)}</div>
-                            <div style="display:flex;align-items:center;gap:6px;">
-                                <div style="width:90px;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
-                                    <div id="uni-bar-${item.key}" style="height:100%;width:${pct}%;background:#4477ff;border-radius:3px;transition:width 0.4s ease,background 0.2s;"></div>
+                    const name = escapeHtml(_getLabel(item));
+                    return `<div class="lb-block-card lb-exchange-row">
+                        <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
+                        <div class="lb-exchange-row-detail">
+                            <strong>${name}</strong>
+                            <div class="lb-exchange-row-meta">
+                                <div class="lb-exchange-meter" aria-hidden="true">
+                                    <div id="uni-bar-${item.key}" style="width:${pct}%"></div>
                                 </div>
-                                <span id="uni-lbl-${item.key}" style="font-size:0.62rem;color:#666;">${escapeHtml(parts)}/${cost}</span>
+                                <span class="lb-exchange-badge" aria-label="Owned and required parts"><span id="uni-lbl-${item.key}">${escapeHtml(parts)}/${cost}</span></span>
                             </div>
                         </div>
-                        ${showControls ? `<div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
-                            <button onclick="window._uniDec('${item.key}')" id="uni-dec-${item.key}" style="${btnStyle}display:${cur>0?'inline':'none'};">−</button>
-                            <span id="uni-n-${item.key}" style="font-size:0.75rem;color:#ffd700;min-width:20px;text-align:center;display:${cur>0?'inline':'none'};">${cur>0?cur:''}</span>
-                            <button onclick="window._uniInc('${item.key}')" id="uni-inc-${item.key}" style="${btnStyle}${maxAdd<=0?'opacity:0.3;cursor:default;':''}">+</button>
-                        </div>` : `<span style="font-size:0.62rem;color:#444;">Full</span>`}
+                        ${parts < cost ? `<div class="lb-exchange-stepper">
+                            <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Remove part from ${name}" data-part-remove="${item.key}" id="uni-dec-${item.key}" ${cur > 0 ? '' : 'hidden'}>−</button>
+                            <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Add part to ${name}" data-part-add="${item.key}" id="uni-inc-${item.key}" ${maxAdd < 1 ? 'disabled' : ''}>+</button>
+                        </div>` : `<span class="lb-exchange-badge">Full</span>`}
                     </div>`;
-                }).join('');
+                }).join('') + '</section>';
         }
         function _rebuildContent() {
             const c = document.getElementById('uni-modal-body');
             if (!c) return;
             const all = _getAllPartsItems();
             const avail = _avail();
-            c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;padding-right:30px;">
-                <div style="font-size:0.82rem;font-weight:bold;color:#ffd700;">⭐ Universal Parts</div>
-                <div id="uni-avail-lbl" style="font-size:0.76rem;color:#ffd700;font-weight:bold;">${avail} available</div>
-            </div>
-            <div style="position:relative;margin:10px 0 4px;">
-                <button id="uni-apply-btn" disabled style="width:100%;padding:9px;font-size:0.68rem;font-family:inherit;border-radius:8px;border:1px solid #ffd700;background:rgba(255,215,0,0.08);color:#ffd700;cursor:pointer;font-weight:bold;opacity:0.3;transition:opacity 0.2s;position:relative;overflow:hidden;user-select:none;-webkit-user-select:none;">
-                    <div id="uni-apply-progress" style="position:absolute;left:0;top:0;bottom:0;width:0%;background:rgba(255,215,0,0.25);border-radius:8px;transition:none;pointer-events:none;"></div>
-                    <span id="uni-apply-label" style="position:relative;z-index:1;">Hold to Apply</span>
+            c.innerHTML = `<header class="lb-exchange-parts-head">
+                <div class="lb-exchange-title-row">
+                    <h2 id="uni-title" class="lb-block-dialog-title">Universal Parts</h2>
+                    <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Close" onclick="window._closeModal('uni-modal-overlay')">×</button>
+                </div>
+                <div class="lb-exchange-balance">${_exchangePartsIcon()}<span id="uni-avail-lbl" class="lb-exchange-badge" aria-live="polite">${Number(avail.toFixed(1))} available</span></div>
+                <button type="button" class="lb-block-btn lb-block-btn--primary" id="uni-apply-btn" disabled>
+                    <span id="uni-apply-progress" aria-hidden="true"></span>
+                    <span id="uni-apply-label">Hold to Apply</span>
                 </button>
-            </div>`
+            </header>`
             + _buildSection('SKINS', all.filter(i => i.cat === 'skin'))
             + _buildSection('THEMES', all.filter(i => i.cat === 'theme'))
             + _buildSection('GHOST COLOR', all.filter(i => i.cat === 'ghostColor'))
@@ -2803,13 +2801,22 @@
             + _buildSection('PALETTES', all.filter(i => i.cat === 'palette'))
             + _buildSection('SFX PACKS', all.filter(i => i.cat === 'sfxPack'))
             + _buildSection('MUSIC', all.filter(i => i.cat === 'music'))
-            + (all.length === 0 ? `<div style="text-align:center;color:#888;font-size:0.7rem;padding:16px;">You already own everything!<br><span style="color:#555;font-size:0.65rem;">Universal parts will carry forward.</span></div>` : avail === 0 && _totalQueued() === 0 ? `<div style="text-align:center;color:#555;font-size:0.7rem;padding:16px;">No universal parts remaining.</div>` : '');
+            + (all.length === 0 ? '<p>You already own everything. Universal parts will carry forward.</p>' : avail === 0 ? '<p>No universal parts remaining.</p>' : '');
+            c.querySelectorAll('[data-part-add]').forEach(button => button.addEventListener('click', () => window._uniInc(button.dataset.partAdd)));
+            c.querySelectorAll('[data-part-remove]').forEach(button => button.addEventListener('click', () => window._uniDec(button.dataset.partRemove)));
             // Re-attach hold events
             const applyBtn = document.getElementById('uni-apply-btn');
             if (applyBtn) {
-                applyBtn.addEventListener('mousedown', window._uniStartHold);
-                applyBtn.addEventListener('mouseup', window._uniStopHold);
-                applyBtn.addEventListener('mouseleave', window._uniStopHold);
+                applyBtn.addEventListener('pointerdown', event => { if (event.button === 0) window._uniStartHold(); });
+                ['pointerup', 'pointerleave', 'pointercancel', 'blur'].forEach(type => applyBtn.addEventListener(type, window._uniStopHold));
+                applyBtn.addEventListener('keydown', event => {
+                    if (![' ', 'Enter'].includes(event.key)) return;
+                    event.preventDefault();
+                    if (!event.repeat) window._uniStartHold();
+                });
+                applyBtn.addEventListener('keyup', event => {
+                    if ([' ', 'Enter'].includes(event.key)) window._uniStopHold();
+                });
             }
             // Restore bar states
             Object.keys(_inputVals).forEach(key => { if (_inputVals[key] > 0) _updateBar(key); });
@@ -2819,23 +2826,18 @@
             const queued = _totalQueued();
             const cur = _inputVals[key] || 0;
             const maxForItem = _getItemCost(key) - parts - cur;
-            const maxFromAvail = _avail() - (queued - cur);
-            if (maxForItem <= 0 || maxFromAvail <= 0) return;
+            if (maxForItem <= 0 || _avail() - queued < 1) return;
             _inputVals[key] = cur + 1;
-            const nEl = document.getElementById(`uni-n-${key}`);
             const dEl = document.getElementById(`uni-dec-${key}`);
-            if (nEl) { nEl.textContent = cur + 1; nEl.style.display = 'inline'; }
-            if (dEl) dEl.style.display = 'inline';
+            if (dEl) dEl.hidden = false;
             _updateBar(key); _updateApplyBtn(); _updateAvailLbl(); _updateAllIncBtns();
         };
         window._uniDec = key => {
             const cur = _inputVals[key] || 0;
             if (cur <= 0) return;
             _inputVals[key] = cur - 1;
-            const nEl = document.getElementById(`uni-n-${key}`);
             const dEl = document.getElementById(`uni-dec-${key}`);
-            if (nEl) { nEl.textContent = cur > 1 ? (cur - 1).toString() : ''; nEl.style.display = cur > 1 ? 'inline' : 'none'; }
-            if (dEl) dEl.style.display = cur > 1 ? 'inline' : 'none';
+            if (dEl) dEl.hidden = cur <= 1;
             _updateBar(key); _updateApplyBtn(); _updateAvailLbl(); _updateAllIncBtns();
         };
         window._uniStartHold = () => {
@@ -2845,6 +2847,7 @@
             const prog = document.getElementById('uni-apply-progress');
             const lbl = document.getElementById('uni-apply-label');
             function tick() {
+                if (!prog?.isConnected) { _holdRaf = null; _holdStart = null; return; }
                 const elapsed = Date.now() - _holdStart;
                 const pct = Math.min(100, (elapsed / 2000) * 100);
                 if (prog) prog.style.width = pct + '%';
@@ -2881,8 +2884,7 @@
                 const bar = document.getElementById(`uni-bar-${key}`);
                 if (bar) {
                     const newPct = ((saveData.parts?.[key] || 0) / _getItemCost(key)) * 100;
-                    bar.style.transition = 'width 0.6s ease, background 0.3s';
-                    bar.style.background = '#4477ff';
+                    bar.style.removeProperty('--lb-exchange-owned-stop');
                     setTimeout(() => { bar.style.width = newPct + '%'; }, 50);
                 }
                 const lbl = document.getElementById(`uni-lbl-${key}`);
@@ -2892,17 +2894,23 @@
         };
         const ov = document.createElement('div');
         ov.id = 'uni-modal-overlay';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;';
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,215,0,0.25);border-radius:14px;padding:20px;width:min(420px,92vw);max-height:80vh;overflow-y:auto;position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.8);">
-            <button onclick="window._closeModal('uni-modal-overlay')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;z-index:1;">✕</button>
-            <div id="uni-modal-body"></div>
-        </div>`;
+        ov.className = 'lb-exchange-overlay';
+        ov.innerHTML = '<div class="lb-block-dialog lb-exchange-dialog lb-exchange-dialog--parts" role="dialog" aria-modal="true" aria-labelledby="uni-title"><div id="uni-modal-body"></div></div>';
         ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('uni-modal-overlay'); });
         document.body.appendChild(ov);
         _animateIn(ov.querySelector('div'), 'anim-in-down');
         _rebuildContent();
     }
 
+    function _exchangeItemCard({ name, art, rarity, count, detail, amountId, amount }) {
+        return `<div class="lb-block-reward lb-exchange-item" data-rarity="${rarity}">
+            ${count != null ? `<span class="lb-block-reward-amount">${escapeHtml(count)} owned</span>` : ''}
+            <div class="lb-exchange-item-art">${art}</div>
+            <strong>${name}</strong>
+            <span class="lb-exchange-item-detail">${detail}</span>
+            <strong class="lb-exchange-item-amount" id="${amountId}">${amount}</strong>
+        </div>`;
+    }
     function openExchangeUniversalParts() {
         const avail = Math.floor(saveData.universalParts || 0);
         if (avail < 1) return;
@@ -2910,28 +2918,24 @@
         document.getElementById('uni-xch-overlay')?.remove();
         const ov = document.createElement('div');
         ov.id = 'uni-xch-overlay';
-        ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:1200;display:flex;align-items:center;justify-content:center;font-family:inherit;';
+        ov.className = 'lb-exchange-overlay';
         ov.innerHTML = `
-            <div style="background:rgba(8,8,18,0.98);border:1px solid #ffd700;border-radius:14px;padding:22px 20px;max-width:300px;width:90%;text-align:center;box-shadow:0 0 30px rgba(255,215,0,0.15);">
-                <div style="font-size:0.85rem;font-weight:bold;color:#ffd700;letter-spacing:2px;margin-bottom:6px;">⭐ EXCHANGE PARTS</div>
-                <div style="font-size:0.63rem;color:#777;margin-bottom:14px;">All items unlocked — convert Universal Parts to XP.</div>
-                <div style="background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.14);border-radius:8px;padding:10px 14px;margin-bottom:14px;text-align:left;font-size:0.62rem;color:#666;">
-                    <div style="margin-bottom:3px;">Rate: <span style="color:#ffd700;font-weight:bold;">1 ⭐ = ${XP_PER_PART.toLocaleString()} XP</span></div>
-                    <div>You have: <span style="color:#fff;font-weight:bold;">${avail}</span> part${avail !== 1 ? 's' : ''}</div>
+            <div class="lb-block-dialog lb-exchange-dialog" role="dialog" aria-modal="true" aria-labelledby="uni-xch-title">
+                <h2 id="uni-xch-title" class="lb-block-dialog-title">Exchange Parts</h2>
+                <p>All items unlocked · ${XP_PER_PART.toLocaleString()} XP per part</p>
+                <div class="lb-exchange-pair">
+                    ${_exchangeItemCard({ name: 'Universal Parts', art: _exchangePartsIcon(), rarity: 'common', count: avail, detail: 'You spend', amountId: 'uni-xch-count', amount: `${avail} ${avail === 1 ? 'part' : 'parts'}` })}
+                    <span class="lb-exchange-arrow" aria-hidden="true">→</span>
+                    ${_exchangeItemCard({ name: 'Experience', art: '<img src="assets/ui/boosters/common-xp.png" alt="">', rarity: 'common', detail: 'You receive', amountId: 'uni-xch-xp', amount: `+${(avail * XP_PER_PART).toLocaleString()} XP` })}
                 </div>
-                <div style="margin-bottom:8px;">
-                    <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:#666;margin-bottom:6px;">
-                        <span>Parts to exchange:</span>
-                        <span id="uni-xch-lbl" style="color:#ffd700;font-weight:bold;">${avail}</span>
-                    </div>
-                    <input type="range" id="uni-xch-slider" min="1" max="${avail}" value="${avail}" step="1" style="width:100%;accent-color:#ffd700;cursor:pointer;">
+                <div class="lb-exchange-quantity">
+                    <label for="uni-xch-slider">Parts to exchange</label>
+                    <output id="uni-xch-lbl" class="lb-exchange-badge" for="uni-xch-slider">${avail}</output>
+                    <input class="lb-block-range" type="range" id="uni-xch-slider" min="1" max="${avail}" value="${avail}" step="1" ${avail === 1 ? 'disabled' : ''}>
                 </div>
-                <div style="font-size:0.7rem;color:#aaa;margin-bottom:18px;min-height:1.4em;">
-                    <span id="uni-xch-count" style="color:#ffd700;font-weight:bold;">${avail}</span> part${avail !== 1 ? 's' : ''} → <span id="uni-xch-xp" style="color:#ffd700;font-weight:bold;">+${(avail * XP_PER_PART).toLocaleString()} XP</span>
-                </div>
-                <div style="display:flex;gap:10px;justify-content:center;">
-                    <button onclick="document.getElementById('uni-xch-overlay').remove()" style="font-size:0.7rem;padding:7px 18px;background:rgba(255,255,255,0.05);border:1px solid #444;border-radius:8px;color:#888;cursor:pointer;font-family:inherit;">CANCEL</button>
-                    <button id="uni-xch-confirm" style="font-size:0.7rem;padding:7px 18px;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,215,0,0.1));border:1px solid #ffd700;border-radius:8px;color:#ffd700;cursor:pointer;font-family:inherit;font-weight:bold;box-shadow:0 0 8px rgba(255,215,0,0.2);">EXCHANGE</button>
+                <div class="lb-block-dialog-actions">
+                    <button type="button" class="lb-block-btn" onclick="document.getElementById('uni-xch-overlay').remove()">Cancel</button>
+                    <button type="button" class="lb-block-btn lb-block-btn--primary" id="uni-xch-confirm">Exchange</button>
                 </div>
             </div>`;
         const slider = ov.querySelector('#uni-xch-slider');
@@ -2961,6 +2965,21 @@
     }
 
     const RARITY_COLORS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
+    function _crateRewardGrid(rewards) {
+        return LBCrates.rewardGrid(rewards.map(reward => {
+            if (reward.type === 'converted_parts') {
+                const item = reward.key === 'dragon' ? 'Golden' : reward.key.startsWith('sfx') ? `${reward.key.slice(3)} SFX`
+                    : GRID_STYLES[reward.key]?.name || BLOCK_PALETTES[reward.key]?.name || _partItemName(reward.key);
+                return { type: 'universal_parts', label: 'Universal Part', amount: reward.amount / PARTS_PER_UNIVERSAL,
+                    desc: `From duplicate ${item} parts`, rarity: reward.rarity };
+            }
+            const item = /^\+(\d+) Part: (.+)$/.exec(reward.label);
+            if (item) return { ...reward, type: 'parts', label: `${item[2]} Part`, amount: reward.amount ?? Number(item[1]), desc: undefined };
+            const universal = /^\+(\d+) Universal Parts?$/.exec(reward.label);
+            if (universal) return { ...reward, type: 'universal_parts', label: 'Universal Part', amount: reward.amount ?? Number(universal[1]), desc: undefined };
+            return { ...reward, amount: reward.amount ?? 1 };
+        }));
+    }
     function _checkMilestoneBoxes() {
         if ((!saveData.pendingMilestoneReward && !saveData.pendingMilestoneBoxes?.length) || _levelBoxShowing) return;
         const lv = saveData.pendingMilestoneReward?.level || saveData.pendingMilestoneBoxes[0];
@@ -2978,44 +2997,28 @@
         }
         const rewards = box.rewards;
         const overlay = document.createElement('div');
-        overlay.className = 'lb-reward-overlay';
+        overlay.className = 'lb-reward-overlay lb64-crate-overlay';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-box-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:3100;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
-        const color = '#ffd700';
         const panel = document.createElement('div');
-        panel.style.cssText = 'background:rgba(5,5,20,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px 20px;max-width:420px;width:100%;text-align:center;max-height:90vh;overflow-y:auto;';
+        panel.className = 'lb64-crate-panel lb-block-panel';
         panel.innerHTML = `
-            <div style="font-size:0.55rem;letter-spacing:3px;color:#666;margin-bottom:4px;font-family:var(--ui-font);">LEVEL MILESTONE</div>
-            <div style="font-size:1rem;font-weight:bold;color:${color};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">LEVEL ${escapeHtml(lv)}</div>
-            <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">Every 10 levels — milestone reward!</div>
+            <p class="lb64-crate-kicker">Level milestone</p>
+            <h2 class="lb64-crate-title">Level ${escapeHtml(lv)}</h2>
+            <p class="lb64-crate-subtitle">Every 10 levels</p>
         `;
         const preOpen = document.createElement('div');
         preOpen.id = 'lb-pre-open';
-        preOpen.innerHTML = `
-            <div style="font-size:0.65rem;color:#666;margin-bottom:16px;">Contains 10 parts + 2 universal parts</div>
-            <button id="lb-open-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid ${color};background:${color}22;color:${color};cursor:pointer;transition:all 0.2s;">OPEN BOX</button>
-        `;
+        preOpen.innerHTML = '<button id="lb-open-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Open crate</button>';
         panel.appendChild(preOpen);
         const rewardsDiv = document.createElement('div');
         rewardsDiv.id = 'lb-rewards-grid';
         rewardsDiv.style.cssText = 'display:none;';
-        const grid = document.createElement('div');
-        grid.className = 'lb-reward-grid';
-        grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
-        const RARITY_COLS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
-        rewards.forEach(r => {
-            const card = document.createElement('div');
-            card.className = 'lb-reward-card';
-            const rc = hexColor(RARITY_COLS[r.rarity], '#aaaaaa');
-            card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(r.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${_rewardLabel(r)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div>`;
-            grid.appendChild(card);
-        });
-        rewardsDiv.appendChild(grid);
-        rewardsDiv.innerHTML += `<button id="lb-claim-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid #22cc55;background:rgba(34,204,85,0.12);color:#22cc55;cursor:pointer;box-shadow:0 0 10px rgba(34,204,85,0.45);animation:pulse-glow-green 1.8s ease-in-out infinite;">CLAIM</button>`;
+        const grid = _crateRewardGrid(rewards);
+        rewardsDiv.innerHTML = '<button id="lb-claim-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Claim</button>';
+        rewardsDiv.prepend(grid);
         panel.appendChild(rewardsDiv);
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
@@ -3145,51 +3148,30 @@
         const rankColor = hexColor(savedRankColor, '#ffd700');
 
         const overlay = document.createElement('div');
-        overlay.className = 'lb-reward-overlay';
+        overlay.className = 'lb-reward-overlay lb64-crate-overlay';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-box-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:3100;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
-
-        const RARITY_COLS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
-
         const panel = document.createElement('div');
-        panel.style.cssText = 'background:rgba(5,5,20,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px 20px;max-width:420px;width:100%;text-align:center;max-height:90vh;overflow-y:auto;';
-
-        // Title
+        panel.className = 'lb64-crate-panel lb-block-panel';
         panel.innerHTML = `
-            <div style="font-size:0.55rem;letter-spacing:3px;color:#666;margin-bottom:4px;font-family:var(--ui-font);">MILESTONE REWARD</div>
-            <div class="lb-rank-identity" style="font-size:1rem;font-weight:bold;color:${rankColor};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">${escapeHtml(rankName)}</div>
-            <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">Level ${escapeHtml(level)} — New rank reached!</div>
+            <p class="lb64-crate-kicker">Milestone reward</p>
+            <h2 class="lb64-crate-title lb-rank-identity" style="color:${rankColor}">${escapeHtml(rankName)}</h2>
+            <p class="lb64-crate-subtitle">Level ${escapeHtml(level)} · New rank reached!</p>
         `;
 
-        // Open button (pre-open state)
         const preOpen = document.createElement('div');
         preOpen.id = 'lb-pre-open';
-        preOpen.innerHTML = `
-            <div style="font-size:0.65rem;color:#666;margin-bottom:16px;">Contains 10 parts + 2 universal parts</div>
-            <button id="lb-open-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid ${rankColor};background:${rankColor}22;color:${rankColor};cursor:pointer;transition:all 0.2s;">OPEN BOX</button>
-        `;
+        preOpen.innerHTML = '<button id="lb-open-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Open crate</button>';
         panel.appendChild(preOpen);
 
-        // Rewards grid (hidden initially)
         const rewardsDiv = document.createElement('div');
         rewardsDiv.id = 'lb-rewards-grid';
         rewardsDiv.style.cssText = 'display:none;';
-        const grid = document.createElement('div');
-        grid.className = 'lb-reward-grid';
-        grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
-        rewards.forEach(r => {
-            const card = document.createElement('div');
-            card.className = 'lb-reward-card';
-            const rc = hexColor(RARITY_COLS[r.rarity], '#aaaaaa');
-            card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(r.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${_rewardLabel(r)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div>`;
-            grid.appendChild(card);
-        });
-        rewardsDiv.appendChild(grid);
-        rewardsDiv.innerHTML += `<button id="lb-claim-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid #22cc55;background:rgba(34,204,85,0.12);color:#22cc55;cursor:pointer;box-shadow:0 0 10px rgba(34,204,85,0.45);animation:pulse-glow-green 1.8s ease-in-out infinite;">CLAIM</button>`;
+        const grid = _crateRewardGrid(rewards);
+        rewardsDiv.innerHTML = '<button id="lb-claim-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Claim</button>';
+        rewardsDiv.prepend(grid);
         panel.appendChild(rewardsDiv);
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
@@ -3450,242 +3432,147 @@
     }
     function _renderActivityCalendar(year) {
         const container = document.getElementById('stat-activity-calendar');
-        if (!container) return;
-
-        // Build history: start from playHistory, add leaderboard entries
         const history = { ...saveData.stats.playHistory };
-        // Supplement from leaderboard for historical data (before playHistory was tracked)
-        const lbCounted = {};
-        (saveData.leaderboard || []).forEach(entry => {
+        const entriesByDate = new Map();
+        for (const entry of saveData.leaderboard || []) {
             const key = LBSave.date(entry.date);
-            if (!key) return;
-            lbCounted[key] = (lbCounted[key] || 0) + 1;
-        });
-        // Use max(playHistory[d], lbCounted[d]) — playHistory is accurate for new games,
-        // leaderboard fills in old dates where playHistory has no record
-        Object.keys(lbCounted).forEach(k => {
-            if ((lbCounted[k] || 0) > (history[k] || 0)) history[k] = lbCounted[k];
-        });
+            if (!key) continue;
+            if (!entriesByDate.has(key)) entriesByDate.set(key, []);
+            const entries = entriesByDate.get(key);
+            entries.push(entry);
+            history[key] = Math.max(history[key] || 0, entries.length);
+        }
 
-        const now = new Date();
-        const nowYear = now.getFullYear();
-        const yearSet = new Set([nowYear]);
-        Object.keys(history).forEach(d => { const y = parseInt(d.split('-')[0]); if (!isNaN(y)) yearSet.add(y); });
-        const years = Array.from(yearSet).sort((a, b) => a - b);
-        if (year === undefined || year === null) year = parseInt(container.dataset.calYear) || nowYear;
-        if (!years.includes(year)) year = years[years.length - 1];
+        const today = new Date();
+        const todayKey = LBSave.localDate(today);
+        const currentYear = today.getFullYear();
+        const years = [...new Set([currentYear, ...Object.keys(history).map(key => Number(key.split('-')[0]))])].sort((left, right) => left - right);
+        year ??= Number(container.dataset.calYear) || currentYear;
+        if (!years.includes(year)) year = currentYear;
         container.dataset.calYear = year;
 
-        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-        const _ldk = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-
-        // Build cell data
         const firstDay = new Date(year, 0, 1);
-        const lastDay = new Date(year, 11, 31);
-        const startDow = (firstDay.getDay() + 6) % 7; // Mon=0, Sun=6
-        const totalDays = Math.round((lastDay - firstDay) / 86400000) + 1;
-        const totalWeeks = Math.ceil((startDow + totalDays) / 7);
-
+        const offset = (firstDay.getDay() + 6) % 7;
+        const daysInYear = Math.round((new Date(year, 11, 31) - firstDay) / 86400000) + 1;
+        const weeks = Math.ceil((offset + daysInYear) / 7);
+        const dateFormat = new Intl.DateTimeFormat('en', { dateStyle: 'full' });
+        const monthFormat = new Intl.DateTimeFormat('en', { month: 'short' });
+        const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         const cells = [];
-        for (let w = 0; w < totalWeeks; w++) {
-            for (let d = 0; d < 7; d++) {
-                const dayIndex = w * 7 + d - startDow;
-                if (dayIndex < 0 || dayIndex >= totalDays) { cells.push(null); continue; }
-                const date = new Date(year, 0, 1 + dayIndex);
-                const key = _ldk(date);
-                cells.push({ key, count: history[key] || 0 });
-            }
-        }
-
-        const GAP = 4;
-        const ROW_LBL = 34; // px for day labels
-
-        // Year tabs
-        let html = `<div class="lb-actions lb-stats-years" role="group" aria-label="Activity year">`;
-        years.forEach(y => {
-            html += `<button class="lb-btn" type="button" data-cal-year="${y}" aria-pressed="${y === year}">${y}</button>`;
-        });
-        html += `</div><div class="lb-stats-calendar-scroll" role="region" aria-label="Activity calendar" tabindex="0"><div class="lb-stats-calendar">`;
-
-        // Month labels (absolutely positioned over week columns)
-        // We compute month positions using week index * (CELL+GAP) + ROW_LBL
-        // We'll use a data attribute and compute positions after render
-        html += `<div id="cal-month-row" style="position:relative;height:14px;margin-bottom:3px;padding-left:${ROW_LBL}px;" data-start-dow="${startDow}" data-first-year="${year}">`;
-        for (let m = 0; m < 12; m++) {
-            const firstOfMonth = new Date(year, m, 1);
-            const dayIdx = Math.round((firstOfMonth - firstDay) / 86400000);
-            const weekCol = Math.floor((startDow + dayIdx) / 7);
-            const dow = (startDow + dayIdx) % 7;
-            const lastOfMonth = new Date(year, m+1, 0);
-            const lastDayIdx = Math.round((lastOfMonth - firstDay) / 86400000);
-            const wcEnd = Math.floor((startDow + lastDayIdx) / 7);
-            // Separator is drawn at the boundary AFTER the last day of the previous month (shift +1 day)
-            const sepDayIdx = dayIdx + 1;
-            const sepWc = Math.floor((startDow + sepDayIdx) / 7);
-            const sepDow = (startDow + sepDayIdx) % 7;
-            html += `<span data-week-col="${weekCol}" data-dow="${dow}" data-wc-end="${wcEnd}" data-sep-wc="${sepWc}" data-sep-dow="${sepDow}">${MONTHS[m]}</span>`;
-        }
-        html += `</div>`;
-
-        // Grid: day labels + week columns
-        html += `<div style="display:flex;gap:0;">`;
-        // Day labels
-        html += `<div id="cal-day-labels" style="display:flex;flex-direction:column;gap:${GAP}px;width:${ROW_LBL}px;flex-shrink:0;">`;
-        DAY_LABELS.forEach(l => {
-            html += `<div>${l}</div>`;
-        });
-        html += `</div>`;
-        // Week columns wrapper
-        html += `<div id="cal-grid" style="display:flex;gap:${GAP}px;flex:1;">`;
-        for (let w = 0; w < totalWeeks; w++) {
-            html += `<div style="display:flex;flex-direction:column;gap:${GAP}px;flex:1;">`;
-            for (let d = 0; d < 7; d++) {
-                const cell = cells[w * 7 + d];
-                if (!cell) {
-                    html += `<div style="flex:1;min-height:4px;"></div>`;
-                } else {
-                    const c = cell.count;
-                    let bg, op, extra = '';
-                    if (c === 0) {
-                        bg = 'rgba(255,255,255,0.07)'; op = '1';
-                    } else if (c === 1) {
-                        bg = 'var(--primary)'; op = '0.55';
-                    } else if (c === 2) {
-                        bg = 'var(--primary)'; op = '0.70';
-                    } else if (c <= 4) {
-                        bg = 'var(--primary)'; op = '0.84';
-                    } else if (c <= 7) {
-                        bg = 'var(--primary)'; op = '0.94';
-                    } else {
-                        bg = 'var(--primary)'; op = '1'; extra = 'box-shadow:0 0 5px var(--primary);';
-                    }
-                    const isToday = cell.key === _ldk(now);
-                    if (isToday) {
-                        op = '1';
-                        const bdrColor = c === 0 ? 'var(--primary)' : 'rgba(255,255,255,0.85)';
-                        extra += `outline:2px solid ${bdrColor};outline-offset:-1px;border-radius:1px;`;
-                    }
-                    const [cy, cm, cd] = cell.key.split('-');
-                    const fmtDate = `${cd}.${cm}.${cy}`;
-                    const tip = c > 0 ? `${fmtDate} — ${c} game${c>1?'s':''}` : fmtDate;
-                    html += `<div data-ctip="${escapeHtml(tip)}" style="flex:1;min-height:4px;border-radius:2px;background:${bg};opacity:${op};${extra}"></div>`;
+        const months = [];
+        const separators = [];
+        let selectedIndex = 0;
+        for (let index = 0; index < daysInYear; index++) {
+            const date = new Date(year, 0, index + 1);
+            const key = LBSave.localDate(date);
+            const week = Math.floor((offset + index) / 7);
+            const weekday = (offset + index) % 7;
+            if (date.getDate() === 1) {
+                months.push({ label: monthFormat.format(date), start: week, end: week });
+                if (index > 0) {
+                    const edge = week * 7;
+                    const step = weekday * 7;
+                    separators.push(step ? `M${edge + 7} 0V${step}H${edge}V49` : `M${edge} 0V49`);
                 }
             }
-            html += `</div>`;
+            months.at(-1).end = week;
+            if (key === todayKey) selectedIndex = index;
+            const count = history[key] || 0;
+            const level = count >= 8 ? 4 : count >= 5 ? 3 : count >= 2 ? 2 : count > 0 ? 1 : 0;
+            cells.push({ key, week, weekday, level, label: `${dateFormat.format(date)} — ${count.toLocaleString()} ${count === 1 ? 'game' : 'games'}` });
         }
-        html += `</div></div></div></div>`;
 
-        // --- TODAY's stats section ---
-        const todayKey = _ldk(now);
+        container.innerHTML = `<div class="lb-stats-chart-toolbar">
+                <div class="lb-actions lb-stats-years" role="group" aria-label="Activity year">
+                    ${years.map(value => `<button class="lb-block-btn lb-block-tab" type="button" data-cal-year="${value}" aria-pressed="${value === year}">${value}</button>`).join('')}
+                </div>
+                <p id="cal-instructions" class="lb-stats-chart-hint">Select a day for game counts. Scroll for more months on small screens.</p>
+            </div>
+            <div class="lb-stats-chart">
+                <div id="cal-day-labels" aria-hidden="true">${dayLabels.map(label => `<span>${label}</span>`).join('')}</div>
+                <div class="lb-stats-calendar-scroll" role="region" aria-label="Activity calendar" tabindex="0">
+                    <div class="lb-stats-calendar" style="--calendar-weeks:${weeks}">
+                        <div id="cal-month-row" aria-hidden="true">${months.map(({ label, start, end }) => `<span style="grid-column:${start + 1}/${end + 2}">${label}</span>`).join('')}</div>
+                        <div id="cal-grid" role="group" aria-label="${year} daily activity" aria-describedby="cal-instructions">
+                            <svg class="lb-stats-month-edges" aria-hidden="true" viewBox="0 0 ${weeks * 7} 49" preserveAspectRatio="none"><path d="${separators.join(' ')}" vector-effect="non-scaling-stroke"/></svg>
+                            ${cells.map(({ key, week, weekday, level, label }, index) => `<button type="button" class="lb-stats-day" style="grid-area:${weekday + 1}/${week + 1}" data-cal-day="${index}" data-level="${level}" tabindex="${index === selectedIndex ? 0 : -1}" aria-pressed="${index === selectedIndex}" ${key === todayKey ? 'aria-current="date"' : ''} aria-label="${escapeHtml(label)}"></button>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="lb-stats-chart-foot">
+                <output class="lb-stats-day-value">${escapeHtml(cells[selectedIndex].label)}</output>
+                <div class="lb-stats-chart-key" aria-label="Games per day: 0, 1, 2 to 4, 5 to 7, 8 or more">
+                    <span>Fewer</span>${[0, 1, 2, 3, 4].map(level => `<i data-level="${level}" aria-hidden="true"></i>`).join('')}<span>More</span>
+                </div>
+            </div>`;
+
         const todayGames = history[todayKey] || 0;
-        const todayEntries = (saveData.leaderboard || []).filter(entry => LBSave.date(entry.date) === todayKey);
-        const todayBestScore = todayEntries.length > 0 ? Math.max(...todayEntries.map(e => e.score || 0)) : 0;
-        const todayAvgScore = todayEntries.length > 0 ? todayEntries.reduce((s, e) => s + (e.score || 0), 0) / todayEntries.length : 0;
+        const todayEntries = entriesByDate.get(todayKey) || [];
+        const todayBestScore = todayEntries.reduce((best, entry) => Math.max(best, entry.score || 0), 0);
+        const todayAvgScore = todayEntries.length ? todayEntries.reduce((sum, entry) => sum + (entry.score || 0), 0) / todayEntries.length : 0;
         const todayBestPercent = statsPercentOfAverage(todayBestScore, todayAvgScore);
-        const todayTotalTime = todayEntries.reduce((s, e) => s + (e.time || 0), 0);
-        const todayTimeFmt = todayTotalTime >= 3600 ? `${Math.floor(todayTotalTime/3600)}h ${Math.floor((todayTotalTime%3600)/60)}m` : `${Math.floor(todayTotalTime/60)}m ${todayTotalTime%60}s`;
-        const todayXP = todayEntries.reduce((s, e) => s + (e.xp || 0), 0);
-        html += `<h3>Today</h3><dl class="lb-stats-metrics lb-stats-today">
-            <div><dt>Games</dt><dd>${todayGames > 0 ? todayGames : '—'}</dd></div>
+        const todayTotalTime = todayEntries.reduce((sum, entry) => sum + (entry.time || 0), 0);
+        const todayXP = todayEntries.reduce((sum, entry) => sum + (entry.xp || 0), 0);
+        container.insertAdjacentHTML('beforeend', `<h3>Today</h3><dl class="lb-stats-metrics lb-stats-today">
+            <div><dt>Games</dt><dd>${todayGames.toLocaleString()}</dd></div>
             <div><dt>Best score</dt><dd>${todayBestScore > 0 ? todayBestScore.toLocaleString() : '—'}</dd>${todayBestPercent === null ? '' : `<dd class="lb-stats-comparison">${todayBestPercent}% of today's average</dd>`}</div>
             <div><dt>Average score</dt><dd>${Math.round(todayAvgScore) > 0 ? Math.round(todayAvgScore).toLocaleString() : '—'}</dd></div>
-            <div><dt>Time played</dt><dd>${todayTotalTime > 0 ? todayTimeFmt : '—'}</dd></div>
+            <div><dt>Time played</dt><dd>${todayTotalTime > 0 ? formatTime(todayTotalTime) : '—'}</dd></div>
             <div><dt>XP earned</dt><dd>${todayXP > 0 ? todayXP.toLocaleString() : '—'}</dd></div>
-        </dl>`;
+        </dl>`);
 
-        container.innerHTML = html;
-
-        requestAnimationFrame(() => {
-            // After render: compute actual cell size and position month labels
-            const grid = container.querySelector('#cal-grid');
-            if (grid && grid.offsetWidth && !grid.querySelector('svg')) {
-                const gridW = grid.offsetWidth;
-                const cellW = Math.max(4, Math.floor((gridW - GAP * (totalWeeks - 1)) / totalWeeks));
-                const rowH = cellW; // square cells
-                // Apply sizes
-                grid.querySelectorAll(':scope > div').forEach(col => {
-                    col.style.flex = 'none';
-                    col.style.width = cellW + 'px';
-                    col.querySelectorAll(':scope > div').forEach(cell => {
-                        cell.style.flex = 'none';
-                        cell.style.height = rowH + 'px';
-                        cell.style.minHeight = '';
-                        cell.style.borderRadius = Math.max(1, Math.round(cellW * 0.2)) + 'px';
-                    });
-                });
-                // Fix day label heights
-                const dayLabels = document.getElementById('cal-day-labels');
-                if (dayLabels) {
-                    dayLabels.querySelectorAll('div').forEach(el => {
-                        el.style.height = rowH + 'px';
-                        el.style.lineHeight = rowH + 'px';
-                    });
-                }
-                // Position month labels (centered over each month's span)
-                const monthRow = document.getElementById('cal-month-row');
-                if (monthRow) {
-                    monthRow.querySelectorAll('span').forEach(span => {
-                        const wcStart = parseInt(span.dataset.weekCol);
-                        const wcEnd = parseInt(span.dataset.wcEnd) || wcStart;
-                        const xCenter = ((wcStart + wcEnd + 1) / 2) * (cellW + GAP) - GAP / 2;
-                        span.style.left = (ROW_LBL + xCenter) + 'px';
-                    });
-                }
-                // Month separator lines — L-shaped to follow actual month boundaries
-                const calGrid2 = document.getElementById('cal-grid');
-                if (calGrid2 && monthRow) {
-                    calGrid2.style.position = 'relative';
-                    const gridH = rowH * 7 + GAP * 6;
-                    // Build single SVG overlay for all separators
-                    const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    svgEl.style.cssText = `position:absolute;left:0;top:0;pointer-events:none;z-index:1;overflow:visible;`;
-                    svgEl.setAttribute('width', totalWeeks * (cellW + GAP));
-                    svgEl.setAttribute('height', gridH);
-                    monthRow.querySelectorAll('span').forEach((span, idx) => {
-                        if (idx === 0) return;
-                        const wc = parseInt(span.dataset.sepWc ?? span.dataset.weekCol);
-                        const dow = parseInt(span.dataset.sepDow ?? span.dataset.dow) || 0;
-                        if (isNaN(wc) || wc === 0) return;
-                        const xL = wc * (cellW + GAP) - GAP / 2;       // left of gap before col wc
-                        const xR = (wc + 1) * (cellW + GAP) - GAP / 2; // right of col wc
-                        const yStep = Math.round(dow * (rowH + GAP) - GAP / 2);
-                        let pathD;
-                        if (dow === 0) {
-                            pathD = `M ${xL} 0 L ${xL} ${gridH}`;
-                        } else {
-                            pathD = `M ${xR} 0 L ${xR} ${yStep} L ${xL} ${yStep} L ${xL} ${gridH}`;
-                        }
-                        const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        pathEl.setAttribute('d', pathD);
-                        pathEl.setAttribute('stroke', getComputedStyle(document.documentElement).getPropertyValue('--primary-dim').trim() || 'rgba(0,255,255,0.2)');
-                        pathEl.setAttribute('stroke-width', '1');
-                        pathEl.setAttribute('fill', 'none');
-                        svgEl.appendChild(pathEl);
-                    });
-                    calGrid2.appendChild(svgEl);
-                }
-            }
-        });
-        container.querySelectorAll('[data-cal-year]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                _renderActivityCalendar(Number(btn.dataset.calYear));
-                container.querySelector('[aria-pressed="true"]').focus();
+        for (const button of container.querySelectorAll('button[data-cal-year]')) {
+            button.addEventListener('click', () => {
+                _renderActivityCalendar(Number(button.dataset.calYear));
+                container.querySelector('.lb-stats-years [aria-pressed="true"]').focus({ preventScroll: true });
             });
-        });
-        // Tooltips
-        let calTip = document.getElementById('cal-tip');
-        if (!calTip) {
-            calTip = document.createElement('div');
-            calTip.id = 'cal-tip';
-            calTip.style.cssText = 'display:none;position:fixed;z-index:2300;background:rgba(5,5,20,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 10px;font-size:0.6rem;pointer-events:none;color:#ccc;font-family:inherit;white-space:nowrap;';
-            document.body.appendChild(calTip);
         }
-        container.querySelectorAll('[data-ctip]').forEach(el => {
-            const _origOutline = el.style.outline || '';
-            el.addEventListener('mouseenter', e => { calTip.textContent = el.dataset.ctip; calTip.style.display = 'block'; calTip.style.left=(e.clientX+12)+'px'; calTip.style.top=(e.clientY-30)+'px'; el.style.outline = '1.5px solid rgba(255,255,255,0.7)'; });
-            el.addEventListener('mouseleave', () => { calTip.style.display = 'none'; el.style.outline = _origOutline; });
-            el.addEventListener('mousemove', e => { calTip.style.left=(e.clientX+12)+'px'; calTip.style.top=(e.clientY-30)+'px'; });
+        const grid = container.querySelector('#cal-grid');
+        const scroller = container.querySelector('.lb-stats-calendar-scroll');
+        const dayButtons = [...grid.querySelectorAll('[data-cal-day]')];
+        const value = container.querySelector('.lb-stats-day-value');
+        const showValue = index => { value.textContent = cells[index].label; };
+        const selectDay = index => {
+            dayButtons[selectedIndex].tabIndex = -1;
+            dayButtons[selectedIndex].setAttribute('aria-pressed', 'false');
+            selectedIndex = index;
+            dayButtons[index].tabIndex = 0;
+            dayButtons[index].setAttribute('aria-pressed', 'true');
+            showValue(index);
+        };
+        const revealDay = index => {
+            const { left, right } = dayButtons[index].getBoundingClientRect();
+            const bounds = scroller.getBoundingClientRect();
+            if (left < bounds.left + 3) scroller.scrollLeft += left - bounds.left - 3;
+            if (right > bounds.right - 3) scroller.scrollLeft += right - bounds.right + 3;
+        };
+        grid.addEventListener('pointerover', event => {
+            if (event.pointerType === 'mouse' && event.target.matches('[data-cal-day]')) showValue(Number(event.target.dataset.calDay));
+        });
+        grid.addEventListener('pointerleave', () => showValue(selectedIndex));
+        grid.addEventListener('click', event => {
+            if (event.target.matches('[data-cal-day]')) selectDay(Number(event.target.dataset.calDay));
+        });
+        grid.addEventListener('keydown', event => {
+            if (!event.target.matches('[data-cal-day]')) return;
+            const index = Number(event.target.dataset.calDay);
+            const weekday = cells[index].weekday;
+            const targets = { ArrowLeft: index - 7, ArrowRight: index + 7, ArrowUp: weekday === 0 ? index : index - 1, ArrowDown: weekday === 6 ? index : index + 1, Home: 0, End: daysInYear - 1 };
+            if (!Object.hasOwn(targets, event.key)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const next = targets[event.key];
+            if (next < 0 || next >= daysInYear || next === index) return;
+            selectDay(next);
+            dayButtons[next].focus({ preventScroll: true });
+            revealDay(next);
+        });
+        grid.addEventListener('focusin', event => {
+            if (event.target.matches('[data-cal-day]')) revealDay(Number(event.target.dataset.calDay));
+        });
+        requestAnimationFrame(() => {
+            if (scroller.isConnected) revealDay(selectedIndex);
         });
     }
     function statsLbTab(tab) {
@@ -3734,7 +3621,7 @@
         container.innerHTML = '';
         const fl = saveData.funLeaderboard || [];
         if (!fl.length) {
-            container.innerHTML = '<p class="lb-card lb-empty">No Fun mode games yet.</p>';
+            container.innerHTML = '<p class="lb-block-card lb-empty">No Fun mode games yet.</p>';
             return;
         }
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
@@ -3753,7 +3640,7 @@
             }
             if (max < fl.length) {
                 const moreBtn = document.createElement('button');
-                moreBtn.className = 'lb-btn lb-load-more';
+                moreBtn.className = 'lb-block-btn lb-load-more';
                 moreBtn.textContent = `LOAD MORE (${fl.length - max} remaining)`;
                 moreBtn.addEventListener('click', () => { _shown += 50; _renderRows(_shown); });
                 container.appendChild(moreBtn);
@@ -3916,6 +3803,23 @@
         </div>`;
     }
 
+    function _colorInventoryStatus(equipped) {
+        const icon = equipped ? '<path d="m5 12 4 4L19 6"/>' : '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>';
+        return `<svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>${equipped ? 'Equipped' : 'Locked'}`;
+    }
+
+    function _colorInventoryCard({ key, label, owned, equipped = false, preview = '', detail = '', actions = '', unlock = '' }) {
+        const cost = !owned && unlock ? _getItemCost(key) : 0;
+        const parts = Math.max(0, Math.min(cost, Number(saveData.parts?.[key]) || 0));
+        if (cost && parts === cost) actions += `<button type="button" class="lb-block-btn lb-block-btn--primary" onclick="${unlock}">Unlock</button>`;
+        return `<article class="lb-block-card lb-colors-card"${key ? ` data-item-key="${key}"` : ''} data-owned="${owned}" data-equipped="${equipped}">
+            <header><h3>${label}</h3>${equipped || !owned ? `<span class="lb-colors-state">${_colorInventoryStatus(equipped)}</span>` : ''}</header>
+            ${preview}${detail ? `<p>${detail}</p>` : ''}
+            ${cost ? `<div class="lb-colors-parts"><progress class="lb-block-progress" aria-label="${label} parts" value="${parts}" max="${cost}"></progress><span>${parts}/${cost} parts</span></div>` : ''}
+            ${actions ? `<div class="lb-colors-actions">${actions}</div>` : ''}
+        </article>`;
+    }
+
     function _populateVisualCustomize() {
         function _positionTip(tip, e) {
             const mx = e.clientX, my = e.clientY;
@@ -3985,130 +3889,54 @@
             });
         }
 
-        // Themes (in Colors tab)
         const ownedThemeContainer = document.getElementById('owned-theme-btns');
         if (ownedThemeContainer) {
             const themeNames = { default:'Default', ocean:'Ocean', forest:'Forest', fire:'Fire', dragon:'Golden', void:'Void', sunset:'Sunset', arctic:'Arctic', midnight:'Midnight', sakura:'Sakura' };
-            const ownedThemes = ['default', ...(saveData.ownedThemes||[])];
-            const themeCountEl = document.getElementById('theme-owned-count');
-            if (themeCountEl) themeCountEl.innerText = `(${ownedThemes.length}/${Object.keys(themeNames).length})`;
-            const rows = Object.keys(themeNames).map(t => {
-                const isOwned = ownedThemes.includes(t);
-                const isActive = settings.theme === t;
-                const parts = saveData.parts?.[t] || 0;
-                return _makeTrackRow(
-                    themeNames[t], isActive, isOwned, parts,
-                    `window.applyTheme('${t}')`,
-                    `window.playerUnlockItem('theme','${t}')`,
-                    '', t
-                );
+            const themes = Object.entries(themeNames);
+            const ownedThemes = new Set([...FREE_THEMES, ...(saveData.ownedThemes || [])]);
+            document.getElementById('theme-owned-count').textContent = `${themes.filter(([key]) => ownedThemes.has(key)).length}/${themes.length}`;
+            const rows = themes.map(([key, label]) => {
+                const owned = ownedThemes.has(key);
+                const equipped = settings.theme === key;
+                const color = THEMES[key].primary;
+                return _colorInventoryCard({ key, label, owned, equipped,
+                    preview: `<button type="button" class="lb-colors-theme-sample" aria-label="Copy ${label} hex ${color}" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)">
+                        <span class="lb-colors-chip" style="--swatch:${color}"></span><code>${color}</code><span aria-hidden="true">${_SVG_COPY}</span></button>`,
+                    actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.applyTheme('${key}')">Equip</button>` : '',
+                    unlock: `window.playerUnlockItem('theme','${key}')` });
             }).join('');
-            // Custom color picker — unlocks when all themes owned
-            let customThemeRow = '';
-            if (_allThemesOwned()) {
-                const isCustomTheme = settings.theme === 'custom';
-                const curColor = LBColorPicker.normalizeHex(saveData.customThemeColor) || '#ff00ff';
-                customThemeRow = _colorPickerButton('custom-theme-picker-button', 'Custom Color', curColor, isCustomTheme, '_openColorPickerModal');
-            } else {
-                customThemeRow = _makeTrackRow('Custom Color', false, false, 0, '', '', 'Own all themes to unlock');
-            }
-            ownedThemeContainer.innerHTML = rows + customThemeRow;
-            // Hover preview for themes (color swatch)
-            const _THEME_COLORS = { default:'#00ffff', ocean:'#0099ff', forest:'#00dd55', fire:'#ff3300', dragon:'#ffcc00', void:'#cc44ff', sunset:'#ff7722', arctic:'#88ddff', midnight:'#aa77ff', sakura:'#ff88cc' };
-            let themeTip = document.getElementById('theme-preview-tip');
-            if (!themeTip) {
-                themeTip = document.createElement('div');
-                themeTip.id = 'theme-preview-tip';
-                themeTip.style.cssText = 'position:fixed;z-index:9999;background:#0d0d1a;border:1px solid #333;border-radius:10px;padding:10px 14px;display:none;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,0.8);min-width:110px;';
-                document.body.appendChild(themeTip);
-            }
-            ownedThemeContainer.querySelectorAll('[data-item-key]').forEach(row => {
-                row.addEventListener('mouseenter', (e) => {
-                    const key = row.dataset.itemKey;
-                    const col = _THEME_COLORS[key] || '#fff';
-                    const name = themeNames[key] || key;
-                    themeTip.innerHTML = `<div style="font-size:0.5rem;color:#666;letter-spacing:1.5px;margin-bottom:6px;text-transform:uppercase;">${name}</div><div style="display:flex;gap:8px;align-items:center;"><div style="width:28px;height:28px;border-radius:50%;background:${col};box-shadow:0 0 10px ${col}88;flex-shrink:0;"></div><span style="font-size:0.7rem;font-weight:bold;color:${col};text-shadow:0 0 8px ${col}66;">${col}</span></div><div style="margin-top:8px;font-size:0.65rem;font-weight:bold;color:${col};letter-spacing:2px;text-shadow:0 0 6px ${col}66;">${name.toUpperCase()}</div>`;
-                    themeTip.style.display = 'block';
-                    _positionTip(themeTip, e);
-                });
-                row.addEventListener('mousemove', (e) => { if (themeTip.style.display !== 'none') _positionTip(themeTip, e); });
-                row.addEventListener('mouseleave', () => { themeTip.style.display = 'none'; });
-            });
-            // Theme row click -> copy hex color (override enable behavior); buttons still work
-            ownedThemeContainer.querySelectorAll('[data-item-key]').forEach(row => {
-                const key = row.dataset.itemKey;
-                const col = _THEME_COLORS[key];
-                if (!col) return;
-                const sample = document.createElement('div');
-                sample.className = 'lb-theme-sample';
-                sample.style.setProperty('--sample', col);
-                sample.textContent = col;
-                row.querySelector('.lb-inventory-heading').after(sample);
-                row.onclick = (e) => {
-                    if (e.target.closest('button')) return; // let Enable/Unlock button clicks through
-                    navigator.clipboard?.writeText(col).catch(() => {});
-                    _showCopyFeedback(e.clientX, e.clientY);
-                };
-                row.style.cursor = 'pointer';
-            });
+            ownedThemeContainer.innerHTML = rows + (_allThemesOwned()
+                ? _colorPickerButton('custom-theme-picker-button', 'Custom Color', LBColorPicker.normalizeHex(saveData.customThemeColor) || '#ff00ff', settings.theme === 'custom', '_openColorPickerModal')
+                : _colorInventoryCard({ label: 'Custom Color', owned: false, detail: 'Own all themes to unlock' }));
         }
 
-        // Color palettes (in Colors/Themes tab)
         const ownedPaletteContainer = document.getElementById('owned-palette-btns');
         if (ownedPaletteContainer) {
-            const ownedPals = saveData.ownedPalettes || ['classic'];
-            const _activePal = settings.colorPalette || 'classic';
-            const _allPalsOwned = typeof _allPalettesOwned === 'function' ? _allPalettesOwned() : false;
-            const palCountEl = document.getElementById('palette-owned-count');
-            if (palCountEl) palCountEl.innerText = `(${ownedPals.length}/${Object.keys(BLOCK_PALETTES).length})`;
-            const palRows = Object.entries(BLOCK_PALETTES).map(([k, p]) => {
-                const isOwned = p.free || ownedPals.includes(k);
-                const isActive = _activePal === k;
-                const parts = saveData.parts?.[k] || 0;
-                const displayColors = paletteColors(saveData.customPaletteOverrides?.[k], p.colors);
-                const swatches = displayColors.slice(0,7).map(c => `<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${c};"></span>`).join('');
-                let extra = `<div class="lb-palette-preview" aria-label="${p.name} block colors">${displayColors.slice(0,7).map(c => `<span style="--piece-color:${c}"></span>`).join('')}</div><div style="display:flex;gap:2px;margin-top:2px;">${swatches}</div>`;
-                // Palette name click opens color view popup (handled via data attribute below)
-                const enableJs = `window.onSettingChange('colorPalette','${k}')`;
-                return _makeTrackRow(p.name, isActive, isOwned, parts,
-                    enableJs,
-                    `window.playerUnlockItem('palette','${k}')`,
-                    extra, k);
+            const palettes = Object.entries(BLOCK_PALETTES);
+            const ownedPalettes = new Set(saveData.ownedPalettes || []);
+            const allPalettesOwned = _allPalettesOwned();
+            document.getElementById('palette-owned-count').textContent = `${palettes.filter(([key, palette]) => palette.free || ownedPalettes.has(key)).length}/${palettes.length}`;
+            const rows = palettes.map(([key, palette]) => {
+                const owned = palette.free || ownedPalettes.has(key);
+                const equipped = (settings.colorPalette || 'classic') === key;
+                const colors = paletteColors(saveData.customPaletteOverrides?.[key], palette.colors);
+                return _colorInventoryCard({ key, label: palette.name, owned: !!owned, equipped,
+                    preview: `<button type="button" class="lb-palette-preview" aria-label="Preview ${palette.name} palette" onclick="window._openPaletteViewModal('${key}')">${colors.map(color => `<span style="--piece-color:${color}"></span>`).join('')}</button>`,
+                    actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.onSettingChange('colorPalette','${key}')">Equip</button>` : '',
+                    unlock: `window.playerUnlockItem('palette','${key}')` });
             }).join('');
-            let customPickerHtml = '';
-            if (_allPalsOwned) {
-                const isCustomActive = settings.colorPalette === '_custom_picker';
-                const gradient = `conic-gradient(${_customPaletteColors().join(', ')})`;
-                customPickerHtml = _colorPickerButton('custom-palette-picker-button', 'Custom Palette', gradient, isCustomActive, '_openCustomPaletteModal');
-            } else {
-                customPickerHtml = _makeTrackRow('Custom Palette', false, false, 0, '', '', 'Own all palettes to unlock');
-            }
-            const _shuffleHtml = `<div class="inv-row" style="display:flex;align-items:center;padding:7px 4px;gap:8px;border-radius:6px;">
-                <div style="flex:1;text-align:left;"><div style="font-size:0.8rem;color:#fff;">Shuffle Colors</div><div style="font-size:0.62rem;color:#666;margin-top:2px;">Colors not fixed to piece types</div></div>
-                <label class="toggle" style="flex-shrink:0;"><input type="checkbox" ${settings.randomPieceColors ? 'checked' : ''} onchange="window.onSettingChange('randomPieceColors',this.checked)"><span class="toggle-slider"></span></label>
+            const shuffle = `<div class="lb-colors-shuffle">
+                <div><strong>Shuffle Colors</strong><p>Colors not fixed to piece types</p></div>
+                <label class="lb-block-switch"><input type="checkbox" role="switch" aria-label="Shuffle Colors" ${settings.randomPieceColors ? 'checked' : ''} onchange="window.onSettingChange('randomPieceColors',this.checked)"><span class="toggle-slider" aria-hidden="true"></span></label>
             </div>`;
-            const _allPalOwned = Object.keys(BLOCK_PALETTES).every(k => BLOCK_PALETTES[k].free || ownedPals.includes(k));
-            let _randomHtml;
-            if (_allPalOwned) {
-                const _randomActive = !!settings.randomBlockColors;
-                _randomHtml = _makeTrackRow('Random Colors', _randomActive, true, 10,
-                    "window.onSettingChange('randomBlockColors',true);window.onSettingChange('colorPalette','_random')",
-                    '', 'Every block is a different random color', '_randomColors');
-            } else {
-                _randomHtml = _makeTrackRow('Random Colors', false, false, 0, '', '', 'Own all palettes to unlock');
-            }
-            ownedPaletteContainer.innerHTML = _shuffleHtml + palRows + _randomHtml + customPickerHtml;
-            // Palette row click -> open palette view modal (override enable behavior); buttons still work
-            ownedPaletteContainer.querySelectorAll('[data-item-key]').forEach(row => {
-                const key = row.dataset.itemKey;
-                if (!BLOCK_PALETTES[key]) return;
-                row.onclick = (e) => {
-                    if (e.target.closest('button')) return; // let Enable/Unlock button clicks through
-                    if (key === '_custom_picker') { window._openCustomPaletteModal(); }
-                    else { window._openPaletteViewModal(key); }
-                };
-                row.style.cursor = 'pointer';
-            });
+            const randomEquipped = allPalettesOwned && !!settings.randomBlockColors;
+            const random = _colorInventoryCard({ key: '_randomColors', label: 'Random Colors', owned: allPalettesOwned, equipped: randomEquipped,
+                detail: allPalettesOwned ? 'Every block is a different random color' : 'Own all palettes to unlock',
+                actions: allPalettesOwned && !randomEquipped ? `<button type="button" class="lb-block-btn" onclick="window.onSettingChange('randomBlockColors',true);window.onSettingChange('colorPalette','_random')">Equip</button>` : '' });
+            const custom = allPalettesOwned
+                ? _colorPickerButton('custom-palette-picker-button', 'Custom Palette', `conic-gradient(${_customPaletteColors().join(', ')})`, settings.colorPalette === '_custom_picker', '_openCustomPaletteModal')
+                : _colorInventoryCard({ label: 'Custom Palette', owned: false, detail: 'Own all palettes to unlock' });
+            ownedPaletteContainer.innerHTML = shuffle + rows + random + custom;
         }
 
         // Button styles (in Blocks tab)
@@ -4204,31 +4032,39 @@
         const maxSets = Math.floor(count / 3);
         if (maxSets < 1) { customAlert(`Need at least 3× ${meta.label} to exchange.`, 'Not enough'); return; }
         document.getElementById('exc-modal-overlay')?.remove();
-        const color = meta.color;
         const overlay = document.createElement('div');
         overlay.id = 'exc-modal-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:1200;display:flex;align-items:center;justify-content:center;font-family:inherit;';
+        overlay.className = 'lb-exchange-overlay';
         overlay.innerHTML = `
-            <div style="background:rgba(8,8,18,0.98);border:1px solid ${color};border-radius:14px;padding:22px 20px;max-width:300px;width:90%;text-align:center;box-shadow:0 0 30px ${color}30;">
-                <div style="font-size:0.85rem;font-weight:bold;color:${color};letter-spacing:2px;margin-bottom:8px;">EXCHANGE</div>
-                <div style="font-size:0.7rem;color:#888;margin-bottom:4px;">3× <span style="color:${color};">${meta.label}</span> → 1× <span style="color:${metaTo.color};">${metaTo.label}</span></div>
-                <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">You have <span style="color:#fff;font-weight:bold;">${count}</span> × ${meta.label}</div>
-                <div style="margin-bottom:18px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.62rem;color:#666;margin-bottom:8px;">
-                        <span>Sets:</span>
-                        <span id="exc-label" style="color:${color};font-weight:bold;">1&nbsp;(3 → 1)</span>
-                    </div>
-                    <input type="range" id="exc-slider" min="1" max="${maxSets}" value="1" step="1"
-                        style="width:100%;accent-color:${color};cursor:pointer;"
-                        oninput="const v=parseInt(this.value);document.getElementById('exc-label').innerHTML=v+'&nbsp;('+(v*3)+' → '+v+')'">
+            <div class="lb-block-dialog lb-exchange-dialog" role="dialog" aria-modal="true" aria-labelledby="exc-title">
+                <h2 id="exc-title" class="lb-block-dialog-title">Booster Exchange</h2>
+                <p>Trade three boosters for one of the next tier.</p>
+                <div class="lb-exchange-pair">
+                    ${[fromKey, toKey].map((key, index) => {
+                        const item = BOOSTER_META[key];
+                        return _exchangeItemCard({ name: item.label, art: LBArtPack.boosterIcon(key), rarity: item.rarity,
+                            count: saveData.boosters?.[key] || 0, detail: `${index === 0 ? 'Spend' : 'Receive'} · ${item.rarity}`,
+                            amountId: index === 0 ? 'exc-spend' : 'exc-receive', amount: index === 0 ? '3' : '+1' });
+                    }).join('<span class="lb-exchange-arrow" aria-hidden="true">→</span>')}
                 </div>
-                <div style="display:flex;gap:10px;justify-content:center;">
-                    <button onclick="window._closeModal('exc-modal-overlay')"
-                        style="font-size:0.7rem;padding:7px 18px;background:rgba(255,255,255,0.05);border:1px solid #444;border-radius:8px;color:#888;cursor:pointer;font-family:inherit;">CANCEL</button>
-                    <button onclick="window._doExchange('${fromKey}','${toKey}','${type}')"
-                        style="font-size:0.7rem;padding:7px 18px;background:linear-gradient(135deg,${color}33,${color}18);border:1px solid ${color};border-radius:8px;color:${color};cursor:pointer;font-family:inherit;font-weight:bold;box-shadow:0 0 8px ${color}30;">EXCHANGE</button>
+                <div class="lb-exchange-quantity">
+                    <label for="exc-slider">Sets to exchange</label>
+                    <output id="exc-label" class="lb-exchange-badge" for="exc-slider">1</output>
+                    <input class="lb-block-range" type="range" id="exc-slider" min="1" max="${maxSets}" value="1" step="1" ${maxSets === 1 ? 'disabled' : ''}>
+                </div>
+                <div class="lb-block-dialog-actions">
+                    <button type="button" class="lb-block-btn" onclick="window._closeModal('exc-modal-overlay')">Cancel</button>
+                    <button type="button" class="lb-block-btn lb-block-btn--primary" id="exc-confirm">Exchange</button>
                 </div>
             </div>`;
+        const slider = overlay.querySelector('#exc-slider');
+        slider.addEventListener('input', () => {
+            const sets = slider.valueAsNumber;
+            overlay.querySelector('#exc-label').textContent = sets;
+            overlay.querySelector('#exc-spend').textContent = sets * 3;
+            overlay.querySelector('#exc-receive').textContent = `+${sets}`;
+        });
+        overlay.querySelector('#exc-confirm').addEventListener('click', () => window._doExchange(fromKey, toKey, type));
         overlay.addEventListener('click', e => { if (e.target === overlay) window._closeModal('exc-modal-overlay'); });
         document.body.appendChild(overlay);
         _animateIn(overlay.querySelector('div'), 'anim-in-down');
@@ -4241,28 +4077,28 @@
 
         // Universal parts section
         const _uniVal = saveData.universalParts || 0;
-        const _uniInt = Math.floor(_uniVal);
-        const _uniDec = Math.round((_uniVal - _uniInt) * 10);
-        const _uniDisplay = _uniDec > 0 ? `${_uniInt}<span style="font-size:0.6em;opacity:0.7;">.${_uniDec}</span>` : `${_uniInt}`;
-        const canUseParts = _getAllPartsItems().length > 0;
-        const uniRow = `<section class="lb-block-card lb-inventory-parts">
-            <h2 class="lb-block-section-title lb-help-label"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" title="About universal parts"></button></h2>
-            <span class="lb-inventory-quantity">${_uniDisplay}</span>
-            ${_uniVal >= 1 ? `<button type="button" class="lb-block-btn lb-block-btn--primary" onclick="window.${canUseParts ? 'openUseUniversalPart' : 'openExchangeUniversalParts'}()">${canUseParts ? 'Use' : 'Exchange'}</button>` : ''}
-        </section>`;
+        const exchangeForXP = _getAllPartsItems().length === 0;
+        const uniRow = `<div class="lb-block-card lb-exchange-row lb-inventory-parts">
+            <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
+            <div class="lb-exchange-row-detail">
+                <strong class="lb-help-label">Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" title="About universal parts"></button></strong>
+                <div class="lb-exchange-row-meta"><span class="lb-exchange-badge">${Number(_uniVal.toFixed(1))} owned</span><span>${_exchangePartsIcon()} 1 part minimum</span></div>
+            </div>
+            <button type="button" class="lb-block-btn lb-block-btn--primary" data-use-parts ${_uniVal < 1 ? 'disabled' : ''}>${exchangeForXP ? 'Exchange' : 'Use'}</button>
+        </div>`;
 
         // Boosters section
         const boosterHtml = BOOSTER_KEYS.map((key, i) => {
             const meta = BOOSTER_META[key];
             const count = boosters[key] || 0;
             const nextKey = BOOSTER_KEYS[i + 1];
-            const canExchange = count >= 3;
-            const xchBtnHtml = nextKey ? `<button type="button" class="lb-block-btn" ${canExchange ? `onclick="window.exchangeBoosters('${key}','${nextKey}')"` : 'disabled'}>Exchange</button>` : '';
-            return `<div class="lb-booster-inventory-row" data-rarity="${meta.rarity}">
-                ${LBArtPack.boosterIcon(key)}
-                <div><div class="lb-inventory-name">${meta.label}</div><div class="lb-inventory-rarity">${meta.rarity}</div></div>
-                <span class="lb-inventory-quantity">${escapeHtml(count)}</span>
-                <div class="lb-inventory-exchange">${xchBtnHtml}</div>
+            return `<div class="lb-block-card lb-exchange-row" data-rarity="${meta.rarity}">
+                <div class="lb-exchange-row-art">${LBArtPack.boosterIcon(key)}</div>
+                <div class="lb-exchange-row-detail">
+                    <strong>${meta.label}</strong>
+                    <div class="lb-exchange-row-meta"><span class="lb-exchange-badge">${escapeHtml(count)} owned</span><span class="lb-exchange-rarity">${meta.rarity}</span>${nextKey ? '<span>Cost: 3 boosters</span>' : ''}</div>
+                </div>
+                ${nextKey ? `<button type="button" class="lb-block-btn lb-block-btn--primary" aria-label="Exchange ${meta.label}" data-exchange-booster="${i}" ${count < 3 ? 'disabled' : ''}>Exchange</button>` : ''}
             </div>`;
         }).join('');
 
@@ -4298,6 +4134,11 @@
                 <h2 class="lb-block-section-title">SFX Packs</h2>
                 ${sfxPacksHtml}
             </section>`;
+        container.querySelector('[data-use-parts]').addEventListener('click', exchangeForXP ? openExchangeUniversalParts : openUseUniversalPart);
+        container.querySelectorAll('[data-exchange-booster]').forEach(button => button.addEventListener('click', () => {
+            const index = Number(button.dataset.exchangeBooster);
+            exchangeBoosters(BOOSTER_KEYS[index], BOOSTER_KEYS[index + 1]);
+        }));
 
         // SFX pack rows — click to open preview (not on buttons)
         const packIds = new Map(_sfxPackDefs.map(pack => [pack.key, pack.packId]));
@@ -4915,7 +4756,7 @@
         if (!popup) {
             popup = document.createElement('button');
             popup.id = 'score-pin-popup';
-            popup.className = 'lb-btn';
+            popup.className = 'lb-block-btn';
             document.body.appendChild(popup);
             document.addEventListener('click', (e) => { if (!popup.contains(e.target)) popup.style.display = 'none'; });
         }
@@ -4949,7 +4790,7 @@
         const container = document.getElementById('pinned-list');
         if (!container) return;
         const pins = saveData.pinnedScores || [];
-        if (pins.length === 0) { container.innerHTML = '<p class="lb-card lb-empty">No pinned scores yet. Pin a score from the leaderboard.</p>'; return; }
+        if (pins.length === 0) { container.innerHTML = '<p class="lb-block-card lb-empty">No pinned scores yet. Pin a score from the leaderboard.</p>'; return; }
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
         container.innerHTML = '';
@@ -4988,7 +4829,7 @@
         document.getElementById('highscores-by-speed').innerHTML = records.length
             ? `<table class="lb-stats-table" aria-label="Records by speed level"><thead><tr><th scope="col">Speed level</th><th scope="col">Best score</th></tr></thead><tbody>${records.map(([speed, score]) => `<tr><th scope="row">${speed}</th><td>${score.toLocaleString()}</td></tr>`).join('')}</tbody></table>`
             : '<p class="lb-empty">No scores with a recorded speed level yet.</p>';
-        if (all.length === 0) { container.innerHTML = '<p class="lb-card lb-empty">No highscores yet. Play to set your first record!</p>'; return; }
+        if (all.length === 0) { container.innerHTML = '<p class="lb-block-card lb-empty">No highscores yet. Play to set your first record!</p>'; return; }
         container.innerHTML = '';
         // Sort descending by score
         all.sort((a, b) => b.score - a.score);
@@ -5007,7 +4848,7 @@
     }
     function drawLeaderboard() {
         const container = document.getElementById('lb-list'); container.innerHTML = "";
-        if (saveData.leaderboard.length === 0) { container.innerHTML = '<p class="lb-card lb-empty">Play your first game to enter the leaderboard.</p>'; return; }
+        if (saveData.leaderboard.length === 0) { container.innerHTML = '<p class="lb-block-card lb-empty">Play your first game to enter the leaderboard.</p>'; return; }
         const lb = saveData.leaderboard;
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
@@ -5019,15 +4860,19 @@
             lb[0] ? { e: lb[0], rank: 1, medal: '🥇', color: '#ffd700', h: 88, lbIdx: 0 } : null,
             lb[2] ? { e: lb[2], rank: 3, medal: '🥉', color: '#e8922a', h: 40, lbIdx: 2 } : null,
         ].filter(Boolean);
+        const podiumPanel = document.createElement('section');
+        podiumPanel.className = 'lb-block-panel lb-stats-podium-panel';
+        podiumPanel.innerHTML = '<div class="lb-block-panel-head"><h2>Best scores</h2></div>';
         const podiumWrap = document.createElement('div');
         podiumWrap.className = 'lb-stats-podium';
         podiumOrder.forEach(p => {
             const block = document.createElement('button');
-            block.className = 'lb-btn lb-stats-podium-place';
+            block.className = 'lb-block-btn lb-stats-podium-place';
             block.style.setProperty('--tone', p.color);
-            block.style.minHeight = `${p.h + 32}px`;
+            block.style.minHeight = `${p.h + 68}px`;
+            block.style.gridColumn = p.rank === 1 ? 2 : p.rank === 2 ? 1 : 3;
             block.setAttribute('aria-label', `Rank ${p.rank}: ${p.e.score.toLocaleString()} points`);
-            block.innerHTML = `<span class="lb-score">${escapeHtml(p.e.score.toLocaleString())}</span><span aria-hidden="true">${p.medal}</span>`;
+            block.innerHTML = `<span class="lb-score">${escapeHtml(p.e.score.toLocaleString())}</span><span aria-hidden="true">${p.medal}</span><span class="lb-stats-place-rank" aria-hidden="true">#${p.rank}</span>`;
             block.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(p.lbIdx));
@@ -5058,7 +4903,8 @@
             block.addEventListener('mouseleave', () => { if (tipEl) tipEl.style.display = 'none'; });
             podiumWrap.appendChild(block);
         });
-        container.appendChild(podiumWrap);
+        podiumPanel.appendChild(podiumWrap);
+        container.appendChild(podiumPanel);
 
         // --- Regular rows (4th+) with Load More ---
         let _lbShown = 50;
@@ -5082,7 +4928,7 @@
             // Load More button
             if (max < lb.length) {
                 const moreBtn = document.createElement('button');
-                moreBtn.className = 'lb-btn lb-load-more';
+                moreBtn.className = 'lb-block-btn lb-load-more';
                 moreBtn.textContent = `LOAD MORE (${lb.length - max} remaining)`;
                 moreBtn.addEventListener('click', () => {
                     _lbShown += 50;
@@ -6231,31 +6077,21 @@
 
     function _showGoAchievements(list) {
         const el = document.getElementById('go-achievements-new');
-        if (!el) return;
-        if (!list || !list.length) { el.style.display = 'none'; return; }
-        el.style.display = '';
-        el.innerHTML = `<div style="font-size:0.6rem;color:var(--gold);font-weight:bold;letter-spacing:2px;margin-bottom:8px;text-align:center;opacity:0;transform:translateY(-8px);transition:opacity 0.35s ease,transform 0.35s ease;" class="go-ach-header">🏆 NEW ACHIEVEMENT${list.length>1?'S':''}!</div>` +
+        el.hidden = !list.length;
+        el.innerHTML = el.hidden ? '' : `<h2 class="go-section-title" id="go-ach-title">New achievements</h2><ul class="go-reward-list">` +
             list.map(a => {
                 const rarity = a._newTier ? a._newTier.rarity : a.rarity;
                 const name   = a._newTier ? a._newTier.name   : a.name;
                 const rc = RARITY_ACH[rarity] || RARITY_ACH.common;
                 const sh = _achShapeStyle(rarity);
-                const tierBadge = a._newTierNum ? ` <span style="font-size:0.45rem;color:${rc.color};"> TIER ${a._newTierNum}</span>` : '';
-                return `<div class="go-ach-card" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid ${rc.color}40;margin-bottom:5px;opacity:0;transform:translateX(-18px);transition:opacity 0.4s ease,transform 0.4s ease;box-shadow:0 2px 12px ${rc.color}20;">
-                    <div style="width:32px;height:32px;${sh.outer}background:${rc.color}55;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                const tierLabel = a._newTierNum ? ` · Tier ${a._newTierNum}` : '';
+                return `<li class="go-ach-card" data-rarity="${rarity}">
+                    <div class="go-ach-icon" aria-hidden="true" style="${sh.outer}background:${rc.color}55;">
                         <svg viewBox="0 0 24 24" width="18" height="18" ${_isColoredSvg(a.svgIcon)?'class="ach-badge-colored"':`class="ach-badge-icon" style="color:#fff;--glow-c:${rc.color};"`}>${a.svgIcon}</svg>
                     </div>
-                    <div>
-                        <div style="font-size:0.68rem;font-weight:bold;color:#fff;">${name}${tierBadge}</div>
-                        <div style="font-size:0.55rem;color:${rc.color};font-weight:bold;letter-spacing:1px;">${rc.label}</div>
-                    </div>
-                </div>`;
-            }).join('');
-        // stagger animation
-        const header = el.querySelector('.go-ach-header');
-        const cards = el.querySelectorAll('.go-ach-card');
-        setTimeout(() => { if (header) { header.style.opacity='1'; header.style.transform='translateY(0)'; } }, 60);
-        cards.forEach((card, i) => setTimeout(() => { card.style.opacity='1'; card.style.transform='translateX(0)'; }, 180 + i * 130));
+                    <div><strong>${escapeHtml(name)}</strong><small>${rc.label}${tierLabel}</small></div>
+                </li>`;
+            }).join('') + '</ul>';
     }
 
     function _showGameAchievement(ach, tierIdx) {
@@ -6371,7 +6207,9 @@
         const _isAchTabSwitch = !!_prevAchTab && _prevAchTab !== tab;
         const _ACH_ORD = ['all', 'unlocked', 'locked'];
 
-        overlay.querySelectorAll('[data-achtab]').forEach(b => b.classList.toggle('active', b.dataset.achtab === tab));
+        overlay.querySelectorAll('[data-achtab]').forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.achtab === tab));
+        });
 
         const container = document.getElementById('ach-list');
         if (!container) return;
@@ -6401,15 +6239,15 @@
         if (oldTip) oldTip.remove();
 
         if (saveData.pendingAchievementClaims?.length > 0) {
-            const pendingSection = document.createElement('div');
-            pendingSection.style.cssText = 'width:100%;margin-bottom:20px;padding:12px;border-radius:10px;background:rgba(0,255,255,0.04);border:1px solid rgba(0,255,255,0.15);';
+            const pendingSection = document.createElement('section');
+            pendingSection.className = 'ach-pending lb-block-panel';
+            pendingSection.setAttribute('aria-label', 'Pending rewards');
             const pendingHeader = document.createElement('div');
-            pendingHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;';
-            pendingHeader.innerHTML = `<span style="font-size:0.62rem;color:var(--primary);letter-spacing:2px;font-weight:bold;">PENDING REWARDS</span>`;
+            pendingHeader.className = 'ach-pending-head';
+            pendingHeader.innerHTML = '<h2>PENDING REWARDS</h2>';
             if (saveData.pendingAchievementClaims.length > 1) {
                 const claimAllBtn = document.createElement('button');
-                claimAllBtn.className = 'btn-secondary';
-                claimAllBtn.style.cssText = 'font-size:0.55rem;padding:4px 12px;min-height:unset;background:rgba(0,255,255,0.1);border:1px solid var(--primary);color:var(--primary);cursor:pointer;border-radius:6px;font-weight:bold;letter-spacing:1px;';
+                claimAllBtn.className = 'lb-block-btn lb-block-btn--primary';
                 claimAllBtn.textContent = 'CLAIM ALL';
                 claimAllBtn.addEventListener('click', () => {
                     let totalXpGained = 0;
@@ -6428,17 +6266,19 @@
             }
             pendingSection.appendChild(pendingHeader);
             const pendingGrid = document.createElement('div');
-            pendingGrid.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+            pendingGrid.className = 'ach-pending-list';
             saveData.pendingAchievementClaims.forEach((claim, idx) => {
-                const rc = Object.hasOwn(RARITY_ACH, claim.rarity) ? RARITY_ACH[claim.rarity] : RARITY_ACH.common;
+                const rarity = Object.hasOwn(RARITY_ACH, claim.rarity) ? claim.rarity : 'common';
+                const rc = RARITY_ACH[rarity];
                 const card = document.createElement('div');
-                card.style.cssText = `display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid ${rc.color}30;`;
-                const nameHtml = `<div style="font-size:0.48rem;color:${rc.color};font-weight:bold;letter-spacing:1px;min-width:55px;text-align:center;">${rc.label}</div><div style="flex:1;min-width:0;font-size:0.65rem;font-weight:bold;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(claim.name)}</div>`;
-                const xpHtml = `<div style="font-size:0.65rem;font-weight:bold;color:${rc.color};white-space:nowrap;text-shadow:0 0 8px ${rc.color}40;">+${escapeHtml(claim.xp.toLocaleString())} XP</div>`;
+                card.className = 'ach-pending-row';
+                card.dataset.rarity = rarity;
+                const nameHtml = `<span class="ach-pending-rarity">${rc.label}</span><span class="ach-pending-name">${escapeHtml(claim.name)}</span>`;
+                const xpHtml = `<span class="ach-pending-xp">+${escapeHtml(claim.xp.toLocaleString())} XP</span>`;
                 const claimBtn = document.createElement('button');
-                claimBtn.className = 'btn-secondary';
-                claimBtn.style.cssText = `font-size:0.5rem;padding:4px 10px;min-height:unset;background:${rc.color}18;border:1px solid ${rc.color}60;color:${rc.color};cursor:pointer;border-radius:5px;font-weight:bold;letter-spacing:1px;`;
+                claimBtn.className = 'lb-block-btn';
                 claimBtn.textContent = 'CLAIM';
+                claimBtn.setAttribute('aria-label', `Claim ${claim.name}`);
                 claimBtn.addEventListener('click', () => {
                     _grantXP(claim.xp);
                     saveData.pendingAchievementClaims.splice(idx, 1);
@@ -7592,17 +7432,14 @@
         _animateOut(document.getElementById('pause-overlay'), 'anim-out-down');
     }
 
+    async function restartPausedRun() {
+        if (await customConfirm('Restart this run? Your current run will be discarded.', 'RESTART')) startGame();
+    }
+
     async function quitGame() {
-        if (score === 0) {
-            _animateOut(document.getElementById('pause-overlay'), 'anim-out-down');
-            if(timeInterval) clearInterval(timeInterval);
-            saveData.stats.gamesAborted = (saveData.stats.gamesAborted || 0) + 1;
-            if ((saveData.stats.gamesAborted || 0) >= 20 && !saveData.achievements?.['abort_mission']?.unlocked) { unlockAchievement('abort_mission'); }
-            _gameInProgress = false;
-            saveDataToFile();
-            gameOver(); return;
-        }
-        const confirmed = await customConfirm("Are you sure you want to quit?<br><br><b style='color:var(--primary);'>Your current score and XP will be saved.</b>", "QUIT");
+        const message = score === 0 ? 'End this run and view the results?'
+            : "End this run and view the results?<br><br><b style='color:var(--primary);'>Your current score and XP will be saved.</b>";
+        const confirmed = await customConfirm(message, 'QUIT');
         if(confirmed) {
             _animateOut(document.getElementById('pause-overlay'), 'anim-out-down');
             if(timeInterval) clearInterval(timeInterval);
@@ -8389,6 +8226,22 @@
         });
     }
     
+    function _renderGoStats(best, isRecord, funMode, xp, recordBonus = 0) {
+        const overlay = document.getElementById('go-overlay');
+        overlay.classList.toggle('go-fun', funMode);
+        document.getElementById('go-score').textContent = Math.round(score).toLocaleString();
+        document.getElementById('go-best-score').textContent = Math.round(best).toLocaleString();
+        document.getElementById('go-best-label').textContent = isRecord ? 'New best' : 'Best';
+        document.getElementById('go-lines-cnt').textContent = linesClearedThisGame;
+        document.getElementById('go-max-speed').textContent = speedLevel;
+        document.getElementById('go-total-xp').textContent = xp.toLocaleString();
+        document.getElementById('go-xp-tile').hidden = funMode;
+        document.getElementById('go-pin-btn').hidden = funMode;
+        const bonus = document.getElementById('go-record-bonus');
+        bonus.hidden = recordBonus <= 0;
+        bonus.textContent = `Record bonus · +${recordBonus.toLocaleString()} XP`;
+    }
+
     function gameOver(){
         _gameInProgress = false; // allow saves again — score and achievements saved together below
         isGameOver=true; isPaused=true;
@@ -8396,6 +8249,7 @@
         isAnimating=false; _hardDropAnimating=false; // safety: clear all animation locks
         lineClear.reset();
         _boosterUsedThisRound = false;
+        document.getElementById('go-mission-row').hidden = true;
         try {
         const _gcGO = document.getElementById('game-container');
         if (_gcGO) _gcGO.style.transform = '';
@@ -8408,71 +8262,34 @@
         if (currentGameMode === 'fun') {
             // fun_squared tracking (only count games where at least 1 line was cleared)
             if (linesClearedThisGame >= 1) saveData.stats.funGamesPlayed = (saveData.stats.funGamesPlayed || 0) + 1;
-            const m = Math.floor(gameTime/60); const s = gameTime%60;
-            const timeStr = (m<10?"0"+m:m)+":"+(s<10?"0"+s:s);
             // Track best-ever stats for achievement progress bars
             if (gameTime > (saveData.stats.bestSurvivalTime || 0)) saveData.stats.bestSurvivalTime = gameTime;
             if (_maxLineStreakThisGame > (saveData.stats.bestLineStreak || 0)) saveData.stats.bestLineStreak = _maxLineStreakThisGame;
             if (_maxBlocksIn60sThisGame > (saveData.stats.bestBlocksIn60s || 0)) saveData.stats.bestBlocksIn60s = _maxBlocksIn60sThisGame;
             if (_iPieceLinesThisGame > (saveData.stats.bestIPieceLines || 0)) saveData.stats.bestIPieceLines = _iPieceLinesThisGame;
             if (_maxBlocksUnderHalfThisGame > (saveData.stats.bestHighPlacer || 0)) saveData.stats.bestHighPlacer = _maxBlocksUnderHalfThisGame;
-            if (score > (saveData.stats.bestFunScore || 0)) saveData.stats.bestFunScore = score;
+            const previousFunBest = saveData.stats.bestFunScore || 0;
+            if (score > previousFunBest) saveData.stats.bestFunScore = score;
             // Save to fun leaderboard (skip zero scores)
             if (Math.round(score) > 0) { if (!saveData.funLeaderboard) saveData.funLeaderboard = []; saveData.funLeaderboard.push({ score: Math.round(score), ..._scoreDate(), lines: linesClearedThisGame, time: gameTime, maxSpeed: speedLevel, cols: funModeConfig.cols, rows: funModeConfig.rows, startSpeed: funModeConfig.startSpeed }); saveData.funLeaderboard.sort((a,b) => b.score - a.score); if (saveData.funLeaderboard.length > 200) saveData.funLeaderboard = saveData.funLeaderboard.slice(0, 200); }
             // Check achievements even in fun mode (score-based ones apply)
             saveData.stats.luckySevenCount = (saveData.stats.luckySevenCount || 0) + _sec7CountThisGame;
             const funNewAch = checkAchievements({ score, lines: linesClearedThisGame, blocks: blocksPlacedThisGame, time: gameTime, maxSpeed: speedLevel, mode: currentGameMode, mirror: !!settings.optMirror, quadraKill: _quadraKillThisGame, boardCleared: _boardClearedThisGame, maxLineStreak: _maxLineStreakThisGame, maxBlocksIn60s: _maxBlocksIn60sThisGame, iPieceLines: _iPieceLinesThisGame, clearedTopLine: _clearedTopLineThisGame, highPlacer: _maxBlocksUnderHalfThisGame, noRotate: !_rotatedThisGame, equalPieces: false, luckySevenCount: saveData.stats.luckySevenCount, waitedTetris: _waitedTetrisThisGame, noHardDrop: _hardDropsThisGame === 0, allHardDrop: _piecesThisGame >= 20 && _piecesThisGame === _piecesHardDroppedThisGame, bigFont: _bigFontGameFlag, exactBlocks100: blocksPlacedThisGame === 100, speedrunner: linesClearedThisGame >= 10 ? gameTime : 9999, earlyBird: _earlyBirdThisGame, nice69: _nice69Triggered, boardSymmetric: _boardSymmetricAchieved });
-            if (funNewAch.length) { _showGoAchievements(funNewAch); }
+            _showGoAchievements(funNewAch);
             saveDataToFile();
-            // Show fun stats panel, hide normal XP breakdown
-            document.getElementById('go-xp-breakdown').style.display = 'none';
-            const funStats = document.getElementById('go-fun-stats');
-            if (funStats) {
-                funStats.style.display = '';
-                document.getElementById('go-fun-score').innerText = Math.round(score).toLocaleString();
-                document.getElementById('go-fun-time').innerText = timeStr;
-                document.getElementById('go-fun-lines').innerText = linesClearedThisGame;
-                document.getElementById('go-fun-speed').innerText = speedLevel;
-                const _funRecEl = document.getElementById('go-fun-record');
-                if (_funRecEl) {
-                    const _funBest = saveData.stats.bestFunScore || 0;
-                    const _isNewFunRec = _funBest > 0 && Math.round(score) >= _funBest && score > 0;
-                    _funRecEl.innerHTML = _funBest > 0
-                        ? (_isNewFunRec ? `<span style="color:#ffd700;font-weight:bold;">★ NEW FUN RECORD!</span>` : `Fun Record: <span style="color:var(--primary);">${escapeHtml(_funBest.toLocaleString())}</span>`)
-                        : '';
-                }
-            }
-            if (document.getElementById('go-boost-row')) document.getElementById('go-boost-row').style.display = 'none';
+            _renderGoStats(Math.max(previousFunBest, score), Math.round(score) > Math.round(previousFunBest), true, 0);
+            _renderGoBoostRow(0);
             return; // skip XP/leaderboard processing
         }
 
         let finalXP=0, pbBonus=0;
         const previousBest = _bestScore();
-        const m = Math.floor(gameTime/60); const s = gameTime%60;
-        document.getElementById('go-time-played').innerText = (m<10?"0"+m:m)+":"+(s<10?"0"+s:s);
-        document.getElementById('go-max-speed').innerText = speedLevel;
-
-        if(linesClearedThisGame===0){
-            document.getElementById('go-penalty').style.display='block';
-            document.getElementById('go-stats-group').style.display='none';
-        }else{
-            document.getElementById('go-penalty').style.display='none';
-            document.getElementById('go-stats-group').style.display='block';
-            document.getElementById('go-blocks-cnt').innerText = blocksPlacedThisGame;
-            document.getElementById('go-blocks-xp').innerText = Math.round(xpFromBlocksThisGame) + " XP";
-            document.getElementById('go-lines-cnt').innerText = linesClearedThisGame;
-            document.getElementById('go-lines-xp').innerText = Math.round(xpFromLinesThisGame) + " XP";
-
+        if(linesClearedThisGame>0){
             if(Math.round(score) > previousBest && score > 0){
                 playSFX('newrecord');
                 if (previousBest > 0) (saveData.highscoreHistory ||= []).push({ ...saveData.leaderboard[0] });
                 const bonusPct = _gamePersonalBestBonusPercent(previousBest);
                 pbBonus = Math.round(score * bonusPct / 100);
-                document.getElementById('go-pb-row').style.display='flex';
-                document.getElementById('go-pb-xp').innerText="+"+pbBonus+" XP";
-                document.getElementById('go-pb-pct').innerText=`(+${bonusPct}% BONUS)`;
-            }else{
-                document.getElementById('go-pb-row').style.display='none';
             }
             finalXP = Math.round(score + pbBonus);
             const _rawGameXP = finalXP;
@@ -8483,17 +8300,8 @@
             // Track raw XP (pre-multiplier) for daily streak threshold check
             if (saveData.missions?.daily) saveData.missions.daily.rawXPToday = (saveData.missions.daily.rawXPToday || 0) + _rawGameXP;
         }
-        // Show leaderboard position in game over
-        const _lbPos = saveData.leaderboard.findIndex(e => e.score === Math.round(score) && Math.abs((e.xp||0) - finalXP) < 2) + 1;
-        const _lbPosEl = document.getElementById('go-lb-position');
-        if (_lbPosEl && _lbPos > 0) {
-            const _posColor = _lbPos === 1 ? '#ffd700' : _lbPos <= 3 ? '#c0c0c0' : _lbPos <= 10 ? '#9b59b6' : '#4488ff';
-            const _medal = _lbPos === 1 ? '🥇' : _lbPos === 2 ? '🥈' : _lbPos === 3 ? '🥉' : '';
-            _lbPosEl.style.display = '';
-            _lbPosEl.innerHTML = `<span style="font-size:0.55rem;color:#555;letter-spacing:2px;">LEADERBOARD</span><br><span style="font-size:1.4rem;font-weight:bold;color:${_posColor};">${_medal}#${_lbPos}</span><span style="font-size:0.65rem;color:#777;"> of ${saveData.leaderboard.length}</span>`;
-        } else if (_lbPosEl) {
-            _lbPosEl.style.display = 'none';
-        }
+        const best = _bestScore();
+        _renderGoStats(best, best > previousBest, false, finalXP, pbBonus);
         gainedXPThisRound = finalXP;
         // Snapshot completed state before update so we can detect newly-completed quests this game
         const _preCompD = saveData.missions ? new Set(
@@ -8517,13 +8325,11 @@
                   const _parts = [];
                   if (_newD > 0) _parts.push(`${_newD} daily quest${_newD !== 1 ? 's' : ''}`);
                   if (_newW > 0) _parts.push(`${_newW} weekly mission${_newW !== 1 ? 's' : ''}`);
-                  _goMR.innerHTML = `<span style="color:#44ff88;">✓ ${_parts.join(' + ')} completed</span> <span style="color:#555;font-size:0.5rem;">— tap to view</span>`;
-                  _goMR.style.display = 'block';
+                  _goMR.textContent = `Missions · ${_parts.join(' + ')} completed`;
+                  _goMR.hidden = false;
               } else if (_ptsEarned > 0) {
-                  _goMR.innerHTML = `<span style="color:#4499ff;">📋 ${_ptsEarned} daily pts earned</span> <span style="color:#555;font-size:0.5rem;">— tap to view</span>`;
-                  _goMR.style.display = 'block';
-              } else {
-                  _goMR.style.display = 'none';
+                  _goMR.textContent = `Missions · ${_ptsEarned} daily points`;
+                  _goMR.hidden = false;
               }
           } }
         const _lvlBefore = getLevelInfo(saveData.totalXP).level;
@@ -8612,9 +8418,6 @@
         // sec_speedgames check
         { const _now = Date.now(); _recentGameEndTimes.push({t:_now, lines:linesClearedThisGame}); _recentGameEndTimes = _recentGameEndTimes.filter(e => _now - e.t <= 60000); if (_recentGameEndTimes.filter(e => e.lines >= 1).length >= 5 && !saveData.achievements?.['sec_speedgames']?.unlocked) { unlockAchievement('sec_speedgames'); } }
         _lastGameStats = { score, lines: linesClearedThisGame, blocks: blocksPlacedThisGame, time: gameTime, maxSpeed: speedLevel, xp: finalXP, maxCombo: _maxComboThisGame };
-        // Best combo display
-        const goComboEl = document.getElementById('go-best-combo');
-        if (goComboEl) { goComboEl.style.display = _maxComboThisGame >= 2 ? '' : 'none'; document.getElementById('go-combo-val').innerText = `×${_maxComboThisGame}`; }
 
         // Check achievements
         saveData.stats.luckySevenCount = (saveData.stats.luckySevenCount || 0) + _sec7CountThisGame;
@@ -8625,12 +8428,7 @@
         _showGoAchievements(newAch);
         saveDataToFile();
 
-        document.getElementById('go-total-xp').innerText=finalXP+" XP";
         _renderGoBoostRow(finalXP);
-        // Ensure normal XP breakdown visible, fun stats hidden
-        document.getElementById('go-xp-breakdown').style.display = '';
-        const goFunStats2 = document.getElementById('go-fun-stats');
-        if (goFunStats2) goFunStats2.style.display = 'none';
         } catch (error) {
             console.error('Game-over bookkeeping failed:', error);
         } finally {
@@ -8659,36 +8457,25 @@
         gainedXPThisRound += bonus;
         _grantXP(bonus);
         if (bonus > 0) _updateMissionProgress({ totalXP: bonus });
-        document.getElementById('go-total-xp').innerText = gainedXPThisRound + ' XP';
+        document.getElementById('go-total-xp').textContent = gainedXPThisRound.toLocaleString();
         _renderGoBoostRow(gainedXPThisRound);
         animateXPGain();
         saveDataToFile();
     }
     function _renderGoBoostRow(xp) {
         const row = document.getElementById('go-boost-row');
-        if (!row) return;
-        if (_boosterUsedThisRound || xp <= 0) { row.style.display = 'none'; return; }
-        const boostDefs = [
-            { key:'2xp_game',   label:'2× XP' },
-            { key:'1.5x_game',  label:'1.5× XP' },
-            { key:'1.25x_game', label:'1.25× XP' },
-        ];
-        const available = boostDefs.filter(b => saveData.boosters && saveData.boosters[b.key] > 0);
-        if (available.length === 0) { row.style.display = 'none'; return; }
-        row.style.display = 'flex';
-        row.style.flexDirection = 'column';
-        row.style.width = 'min(480px, 94vw)';
-        row.innerHTML = `<div class="lb-help-label" style="font-size:0.65rem;color:#cc44ff;margin-bottom:6px;font-weight:bold;letter-spacing:1px;">USE BOOSTER: <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About score boosters" title="About score boosters"></button></div>` +
-            available.map(b => `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0;">
-                <div class="lb-booster-result-label">
-                    ${LBArtPack.boosterIcon(b.key)}
-                    <div style="display:flex;flex-direction:column;gap:1px;">
-                        <span style="font-size:0.72rem;color:#cc44ff;white-space:nowrap;">${b.label}</span>
-                        <span style="font-size:0.6rem;color:#888;">left: ${escapeHtml(saveData.boosters[b.key])}</span>
-                    </div>
-                </div>
-                <button class="btn-secondary" style="border-color:#cc44ff;color:#cc44ff;font-size:0.65rem;padding:4px 14px;flex-shrink:0;" onclick="window.useScoreBooster('${b.key}')">USE</button>
-            </div>`).join('');
+        const available = [...BOOSTER_KEYS].reverse().filter(key => saveData.boosters?.[key] > 0);
+        row.hidden = _boosterUsedThisRound || xp <= 0 || !available.length;
+        row.innerHTML = row.hidden ? '' : `<div class="go-boost-heading"><h2 class="go-section-title" id="go-boost-title">XP boosters</h2><button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About score boosters" title="About score boosters"></button></div>
+            <ul class="go-reward-list go-boost-list">${available.map(key => {
+                const { label, rarity } = BOOSTER_META[key];
+                return `<li><button type="button" class="lb-block-btn lb-block-reward" data-rarity="${rarity}" onclick="window.useScoreBooster('${key}')" aria-label="Use ${label}, ${escapeHtml(saveData.boosters[key])} available">
+                    ${LBArtPack.boosterIcon(key)}
+                    <strong>${label.replace(' Booster', ' XP')}</strong>
+                    <small>${rarity}</small>
+                    <span class="lb-block-reward-amount">${escapeHtml(saveData.boosters[key])}</span>
+                </button></li>`;
+            }).join('')}</ul>`;
     }
 
     function startAnimation(onStarted) {
@@ -10760,47 +10547,30 @@
     }
 
     function _showMilestoneRewardBox(ms, isWeekly, rewards) {
-        const color = isWeekly ? '#ff9900' : '#44ff88';
-        const bgColor = isWeekly ? 'rgba(255,153,0,0.1)' : 'rgba(68,255,136,0.1)';
-        const RARITY_COLS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
         const overlay = document.createElement('div');
-        overlay.className = 'lb-reward-overlay';
+        overlay.className = 'lb-reward-overlay lb64-crate-overlay lb64-mission-crate';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.setAttribute('aria-label', 'Earned rewards');
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:3200;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
         const panel = document.createElement('div');
-        panel.style.cssText = `background:rgba(5,5,20,0.98);border:1px solid ${color}44;border-radius:16px;padding:24px 20px;max-width:380px;width:100%;text-align:center;max-height:90vh;overflow-y:auto;`;
-        const typeLabel = isWeekly ? 'WEEKLY MILESTONE' : 'DAILY MILESTONE';
+        panel.className = 'lb64-crate-panel lb-block-panel';
+        const typeLabel = isWeekly ? 'Weekly milestone' : 'Daily milestone';
         panel.innerHTML = `
-            <div style="font-size:0.55rem;letter-spacing:3px;color:#666;margin-bottom:4px;font-family:var(--ui-font);">${typeLabel}</div>
-            <div style="font-size:0.85rem;font-weight:bold;color:${color};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">${ms.pts} POINTS</div>
-            <div style="font-size:0.55rem;color:#555;margin-bottom:16px;">Milestone reached!</div>
+            <p class="lb64-crate-kicker">${typeLabel}</p>
+            <h2 class="lb64-crate-title">${escapeHtml(ms.pts)} points</h2>
+            <p class="lb64-crate-subtitle">Milestone reached!</p>
         `;
         const preOpen = document.createElement('div');
-        preOpen.innerHTML = `
-            <div style="font-size:0.65rem;color:#888;margin-bottom:16px;">${ms.label}</div>
-            <button id="ms-open-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid ${color};background:${bgColor};color:${color};cursor:pointer;transition:all 0.2s;">OPEN BOX</button>
-        `;
+        preOpen.innerHTML = '<button id="ms-open-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Open crate</button>';
         panel.appendChild(preOpen);
         const rewardsDiv = document.createElement('div');
         rewardsDiv.style.display = 'none';
-        const grid = document.createElement('div');
-        grid.className = 'lb-reward-grid';
-        grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
-        rewards.forEach(rw => {
-            const card = document.createElement('div');
-            card.className = 'lb-reward-card';
-            const rc = hexColor(RARITY_COLS[rw.rarity], '#aaaaaa');
-            card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(rw.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${_rewardLabel(rw)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(rw.desc)}</div><div class="lb-reward-rarity">${escapeHtml(rw.rarity)}</div>`;
-            grid.appendChild(card);
-        });
-        rewardsDiv.appendChild(grid);
+        const grid = _crateRewardGrid(rewards);
         const claimBtn = document.createElement('button');
-        claimBtn.style.cssText = `font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid ${color};background:${bgColor};color:${color};cursor:pointer;box-shadow:0 0 10px ${color}40;`;
-        claimBtn.textContent = 'CLAIM';
-        rewardsDiv.appendChild(claimBtn);
+        claimBtn.type = 'button';
+        claimBtn.className = 'lb64-action lb-block-btn lb-block-btn--primary';
+        claimBtn.textContent = 'Claim';
+        rewardsDiv.append(grid, claimBtn);
         panel.appendChild(rewardsDiv);
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
@@ -10913,20 +10683,23 @@
 
     const playOverlay = document.getElementById('mode-select-overlay');
     const playModifiers = [
-        { key: 'optMirror', name: 'Mirror', icon: '⇄', percent: 20, level: 11, rank: 'Silver I', description: 'Reverses left and right controls and flips the board vertically.' },
-        { key: 'optNoNext', name: 'No Next', icon: '⊘', percent: 10, level: 31, rank: 'Emerald I', description: 'Hides the next piece preview.' },
-        { key: 'optHold', name: 'Hold', icon: 'Ⅱ', percent: -20, level: 21, rank: 'Gold I', description: 'Stores a piece for later and lets you swap it back in.' },
-        { key: 'opt3Next', name: '3 Next', icon: '▤', percent: -10, level: 31, rank: 'Emerald I', description: 'Previews the next three pieces instead of one.' },
-        { key: 'optGhost', name: 'Ghost', icon: '◇', percent: -20, level: 11, rank: 'Silver I', description: 'Shows where the current piece would land.' },
+        { key: 'optMirror', name: 'Mirror', icon: 'mirror', percent: 20, level: 11, rank: 'Silver I', description: 'Flips board; swaps left/right.' },
+        { key: 'optNoNext', name: 'No Next', icon: 'no-next', percent: 10, level: 31, rank: 'Emerald I', description: 'Hides the next piece.' },
+        { key: 'optGhost', name: 'Ghost Piece', icon: 'ghost', percent: -20, level: 11, rank: 'Silver I', description: 'Marks the landing spot.' },
+        { key: 'optHold', name: 'Hold', icon: 'hold', percent: -20, level: 21, rank: 'Gold I', description: 'Saves a piece for later.' },
+        { key: 'opt3Next', name: '3 Next', icon: 'three-next', percent: -10, level: 31, rank: 'Emerald I', description: 'Previews three upcoming pieces.' },
     ];
+    const playIcon = name => `<svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-${name}"/></svg>`;
+    const playPercent = percent => `${percent > 0 ? '+' : '−'}${Math.abs(percent)}%`;
 
     function openModeSelect() {
         const playerLevel = getLevelInfo(saveData.totalXP).level;
-        const funTab = playOverlay.querySelector('[data-mode="fun"]');
-        funTab.disabled = playerLevel < 11;
-        document.getElementById('play-fun-lock').hidden = !funTab.disabled;
-        if (!funTab.disabled) funTab.removeAttribute('aria-describedby');
-        else funTab.setAttribute('aria-describedby', 'play-fun-lock');
+        const funCard = playOverlay.querySelector('[data-mode="fun"]');
+        funCard.disabled = playerLevel < 11;
+        funCard.classList.toggle('lb-block-btn--locked', funCard.disabled);
+        document.getElementById('play-fun-lock').hidden = !funCard.disabled;
+        document.getElementById('play-fun-desc').hidden = funCard.disabled;
+        funCard.setAttribute('aria-describedby', funCard.disabled ? 'play-fun-lock' : 'play-fun-desc');
 
         document.getElementById('fun-cols').value = funModeConfig.cols;
         document.getElementById('fun-rows').value = funModeConfig.rows;
@@ -10949,15 +10722,14 @@
     }
 
     function selectMode(mode) {
-        const tabs = [...playOverlay.querySelectorAll('.play-tabs [data-mode]')];
-        if (!tabs.some(tab => tab.dataset.mode === mode && !tab.disabled)) return;
+        const cards = [...playOverlay.querySelectorAll('.lb69-mode')];
+        if (!cards.some(card => card.dataset.mode === mode && !card.disabled)) return;
         currentGameMode = mode;
-        for (const tab of tabs) tab.setAttribute('aria-pressed', tab.dataset.mode === mode);
+        for (const card of cards) card.setAttribute('aria-pressed', card.dataset.mode === mode);
         const isFun = mode === 'fun';
         playOverlay.dataset.mode = mode;
         document.getElementById('fun-mode-config').hidden = !isFun;
         document.getElementById('play-board-preview').hidden = !isFun;
-        document.getElementById('play-fun-note').hidden = !isFun;
         updatePlaySummary();
     }
 
@@ -10992,12 +10764,9 @@
 
         const active = playModifiers.filter(({ key }) => settings[key]);
         const list = document.getElementById('play-active-modifiers');
-        const items = active.map(({ name, icon }) => {
+        const items = active.map(({ name, percent }) => {
             const item = document.createElement('li');
-            const symbol = document.createElement('span');
-            symbol.setAttribute('aria-hidden', 'true');
-            symbol.textContent = icon;
-            item.append(symbol, name);
+            item.textContent = `${name} ${playPercent(percent)}`;
             return item;
         });
         list.replaceChildren(...items);
@@ -11006,10 +10775,8 @@
     }
 
     function syncPlayModifierRows() {
-        for (const row of playOverlay.querySelectorAll('[data-play-modifier]')) {
-            const enabled = !!settings[row.dataset.playModifier];
-            row.setAttribute('aria-pressed', enabled);
-            row.querySelector('.play-modifier-mark').textContent = enabled ? '✓' : '×';
+        for (const input of playOverlay.querySelectorAll('input[data-play-modifier]')) {
+            input.checked = !!settings[input.dataset.playModifier];
         }
     }
 
@@ -11026,29 +10793,34 @@
         const ordered = [...playModifiers].sort((first, second) => {
             const firstLocked = playerLevel < first.level;
             const secondLocked = playerLevel < second.level;
-            if (firstLocked !== secondLocked) return firstLocked ? 1 : -1;
-            if (firstLocked && first.level !== second.level) return first.level - second.level;
-            return second.percent - first.percent || first.level - second.level;
+            return Number(firstLocked) - Number(secondLocked) || (firstLocked ? first.level - second.level : 0);
         });
         const rows = ordered.map(({ key, name, icon, percent, level, rank, description }) => {
-            const row = document.createElement('button');
-            row.type = 'button';
-            row.className = 'lb-btn play-modifier';
-            row.dataset.playModifier = key;
-            row.disabled = playerLevel < level;
+            if (playerLevel < level) {
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.disabled = true;
+                row.className = 'lb69-modifier lb69-locked-row lb-block-btn lb-block-btn--locked';
+                row.dataset.playModifier = key;
+                row.innerHTML = `${playIcon('lock')}<strong>${name}</strong><span class="lb69-lock">Locked · ${rank}</span>`;
+                return row;
+            }
+            const row = document.createElement('label');
+            row.className = 'lb69-modifier';
             row.innerHTML = `
-                <span class="play-modifier-icon" aria-hidden="true">${icon}</span>
-                <span class="play-modifier-copy">
-                    <strong>${name}</strong>
-                    <span class="play-modifier-description">${description}</span>
-                    ${row.disabled ? `<span class="play-lock">Locked · ${rank}</span>` : ''}
+                ${playIcon(icon)}
+                <span class="lb69-modifier-copy">
+                    <strong id="play-name-${key}">${name}</strong>
+                    <small id="play-desc-${key}">${description}</small>
                 </span>
-                <span class="play-modifier-meta">
-                    <span class="play-modifier-score" data-effect="${percent > 0 ? 'bonus' : 'penalty'}">${percent > 0 ? '+' : '−'}${Math.abs(percent)}%</span>
-                    <span class="play-modifier-mark" aria-hidden="true"></span>
+                <span class="lb69-modifier-score" data-effect="${percent > 0 ? 'bonus' : 'penalty'}">${playPercent(percent)}</span>
+                <span class="lb-block-switch">
+                    <input type="checkbox" role="switch" data-play-modifier="${key}" aria-labelledby="play-name-${key}" aria-describedby="play-desc-${key}">
+                    <span class="toggle-slider" aria-hidden="true"></span>
                 </span>`;
-            row.addEventListener('click', () => {
-                settings[key] = !settings[key];
+            const input = row.querySelector('input');
+            input.addEventListener('change', () => {
+                settings[key] = input.checked;
                 if (settings[key] && key === 'optNoNext') settings.opt3Next = false;
                 if (settings[key] && key === 'opt3Next') settings.optNoNext = false;
                 saveSettings();
@@ -11069,8 +10841,8 @@
     document.getElementById('play-back').addEventListener('click', closeModeSelect);
     document.getElementById('play-rules').addEventListener('click', () => window.openRules());
     document.getElementById('play-start').addEventListener('click', startSelectedMode);
-    for (const tab of playOverlay.querySelectorAll('.play-tabs [data-mode]')) {
-        tab.addEventListener('click', () => selectMode(tab.dataset.mode));
+    for (const card of playOverlay.querySelectorAll('.lb69-mode')) {
+        card.addEventListener('click', () => selectMode(card.dataset.mode));
     }
     for (const input of playOverlay.querySelectorAll('#fun-mode-config input')) {
         input.addEventListener('input', updateFunConfigDisplay);
@@ -11080,6 +10852,7 @@
     window.settingsTab = settingsTab;
     window.resumeGame = resumeGame;
     window.quitGame = quitGame;
+    window.restartPausedRun = restartPausedRun;
     window.startGame = startGame;
     window.openTransferMenu = openTransferMenu;
     window.startExportProcess = startExportProcess;
@@ -11435,94 +11208,104 @@
 
     function renderHelp() {
         const number = value => value.toLocaleString();
-        const definitions = entries => `<dl>${entries.map(([term, text]) => `<dt>${term}</dt><dd>${text}</dd>`).join('')}</dl>`;
-        const milestoneList = milestones => milestones.map(({ pts, label }) => `${pts} pts (${label})`).join(' · ');
+        const definitions = entries => `<dl class="lb-help-rows">${entries.map(([term, text]) => `<div><dt>${term}</dt><dd>${text}</dd></div>`).join('')}</dl>`;
+        const bullets = (...items) => `<ul>${items.map(item => `<li>${item}</li>`).join('')}</ul>`;
+        const block = (title, body, id = '') => `<div class="lb-help-block"><h3 class="lb-block-section-title"${id ? ` id="help-${id}" tabindex="-1"` : ''}>${title}</h3>${body}</div>`;
+        const table = (label, columns, rows) => `<table class="lb-help-table" aria-label="${label}"><thead><tr>${columns.map(column => `<th scope="col">${column}</th>`).join('')}</tr></thead><tbody>${rows.map(([heading, ...cells]) => `<tr><th scope="row">${heading}</th>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+        const milestones = entries => definitions(entries.map(({ pts, label }) => [`${pts} pts`, escapeHtml(label)]));
+        const keycap = code => `<kbd>${escapeHtml(LBControls.keyLabel(code))}</kbd>`;
         const settingRange = id => {
             const input = document.getElementById(id);
             return `${input.min}–${input.max}`;
         };
         const lineNames = ['Single', 'Double', 'Triple', 'Quad'];
-        const controls = Object.entries(LBControls.actions).map(([action, label]) => [
-            label, settings.keyBindings[action].filter(Boolean).map(LBControls.keyLabel).join(' / ') || 'Unbound'
-        ]);
+        const controls = Object.entries(LBControls.actions).map(([action, label]) => {
+            const keys = settings.keyBindings[action].filter(Boolean);
+            return [label, keys.length ? `<span class="lb-help-keycaps">${keys.map(keycap).join('')}</span>` : '<span class="lb-help-unbound">Unbound</span>'];
+        });
+        const pieces = BASE_PIECES.slice(1).map((matrix, index) => {
+            const cells = matrix.flatMap((row, rowIndex) => row.flatMap((filled, column) => filled ? [[column, rowIndex]] : []));
+            const columns = cells.map(([column]) => column);
+            const rows = cells.map(([, row]) => row);
+            const left = (3 - Math.max(...columns) - Math.min(...columns)) * 5;
+            const top = (1 - Math.max(...rows) - Math.min(...rows)) * 5;
+            return `<li><svg viewBox="0 0 40 20" width="40" height="20" color="${COLORS[index + 1]}" aria-hidden="true">${cells.map(([column, row]) => `<rect x="${column * 10 + left + 1}" y="${row * 10 + top + 1}" width="8" height="8" rx="1"/>`).join('')}</svg><span>${'IJLOSTZ'[index]}</span></li>`;
+        }).join('');
         const rankRows = RANKS.map(({ name, maxLvl }, index) => [
-            name, `Levels ${(RANKS[index - 1]?.maxLvl || 0) + 1}–${maxLvl} · ${number(_RANK_XP_PER_LEVEL[index])} XP per level`
+            name, `${(RANKS[index - 1]?.maxLvl || 0) + 1}–${maxLvl}`, number(_RANK_XP_PER_LEVEL[index])
         ]);
-        rankRows.push([CELESTITE_RANK.name, `Level ${RANKS.at(-1).maxLvl + 1} onward · ${number(CELESTITE_XP_PER_LEVEL)} XP per level`]);
+        rankRows.push([CELESTITE_RANK.name, `${RANKS.at(-1).maxLvl + 1}+`, number(CELESTITE_XP_PER_LEVEL)]);
         const modifiers = playModifiers.map(({ key, name, percent, level, description }) => {
             const text = key === 'optHold'
                 ? 'Store a piece or swap it back in with your Hold binding. Each piece can only be held once per turn.'
                 : description;
             const pct = `${percent > 0 ? '+' : '−'}${Math.abs(percent)}%`;
-            return [name, `${text} Unlocks at level ${level}. ${pct} in Normal.`];
+            return [name, `${text}<span class="lb-help-meta">Level ${level} · ${pct} in Normal</span>`];
         });
         const sections = [
             ['basics', 'Basics & controls', `
-                <p>Stack falling pieces to fill horizontal rows. Full rows disappear and free up space. The run ends when a new piece cannot enter the board.</p>
-                <h3>Keyboard bindings</h3>
-                <p>These are your current bindings. Change either slot in Settings → Controls. Select a slot, press a key to bind it, or press Backspace to clear it. Reset to defaults restores the original layout.</p>
-                ${definitions(controls)}
-                <h3>Touch</h3>
-                <p>Use the on-screen buttons or the board gestures. Drag sideways to move and drag slowly down to soft drop. Flick down to hard drop, swipe up to hold, or tap to rotate. Tap on the left side or with two fingers for counter-clockwise rotation.</p>
-                <h3>Gamepad</h3>
-                <p>With a standard-mapped controller, use the D-pad or left stick to move, the left bumper to soft drop and the right bumper to hard drop. The bottom and right face buttons rotate in opposite directions; the left and top face buttons hold. Start pauses. In menus, the D-pad moves focus, the bottom face button selects, and the right face button goes back.</p>
-                <h3 id="help-sound" tabindex="-1">Sound settings</h3>
-                <p>Adjust music and sound effects independently. Open the playlist from Sound to choose which tracks can play.</p>
-                <h3 id="help-display" tabindex="-1">Display settings</h3>
-                <p>Adjust font size and other display preferences in Settings. Look in Gameplay for effects such as screen shake and grid visibility, or use Inventory to equip owned appearance items.</p>`],
+                ${block('Stack & clear', `<p>Fill horizontal rows to clear them and make room. If a new piece can’t enter the board, the run ends.</p><ul class="lb-help-pieces" aria-label="The seven pieces">${pieces}</ul>`)}
+                ${block('Keyboard bindings', `${definitions(controls)}${bullets('Change either slot in <strong>Settings → Controls</strong>. Select a slot and press a key to bind it.', `Press ${keycap('Backspace')} to clear a selected slot, or choose <strong>Reset to defaults</strong> to restore the layout.`)}`)}
+                ${block('Touch', `<p>Use the on-screen buttons or gesture on the board.</p>${definitions([
+                    ['Drag sideways', 'Move'], ['Drag down slowly', 'Soft drop'], ['Flick down', 'Hard drop'],
+                    ['Swipe up', 'Hold'], ['Tap', 'Rotate'], ['Left-side or two-finger tap', 'Rotate counter-clockwise']
+                ])}`)}
+                ${block('Gamepad', `${definitions([
+                    ['D-pad / left stick', 'Move'], ['Left / right bumper', 'Soft drop / hard drop'],
+                    ['Bottom / right face button', 'Rotate in opposite directions'], ['Left / top face button', 'Hold'], ['Start', 'Pause']
+                ])}<p>In menus: use the D-pad to move focus, the bottom button to select and the right button to go back.</p>`)}
+                ${block('Sound settings', bullets('Adjust music and sound effects separately.', 'Use the playlist under Sound to pick which tracks can play.'), 'sound')}
+                ${block('Display settings', bullets('Change font size and display preferences in Settings.', 'Find screen shake and grid visibility under Gameplay.', 'Equip owned appearance items in Inventory.'), 'display')}`],
             ['scoring', 'Scoring & speed', `
-                <p>Placed pieces and completed lines earn points. These are the base points for a line clear, before speed, modifiers and combo bonuses:</p>
-                ${definitions(_LINE_PTS.slice(1).map((points, index) => [lineNames[index], `${points} points`]))}
-                <p>Speed rises every ${LINES_PER_SPEED} lines, up to speed ${SPEED_MULTIPLIERS.length}. At higher speeds, pieces fall faster and speed multiplies the base points for placements and clears, from ×${SPEED_MULTIPLIERS[0]} to ×${SPEED_MULTIPLIERS.at(-1)}.</p>
-                <p>Successive line-clearing placements build a combo. Each cleared line adds a combo step; after the first step each step is worth ${COMBO_STEP_POINTS} bonus points before modifiers. A placement with no line clear breaks the combo.</p>`],
+                ${block('Line clear points', `<p>Placements and line clears both score. Here’s what a clear earns before bonuses and modifiers.</p>${table('Base line clear points', ['Clear', 'Lines', 'Points'], _LINE_PTS.slice(1).map((points, index) => [lineNames[index], index + 1, points]))}`)}
+                ${block('Speed', bullets(`Speed rises every ${LINES_PER_SPEED} lines, up to speed ${SPEED_MULTIPLIERS.length}.`, `Pieces fall faster, and placement and clear points scale from ×${SPEED_MULTIPLIERS[0]} to ×${SPEED_MULTIPLIERS.at(-1)}.`))}
+                ${block('Combos', bullets('Keep clearing lines on consecutive placements. Every line adds a combo step.', `After the first step, each step adds ${COMBO_STEP_POINTS} points before modifiers.`, 'A placement without a clear breaks the combo.'))}`],
             ['ranks', 'Ranks & XP', `
-                <p>In Normal, clear at least one line to earn run XP. Score and any personal-best bonus contribute to XP before the daily streak multiplier. Total XP advances your level and unlocks ranks, rewards and modifiers.</p>
-                ${definitions(rankRows)}`],
+                ${block('Earn run XP', bullets('Clear at least one line in Normal.', 'Your score and any personal-best bonus count before the daily streak multiplier.', 'Total XP unlocks levels, ranks, rewards and modifiers.'))}
+                ${block('Rank ladder', table('Rank ladder', ['Rank', 'Levels', 'XP / level'], rankRows))}`],
             ['missions', 'Missions & milestones', `
-                <p>Daily quests refresh each day; weekly missions reset on Monday. Normal runs count toward both, and daily quest points also count toward weekly milestones. Claim completed missions and unlocked milestone rewards from the Missions screen.</p>
-                <p>A hidden secret quest can appear in the daily list. The Change control lets you replace an eligible mission; secret quests cannot be swapped.</p>
-                ${definitions([['Daily milestones', milestoneList(MQ_DAILY_MILESTONES)], ['Weekly milestones', milestoneList(MQ_WEEKLY_MILESTONES)]])}
-                <h3>Bonus Box</h3>
-                <p>Daily points beyond the last daily milestone fill the Bonus Box. Every ${MQ_SPECIAL_BOX_CAP} overflow points earn ${MQ_SPECIAL_BOX_PARTS} universal parts.</p>
-                <h3>Golden Zone</h3>
-                <p>Every weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD} earns a universal part to claim from the weekly panel.</p>`],
+                ${block('Play & claim', bullets('Normal runs count toward daily quests and weekly missions. Daily points also count toward weekly milestones.', 'Daily quests refresh every day; weekly missions reset on Monday.', 'Claim completed missions and milestone rewards in Missions.', 'Use <strong>Change</strong> to swap eligible missions. Hidden secret quests can’t be swapped.'))}
+                ${block('Daily milestones', milestones(MQ_DAILY_MILESTONES))}
+                ${block('Weekly milestones', milestones(MQ_WEEKLY_MILESTONES))}
+                ${block('Bonus Box', `<p>Beyond the last daily milestone, every ${MQ_SPECIAL_BOX_CAP} overflow points earn ${MQ_SPECIAL_BOX_PARTS} universal parts.</p>`)}
+                ${block('Golden Zone', `<p>Claim one universal part for every weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD}.</p>`)}`],
             ['streaks', 'Streaks & multipliers', `
-                <p>Keep a daily streak by earning the required pre-streak run XP in Normal each day. The requirement depends on rank; yours is ${number(_dailyStreakXPThreshold())} raw XP per day. Missing a day or its XP target breaks the streak.</p>
-                ${definitions(MISSION_STREAK_XP_TIERS.map(([days, multiplier]) => [`${days}+ days`, `×${multiplier.toFixed(2)} run XP`]))}
-                <p>The daily streak affects XP, not the in-run score. Mode modifiers affect scoring in Normal, and a booster can add XP after a run.</p>`],
+                ${block('Keep your streak', bullets(`Earn <strong>${number(_dailyStreakXPThreshold())} raw XP</strong> in Normal each day, before applying the streak multiplier. The target depends on rank.`, 'Missing a day or falling short of the target breaks the streak.'))}
+                ${block('Streak bonuses', definitions(MISSION_STREAK_XP_TIERS.map(([days, multiplier]) => [`${days}+ days`, `×${multiplier.toFixed(2)} run XP`])))}
+                ${block('What changes', definitions([['Daily streak', 'Run XP only'], ['Mode modifiers', 'Scoring in Normal'], ['Booster', 'XP after the run']]))}`],
             ['boxes', 'Boxes & parts', `
-                <p>Level and milestone boxes supply item parts and universal parts. Missions also award parts. Item parts belong to a specific cosmetic, such as a block skin, palette, theme color, grid style or sound pack. Once you have enough parts, unlock the item and equip it in Inventory.</p>
-                <p>Universal parts can fill missing item parts. Use them from Inventory → Other. If no part-unlockable items remain, you can exchange universal parts for XP instead.</p>`],
+                ${block('Find parts', bullets('Open level and milestone boxes for item parts and universal parts.', 'Missions also award parts.'))}
+                ${block('Item parts', bullets('Each part belongs to a specific cosmetic: a skin, palette, theme color, grid style or sound pack.', 'Collect enough parts, then unlock and equip the item in Inventory.'))}
+                ${block('Universal parts', bullets('Use <strong>Inventory → Other</strong> to fill in missing item parts.', 'If no part-unlockable items remain, exchange universal parts for XP.'))}`],
             ['achievements', 'Achievements & rarities', `
-                <p>Achievements track feats and milestones. Open Achievements to see progress and claim XP from completed achievements. Secret goals are hidden until discovered.</p>
-                <p>These are the standard XP rewards by rarity; the achievement card shows the actual reward.</p>
-                ${definitions(Object.entries(RARITY_ACH).map(([id, { label }]) => [label, `${number(_ACH_XP[id])} XP`]))}`],
+                ${block('Track & claim', bullets('Open Achievements to track feats and milestones and claim XP for completed goals.', 'Secret goals stay hidden until discovered.'))}
+                ${block('Rarity rewards', `<p>These are standard rewards. Check the achievement card for its actual XP.</p>${table('Standard XP by rarity', ['Rarity', 'XP'], Object.entries(RARITY_ACH).map(([id, { label }]) => [label, number(_ACH_XP[id])]))}`)}`],
             ['boosters', 'Boosters', `
-                <p>Earn boosters from rewards and find them in Inventory → Other. Use an available booster on the results screen of a Normal run that earned XP. You can use one per run. Boosters multiply the XP awarded for that run, not the leaderboard score.</p>
-                ${definitions(BOOSTER_KEYS.map(key => [BOOSTER_META[key].label, `×${BOOSTER_INFO[key].mult} run XP`]))}`],
+                ${block('Use a booster', bullets('Find earned boosters in <strong>Inventory → Other</strong>.', 'Use one booster on the results screen of a Normal run that earned XP.', 'Boosters multiply run XP, not your leaderboard score.'))}
+                ${block('XP multipliers', definitions(BOOSTER_KEYS.map(key => [BOOSTER_META[key].label, `×${BOOSTER_INFO[key].mult} run XP`])))}`],
             ['modes', 'Game modes & modifiers', `
-                <h3>Normal</h3>
-                <p>Play on the standard board (${COLS_NORMAL} columns × ${VISIBLE_ROWS} visible rows), post scores to the Normal leaderboard, and earn XP and mission progress.</p>
-                <h3>Fun</h3>
-                <p>Sandbox with its own scores. Set board width to ${settingRange('fun-cols')} columns, height to ${settingRange('fun-rows')} rows, and initial speed to ${settingRange('fun-speed')}. Fun runs do not earn run XP or mission progress, but can count toward applicable achievements.</p>
-                <h3>Modifiers</h3>
-                <p>Toggle unlocked options before a run. Their percentages add together in Normal to adjust scoring and therefore run XP. In Fun, modifiers change play without a scoring multiplier.</p>
-                ${definitions(modifiers)}`],
+                ${block('Normal', bullets(`Standard board: ${COLS_NORMAL} columns × ${VISIBLE_ROWS} visible rows.`, 'Post scores to the Normal leaderboard and earn XP and mission progress.'))}
+                ${block('Fun', `<p>A sandbox with its own scores. Runs count toward applicable achievements, but give no run XP or mission progress.</p>${definitions([
+                    ['Width', `${settingRange('fun-cols')} columns`], ['Height', `${settingRange('fun-rows')} rows`], ['Starting speed', settingRange('fun-speed')]
+                ])}`)}
+                ${block('Modifiers', `${bullets('Toggle unlocked options before a run.', 'In Normal, percentages add together and affect scoring and run XP. In Fun, modifiers change play without a scoring multiplier.')}${definitions(modifiers)}`)}`],
             ['glossary', 'Glossary', `
-                ${definitions([
-                    ...lineNames.map((name, index) => [name, `Clear ${index + 1} ${index ? 'lines' : 'line'} with one placement.`]),
+                ${block('Line clear names', definitions(lineNames.map((name, index) => [name, `${index + 1} ${index ? 'lines' : 'line'} in one placement`])))}
+                ${block('Moves & board', definitions([
                     ['Hard drop', 'Send a piece to the lowest valid row and lock it immediately.'],
                     ['Soft drop', 'Move the piece down faster without an instant lock.'],
                     ['T-spin', 'Rotate a T-piece into a tight slot so most of its corners are blocked.'],
-                    ['Combo', 'The number of lines cleared across uninterrupted line-clearing placements.'],
-                    ['Line streak', 'The number of consecutive placements that clear at least one line.'],
                     ['Ghost piece', 'A preview of where the active piece would land.'],
                     ['Top out', 'The point at which a new piece cannot enter the board.']
-                ])}
-                <p><button type="button" class="lb-btn lb-btn--ghost" id="help-tutorial">Open tutorials</button></p>`]
+                ]))}
+                ${block('Scoring terms', definitions([
+                    ['Combo', 'Lines cleared across uninterrupted line-clearing placements.'],
+                    ['Line streak', 'Consecutive placements that clear at least one line.']
+                ]))}
+                <button type="button" class="lb-block-btn" id="help-tutorial">Open tutorials</button>`]
         ];
-        helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-btn lb-btn--ghost" data-help-jump="${id}">${title}</button>`).join('');
-        helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" tabindex="-1">${title}</h2>${body}</section>`).join('');
+        helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-block-btn" data-help-jump="${id}">${title}</button>`).join('');
+        helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-help-topic lb-block-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" class="lb-help-chapter-title" tabindex="-1">${title}</h2>${body}</section>`).join('');
         document.getElementById('help-tutorial').addEventListener('click', () => {
             window.openTutorial();
             document.querySelector('#tutorial-overlay .btn-back').focus();

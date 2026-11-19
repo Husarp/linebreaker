@@ -61,14 +61,16 @@
         const items = pickParts(plan.parts);
         const cards = items.map(item => {
             addPart(item.key, 1);
-            return { icon: '🧩', label: `+1 Part: ${partName(item.key)}`, rarity: item.cat === 'ghostColor' ? 'epic' : 'common' };
+            return { type: 'parts', label: `${partName(item.key)} Part`, amount: 1, rarity: item.cat === 'ghostColor' ? 'epic' : 'common' };
         });
         const universal = plan.universal + plan.parts - items.length;
         addUniversal(universal);
-        cards.push({ icon: '⭐', label: `+${universal} Universal Part${universal === 1 ? '' : 's'}`, rarity: 'rare' });
+        const universalCard = { type: 'universal_parts', label: 'Universal Part', rarity: 'rare' };
+        cards.push({ ...universalCard, amount: universal - plan.bonus });
         const booster = boosterInfo[plan.booster];
         for (let count = 0; count < plan.boosters; count++) addBooster(plan.booster);
-        cards.push({ ...booster, label: `${plan.boosters} × ${booster.label}` });
+        cards.push({ type: 'booster', key: plan.booster, label: booster.label, amount: plan.boosters, rarity: booster.rarity });
+        if (plan.bonus) cards.push({ ...universalCard, amount: plan.bonus, tag: 'Streak bonus' });
         data.stats.rareItemsFromDailyBox = (Number(data.stats.rareItemsFromDailyBox) || 0) + universal
             + (booster.rarity === 'common' ? 0 : plan.boosters) + items.filter(item => item.cat === 'ghostColor').length;
         return cards;
@@ -82,9 +84,55 @@
     }
 
     function action(text) {
-        const button = element('button', 'lb43-action', text);
+        const button = element('button', 'lb64-action lb-block-btn lb-block-btn--primary', text);
         button.type = 'button';
         return button;
+    }
+
+    function rewardGrid(rewards) {
+        const grid = element('div', 'lb-reward-grid lb64-rewards');
+        const groups = new Map();
+        for (const reward of rewards) {
+            const group = JSON.stringify([reward.type, reward.key, reward.label, reward.rarity, reward.tag, reward.desc]);
+            const existing = groups.get(group);
+            const amount = Number.isFinite(reward.amount) ? reward.amount : 1;
+            if (existing) existing.amount += amount;
+            else groups.set(group, { ...reward, amount });
+        }
+        for (const reward of groups.values()) {
+            const card = element('div', 'lb-reward-card lb-block-reward');
+            card.dataset.rarity = reward.rarity;
+            const image = element('img');
+            image.alt = '';
+            image.src = reward.type === 'booster' && window.LBArtPack.boosterToken(reward.key)
+                || (reward.type === 'universal_parts' ? 'assets/ui/64-universal-part.svg' : 'assets/ui/64-item-part.svg');
+            const quantity = Number(reward.amount.toFixed(1));
+            const amount = element('span', 'lb-block-reward-amount', `×${quantity}`);
+            amount.setAttribute('aria-label', `Quantity: ${quantity}`);
+            card.append(image, element('strong', 'lb64-reward-name', reward.label), amount);
+            if (reward.tag) card.append(element('span', 'lb64-reward-tag', reward.tag));
+            if (reward.desc) card.append(element('small', 'lb64-reward-desc', reward.desc));
+            card.append(element('span', 'lb-reward-rarity', reward.rarity));
+            grid.append(card);
+        }
+        return grid;
+    }
+
+    function streakMeter(streak) {
+        const meter = element('div', 'lb43-gift-streak lb64-streak');
+        const weekDays = 7;
+        const completed = (streak - 1) % weekDays + 1;
+        meter.setAttribute('role', 'img');
+        meter.setAttribute('aria-label', `${streak}-day gift streak, day ${completed} of ${weekDays} this cycle`);
+        const count = element('span', 'lb64-streak-count');
+        count.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a8 8 0 0 1-8-8c0-3 2-6 4-8 0 3 2 5 3 5-1-3 1-6 3-9 0 4 6 6 6 12a8 8 0 0 1-8 8Z M12 22a3 3 0 0 1-3-3c0-2 2-3 3-5 1 2 3 3 3 5a3 3 0 0 1-3 3Z"/></svg>';
+        count.append(element('span', '', streak));
+        const dots = element('span', 'lb64-streak-dots');
+        for (let day = 1; day <= weekDays; day++) {
+            dots.append(element('span', day === completed ? 'lb64-streak-today' : day < completed ? 'lb64-streak-filled' : ''));
+        }
+        meter.append(count, dots);
+        return meter;
     }
 
     function bindReveal(preOpen, rewards, grid, rarity) {
@@ -124,33 +172,24 @@
         open.focus({ preventScroll: true });
     }
 
-    function showDailyGift(rarity, plan, streak, cards, onClose) {
-        const overlay = element('div', 'lb-reward-overlay lb43-gift-overlay');
+    function showDailyGift(rarity, streak, cards, onClose) {
+        const overlay = element('div', 'lb-reward-overlay lb43-gift-overlay lb64-crate-overlay');
         overlay.id = 'daily-gift-overlay';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.setAttribute('aria-labelledby', 'lb43-gift-title');
-        const panel = element('div', 'lb43-gift-panel');
-        const title = element('h2', '', 'Daily Gift');
+        const panel = element('div', 'lb64-crate-panel lb64-daily-panel lb-block-panel');
+        const title = element('h2', 'lb64-crate-title', 'Daily Gift');
         title.id = 'lb43-gift-title';
-        const streakText = `${streak}-day gift streak${plan.bonus ? ` · +${plan.bonus} bonus universal ${plan.bonus === 1 ? 'part' : 'parts'}` : ''}`;
         const preOpen = element('div', 'lb43-pre-open');
         const open = action('Open crate');
         preOpen.append(open);
         const rewards = element('div');
         rewards.style.display = 'none';
-        const grid = element('div', 'lb-reward-grid lb43-gift-grid');
-        for (const reward of cards) {
-            const card = element('div', 'lb-reward-card lb43-gift-card');
-            card.dataset.rarity = reward.rarity;
-            const icon = element('span', 'lb43-gift-icon', reward.icon);
-            icon.setAttribute('aria-hidden', 'true');
-            card.append(icon, element('strong', '', reward.label), element('div', 'lb-reward-rarity', reward.rarity));
-            grid.append(card);
-        }
+        const grid = rewardGrid(cards);
         const done = action('Done');
         rewards.append(grid, done);
-        panel.append(title, element('p', 'lb43-gift-streak', streakText), preOpen, rewards);
+        panel.append(title, streakMeter(streak), preOpen, rewards);
         overlay.append(panel);
         document.body.append(overlay);
         const close = () => {
@@ -198,7 +237,7 @@
             const cards = grant(plan);
             save();
             refresh();
-            showDailyGift(rarity, plan, state.streak, cards, () => {
+            showDailyGift(rarity, state.streak, cards, () => {
                 button.focus({ preventScroll: true });
                 onClose();
             });
@@ -222,5 +261,5 @@
         return { refresh, isOpen };
     }
 
-    window.LBCrates = Object.freeze({ giftStatus, observeTime, rollRarity, giftContents, levelRarity, missionRarity, grantDailyGift, bindReveal, mountDailyGift });
+    window.LBCrates = Object.freeze({ giftStatus, observeTime, rollRarity, giftContents, levelRarity, missionRarity, grantDailyGift, rewardGrid, bindReveal, mountDailyGift });
 })();

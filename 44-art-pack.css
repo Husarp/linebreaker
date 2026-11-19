@@ -1,13 +1,3 @@
-.bg-gradient::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: linear-gradient(#06061499, #060614b8), var(--lb-theme-art);
-    background-position: center;
-    background-size: cover;
-    pointer-events: none;
-}
-
 .lb-booster-token {
     display: block;
     width: 2.25rem;
