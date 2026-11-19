@@ -10924,20 +10924,23 @@
 
     const playOverlay = document.getElementById('mode-select-overlay');
     const playModifiers = [
-        { key: 'optMirror', name: 'Mirror', icon: '⇄', percent: 20, level: 11, rank: 'Silver I', description: 'Reverses left and right controls and flips the board vertically.' },
-        { key: 'optNoNext', name: 'No Next', icon: '⊘', percent: 10, level: 31, rank: 'Emerald I', description: 'Hides the next piece preview.' },
-        { key: 'optHold', name: 'Hold', icon: 'Ⅱ', percent: -20, level: 21, rank: 'Gold I', description: 'Stores a piece for later and lets you swap it back in.' },
-        { key: 'opt3Next', name: '3 Next', icon: '▤', percent: -10, level: 31, rank: 'Emerald I', description: 'Previews the next three pieces instead of one.' },
-        { key: 'optGhost', name: 'Ghost', icon: '◇', percent: -20, level: 11, rank: 'Silver I', description: 'Shows where the current piece would land.' },
+        { key: 'optMirror', name: 'Mirror', icon: 'mirror', percent: 20, level: 11, rank: 'Silver I', description: 'Flips board; swaps left/right.' },
+        { key: 'optNoNext', name: 'No Next', icon: 'no-next', percent: 10, level: 31, rank: 'Emerald I', description: 'Hides the next piece.' },
+        { key: 'optGhost', name: 'Ghost Piece', icon: 'ghost', percent: -20, level: 11, rank: 'Silver I', description: 'Marks the landing spot.' },
+        { key: 'optHold', name: 'Hold', icon: 'hold', percent: -20, level: 21, rank: 'Gold I', description: 'Saves a piece for later.' },
+        { key: 'opt3Next', name: '3 Next', icon: 'three-next', percent: -10, level: 31, rank: 'Emerald I', description: 'Previews three upcoming pieces.' },
     ];
+    const playIcon = name => `<svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-${name}"/></svg>`;
+    const playPercent = percent => `${percent > 0 ? '+' : '−'}${Math.abs(percent)}%`;
 
     function openModeSelect() {
         const playerLevel = getLevelInfo(saveData.totalXP).level;
-        const funTab = playOverlay.querySelector('[data-mode="fun"]');
-        funTab.disabled = playerLevel < 11;
-        document.getElementById('play-fun-lock').hidden = !funTab.disabled;
-        if (!funTab.disabled) funTab.removeAttribute('aria-describedby');
-        else funTab.setAttribute('aria-describedby', 'play-fun-lock');
+        const funCard = playOverlay.querySelector('[data-mode="fun"]');
+        funCard.disabled = playerLevel < 11;
+        funCard.classList.toggle('lb-block-btn--locked', funCard.disabled);
+        document.getElementById('play-fun-lock').hidden = !funCard.disabled;
+        document.getElementById('play-fun-desc').hidden = funCard.disabled;
+        funCard.setAttribute('aria-describedby', funCard.disabled ? 'play-fun-lock' : 'play-fun-desc');
 
         document.getElementById('fun-cols').value = funModeConfig.cols;
         document.getElementById('fun-rows').value = funModeConfig.rows;
@@ -10960,15 +10963,14 @@
     }
 
     function selectMode(mode) {
-        const tabs = [...playOverlay.querySelectorAll('.play-tabs [data-mode]')];
-        if (!tabs.some(tab => tab.dataset.mode === mode && !tab.disabled)) return;
+        const cards = [...playOverlay.querySelectorAll('.lb69-mode')];
+        if (!cards.some(card => card.dataset.mode === mode && !card.disabled)) return;
         currentGameMode = mode;
-        for (const tab of tabs) tab.setAttribute('aria-pressed', tab.dataset.mode === mode);
+        for (const card of cards) card.setAttribute('aria-pressed', card.dataset.mode === mode);
         const isFun = mode === 'fun';
         playOverlay.dataset.mode = mode;
         document.getElementById('fun-mode-config').hidden = !isFun;
         document.getElementById('play-board-preview').hidden = !isFun;
-        document.getElementById('play-fun-note').hidden = !isFun;
         updatePlaySummary();
     }
 
@@ -11003,12 +11005,9 @@
 
         const active = playModifiers.filter(({ key }) => settings[key]);
         const list = document.getElementById('play-active-modifiers');
-        const items = active.map(({ name, icon }) => {
+        const items = active.map(({ name, percent }) => {
             const item = document.createElement('li');
-            const symbol = document.createElement('span');
-            symbol.setAttribute('aria-hidden', 'true');
-            symbol.textContent = icon;
-            item.append(symbol, name);
+            item.textContent = `${name} ${playPercent(percent)}`;
             return item;
         });
         list.replaceChildren(...items);
@@ -11017,10 +11016,8 @@
     }
 
     function syncPlayModifierRows() {
-        for (const row of playOverlay.querySelectorAll('[data-play-modifier]')) {
-            const enabled = !!settings[row.dataset.playModifier];
-            row.setAttribute('aria-pressed', enabled);
-            row.querySelector('.play-modifier-mark').textContent = enabled ? '✓' : '×';
+        for (const input of playOverlay.querySelectorAll('input[data-play-modifier]')) {
+            input.checked = !!settings[input.dataset.playModifier];
         }
     }
 
@@ -11037,29 +11034,34 @@
         const ordered = [...playModifiers].sort((first, second) => {
             const firstLocked = playerLevel < first.level;
             const secondLocked = playerLevel < second.level;
-            if (firstLocked !== secondLocked) return firstLocked ? 1 : -1;
-            if (firstLocked && first.level !== second.level) return first.level - second.level;
-            return second.percent - first.percent || first.level - second.level;
+            return Number(firstLocked) - Number(secondLocked) || (firstLocked ? first.level - second.level : 0);
         });
         const rows = ordered.map(({ key, name, icon, percent, level, rank, description }) => {
-            const row = document.createElement('button');
-            row.type = 'button';
-            row.className = 'lb-btn play-modifier';
-            row.dataset.playModifier = key;
-            row.disabled = playerLevel < level;
+            if (playerLevel < level) {
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.disabled = true;
+                row.className = 'lb69-modifier lb69-locked-row lb-block-btn lb-block-btn--locked';
+                row.dataset.playModifier = key;
+                row.innerHTML = `${playIcon('lock')}<strong>${name}</strong><span class="lb69-lock">Locked · ${rank}</span>`;
+                return row;
+            }
+            const row = document.createElement('label');
+            row.className = 'lb69-modifier';
             row.innerHTML = `
-                <span class="play-modifier-icon" aria-hidden="true">${icon}</span>
-                <span class="play-modifier-copy">
-                    <strong>${name}</strong>
-                    <span class="play-modifier-description">${description}</span>
-                    ${row.disabled ? `<span class="play-lock">Locked · ${rank}</span>` : ''}
+                ${playIcon(icon)}
+                <span class="lb69-modifier-copy">
+                    <strong id="play-name-${key}">${name}</strong>
+                    <small id="play-desc-${key}">${description}</small>
                 </span>
-                <span class="play-modifier-meta">
-                    <span class="play-modifier-score" data-effect="${percent > 0 ? 'bonus' : 'penalty'}">${percent > 0 ? '+' : '−'}${Math.abs(percent)}%</span>
-                    <span class="play-modifier-mark" aria-hidden="true"></span>
+                <span class="lb69-modifier-score" data-effect="${percent > 0 ? 'bonus' : 'penalty'}">${playPercent(percent)}</span>
+                <span class="lb-block-switch">
+                    <input type="checkbox" role="switch" data-play-modifier="${key}" aria-labelledby="play-name-${key}" aria-describedby="play-desc-${key}">
+                    <span class="toggle-slider" aria-hidden="true"></span>
                 </span>`;
-            row.addEventListener('click', () => {
-                settings[key] = !settings[key];
+            const input = row.querySelector('input');
+            input.addEventListener('change', () => {
+                settings[key] = input.checked;
                 if (settings[key] && key === 'optNoNext') settings.opt3Next = false;
                 if (settings[key] && key === 'opt3Next') settings.optNoNext = false;
                 saveSettings();
@@ -11080,8 +11082,8 @@
     document.getElementById('play-back').addEventListener('click', closeModeSelect);
     document.getElementById('play-rules').addEventListener('click', () => window.openRules());
     document.getElementById('play-start').addEventListener('click', startSelectedMode);
-    for (const tab of playOverlay.querySelectorAll('.play-tabs [data-mode]')) {
-        tab.addEventListener('click', () => selectMode(tab.dataset.mode));
+    for (const card of playOverlay.querySelectorAll('.lb69-mode')) {
+        card.addEventListener('click', () => selectMode(card.dataset.mode));
     }
     for (const input of playOverlay.querySelectorAll('#fun-mode-config input')) {
         input.addEventListener('input', updateFunConfigDisplay);
