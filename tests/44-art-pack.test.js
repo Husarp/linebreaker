@@ -20,14 +20,16 @@ it('maps each current booster key to the right rarity and multiplier', () => {
   expect(art.boosterIcon('unknown')).toBe('');
 });
 
-it('selects artwork only for the four mapped themes in image mode', () => {
-  for (const [theme, file] of [['ocean', 'ocean'], ['sakura', 'sakura'], ['void', 'void'], ['fire', 'forge']]) {
-    const path = `assets/ui/bg/${file}.jpg`;
-    expect(art.themeBackground(theme, 'image')).toBe(path);
-    expect(art.themeBackground(theme, 'plain')).toBeNull();
-    expect(statSync(projectFile(path)).size).toBeLessThan(300_000);
+it('selects compressed portrait and landscape artwork for all ten built-in themes in image mode', () => {
+  for (const theme of ['default', 'ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura']) {
+    for (const orientation of ['landscape', 'portrait']) {
+      const path = `assets/ui/bg/${theme}-${orientation}.jpg`;
+      expect(art.themeBackground(theme, 'image', orientation)).toBe(path);
+      expect(art.themeBackground(theme, 'plain', orientation)).toBeNull();
+      expect(statSync(projectFile(path)).size).toBeLessThan(400_000);
+    }
   }
-  for (const theme of ['default', 'forest', 'custom', 'toString']) {
+  for (const theme of ['custom', 'toString']) {
     expect(art.themeBackground(theme, 'image')).toBeNull();
   }
   expect(art.backgroundMode(undefined)).toBe('image');
@@ -39,7 +41,10 @@ it('keeps the existing gradient and falling-block setting when switching art mod
   try {
     const background = w.document.querySelector('.bg-gradient');
     const gradient = background.style.background;
-    const artLayer = () => background.style.getPropertyValue('--lb-theme-art');
+    const artLayers = () => ['landscape', 'portrait']
+      .map(orientation => background.style.getPropertyValue(`--lb-theme-art-${orientation}`));
+    const imageLayers = theme => ['landscape', 'portrait']
+      .map(orientation => `url("assets/ui/bg/${theme}-${orientation}.jpg")`);
     const select = w.document.getElementById('setting-theme-background');
     const selectMode = mode => {
       select.value = mode;
@@ -49,16 +54,16 @@ it('keeps the existing gradient and falling-block setting when switching art mod
 
     w.openSettings();
     expect(select.value).toBe('image');
-    expect(artLayer()).toContain('ocean.jpg');
+    expect(artLayers()).toEqual(imageLayers('ocean'));
     selectMode('plain');
-    expect(artLayer()).toBe('');
+    expect(artLayers()).toEqual(['', '']);
     expect(background.style.background).toBe(gradient);
     expect(stored()).toMatchObject({ theme: 'ocean', themeBackground: 'plain', bgBlockMotion: 'falling' });
-    selectMode('image');
-    expect(artLayer()).toContain('ocean.jpg');
-    expect(stored().themeBackground).toBe('image');
     w.applyTheme('default');
-    expect(artLayer()).toBe('');
+    expect(artLayers()).toEqual(['', '']);
+    selectMode('image');
+    expect(artLayers()).toEqual(imageLayers('default'));
+    expect(stored().themeBackground).toBe('image');
   } finally { close(); }
 });
 
