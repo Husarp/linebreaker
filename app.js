@@ -7587,17 +7587,14 @@
         _animateOut(document.getElementById('pause-overlay'), 'anim-out-down');
     }
 
+    async function restartPausedRun() {
+        if (await customConfirm('Restart this run? Your current run will be discarded.', 'RESTART')) startGame();
+    }
+
     async function quitGame() {
-        if (score === 0) {
-            _animateOut(document.getElementById('pause-overlay'), 'anim-out-down');
-            if(timeInterval) clearInterval(timeInterval);
-            saveData.stats.gamesAborted = (saveData.stats.gamesAborted || 0) + 1;
-            if ((saveData.stats.gamesAborted || 0) >= 20 && !saveData.achievements?.['abort_mission']?.unlocked) { unlockAchievement('abort_mission'); }
-            _gameInProgress = false;
-            saveDataToFile();
-            gameOver(); return;
-        }
-        const confirmed = await customConfirm("Are you sure you want to quit?<br><br><b style='color:var(--primary);'>Your current score and XP will be saved.</b>", "QUIT");
+        const message = score === 0 ? 'End this run and view the results?'
+            : "End this run and view the results?<br><br><b style='color:var(--primary);'>Your current score and XP will be saved.</b>";
+        const confirmed = await customConfirm(message, 'QUIT');
         if(confirmed) {
             _animateOut(document.getElementById('pause-overlay'), 'anim-out-down');
             if(timeInterval) clearInterval(timeInterval);
@@ -11099,6 +11096,7 @@
     window.settingsTab = settingsTab;
     window.resumeGame = resumeGame;
     window.quitGame = quitGame;
+    window.restartPausedRun = restartPausedRun;
     window.startGame = startGame;
     window.openTransferMenu = openTransferMenu;
     window.startExportProcess = startExportProcess;
