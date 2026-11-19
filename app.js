@@ -2965,6 +2965,21 @@
     }
 
     const RARITY_COLORS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
+    function _crateRewardGrid(rewards) {
+        return LBCrates.rewardGrid(rewards.map(reward => {
+            if (reward.type === 'converted_parts') {
+                const item = reward.key === 'dragon' ? 'Golden' : reward.key.startsWith('sfx') ? `${reward.key.slice(3)} SFX`
+                    : GRID_STYLES[reward.key]?.name || BLOCK_PALETTES[reward.key]?.name || _partItemName(reward.key);
+                return { type: 'universal_parts', label: 'Universal Part', amount: reward.amount / PARTS_PER_UNIVERSAL,
+                    desc: `From duplicate ${item} parts`, rarity: reward.rarity };
+            }
+            const item = /^\+(\d+) Part: (.+)$/.exec(reward.label);
+            if (item) return { ...reward, type: 'parts', label: `${item[2]} Part`, amount: reward.amount ?? Number(item[1]), desc: undefined };
+            const universal = /^\+(\d+) Universal Parts?$/.exec(reward.label);
+            if (universal) return { ...reward, type: 'universal_parts', label: 'Universal Part', amount: reward.amount ?? Number(universal[1]), desc: undefined };
+            return { ...reward, amount: reward.amount ?? 1 };
+        }));
+    }
     function _checkMilestoneBoxes() {
         if ((!saveData.pendingMilestoneReward && !saveData.pendingMilestoneBoxes?.length) || _levelBoxShowing) return;
         const lv = saveData.pendingMilestoneReward?.level || saveData.pendingMilestoneBoxes[0];
@@ -2982,44 +2997,28 @@
         }
         const rewards = box.rewards;
         const overlay = document.createElement('div');
-        overlay.className = 'lb-reward-overlay';
+        overlay.className = 'lb-reward-overlay lb64-crate-overlay';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-box-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:3100;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
-        const color = '#ffd700';
         const panel = document.createElement('div');
-        panel.style.cssText = 'background:rgba(5,5,20,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px 20px;max-width:420px;width:100%;text-align:center;max-height:90vh;overflow-y:auto;';
+        panel.className = 'lb64-crate-panel lb-block-panel';
         panel.innerHTML = `
-            <div style="font-size:0.55rem;letter-spacing:3px;color:#666;margin-bottom:4px;font-family:var(--ui-font);">LEVEL MILESTONE</div>
-            <div style="font-size:1rem;font-weight:bold;color:${color};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">LEVEL ${escapeHtml(lv)}</div>
-            <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">Every 10 levels — milestone reward!</div>
+            <p class="lb64-crate-kicker">Level milestone</p>
+            <h2 class="lb64-crate-title">Level ${escapeHtml(lv)}</h2>
+            <p class="lb64-crate-subtitle">Every 10 levels</p>
         `;
         const preOpen = document.createElement('div');
         preOpen.id = 'lb-pre-open';
-        preOpen.innerHTML = `
-            <div style="font-size:0.65rem;color:#666;margin-bottom:16px;">Contains 10 parts + 2 universal parts</div>
-            <button id="lb-open-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid ${color};background:${color}22;color:${color};cursor:pointer;transition:all 0.2s;">OPEN BOX</button>
-        `;
+        preOpen.innerHTML = '<button id="lb-open-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Open crate</button>';
         panel.appendChild(preOpen);
         const rewardsDiv = document.createElement('div');
         rewardsDiv.id = 'lb-rewards-grid';
         rewardsDiv.style.cssText = 'display:none;';
-        const grid = document.createElement('div');
-        grid.className = 'lb-reward-grid';
-        grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
-        const RARITY_COLS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
-        rewards.forEach(r => {
-            const card = document.createElement('div');
-            card.className = 'lb-reward-card';
-            const rc = hexColor(RARITY_COLS[r.rarity], '#aaaaaa');
-            card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(r.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${_rewardLabel(r)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div>`;
-            grid.appendChild(card);
-        });
-        rewardsDiv.appendChild(grid);
-        rewardsDiv.innerHTML += `<button id="lb-claim-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid #22cc55;background:rgba(34,204,85,0.12);color:#22cc55;cursor:pointer;box-shadow:0 0 10px rgba(34,204,85,0.45);animation:pulse-glow-green 1.8s ease-in-out infinite;">CLAIM</button>`;
+        const grid = _crateRewardGrid(rewards);
+        rewardsDiv.innerHTML = '<button id="lb-claim-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Claim</button>';
+        rewardsDiv.prepend(grid);
         panel.appendChild(rewardsDiv);
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
@@ -3149,51 +3148,30 @@
         const rankColor = hexColor(savedRankColor, '#ffd700');
 
         const overlay = document.createElement('div');
-        overlay.className = 'lb-reward-overlay';
+        overlay.className = 'lb-reward-overlay lb64-crate-overlay';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-box-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:3100;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
-
-        const RARITY_COLS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
-
         const panel = document.createElement('div');
-        panel.style.cssText = 'background:rgba(5,5,20,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px 20px;max-width:420px;width:100%;text-align:center;max-height:90vh;overflow-y:auto;';
-
-        // Title
+        panel.className = 'lb64-crate-panel lb-block-panel';
         panel.innerHTML = `
-            <div style="font-size:0.55rem;letter-spacing:3px;color:#666;margin-bottom:4px;font-family:var(--ui-font);">MILESTONE REWARD</div>
-            <div class="lb-rank-identity" style="font-size:1rem;font-weight:bold;color:${rankColor};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">${escapeHtml(rankName)}</div>
-            <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">Level ${escapeHtml(level)} — New rank reached!</div>
+            <p class="lb64-crate-kicker">Milestone reward</p>
+            <h2 class="lb64-crate-title lb-rank-identity" style="color:${rankColor}">${escapeHtml(rankName)}</h2>
+            <p class="lb64-crate-subtitle">Level ${escapeHtml(level)} · New rank reached!</p>
         `;
 
-        // Open button (pre-open state)
         const preOpen = document.createElement('div');
         preOpen.id = 'lb-pre-open';
-        preOpen.innerHTML = `
-            <div style="font-size:0.65rem;color:#666;margin-bottom:16px;">Contains 10 parts + 2 universal parts</div>
-            <button id="lb-open-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid ${rankColor};background:${rankColor}22;color:${rankColor};cursor:pointer;transition:all 0.2s;">OPEN BOX</button>
-        `;
+        preOpen.innerHTML = '<button id="lb-open-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Open crate</button>';
         panel.appendChild(preOpen);
 
-        // Rewards grid (hidden initially)
         const rewardsDiv = document.createElement('div');
         rewardsDiv.id = 'lb-rewards-grid';
         rewardsDiv.style.cssText = 'display:none;';
-        const grid = document.createElement('div');
-        grid.className = 'lb-reward-grid';
-        grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
-        rewards.forEach(r => {
-            const card = document.createElement('div');
-            card.className = 'lb-reward-card';
-            const rc = hexColor(RARITY_COLS[r.rarity], '#aaaaaa');
-            card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(r.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${_rewardLabel(r)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div>`;
-            grid.appendChild(card);
-        });
-        rewardsDiv.appendChild(grid);
-        rewardsDiv.innerHTML += `<button id="lb-claim-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid #22cc55;background:rgba(34,204,85,0.12);color:#22cc55;cursor:pointer;box-shadow:0 0 10px rgba(34,204,85,0.45);animation:pulse-glow-green 1.8s ease-in-out infinite;">CLAIM</button>`;
+        const grid = _crateRewardGrid(rewards);
+        rewardsDiv.innerHTML = '<button id="lb-claim-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Claim</button>';
+        rewardsDiv.prepend(grid);
         panel.appendChild(rewardsDiv);
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
@@ -10723,47 +10701,30 @@
     }
 
     function _showMilestoneRewardBox(ms, isWeekly, rewards) {
-        const color = isWeekly ? '#ff9900' : '#44ff88';
-        const bgColor = isWeekly ? 'rgba(255,153,0,0.1)' : 'rgba(68,255,136,0.1)';
-        const RARITY_COLS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
         const overlay = document.createElement('div');
-        overlay.className = 'lb-reward-overlay';
+        overlay.className = 'lb-reward-overlay lb64-crate-overlay lb64-mission-crate';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.setAttribute('aria-label', 'Earned rewards');
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:3200;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
         const panel = document.createElement('div');
-        panel.style.cssText = `background:rgba(5,5,20,0.98);border:1px solid ${color}44;border-radius:16px;padding:24px 20px;max-width:380px;width:100%;text-align:center;max-height:90vh;overflow-y:auto;`;
-        const typeLabel = isWeekly ? 'WEEKLY MILESTONE' : 'DAILY MILESTONE';
+        panel.className = 'lb64-crate-panel lb-block-panel';
+        const typeLabel = isWeekly ? 'Weekly milestone' : 'Daily milestone';
         panel.innerHTML = `
-            <div style="font-size:0.55rem;letter-spacing:3px;color:#666;margin-bottom:4px;font-family:var(--ui-font);">${typeLabel}</div>
-            <div style="font-size:0.85rem;font-weight:bold;color:${color};font-family:var(--ui-font);letter-spacing:1px;margin-bottom:2px;">${ms.pts} POINTS</div>
-            <div style="font-size:0.55rem;color:#555;margin-bottom:16px;">Milestone reached!</div>
+            <p class="lb64-crate-kicker">${typeLabel}</p>
+            <h2 class="lb64-crate-title">${escapeHtml(ms.pts)} points</h2>
+            <p class="lb64-crate-subtitle">Milestone reached!</p>
         `;
         const preOpen = document.createElement('div');
-        preOpen.innerHTML = `
-            <div style="font-size:0.65rem;color:#888;margin-bottom:16px;">${ms.label}</div>
-            <button id="ms-open-btn" style="font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid ${color};background:${bgColor};color:${color};cursor:pointer;transition:all 0.2s;">OPEN BOX</button>
-        `;
+        preOpen.innerHTML = '<button id="ms-open-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Open crate</button>';
         panel.appendChild(preOpen);
         const rewardsDiv = document.createElement('div');
         rewardsDiv.style.display = 'none';
-        const grid = document.createElement('div');
-        grid.className = 'lb-reward-grid';
-        grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;';
-        rewards.forEach(rw => {
-            const card = document.createElement('div');
-            card.className = 'lb-reward-card';
-            const rc = hexColor(RARITY_COLS[rw.rarity], '#aaaaaa');
-            card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid ${rc}44;border-radius:8px;padding:8px 4px;text-align:center;`;
-            card.innerHTML = `<div style="font-size:1.3rem;margin-bottom:4px;">${escapeHtml(rw.icon)}</div><div style="font-size:0.58rem;color:${rc};font-weight:bold;line-height:1.3;">${_rewardLabel(rw)}</div><div style="font-size:0.52rem;color:#555;margin-top:2px;">${escapeHtml(rw.desc)}</div><div class="lb-reward-rarity">${escapeHtml(rw.rarity)}</div>`;
-            grid.appendChild(card);
-        });
-        rewardsDiv.appendChild(grid);
+        const grid = _crateRewardGrid(rewards);
         const claimBtn = document.createElement('button');
-        claimBtn.style.cssText = `font-family:var(--ui-font);font-size:0.7rem;letter-spacing:2px;padding:10px 28px;border-radius:10px;border:1px solid ${color};background:${bgColor};color:${color};cursor:pointer;box-shadow:0 0 10px ${color}40;`;
-        claimBtn.textContent = 'CLAIM';
-        rewardsDiv.appendChild(claimBtn);
+        claimBtn.type = 'button';
+        claimBtn.className = 'lb64-action lb-block-btn lb-block-btn--primary';
+        claimBtn.textContent = 'Claim';
+        rewardsDiv.append(grid, claimBtn);
         panel.appendChild(rewardsDiv);
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
