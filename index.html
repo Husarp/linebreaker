@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="41-season-pass.css">
     <link rel="stylesheet" href="43-crates-daily-gift.css">
     <link rel="stylesheet" href="60-foundation.css">
+    <link rel="stylesheet" href="65-game-over.css">
 </head>
 <body>
 
@@ -813,63 +814,27 @@
 </div>
 
 <!-- GAME OVER -->
-<div id="go-overlay" class="overlay hidden lb-run-overlay" role="dialog" aria-modal="true" aria-labelledby="go-title">
-    <h1 id="go-title" style="margin-bottom: 20px;">GAME OVER</h1>
-
-    <!-- Normal / Advanced mode: XP breakdown -->
-    <div id="go-xp-breakdown" class="xp-breakdown" style="padding: 20px; width: min(480px, 94vw);">
-        <div id="go-lb-position" style="display:none;text-align:center;margin-bottom:10px;"></div>
-        <div style="text-align:center; margin-bottom: 15px; font-weight:bold; color:var(--primary); font-size: 1rem;">XP BREAKDOWN</div>
-        <div class="game-stats-row" style="flex-wrap:wrap; gap:4px 16px;">
-            <span style="white-space:nowrap;">Time: <span id="go-time-played" style="color:#fff">00:00</span></span>
-            <span style="white-space:nowrap;">Speed: <span style="color:#fff"><span id="go-max-speed">1</span></span></span>
-            <span id="go-best-combo" style="white-space:nowrap; display:none;">Best Combo: <span id="go-combo-val" style="color:#00eeff;">×0</span></span>
-        </div>
-        <span class="xp-row penalty" id="go-penalty" style="display: none;">
-            ⚠️ No lines cleared! No XP earned.
-        </span>
-        <div id="go-stats-group">
-            <div class="xp-row" style="margin-bottom: 12px;"><span>Blocks (<span id="go-blocks-cnt">0</span>):</span><span id="go-blocks-xp">0 XP</span></div>
-            <div class="xp-row" style="margin-bottom: 12px;"><span>Lines (<span id="go-lines-cnt">0</span>):</span><span id="go-lines-xp">0 XP</span></div>
-            <div class="xp-row bonus" id="go-pb-row" style="display: none; margin-bottom: 12px;">
-                <span>Record! <span id="go-pb-pct" style="font-size:0.6rem; color:#aaa;">(+50% BONUS)</span></span>
-                <span id="go-pb-xp">+0 XP</span>
-            </div>
-        </div>
-        <div id="go-mission-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.07);font-size:0.58rem;color:#888;text-align:center;cursor:pointer;" onclick="openMissions()"></div>
-        <div class="xp-total" style="margin-top: 15px; padding-top: 15px;"><span>TOTAL:</span><span id="go-total-xp" style="color: var(--primary);">0 XP</span></div>
+<div id="go-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="go-title">
+    <h1 id="go-title">GAME OVER</h1>
+    <div class="go-panel lb-block-panel">
+        <dl class="go-stats" aria-label="Run results">
+            <div class="go-tile go-tile--score"><dt>Score</dt><dd id="go-score">0</dd></div>
+            <div class="go-tile go-tile--best"><dt id="go-best-label">Best</dt><dd id="go-best-score">0</dd></div>
+            <div class="go-tile"><dt>Lines</dt><dd id="go-lines-cnt">0</dd></div>
+            <div class="go-tile"><dt>Speed level</dt><dd id="go-max-speed">1</dd></div>
+            <div class="go-tile" id="go-xp-tile"><dt>XP gained</dt><dd id="go-total-xp" aria-live="polite">0</dd></div>
+        </dl>
+        <p id="go-record-bonus" hidden></p>
+        <button type="button" id="go-mission-row" class="lb-block-btn" onclick="openMissions()" hidden></button>
     </div>
 
-    <!-- Fun mode: clean stats only -->
-    <div id="go-fun-stats" style="display:none; text-align:center; padding: 10px 20px 20px;">
-        <div style="font-size:2rem; font-weight:900; color:var(--primary); font-family:'Orbitron';" id="go-fun-score">0</div>
-        <div style="font-size:0.65rem; color:#888; letter-spacing:2px; margin-bottom:6px;">SCORE</div>
-        <div id="go-fun-record" style="font-size:0.62rem; color:#888; margin-bottom:14px; min-height:1em;"></div>
-        <div style="display:flex; gap:24px; justify-content:center;">
-            <div style="text-align:center;">
-                <div style="font-size:1.2rem; font-weight:bold; color:#fff;" id="go-fun-time">00:00</div>
-                <div style="font-size:0.6rem; color:#888; letter-spacing:1px; margin-top:3px;">TIME</div>
-            </div>
-            <div style="text-align:center;">
-                <div style="font-size:1.2rem; font-weight:bold; color:#fff;" id="go-fun-lines">0</div>
-                <div style="font-size:0.6rem; color:#888; letter-spacing:1px; margin-top:3px;">LINES</div>
-            </div>
-            <div style="text-align:center;">
-                <div style="font-size:1.2rem; font-weight:bold; color:#fff;" id="go-fun-speed">1</div>
-                <div style="font-size:0.6rem; color:#888; letter-spacing:1px; margin-top:3px;">MAX SPEED</div>
-            </div>
-        </div>
-    </div>
+    <section id="go-boost-row" class="go-panel lb-block-panel" aria-labelledby="go-boost-title" hidden></section>
+    <section id="go-achievements-new" class="go-panel lb-block-panel" aria-labelledby="go-ach-title" hidden></section>
 
-    <div id="go-boost-row" style="display:none; flex-direction:column; margin-bottom:10px; background:rgba(204,68,255,0.1); border:1px solid #cc44ff; border-radius:8px; padding:8px 12px; gap:4px;"></div>
-
-    <!-- Newly unlocked achievements at game over -->
-    <div id="go-achievements-new" style="display:none; width:min(440px,94vw); margin:10px 0 0;"></div>
-
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
-        <button class="btn-main" data-lb-drift="accent" onclick="window.startGame()" style="padding:12px 30px;font-size:0.9rem;margin-bottom:0;">▶ AGAIN</button>
-        <button class="btn-secondary" onclick="window.resetGameToMenu()">MENU</button>
-        <button class="btn-secondary" onclick="window.pinCurrentScore()" style="font-size:0.75rem;border-color:rgba(255,215,0,0.5);color:#ffd700;" id="go-pin-btn">📌 PIN SCORE</button>
+    <div class="go-actions">
+        <button type="button" class="lb-block-btn lb-block-btn--primary" onclick="window.startGame()">Again</button>
+        <button type="button" class="lb-block-btn" onclick="window.resetGameToMenu()">Menu</button>
+        <button type="button" class="lb-block-btn" onclick="window.pinCurrentScore()" id="go-pin-btn">Pin score</button>
     </div>
 </div>
 

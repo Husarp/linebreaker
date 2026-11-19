@@ -77,5 +77,20 @@ it('uses the same tokens in the inventory and for eligible game-over boosters', 
     advance(200);
     api.gameOver();
     expect(images('#go-boost-row')).toEqual(Object.values(tokens).reverse());
+
+    const result = id => w.document.getElementById(id);
+    const runXP = api.save.leaderboard[0].xp;
+    expect(result('go-score').textContent).toBe('10');
+    expect(result('go-best-score').textContent).toBe('10');
+    expect(result('go-best-label').textContent).toBe('New best');
+    expect(result('go-lines-cnt').textContent).toBe('1');
+    expect(result('go-total-xp').textContent).toBe(String(runXP));
+
+    expect(result('go-boost-row').querySelector('[data-rarity="epic"]').getAttribute('onclick'))
+      .toBe("window.useScoreBooster('2xp_game')");
+    w.useScoreBooster('2xp_game');
+    expect(result('go-total-xp').textContent).toBe(String(2 * runXP));
+    expect(result('go-boost-row').hidden).toBe(true);
+    expect(api.save.boosters['2xp_game']).toBe(0);
   } finally { close(); }
 });

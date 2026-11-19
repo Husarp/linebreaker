@@ -6241,31 +6241,21 @@
 
     function _showGoAchievements(list) {
         const el = document.getElementById('go-achievements-new');
-        if (!el) return;
-        if (!list || !list.length) { el.style.display = 'none'; return; }
-        el.style.display = '';
-        el.innerHTML = `<div style="font-size:0.6rem;color:var(--gold);font-weight:bold;letter-spacing:2px;margin-bottom:8px;text-align:center;opacity:0;transform:translateY(-8px);transition:opacity 0.35s ease,transform 0.35s ease;" class="go-ach-header">🏆 NEW ACHIEVEMENT${list.length>1?'S':''}!</div>` +
+        el.hidden = !list.length;
+        el.innerHTML = el.hidden ? '' : `<h2 class="go-section-title" id="go-ach-title">New achievements</h2><ul class="go-reward-list">` +
             list.map(a => {
                 const rarity = a._newTier ? a._newTier.rarity : a.rarity;
                 const name   = a._newTier ? a._newTier.name   : a.name;
                 const rc = RARITY_ACH[rarity] || RARITY_ACH.common;
                 const sh = _achShapeStyle(rarity);
-                const tierBadge = a._newTierNum ? ` <span style="font-size:0.45rem;color:${rc.color};"> TIER ${a._newTierNum}</span>` : '';
-                return `<div class="go-ach-card" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid ${rc.color}40;margin-bottom:5px;opacity:0;transform:translateX(-18px);transition:opacity 0.4s ease,transform 0.4s ease;box-shadow:0 2px 12px ${rc.color}20;">
-                    <div style="width:32px;height:32px;${sh.outer}background:${rc.color}55;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                const tierLabel = a._newTierNum ? ` · Tier ${a._newTierNum}` : '';
+                return `<li class="go-ach-card" data-rarity="${rarity}">
+                    <div class="go-ach-icon" aria-hidden="true" style="${sh.outer}background:${rc.color}55;">
                         <svg viewBox="0 0 24 24" width="18" height="18" ${_isColoredSvg(a.svgIcon)?'class="ach-badge-colored"':`class="ach-badge-icon" style="color:#fff;--glow-c:${rc.color};"`}>${a.svgIcon}</svg>
                     </div>
-                    <div>
-                        <div style="font-size:0.68rem;font-weight:bold;color:#fff;">${name}${tierBadge}</div>
-                        <div style="font-size:0.55rem;color:${rc.color};font-weight:bold;letter-spacing:1px;">${rc.label}</div>
-                    </div>
-                </div>`;
-            }).join('');
-        // stagger animation
-        const header = el.querySelector('.go-ach-header');
-        const cards = el.querySelectorAll('.go-ach-card');
-        setTimeout(() => { if (header) { header.style.opacity='1'; header.style.transform='translateY(0)'; } }, 60);
-        cards.forEach((card, i) => setTimeout(() => { card.style.opacity='1'; card.style.transform='translateX(0)'; }, 180 + i * 130));
+                    <div><strong>${escapeHtml(name)}</strong><small>${rc.label}${tierLabel}</small></div>
+                </li>`;
+            }).join('') + '</ul>';
     }
 
     function _showGameAchievement(ach, tierIdx) {
@@ -8400,6 +8390,22 @@
         });
     }
     
+    function _renderGoStats(best, isRecord, funMode, xp, recordBonus = 0) {
+        const overlay = document.getElementById('go-overlay');
+        overlay.classList.toggle('go-fun', funMode);
+        document.getElementById('go-score').textContent = Math.round(score).toLocaleString();
+        document.getElementById('go-best-score').textContent = Math.round(best).toLocaleString();
+        document.getElementById('go-best-label').textContent = isRecord ? 'New best' : 'Best';
+        document.getElementById('go-lines-cnt').textContent = linesClearedThisGame;
+        document.getElementById('go-max-speed').textContent = speedLevel;
+        document.getElementById('go-total-xp').textContent = xp.toLocaleString();
+        document.getElementById('go-xp-tile').hidden = funMode;
+        document.getElementById('go-pin-btn').hidden = funMode;
+        const bonus = document.getElementById('go-record-bonus');
+        bonus.hidden = recordBonus <= 0;
+        bonus.textContent = `Record bonus · +${recordBonus.toLocaleString()} XP`;
+    }
+
     function gameOver(){
         _gameInProgress = false; // allow saves again — score and achievements saved together below
         isGameOver=true; isPaused=true;
@@ -8407,6 +8413,7 @@
         isAnimating=false; _hardDropAnimating=false; // safety: clear all animation locks
         lineClear.reset();
         _boosterUsedThisRound = false;
+        document.getElementById('go-mission-row').hidden = true;
         try {
         const _gcGO = document.getElementById('game-container');
         if (_gcGO) _gcGO.style.transform = '';
@@ -8419,71 +8426,34 @@
         if (currentGameMode === 'fun') {
             // fun_squared tracking (only count games where at least 1 line was cleared)
             if (linesClearedThisGame >= 1) saveData.stats.funGamesPlayed = (saveData.stats.funGamesPlayed || 0) + 1;
-            const m = Math.floor(gameTime/60); const s = gameTime%60;
-            const timeStr = (m<10?"0"+m:m)+":"+(s<10?"0"+s:s);
             // Track best-ever stats for achievement progress bars
             if (gameTime > (saveData.stats.bestSurvivalTime || 0)) saveData.stats.bestSurvivalTime = gameTime;
             if (_maxLineStreakThisGame > (saveData.stats.bestLineStreak || 0)) saveData.stats.bestLineStreak = _maxLineStreakThisGame;
             if (_maxBlocksIn60sThisGame > (saveData.stats.bestBlocksIn60s || 0)) saveData.stats.bestBlocksIn60s = _maxBlocksIn60sThisGame;
             if (_iPieceLinesThisGame > (saveData.stats.bestIPieceLines || 0)) saveData.stats.bestIPieceLines = _iPieceLinesThisGame;
             if (_maxBlocksUnderHalfThisGame > (saveData.stats.bestHighPlacer || 0)) saveData.stats.bestHighPlacer = _maxBlocksUnderHalfThisGame;
-            if (score > (saveData.stats.bestFunScore || 0)) saveData.stats.bestFunScore = score;
+            const previousFunBest = saveData.stats.bestFunScore || 0;
+            if (score > previousFunBest) saveData.stats.bestFunScore = score;
             // Save to fun leaderboard (skip zero scores)
             if (Math.round(score) > 0) { if (!saveData.funLeaderboard) saveData.funLeaderboard = []; saveData.funLeaderboard.push({ score: Math.round(score), ..._scoreDate(), lines: linesClearedThisGame, time: gameTime, maxSpeed: speedLevel, cols: funModeConfig.cols, rows: funModeConfig.rows, startSpeed: funModeConfig.startSpeed }); saveData.funLeaderboard.sort((a,b) => b.score - a.score); if (saveData.funLeaderboard.length > 200) saveData.funLeaderboard = saveData.funLeaderboard.slice(0, 200); }
             // Check achievements even in fun mode (score-based ones apply)
             saveData.stats.luckySevenCount = (saveData.stats.luckySevenCount || 0) + _sec7CountThisGame;
             const funNewAch = checkAchievements({ score, lines: linesClearedThisGame, blocks: blocksPlacedThisGame, time: gameTime, maxSpeed: speedLevel, mode: currentGameMode, mirror: !!settings.optMirror, quadraKill: _quadraKillThisGame, boardCleared: _boardClearedThisGame, maxLineStreak: _maxLineStreakThisGame, maxBlocksIn60s: _maxBlocksIn60sThisGame, iPieceLines: _iPieceLinesThisGame, clearedTopLine: _clearedTopLineThisGame, highPlacer: _maxBlocksUnderHalfThisGame, noRotate: !_rotatedThisGame, equalPieces: false, luckySevenCount: saveData.stats.luckySevenCount, waitedTetris: _waitedTetrisThisGame, noHardDrop: _hardDropsThisGame === 0, allHardDrop: _piecesThisGame >= 20 && _piecesThisGame === _piecesHardDroppedThisGame, bigFont: _bigFontGameFlag, exactBlocks100: blocksPlacedThisGame === 100, speedrunner: linesClearedThisGame >= 10 ? gameTime : 9999, earlyBird: _earlyBirdThisGame, nice69: _nice69Triggered, boardSymmetric: _boardSymmetricAchieved });
-            if (funNewAch.length) { _showGoAchievements(funNewAch); }
+            _showGoAchievements(funNewAch);
             saveDataToFile();
-            // Show fun stats panel, hide normal XP breakdown
-            document.getElementById('go-xp-breakdown').style.display = 'none';
-            const funStats = document.getElementById('go-fun-stats');
-            if (funStats) {
-                funStats.style.display = '';
-                document.getElementById('go-fun-score').innerText = Math.round(score).toLocaleString();
-                document.getElementById('go-fun-time').innerText = timeStr;
-                document.getElementById('go-fun-lines').innerText = linesClearedThisGame;
-                document.getElementById('go-fun-speed').innerText = speedLevel;
-                const _funRecEl = document.getElementById('go-fun-record');
-                if (_funRecEl) {
-                    const _funBest = saveData.stats.bestFunScore || 0;
-                    const _isNewFunRec = _funBest > 0 && Math.round(score) >= _funBest && score > 0;
-                    _funRecEl.innerHTML = _funBest > 0
-                        ? (_isNewFunRec ? `<span style="color:#ffd700;font-weight:bold;">★ NEW FUN RECORD!</span>` : `Fun Record: <span style="color:var(--primary);">${escapeHtml(_funBest.toLocaleString())}</span>`)
-                        : '';
-                }
-            }
-            if (document.getElementById('go-boost-row')) document.getElementById('go-boost-row').style.display = 'none';
+            _renderGoStats(Math.max(previousFunBest, score), Math.round(score) > Math.round(previousFunBest), true, 0);
+            _renderGoBoostRow(0);
             return; // skip XP/leaderboard processing
         }
 
         let finalXP=0, pbBonus=0;
         const previousBest = _bestScore();
-        const m = Math.floor(gameTime/60); const s = gameTime%60;
-        document.getElementById('go-time-played').innerText = (m<10?"0"+m:m)+":"+(s<10?"0"+s:s);
-        document.getElementById('go-max-speed').innerText = speedLevel;
-
-        if(linesClearedThisGame===0){
-            document.getElementById('go-penalty').style.display='block';
-            document.getElementById('go-stats-group').style.display='none';
-        }else{
-            document.getElementById('go-penalty').style.display='none';
-            document.getElementById('go-stats-group').style.display='block';
-            document.getElementById('go-blocks-cnt').innerText = blocksPlacedThisGame;
-            document.getElementById('go-blocks-xp').innerText = Math.round(xpFromBlocksThisGame) + " XP";
-            document.getElementById('go-lines-cnt').innerText = linesClearedThisGame;
-            document.getElementById('go-lines-xp').innerText = Math.round(xpFromLinesThisGame) + " XP";
-
+        if(linesClearedThisGame>0){
             if(Math.round(score) > previousBest && score > 0){
                 playSFX('newrecord');
                 if (previousBest > 0) (saveData.highscoreHistory ||= []).push({ ...saveData.leaderboard[0] });
                 const bonusPct = _gamePersonalBestBonusPercent(previousBest);
                 pbBonus = Math.round(score * bonusPct / 100);
-                document.getElementById('go-pb-row').style.display='flex';
-                document.getElementById('go-pb-xp').innerText="+"+pbBonus+" XP";
-                document.getElementById('go-pb-pct').innerText=`(+${bonusPct}% BONUS)`;
-            }else{
-                document.getElementById('go-pb-row').style.display='none';
             }
             finalXP = Math.round(score + pbBonus);
             const _rawGameXP = finalXP;
@@ -8494,17 +8464,8 @@
             // Track raw XP (pre-multiplier) for daily streak threshold check
             if (saveData.missions?.daily) saveData.missions.daily.rawXPToday = (saveData.missions.daily.rawXPToday || 0) + _rawGameXP;
         }
-        // Show leaderboard position in game over
-        const _lbPos = saveData.leaderboard.findIndex(e => e.score === Math.round(score) && Math.abs((e.xp||0) - finalXP) < 2) + 1;
-        const _lbPosEl = document.getElementById('go-lb-position');
-        if (_lbPosEl && _lbPos > 0) {
-            const _posColor = _lbPos === 1 ? '#ffd700' : _lbPos <= 3 ? '#c0c0c0' : _lbPos <= 10 ? '#9b59b6' : '#4488ff';
-            const _medal = _lbPos === 1 ? '🥇' : _lbPos === 2 ? '🥈' : _lbPos === 3 ? '🥉' : '';
-            _lbPosEl.style.display = '';
-            _lbPosEl.innerHTML = `<span style="font-size:0.55rem;color:#555;letter-spacing:2px;">LEADERBOARD</span><br><span style="font-size:1.4rem;font-weight:bold;color:${_posColor};">${_medal}#${_lbPos}</span><span style="font-size:0.65rem;color:#777;"> of ${saveData.leaderboard.length}</span>`;
-        } else if (_lbPosEl) {
-            _lbPosEl.style.display = 'none';
-        }
+        const best = _bestScore();
+        _renderGoStats(best, best > previousBest, false, finalXP, pbBonus);
         gainedXPThisRound = finalXP;
         // Snapshot completed state before update so we can detect newly-completed quests this game
         const _preCompD = saveData.missions ? new Set(
@@ -8528,13 +8489,11 @@
                   const _parts = [];
                   if (_newD > 0) _parts.push(`${_newD} daily quest${_newD !== 1 ? 's' : ''}`);
                   if (_newW > 0) _parts.push(`${_newW} weekly mission${_newW !== 1 ? 's' : ''}`);
-                  _goMR.innerHTML = `<span style="color:#44ff88;">✓ ${_parts.join(' + ')} completed</span> <span style="color:#555;font-size:0.5rem;">— tap to view</span>`;
-                  _goMR.style.display = 'block';
+                  _goMR.textContent = `Missions · ${_parts.join(' + ')} completed`;
+                  _goMR.hidden = false;
               } else if (_ptsEarned > 0) {
-                  _goMR.innerHTML = `<span style="color:#4499ff;">📋 ${_ptsEarned} daily pts earned</span> <span style="color:#555;font-size:0.5rem;">— tap to view</span>`;
-                  _goMR.style.display = 'block';
-              } else {
-                  _goMR.style.display = 'none';
+                  _goMR.textContent = `Missions · ${_ptsEarned} daily points`;
+                  _goMR.hidden = false;
               }
           } }
         const _lvlBefore = getLevelInfo(saveData.totalXP).level;
@@ -8623,9 +8582,6 @@
         // sec_speedgames check
         { const _now = Date.now(); _recentGameEndTimes.push({t:_now, lines:linesClearedThisGame}); _recentGameEndTimes = _recentGameEndTimes.filter(e => _now - e.t <= 60000); if (_recentGameEndTimes.filter(e => e.lines >= 1).length >= 5 && !saveData.achievements?.['sec_speedgames']?.unlocked) { unlockAchievement('sec_speedgames'); } }
         _lastGameStats = { score, lines: linesClearedThisGame, blocks: blocksPlacedThisGame, time: gameTime, maxSpeed: speedLevel, xp: finalXP, maxCombo: _maxComboThisGame };
-        // Best combo display
-        const goComboEl = document.getElementById('go-best-combo');
-        if (goComboEl) { goComboEl.style.display = _maxComboThisGame >= 2 ? '' : 'none'; document.getElementById('go-combo-val').innerText = `×${_maxComboThisGame}`; }
 
         // Check achievements
         saveData.stats.luckySevenCount = (saveData.stats.luckySevenCount || 0) + _sec7CountThisGame;
@@ -8636,12 +8592,7 @@
         _showGoAchievements(newAch);
         saveDataToFile();
 
-        document.getElementById('go-total-xp').innerText=finalXP+" XP";
         _renderGoBoostRow(finalXP);
-        // Ensure normal XP breakdown visible, fun stats hidden
-        document.getElementById('go-xp-breakdown').style.display = '';
-        const goFunStats2 = document.getElementById('go-fun-stats');
-        if (goFunStats2) goFunStats2.style.display = 'none';
         } catch (error) {
             console.error('Game-over bookkeeping failed:', error);
         } finally {
@@ -8670,36 +8621,25 @@
         gainedXPThisRound += bonus;
         _grantXP(bonus);
         if (bonus > 0) _updateMissionProgress({ totalXP: bonus });
-        document.getElementById('go-total-xp').innerText = gainedXPThisRound + ' XP';
+        document.getElementById('go-total-xp').textContent = gainedXPThisRound.toLocaleString();
         _renderGoBoostRow(gainedXPThisRound);
         animateXPGain();
         saveDataToFile();
     }
     function _renderGoBoostRow(xp) {
         const row = document.getElementById('go-boost-row');
-        if (!row) return;
-        if (_boosterUsedThisRound || xp <= 0) { row.style.display = 'none'; return; }
-        const boostDefs = [
-            { key:'2xp_game',   label:'2× XP' },
-            { key:'1.5x_game',  label:'1.5× XP' },
-            { key:'1.25x_game', label:'1.25× XP' },
-        ];
-        const available = boostDefs.filter(b => saveData.boosters && saveData.boosters[b.key] > 0);
-        if (available.length === 0) { row.style.display = 'none'; return; }
-        row.style.display = 'flex';
-        row.style.flexDirection = 'column';
-        row.style.width = 'min(480px, 94vw)';
-        row.innerHTML = `<div class="lb-help-label" style="font-size:0.65rem;color:#cc44ff;margin-bottom:6px;font-weight:bold;letter-spacing:1px;">USE BOOSTER: <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About score boosters" title="About score boosters"></button></div>` +
-            available.map(b => `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0;">
-                <div class="lb-booster-result-label">
-                    ${LBArtPack.boosterIcon(b.key)}
-                    <div style="display:flex;flex-direction:column;gap:1px;">
-                        <span style="font-size:0.72rem;color:#cc44ff;white-space:nowrap;">${b.label}</span>
-                        <span style="font-size:0.6rem;color:#888;">left: ${escapeHtml(saveData.boosters[b.key])}</span>
-                    </div>
-                </div>
-                <button class="btn-secondary" style="border-color:#cc44ff;color:#cc44ff;font-size:0.65rem;padding:4px 14px;flex-shrink:0;" onclick="window.useScoreBooster('${b.key}')">USE</button>
-            </div>`).join('');
+        const available = [...BOOSTER_KEYS].reverse().filter(key => saveData.boosters?.[key] > 0);
+        row.hidden = _boosterUsedThisRound || xp <= 0 || !available.length;
+        row.innerHTML = row.hidden ? '' : `<div class="go-boost-heading"><h2 class="go-section-title" id="go-boost-title">XP boosters</h2><button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About score boosters" title="About score boosters"></button></div>
+            <ul class="go-reward-list go-boost-list">${available.map(key => {
+                const { label, rarity } = BOOSTER_META[key];
+                return `<li><button type="button" class="lb-block-btn lb-block-reward" data-rarity="${rarity}" onclick="window.useScoreBooster('${key}')" aria-label="Use ${label}, ${escapeHtml(saveData.boosters[key])} available">
+                    ${LBArtPack.boosterIcon(key)}
+                    <strong>${label.replace(' Booster', ' XP')}</strong>
+                    <small>${rarity}</small>
+                    <span class="lb-block-reward-amount">${escapeHtml(saveData.boosters[key])}</span>
+                </button></li>`;
+            }).join('')}</ul>`;
     }
 
     function startAnimation(onStarted) {
