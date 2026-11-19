@@ -1,19 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" id="linebreaker-mark" viewBox="0 0 128 128" role="img" aria-labelledby="mark-title">
   <title id="mark-title">Linebreaker mark</title>
   <defs>
-    <linearGradient id="mark-color">
-      <stop style="stop-color:var(--logo-accent,var(--primary,#00ffff))"/>
-      <stop offset="1" style="stop-color:var(--logo-secondary,#ff34de)"/>
+    <linearGradient id="mark-face" gradientUnits="userSpaceOnUse" x2="0" y1="22" y2="106">
+      <stop stop-color="#00eef4" style="stop-color:var(--logo-accent,var(--accent,var(--primary,#00eef4)))"/>
+      <stop offset=".5" stop-color="#eaf7ff"/>
+      <stop offset="1" stop-color="#ff34de" style="stop-color:var(--logo-secondary,var(--logo-accent,var(--accent,var(--primary,#ff34de))))"/>
     </linearGradient>
-    <g id="mark-forms">
-      <path d="M45 24H63L58 51L40 55Z M36 74L55 70L53 87H89L86 104H31Z"/>
-      <path d="M15 58H27V70H15Z M32 58H44V70H32Z M49 58H61V70H49Z M62 64L71 55L80 64L71 73Z M83 58H95V70H83Z M100 58H112V70H100Z M74 48L82 41L84 45L80 51Z M64 79L73 83L67 90Z"/>
-    </g>
-    <filter id="mark-glow" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="3.2"/>
+    <linearGradient id="mark-line" gradientUnits="userSpaceOnUse" x1="14" x2="114">
+      <stop offset=".25" stop-color="#00eef4" style="stop-color:var(--logo-accent,var(--accent,var(--primary,#00eef4)))"/>
+      <stop offset=".5" stop-color="#f4faff"/>
+      <stop offset=".75" stop-color="#ff34de" style="stop-color:var(--logo-secondary,var(--logo-accent,var(--accent,var(--primary,#ff34de))))"/>
+    </linearGradient>
+    <path id="mark-cells" d="M16 64H50M78 64H112" stroke-dasharray="10 2"/>
+    <path id="mark-sparks" d="M53 63L59 57L65 63L59 69Z M65 65L71 59L77 65L71 71Z M67 51L70 44L73 46L70 53Z M63 76L68 80L61 85Z"/>
+    <filter id="mark-bloom" x="-15%" y="-50%" width="130%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="2"/>
     </filter>
   </defs>
-  <path fill="#070b1d" stroke="url(#mark-color)" stroke-width="2" stroke-opacity=".72" d="M24 5H104L123 24V104L104 123H24L5 104V24Z"/>
-  <use href="#mark-forms" fill="url(#mark-color)" opacity=".85" filter="url(#mark-glow)"/>
-  <use href="#mark-forms" fill="url(#mark-color)" stroke="#fff" stroke-opacity=".55" stroke-width="1"/>
+  <path d="M20 5H108L123 20V108L108 123H20L5 108V20Z" fill="#080f20" stroke="url(#mark-line)" stroke-opacity=".55" stroke-width="2"/>
+  <path d="M44 22H63L57 54L38 57Z M36 73L55 70L52 86H91L87 106H30Z" fill="url(#mark-face)" stroke="#effaff" stroke-opacity=".56" stroke-linejoin="round"/>
+  <g filter="url(#mark-bloom)" opacity=".78">
+    <use href="#mark-cells" stroke="url(#mark-line)" stroke-width="10"/>
+    <use href="#mark-sparks" fill="url(#mark-line)"/>
+  </g>
+  <use href="#mark-cells" stroke="url(#mark-line)" stroke-width="10"/>
+  <use href="#mark-cells" stroke="#fff" stroke-opacity=".58" stroke-width="2" transform="translate(0 -3)"/>
+  <use href="#mark-sparks" fill="url(#mark-line)" stroke="#fff" stroke-opacity=".65" stroke-width=".75"/>
 </svg>
