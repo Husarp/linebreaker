@@ -2694,6 +2694,9 @@
         _populateInventoryOther();
         _checkGlowNotifications();
     }
+    function _exchangePartsIcon() {
+        return '<img class="lb-exchange-parts-icon" src="assets/ui/62-parts.svg" alt="">';
+    }
     function openUseUniversalPart() {
         if ((saveData.universalParts || 0) < 1) return;
         document.getElementById('uni-modal-overlay')?.remove();
@@ -2721,10 +2724,10 @@
             if (pending > 0) {
                 bar.style.width = Math.min(100, total) + '%';
                 const splitPct = actualPct / Math.min(100, total) * 100;
-                bar.style.background = `linear-gradient(to right, #4477ff ${splitPct.toFixed(1)}%, #ffd700 ${splitPct.toFixed(1)}%)`;
+                bar.style.setProperty('--lb-exchange-owned-stop', `${splitPct.toFixed(1)}%`);
             } else {
                 bar.style.width = actualPct + '%';
-                bar.style.background = '#4477ff';
+                bar.style.removeProperty('--lb-exchange-owned-stop');
             }
             if (lbl) lbl.textContent = pending > 0 ? `${parts}+${pending}/${cost}` : `${parts}/${cost}`;
         }
@@ -2733,13 +2736,12 @@
             if (!btn) return;
             const total = _totalQueued();
             btn.disabled = total === 0;
-            btn.style.opacity = total === 0 ? '0.3' : '1';
             const lbl = document.getElementById('uni-apply-label');
             if (lbl) lbl.textContent = total > 0 ? `Hold to Apply (${total} part${total!==1?'s':''})` : 'Hold to Apply';
         }
         function _updateAvailLbl() {
             const el = document.getElementById('uni-avail-lbl');
-            if (el) el.textContent = `${Math.max(0, _avail() - _totalQueued())} available`;
+            if (el) el.textContent = `${Number(Math.max(0, _avail() - _totalQueued()).toFixed(1))} available`;
         }
         function _updateAllIncBtns() {
             const remaining = Math.max(0, _avail() - _totalQueued());
@@ -2747,55 +2749,54 @@
                 const key = btn.id.replace('uni-inc-', '');
                 const parts = saveData.parts?.[key] || 0;
                 const cur = _inputVals[key] || 0;
-                const canAdd = remaining > 0 && (_getItemCost(key) - parts - cur) > 0;
-                btn.style.opacity = canAdd ? '1' : '0.3';
-                btn.style.cursor = canAdd ? 'pointer' : 'default';
+                const canAdd = remaining >= 1 && (_getItemCost(key) - parts - cur) > 0;
+                btn.disabled = !canAdd;
             });
         }
         function _buildSection(label, items) {
             if (!items.length) return '';
-            const btnStyle = 'font-size:0.65rem;padding:3px 9px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.07);color:#bbb;cursor:pointer;font-family:inherit;line-height:1.4;user-select:none;';
-            return `<div style="font-size:0.62rem;color:var(--primary,#00ffcc);letter-spacing:2px;font-weight:bold;padding:18px 0 10px;text-shadow:0 0 8px rgba(0,255,200,0.3);">${label}</div>`
+            return `<section class="lb-exchange-section"><h3 class="lb-block-section-title">${label}</h3>`
                 + items.map(item => {
                     const parts = saveData.parts?.[item.key] || 0;
                     const cost = _getItemCost(item.key);
                     const maxAdd = Math.min(_avail(), cost - parts);
                     const pct = (parts / cost) * 100;
                     const cur = _inputVals[item.key] || 0;
-                    const showControls = maxAdd > 0 || cur > 0;
-                    return `<div style="display:flex;align-items:center;padding:9px 2px;gap:10px;">
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-size:0.74rem;color:#ddd;margin-bottom:5px;">${_getLabel(item)}</div>
-                            <div style="display:flex;align-items:center;gap:6px;">
-                                <div style="width:90px;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
-                                    <div id="uni-bar-${item.key}" style="height:100%;width:${pct}%;background:#4477ff;border-radius:3px;transition:width 0.4s ease,background 0.2s;"></div>
+                    const name = escapeHtml(_getLabel(item));
+                    return `<div class="lb-block-card lb-exchange-row">
+                        <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
+                        <div class="lb-exchange-row-detail">
+                            <strong>${name}</strong>
+                            <div class="lb-exchange-row-meta">
+                                <div class="lb-exchange-meter" aria-hidden="true">
+                                    <div id="uni-bar-${item.key}" style="width:${pct}%"></div>
                                 </div>
-                                <span id="uni-lbl-${item.key}" style="font-size:0.62rem;color:#666;">${escapeHtml(parts)}/${cost}</span>
+                                <span class="lb-exchange-badge" aria-label="Owned and required parts"><span id="uni-lbl-${item.key}">${escapeHtml(parts)}/${cost}</span></span>
                             </div>
                         </div>
-                        ${showControls ? `<div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
-                            <button onclick="window._uniDec('${item.key}')" id="uni-dec-${item.key}" style="${btnStyle}display:${cur>0?'inline':'none'};">−</button>
-                            <span id="uni-n-${item.key}" style="font-size:0.75rem;color:#ffd700;min-width:20px;text-align:center;display:${cur>0?'inline':'none'};">${cur>0?cur:''}</span>
-                            <button onclick="window._uniInc('${item.key}')" id="uni-inc-${item.key}" style="${btnStyle}${maxAdd<=0?'opacity:0.3;cursor:default;':''}">+</button>
-                        </div>` : `<span style="font-size:0.62rem;color:#444;">Full</span>`}
+                        ${parts < cost ? `<div class="lb-exchange-stepper">
+                            <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Remove part from ${name}" data-part-remove="${item.key}" id="uni-dec-${item.key}" ${cur > 0 ? '' : 'hidden'}>−</button>
+                            <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Add part to ${name}" data-part-add="${item.key}" id="uni-inc-${item.key}" ${maxAdd < 1 ? 'disabled' : ''}>+</button>
+                        </div>` : `<span class="lb-exchange-badge">Full</span>`}
                     </div>`;
-                }).join('');
+                }).join('') + '</section>';
         }
         function _rebuildContent() {
             const c = document.getElementById('uni-modal-body');
             if (!c) return;
             const all = _getAllPartsItems();
             const avail = _avail();
-            c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;padding-right:30px;">
-                <div style="font-size:0.82rem;font-weight:bold;color:#ffd700;">⭐ Universal Parts</div>
-                <div id="uni-avail-lbl" style="font-size:0.76rem;color:#ffd700;font-weight:bold;">${avail} available</div>
-            </div>
-            <div style="position:relative;margin:10px 0 4px;">
-                <button id="uni-apply-btn" disabled style="width:100%;padding:9px;font-size:0.68rem;font-family:inherit;border-radius:8px;border:1px solid #ffd700;background:rgba(255,215,0,0.08);color:#ffd700;cursor:pointer;font-weight:bold;opacity:0.3;transition:opacity 0.2s;position:relative;overflow:hidden;user-select:none;-webkit-user-select:none;">
-                    <div id="uni-apply-progress" style="position:absolute;left:0;top:0;bottom:0;width:0%;background:rgba(255,215,0,0.25);border-radius:8px;transition:none;pointer-events:none;"></div>
-                    <span id="uni-apply-label" style="position:relative;z-index:1;">Hold to Apply</span>
+            c.innerHTML = `<header class="lb-exchange-parts-head">
+                <div class="lb-exchange-title-row">
+                    <h2 id="uni-title" class="lb-block-dialog-title">Universal Parts</h2>
+                    <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Close" onclick="window._closeModal('uni-modal-overlay')">×</button>
+                </div>
+                <div class="lb-exchange-balance">${_exchangePartsIcon()}<span id="uni-avail-lbl" class="lb-exchange-badge" aria-live="polite">${Number(avail.toFixed(1))} available</span></div>
+                <button type="button" class="lb-block-btn lb-block-btn--primary" id="uni-apply-btn" disabled>
+                    <span id="uni-apply-progress" aria-hidden="true"></span>
+                    <span id="uni-apply-label">Hold to Apply</span>
                 </button>
-            </div>`
+            </header>`
             + _buildSection('SKINS', all.filter(i => i.cat === 'skin'))
             + _buildSection('THEMES', all.filter(i => i.cat === 'theme'))
             + _buildSection('GHOST COLOR', all.filter(i => i.cat === 'ghostColor'))
@@ -2803,13 +2804,22 @@
             + _buildSection('PALETTES', all.filter(i => i.cat === 'palette'))
             + _buildSection('SFX PACKS', all.filter(i => i.cat === 'sfxPack'))
             + _buildSection('MUSIC', all.filter(i => i.cat === 'music'))
-            + (all.length === 0 ? `<div style="text-align:center;color:#888;font-size:0.7rem;padding:16px;">You already own everything!<br><span style="color:#555;font-size:0.65rem;">Universal parts will carry forward.</span></div>` : avail === 0 && _totalQueued() === 0 ? `<div style="text-align:center;color:#555;font-size:0.7rem;padding:16px;">No universal parts remaining.</div>` : '');
+            + (all.length === 0 ? '<p>You already own everything. Universal parts will carry forward.</p>' : avail === 0 ? '<p>No universal parts remaining.</p>' : '');
+            c.querySelectorAll('[data-part-add]').forEach(button => button.addEventListener('click', () => window._uniInc(button.dataset.partAdd)));
+            c.querySelectorAll('[data-part-remove]').forEach(button => button.addEventListener('click', () => window._uniDec(button.dataset.partRemove)));
             // Re-attach hold events
             const applyBtn = document.getElementById('uni-apply-btn');
             if (applyBtn) {
-                applyBtn.addEventListener('mousedown', window._uniStartHold);
-                applyBtn.addEventListener('mouseup', window._uniStopHold);
-                applyBtn.addEventListener('mouseleave', window._uniStopHold);
+                applyBtn.addEventListener('pointerdown', event => { if (event.button === 0) window._uniStartHold(); });
+                ['pointerup', 'pointerleave', 'pointercancel', 'blur'].forEach(type => applyBtn.addEventListener(type, window._uniStopHold));
+                applyBtn.addEventListener('keydown', event => {
+                    if (![' ', 'Enter'].includes(event.key)) return;
+                    event.preventDefault();
+                    if (!event.repeat) window._uniStartHold();
+                });
+                applyBtn.addEventListener('keyup', event => {
+                    if ([' ', 'Enter'].includes(event.key)) window._uniStopHold();
+                });
             }
             // Restore bar states
             Object.keys(_inputVals).forEach(key => { if (_inputVals[key] > 0) _updateBar(key); });
@@ -2819,23 +2829,18 @@
             const queued = _totalQueued();
             const cur = _inputVals[key] || 0;
             const maxForItem = _getItemCost(key) - parts - cur;
-            const maxFromAvail = _avail() - (queued - cur);
-            if (maxForItem <= 0 || maxFromAvail <= 0) return;
+            if (maxForItem <= 0 || _avail() - queued < 1) return;
             _inputVals[key] = cur + 1;
-            const nEl = document.getElementById(`uni-n-${key}`);
             const dEl = document.getElementById(`uni-dec-${key}`);
-            if (nEl) { nEl.textContent = cur + 1; nEl.style.display = 'inline'; }
-            if (dEl) dEl.style.display = 'inline';
+            if (dEl) dEl.hidden = false;
             _updateBar(key); _updateApplyBtn(); _updateAvailLbl(); _updateAllIncBtns();
         };
         window._uniDec = key => {
             const cur = _inputVals[key] || 0;
             if (cur <= 0) return;
             _inputVals[key] = cur - 1;
-            const nEl = document.getElementById(`uni-n-${key}`);
             const dEl = document.getElementById(`uni-dec-${key}`);
-            if (nEl) { nEl.textContent = cur > 1 ? (cur - 1).toString() : ''; nEl.style.display = cur > 1 ? 'inline' : 'none'; }
-            if (dEl) dEl.style.display = cur > 1 ? 'inline' : 'none';
+            if (dEl) dEl.hidden = cur <= 1;
             _updateBar(key); _updateApplyBtn(); _updateAvailLbl(); _updateAllIncBtns();
         };
         window._uniStartHold = () => {
@@ -2845,6 +2850,7 @@
             const prog = document.getElementById('uni-apply-progress');
             const lbl = document.getElementById('uni-apply-label');
             function tick() {
+                if (!prog?.isConnected) { _holdRaf = null; _holdStart = null; return; }
                 const elapsed = Date.now() - _holdStart;
                 const pct = Math.min(100, (elapsed / 2000) * 100);
                 if (prog) prog.style.width = pct + '%';
@@ -2881,8 +2887,7 @@
                 const bar = document.getElementById(`uni-bar-${key}`);
                 if (bar) {
                     const newPct = ((saveData.parts?.[key] || 0) / _getItemCost(key)) * 100;
-                    bar.style.transition = 'width 0.6s ease, background 0.3s';
-                    bar.style.background = '#4477ff';
+                    bar.style.removeProperty('--lb-exchange-owned-stop');
                     setTimeout(() => { bar.style.width = newPct + '%'; }, 50);
                 }
                 const lbl = document.getElementById(`uni-lbl-${key}`);
@@ -2892,17 +2897,23 @@
         };
         const ov = document.createElement('div');
         ov.id = 'uni-modal-overlay';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;';
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,215,0,0.25);border-radius:14px;padding:20px;width:min(420px,92vw);max-height:80vh;overflow-y:auto;position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.8);">
-            <button onclick="window._closeModal('uni-modal-overlay')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;padding:4px;line-height:1;z-index:1;">✕</button>
-            <div id="uni-modal-body"></div>
-        </div>`;
+        ov.className = 'lb-exchange-overlay';
+        ov.innerHTML = '<div class="lb-block-dialog lb-exchange-dialog lb-exchange-dialog--parts" role="dialog" aria-modal="true" aria-labelledby="uni-title"><div id="uni-modal-body"></div></div>';
         ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('uni-modal-overlay'); });
         document.body.appendChild(ov);
         _animateIn(ov.querySelector('div'), 'anim-in-down');
         _rebuildContent();
     }
 
+    function _exchangeItemCard({ name, art, rarity, count, detail, amountId, amount }) {
+        return `<div class="lb-block-reward lb-exchange-item" data-rarity="${rarity}">
+            ${count != null ? `<span class="lb-block-reward-amount">${escapeHtml(count)} owned</span>` : ''}
+            <div class="lb-exchange-item-art">${art}</div>
+            <strong>${name}</strong>
+            <span class="lb-exchange-item-detail">${detail}</span>
+            <strong class="lb-exchange-item-amount" id="${amountId}">${amount}</strong>
+        </div>`;
+    }
     function openExchangeUniversalParts() {
         const avail = Math.floor(saveData.universalParts || 0);
         if (avail < 1) return;
@@ -2910,28 +2921,24 @@
         document.getElementById('uni-xch-overlay')?.remove();
         const ov = document.createElement('div');
         ov.id = 'uni-xch-overlay';
-        ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:1200;display:flex;align-items:center;justify-content:center;font-family:inherit;';
+        ov.className = 'lb-exchange-overlay';
         ov.innerHTML = `
-            <div style="background:rgba(8,8,18,0.98);border:1px solid #ffd700;border-radius:14px;padding:22px 20px;max-width:300px;width:90%;text-align:center;box-shadow:0 0 30px rgba(255,215,0,0.15);">
-                <div style="font-size:0.85rem;font-weight:bold;color:#ffd700;letter-spacing:2px;margin-bottom:6px;">⭐ EXCHANGE PARTS</div>
-                <div style="font-size:0.63rem;color:#777;margin-bottom:14px;">All items unlocked — convert Universal Parts to XP.</div>
-                <div style="background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.14);border-radius:8px;padding:10px 14px;margin-bottom:14px;text-align:left;font-size:0.62rem;color:#666;">
-                    <div style="margin-bottom:3px;">Rate: <span style="color:#ffd700;font-weight:bold;">1 ⭐ = ${XP_PER_PART.toLocaleString()} XP</span></div>
-                    <div>You have: <span style="color:#fff;font-weight:bold;">${avail}</span> part${avail !== 1 ? 's' : ''}</div>
+            <div class="lb-block-dialog lb-exchange-dialog" role="dialog" aria-modal="true" aria-labelledby="uni-xch-title">
+                <h2 id="uni-xch-title" class="lb-block-dialog-title">Exchange Parts</h2>
+                <p>All items unlocked · ${XP_PER_PART.toLocaleString()} XP per part</p>
+                <div class="lb-exchange-pair">
+                    ${_exchangeItemCard({ name: 'Universal Parts', art: _exchangePartsIcon(), rarity: 'common', count: avail, detail: 'You spend', amountId: 'uni-xch-count', amount: `${avail} ${avail === 1 ? 'part' : 'parts'}` })}
+                    <span class="lb-exchange-arrow" aria-hidden="true">→</span>
+                    ${_exchangeItemCard({ name: 'Experience', art: '<img src="assets/ui/boosters/common-xp.png" alt="">', rarity: 'common', detail: 'You receive', amountId: 'uni-xch-xp', amount: `+${(avail * XP_PER_PART).toLocaleString()} XP` })}
                 </div>
-                <div style="margin-bottom:8px;">
-                    <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:#666;margin-bottom:6px;">
-                        <span>Parts to exchange:</span>
-                        <span id="uni-xch-lbl" style="color:#ffd700;font-weight:bold;">${avail}</span>
-                    </div>
-                    <input type="range" id="uni-xch-slider" min="1" max="${avail}" value="${avail}" step="1" style="width:100%;accent-color:#ffd700;cursor:pointer;">
+                <div class="lb-exchange-quantity">
+                    <label for="uni-xch-slider">Parts to exchange</label>
+                    <output id="uni-xch-lbl" class="lb-exchange-badge" for="uni-xch-slider">${avail}</output>
+                    <input class="lb-block-range" type="range" id="uni-xch-slider" min="1" max="${avail}" value="${avail}" step="1" ${avail === 1 ? 'disabled' : ''}>
                 </div>
-                <div style="font-size:0.7rem;color:#aaa;margin-bottom:18px;min-height:1.4em;">
-                    <span id="uni-xch-count" style="color:#ffd700;font-weight:bold;">${avail}</span> part${avail !== 1 ? 's' : ''} → <span id="uni-xch-xp" style="color:#ffd700;font-weight:bold;">+${(avail * XP_PER_PART).toLocaleString()} XP</span>
-                </div>
-                <div style="display:flex;gap:10px;justify-content:center;">
-                    <button onclick="document.getElementById('uni-xch-overlay').remove()" style="font-size:0.7rem;padding:7px 18px;background:rgba(255,255,255,0.05);border:1px solid #444;border-radius:8px;color:#888;cursor:pointer;font-family:inherit;">CANCEL</button>
-                    <button id="uni-xch-confirm" style="font-size:0.7rem;padding:7px 18px;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,215,0,0.1));border:1px solid #ffd700;border-radius:8px;color:#ffd700;cursor:pointer;font-family:inherit;font-weight:bold;box-shadow:0 0 8px rgba(255,215,0,0.2);">EXCHANGE</button>
+                <div class="lb-block-dialog-actions">
+                    <button type="button" class="lb-block-btn" onclick="document.getElementById('uni-xch-overlay').remove()">Cancel</button>
+                    <button type="button" class="lb-block-btn lb-block-btn--primary" id="uni-xch-confirm">Exchange</button>
                 </div>
             </div>`;
         const slider = ov.querySelector('#uni-xch-slider');
@@ -4213,31 +4220,39 @@
         const maxSets = Math.floor(count / 3);
         if (maxSets < 1) { customAlert(`Need at least 3× ${meta.label} to exchange.`, 'Not enough'); return; }
         document.getElementById('exc-modal-overlay')?.remove();
-        const color = meta.color;
         const overlay = document.createElement('div');
         overlay.id = 'exc-modal-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:1200;display:flex;align-items:center;justify-content:center;font-family:inherit;';
+        overlay.className = 'lb-exchange-overlay';
         overlay.innerHTML = `
-            <div style="background:rgba(8,8,18,0.98);border:1px solid ${color};border-radius:14px;padding:22px 20px;max-width:300px;width:90%;text-align:center;box-shadow:0 0 30px ${color}30;">
-                <div style="font-size:0.85rem;font-weight:bold;color:${color};letter-spacing:2px;margin-bottom:8px;">EXCHANGE</div>
-                <div style="font-size:0.7rem;color:#888;margin-bottom:4px;">3× <span style="color:${color};">${meta.label}</span> → 1× <span style="color:${metaTo.color};">${metaTo.label}</span></div>
-                <div style="font-size:0.6rem;color:#555;margin-bottom:16px;">You have <span style="color:#fff;font-weight:bold;">${count}</span> × ${meta.label}</div>
-                <div style="margin-bottom:18px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.62rem;color:#666;margin-bottom:8px;">
-                        <span>Sets:</span>
-                        <span id="exc-label" style="color:${color};font-weight:bold;">1&nbsp;(3 → 1)</span>
-                    </div>
-                    <input type="range" id="exc-slider" min="1" max="${maxSets}" value="1" step="1"
-                        style="width:100%;accent-color:${color};cursor:pointer;"
-                        oninput="const v=parseInt(this.value);document.getElementById('exc-label').innerHTML=v+'&nbsp;('+(v*3)+' → '+v+')'">
+            <div class="lb-block-dialog lb-exchange-dialog" role="dialog" aria-modal="true" aria-labelledby="exc-title">
+                <h2 id="exc-title" class="lb-block-dialog-title">Booster Exchange</h2>
+                <p>Trade three boosters for one of the next tier.</p>
+                <div class="lb-exchange-pair">
+                    ${[fromKey, toKey].map((key, index) => {
+                        const item = BOOSTER_META[key];
+                        return _exchangeItemCard({ name: item.label, art: LBArtPack.boosterIcon(key), rarity: item.rarity,
+                            count: saveData.boosters?.[key] || 0, detail: `${index === 0 ? 'Spend' : 'Receive'} · ${item.rarity}`,
+                            amountId: index === 0 ? 'exc-spend' : 'exc-receive', amount: index === 0 ? '3' : '+1' });
+                    }).join('<span class="lb-exchange-arrow" aria-hidden="true">→</span>')}
                 </div>
-                <div style="display:flex;gap:10px;justify-content:center;">
-                    <button onclick="window._closeModal('exc-modal-overlay')"
-                        style="font-size:0.7rem;padding:7px 18px;background:rgba(255,255,255,0.05);border:1px solid #444;border-radius:8px;color:#888;cursor:pointer;font-family:inherit;">CANCEL</button>
-                    <button onclick="window._doExchange('${fromKey}','${toKey}','${type}')"
-                        style="font-size:0.7rem;padding:7px 18px;background:linear-gradient(135deg,${color}33,${color}18);border:1px solid ${color};border-radius:8px;color:${color};cursor:pointer;font-family:inherit;font-weight:bold;box-shadow:0 0 8px ${color}30;">EXCHANGE</button>
+                <div class="lb-exchange-quantity">
+                    <label for="exc-slider">Sets to exchange</label>
+                    <output id="exc-label" class="lb-exchange-badge" for="exc-slider">1</output>
+                    <input class="lb-block-range" type="range" id="exc-slider" min="1" max="${maxSets}" value="1" step="1" ${maxSets === 1 ? 'disabled' : ''}>
+                </div>
+                <div class="lb-block-dialog-actions">
+                    <button type="button" class="lb-block-btn" onclick="window._closeModal('exc-modal-overlay')">Cancel</button>
+                    <button type="button" class="lb-block-btn lb-block-btn--primary" id="exc-confirm">Exchange</button>
                 </div>
             </div>`;
+        const slider = overlay.querySelector('#exc-slider');
+        slider.addEventListener('input', () => {
+            const sets = slider.valueAsNumber;
+            overlay.querySelector('#exc-label').textContent = sets;
+            overlay.querySelector('#exc-spend').textContent = sets * 3;
+            overlay.querySelector('#exc-receive').textContent = `+${sets}`;
+        });
+        overlay.querySelector('#exc-confirm').addEventListener('click', () => window._doExchange(fromKey, toKey, type));
         overlay.addEventListener('click', e => { if (e.target === overlay) window._closeModal('exc-modal-overlay'); });
         document.body.appendChild(overlay);
         _animateIn(overlay.querySelector('div'), 'anim-in-down');
@@ -4249,37 +4264,30 @@
         const boosters = saveData.boosters || {};
         const secTitle = 'font-size:0.6rem;color:var(--primary);letter-spacing:2px;font-weight:bold;margin:16px 0 8px;padding-bottom:5px;';
 
-        const xchSvg = `<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>`;
-        function _xchBtn(color, fromKey, toKey, type, enabled) {
-            if (enabled) return `<button onclick="window._openExchangeModal('${fromKey}','${toKey}','${type}')" style="font-size:0.6rem;padding:5px 10px;border-radius:8px;font-family:inherit;white-space:nowrap;cursor:pointer;background:linear-gradient(135deg,${color}22,${color}11);border:1px solid ${color};color:${color};font-weight:600;box-shadow:0 0 6px ${color}28;display:inline-flex;align-items:center;gap:4px;">${xchSvg}Exchange</button>`;
-            return `<button disabled style="font-size:0.6rem;padding:5px 10px;border-radius:8px;font-family:inherit;white-space:nowrap;cursor:default;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.18);display:inline-flex;align-items:center;gap:4px;">${xchSvg}Exchange</button>`;
-        }
-
         // Universal parts section
         const _uniVal = saveData.universalParts || 0;
-        const _uniInt = Math.floor(_uniVal);
-        const _uniDec = Math.round((_uniVal - _uniInt) * 10);
-        const _uniDisplay = _uniDec > 0 ? `${_uniInt}<span style="font-size:0.6em;opacity:0.7;">.${_uniDec}</span>` : `${_uniInt}`;
-        const uniRow = `<div style="display:flex;align-items:center;padding:10px 4px;gap:8px;margin-bottom:4px;">
-            <span class="lb-help-label" style="font-size:0.75rem;color:#ffd700;font-weight:600;flex:1;">⭐ Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" title="About universal parts"></button></span>
-            <span style="font-size:1rem;font-weight:bold;color:#ffd700;">${_uniDisplay}</span>
-            ${(saveData.universalParts||0) >= 1 ? (_getAllPartsItems().length === 0 ? `<button onclick="window.openExchangeUniversalParts()" style="font-size:0.65rem;padding:4px 12px;border-radius:8px;border:1px solid #ffd700;background:rgba(255,215,0,0.1);color:#ffd700;cursor:pointer;font-family:inherit;font-weight:bold;">Exchange</button>` : `<button onclick="window.openUseUniversalPart()" style="font-size:0.65rem;padding:4px 12px;border-radius:8px;border:1px solid #ffd700;background:rgba(255,215,0,0.1);color:#ffd700;cursor:pointer;font-family:inherit;font-weight:bold;">Use</button>`) : ''}
+        const exchangeForXP = _getAllPartsItems().length === 0;
+        const uniRow = `<div class="lb-block-card lb-exchange-row">
+            <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
+            <div class="lb-exchange-row-detail">
+                <strong class="lb-help-label">Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" title="About universal parts"></button></strong>
+                <div class="lb-exchange-row-meta"><span class="lb-exchange-badge">${Number(_uniVal.toFixed(1))} owned</span><span>${_exchangePartsIcon()} 1 part minimum</span></div>
+            </div>
+            <button type="button" class="lb-block-btn lb-block-btn--primary" data-use-parts ${_uniVal < 1 ? 'disabled' : ''}>${exchangeForXP ? 'Exchange' : 'Use'}</button>
         </div>`;
 
         // Boosters section
-        let boosterHtml = BOOSTER_KEYS.map((key, i) => {
+        const boosterHtml = BOOSTER_KEYS.map((key, i) => {
             const meta = BOOSTER_META[key];
             const count = boosters[key] || 0;
             const nextKey = BOOSTER_KEYS[i + 1];
-            const canExchange = count >= 3;
-            const xchBtnHtml = nextKey ? _xchBtn(meta.color, key, nextKey, 'booster', canExchange) : '';
-            const rarityColor = (RARITY_ACH[meta.rarity] || RARITY_ACH.common).color;
-            return `<div class="lb-booster-inventory-row">
-                ${LBArtPack.boosterIcon(key)}
-                <span style="font-size:0.75rem;color:${rarityColor};font-weight:600;">${meta.label}</span>
-                <span style="font-size:0.55rem;color:${rarityColor};opacity:0.7;text-transform:uppercase;letter-spacing:1px;text-align:center;">${meta.rarity}</span>
-                <span style="font-size:0.85rem;font-weight:700;color:#fff;text-align:center;">${escapeHtml(count)}</span>
-                <div style="display:flex;gap:5px;justify-content:flex-end;">${xchBtnHtml}</div>
+            return `<div class="lb-block-card lb-exchange-row" data-rarity="${meta.rarity}">
+                <div class="lb-exchange-row-art">${LBArtPack.boosterIcon(key)}</div>
+                <div class="lb-exchange-row-detail">
+                    <strong>${meta.label}</strong>
+                    <div class="lb-exchange-row-meta"><span class="lb-exchange-badge">${escapeHtml(count)} owned</span><span class="lb-exchange-rarity">${meta.rarity}</span>${nextKey ? '<span>Cost: 3 boosters</span>' : ''}</div>
+                </div>
+                ${nextKey ? `<button type="button" class="lb-block-btn lb-block-btn--primary" aria-label="Exchange ${meta.label}" data-exchange-booster="${i}" ${count < 3 ? 'disabled' : ''}>Exchange</button>` : ''}
             </div>`;
         }).join('');
 
@@ -4310,6 +4318,11 @@
             <div class="lb-help-label" style="${secTitle}">BOOSTERS <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" title="About boosters"></button></div>
             ${boosterHtml}
             ${sfxPacksHtml}`;
+        container.querySelector('[data-use-parts]').addEventListener('click', exchangeForXP ? openExchangeUniversalParts : openUseUniversalPart);
+        container.querySelectorAll('[data-exchange-booster]').forEach(button => button.addEventListener('click', () => {
+            const index = Number(button.dataset.exchangeBooster);
+            exchangeBoosters(BOOSTER_KEYS[index], BOOSTER_KEYS[index + 1]);
+        }));
 
         // SFX pack rows — click to open preview (not on buttons)
         const _sfxPlayFns = { default: playSFX, cyber: _playSFX_B, retro: _playSFX_C, zen: _playSFX_D, arcade: _playSFX_E };

@@ -123,3 +123,68 @@ it('opens the documented screenshot targets through real UI handlers', async () 
   }
   await expect(w.__LB_QA.open('typo')).rejects.toThrow('Unknown QA screen');
 }, 15_000);
+
+it('shows booster costs and disables exchanges the player cannot afford', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
+  const { w, api } = game;
+  api.setSave({ ...api.save, boosters: { ...api.save.boosters, '1.25x_game': 7 } });
+  await w.__LB_QA.open('inventory-other');
+  const inventory = w.document.getElementById('inventory-other-content');
+  const common = inventory.querySelector('[aria-label="Exchange 1.25× Booster"]');
+  expect(common.disabled).toBe(false);
+  expect(inventory.querySelector('[aria-label="Exchange 1.5× Booster"]').disabled).toBe(true);
+  common.click();
+  const dialog = w.document.getElementById('exc-modal-overlay');
+  expect([...dialog.querySelectorAll('img')].map(img => img.getAttribute('src'))).toEqual([
+    'assets/ui/boosters/common-1.25x.png', 'assets/ui/boosters/rare-1.5x.png',
+  ]);
+  expect(dialog.querySelector('#exc-spend').textContent).toBe('3');
+  expect(dialog.querySelector('#exc-receive').textContent).toBe('+1');
+  const slider = dialog.querySelector('#exc-slider');
+  slider.value = '2';
+  slider.dispatchEvent(new w.Event('input'));
+  expect(dialog.querySelector('#exc-spend').textContent).toBe('6');
+  expect(dialog.querySelector('#exc-receive').textContent).toBe('+2');
+  dialog.querySelector('.lb-block-btn--primary').click();
+  expect(api.save.boosters).toMatchObject({ '1.25x_game': 1, '1.5x_game': 4 });
+  expect(inventory.querySelector('[aria-label="Exchange 1.25× Booster"]').disabled).toBe(true);
+  expect(inventory.querySelector('[aria-label="Exchange 1.5× Booster"]').disabled).toBe(false);
+});
+
+it('queues only affordable whole parts and re-enables controls when a part is removed', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
+  const { w, api } = game;
+  api.setSave({ ...api.save, universalParts: 13.2 });
+  await w.__LB_QA.open('universal-parts');
+  const get = id => w.document.getElementById(id);
+  const dialog = get('uni-modal-overlay');
+  const apply = get('uni-apply-btn');
+  expect(apply.disabled).toBe(true);
+  expect(dialog.querySelector('.lb-exchange-parts-icon').getAttribute('src')).toBe('assets/ui/62-parts.svg');
+  for (let count = 0; count < 13; count++) dialog.querySelector('button[id^="uni-inc-"]:not(:disabled)').click();
+  expect(get('uni-avail-lbl').textContent).toBe('0.2 available');
+  expect(dialog.querySelector('button[id^="uni-inc-"]:not(:disabled)')).toBeNull();
+  expect(apply.disabled).toBe(false);
+  dialog.querySelector('button[id^="uni-dec-"]:not([hidden])').click();
+  expect(get('uni-avail-lbl').textContent).toBe('1.2 available');
+  expect(dialog.querySelector('button[id^="uni-inc-"]:not(:disabled)')).not.toBeNull();
+  w._uniDoApply();
+  expect(api.save.universalParts).toBeCloseTo(1.2);
+});
+
+it('updates the parts-for-XP preview and grants the selected amount', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
+  const { w, api } = game;
+  const startXP = 65_000;
+  api.setSave({ ...api.save, totalXP: startXP });
+  await w.__LB_QA.open('universal-exchange');
+  const get = id => w.document.getElementById(id);
+  const slider = get('uni-xch-slider');
+  slider.value = '1';
+  slider.dispatchEvent(new w.Event('input'));
+  expect(get('uni-xch-count').textContent).toBe('1 part');
+  expect(get('uni-xch-xp').textContent).toBe(`+${(5000).toLocaleString()} XP`);
+  get('uni-xch-confirm').click();
+  expect(api.save.universalParts).toBe(12);
+  expect(api.save.totalXP).toBe(startXP + 5000);
+});
