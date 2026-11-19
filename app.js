@@ -1,5 +1,6 @@
 (function() {
 
+    const _qaDemo = window.LBQADemo;
     const _visualReview = window.__LB_TEST__ === true && window.__LB_VISUAL_REVIEW__ === true;
     const HTML_ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
     function escapeHtml(value) {
@@ -27,7 +28,7 @@
     const _devPanel = document.getElementById('dev-panel');
     if (_devPanel && _devMode) _devPanel.style.display = 'flex';
 
-    const _hasFileAPI = 'showOpenFilePicker' in window; // false on Firefox/Safari
+    const _hasFileAPI = !_qaDemo && 'showOpenFilePicker' in window; // false on Firefox/Safari
 
     const COLORS=[null,'#00ffff','#3388ff','#ff9900','#ffff33','#33ff33','#cc33ff','#ff3366'];
     const CLASSIC_COLOR_KEY = COLORS.join(',');
@@ -804,7 +805,7 @@
     Object.assign(defaultSaveData, { dailyGiftStreak: 0, lastSeenTime: 0 });
 
     // --- FILE SYSTEM ACCESS API ---
-    const _nativeAdapter = window.Capacitor?.isNativePlatform()
+    const _nativeAdapter = _qaDemo ? null : window.Capacitor?.isNativePlatform()
         ? window.LBNativeSave.createFilesystemSave(window.Capacitor.Plugins.Filesystem)
         : window.__TAURI__ ? {
             load: () => window.__TAURI__.core.invoke('load_save'),
@@ -884,6 +885,7 @@
     if (_desktopSave) window.flushLinebreakerSave = () => _saveWritePromise;
     let _pendingSaveJSON = null;
     function writeSaveFile(data) {
+        if (_qaDemo) return Promise.resolve();
         if (_desktopSave && !_desktopSaveReady) return Promise.resolve();
         _pendingSaveJSON = JSON.stringify(LBSave.serializeSave(data, WEEKLY_MISSION_POOL), null, 2);
         if (!_saveWritePromise) {
@@ -925,15 +927,18 @@
     _musicFollowsSpeedToggle.addEventListener('change', () => onSettingChange('musicFollowsSpeed', _musicFollowsSpeedToggle.checked));
     _lineClearEffectSelect.addEventListener('change', () => onSettingChange('lineClearEffect', _lineClearEffectSelect.value));
     function loadSettings() {
-        try { settings = { ...defaultSettings, ...LBSave.cleanSettings(JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}')) }; } catch(e) {}
+        if (!_qaDemo) try { settings = { ...defaultSettings, ...LBSave.cleanSettings(JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}')) }; } catch(e) {}
         if (!settings.gridStyle) settings.gridStyle = 'lines';
         settings.lineClearEffect = LBLineClear.normalizeMode(settings.lineClearEffect);
         settings.keyBindings = LBControls.normalizeBindings(settings.keyBindings);
     }
-    function saveSettings() { localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings)); saveDataToFile(); }
+    function persistSettings() {
+        if (!_qaDemo) localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
+    }
+    function saveSettings() { persistSettings(); saveDataToFile(); }
     let _saveFileDebounceId = null;
     function saveSettingsDebounced() {
-        localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
+        persistSettings();
         clearTimeout(_saveFileDebounceId);
         _saveFileDebounceId = setTimeout(saveDataToFile, 600);
     }
@@ -2274,6 +2279,33 @@
     }
 
     async function loadData() {
+        if (_qaDemo) {
+            await _missionCatalogReady;
+            applyLoadedData(_qaDemo.createSave(defaultSaveData, _defaultMissions()), false);
+            _qaDemo.seedMissions(saveData.missions);
+            _qaDemo.mount({
+                run: startQARun, resetRun: resetQARun, alert: customAlert, confirm: customConfirm,
+                season: _seasonScreen, tracksReady: _initTrackCatalog,
+                levelUp: () => _showLevelUpRewardPopup(getLevelInfo(saveData.totalXP).level, _generateLevelBoxRewards()),
+                levelCrate() {
+                    const { level, rank } = getLevelInfo(saveData.totalXP);
+                    saveData.pendingLevelBox = { level, rankName: rank.name, rankColor: rank.c, rewards: _generateLevelBoxRewards() };
+                    _showLevelBox();
+                },
+                closeLevelCrate() {
+                    document.getElementById('level-box-overlay')?.remove();
+                    saveData.pendingLevelBox = null;
+                    _levelBoxShowing = false;
+                },
+                dailyGift() {
+                    saveData.lastDailyGift = _qaDemo.previousDate();
+                    document.getElementById('lb43-daily-gift').click();
+                },
+            });
+            randomizePlayButton(); drawRankBadge(); _checkGlowNotifications(); startMusic('menu');
+            _dismissLoadingScreen();
+            return;
+        }
         // Failsafe: if something hangs, dismiss loading screen after 8s
         const _loadTimeout = setTimeout(() => {
             const ls = document.getElementById('loading-screen');
@@ -2307,6 +2339,7 @@
         if (!ls || ls.dataset.dismissed) return;
         ls.dataset.dismissed = '1';
         _setLoadProgress(100, 'Ready!');
+        if (_qaDemo) { ls.style.display = 'none'; return; }
         setTimeout(() => {
             ls.classList.add('ls-hidden');
             setTimeout(() => { ls.style.display = 'none'; }, 600);
@@ -2325,7 +2358,7 @@
         let skinNotice = '', skinSettingsChanged = false;
         if (data && typeof data.totalXP === 'number') {
             const fileSettings = data._settings;
-            const useFileSettings = fileSettings && !localStorage.getItem('tetrisRPG_settings');
+            const useFileSettings = fileSettings && (_qaDemo || !localStorage.getItem('tetrisRPG_settings'));
             saveData = { ...JSON.parse(JSON.stringify(defaultSaveData)), ...data };
             if (useFileSettings) {
                 Object.assign(settings, defaultSettings, fileSettings);
@@ -2377,7 +2410,7 @@
             // Load settings from file only when no local settings exist (new device / first run)
             // localStorage is authoritative — avoids stale file overwriting fresh settings on reload
             if (useFileSettings) {
-                localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
+                persistSettings();
                 _rebuildBgBlocks();
                 _doApplyTheme(settings.theme || 'default');
                 applyFontSize(settings.fontSize || '5');
@@ -2422,6 +2455,7 @@
     }
 
     async function showFileSetup(existingHandle) {
+        if (_qaDemo) return;
         await _missionCatalogReady;
         _dismissLoadingScreen();
         const overlay = document.getElementById('file-setup-overlay');
@@ -2527,7 +2561,7 @@
                     settings.skin = DEFAULT_BLOCK_SKIN;
                     settings.blockShape = 'square';
                     fileHandle = handle;
-                    localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
+                    persistSettings();
                     await saveDataToFile();
                     await saveHandleToIDB(handle);
                     overlay.classList.add('hidden');
@@ -2539,7 +2573,7 @@
     }
 
     function saveDataToFile() {
-        if (_gameInProgress) return; // defer saves until game over — keeps score and achievements in sync
+        if (_qaDemo || _gameInProgress) return; // defer saves until game over — keeps score and achievements in sync
         seasonPass.observe(saveData);
         LBCrates.observeTime(saveData);
         return writeSaveFile({ ...saveData, _settings: { ...settings } });
@@ -4603,7 +4637,7 @@
             settings.sfxPack = 'default';
             settings.btnStyle = 'square';
             // Save settings directly to localStorage (no file write) to avoid concurrent write race
-            localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
+            persistSettings();
             _doApplyTheme('default');
             await saveDataToFile();
             drawRankBadge();
@@ -4792,6 +4826,7 @@
     }
 
     async function startExportProcess() {
+        if (_qaDemo) return;
         try {
             const saveFile = _encSave(JSON.stringify({ version: 3, data: LBSave.serializeSave({ ...saveData, _settings: settings }, WEEKLY_MISSION_POOL) }, null, 2));
             downloadFile('Linebreaker_Save.lbsave', saveFile);
@@ -4802,6 +4837,7 @@
     }
 
     function handleFileImport(event) {
+        if (_qaDemo) return;
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
@@ -7352,7 +7388,7 @@
     let currentGameMode = 'normal'; // 'normal', 'fun'
     let holdPiece = null, holdUsed = false;
     let funModeConfig = { cols: 10, rows: 20, startSpeed: 1 };
-    try { const _fmc = JSON.parse(localStorage.getItem('tetrisRPG_funConfig') || 'null'); if (_fmc && typeof _fmc === 'object') funModeConfig = { ...funModeConfig, ..._fmc }; } catch(e) {}
+    if (!_qaDemo) try { const _fmc = JSON.parse(localStorage.getItem('tetrisRPG_funConfig') || 'null'); if (_fmc && typeof _fmc === 'object') funModeConfig = { ...funModeConfig, ..._fmc }; } catch(e) {}
 
     let player = {pos:{x:0,y:0},matrix:null,next:null};
     let pieceBag = []; let lastPieceColor = 0; let _nextQueue = [];
@@ -8480,7 +8516,7 @@
             </div>`).join('');
     }
 
-    function startAnimation() {
+    function startAnimation(onStarted) {
         const thisAnim = ++_animId;
         const overlay = document.getElementById('start-animation-overlay');
         const container = document.getElementById('start-text-container');
@@ -8502,10 +8538,11 @@
             timeInterval=setInterval(()=>{if(!isPaused&&!isGameOver&&!document.hidden){gameTime++;updateUI()}},1000);
             lastTime=performance.now(); update(lastTime);
             switchMusicMode('game');
+            onStarted?.();
         }, 1600);
     }
 
-    function startGame(){
+    function startGame(onStarted){
         if (_gameOverProtect) return;
         // Show rules on first fun/master play
         if (currentGameMode === 'fun' && !saveData.seenFunRules) {
@@ -8598,8 +8635,27 @@
         // Rebuild speed tape for current mode
         ['m-speed-inner','pc-speed-inner'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
         _buildSpeedTapes();
-        resetPlayer();updateUI(); startAnimation();
+        resetPlayer();updateUI(); startAnimation(typeof onStarted === 'function' ? onStarted : undefined);
         if (settings.optHold) drawHold();
+    }
+    function startQARun(screen) {
+        currentGameMode = 'normal';
+        if (screen === 'start-animation') return startGame();
+        return new Promise(resolve => startGame(() => {
+            if (screen === 'pause') togglePause();
+            if (screen === 'game-over') gameOver();
+            resolve();
+        }));
+    }
+    function resetQARun() {
+        ++_animId;
+        _gameOverProtect = false;
+        _gameInProgress = false;
+        clearInterval(timeInterval);
+        for (const id of ['start-animation-overlay', 'pause-overlay', 'go-overlay']) {
+            document.getElementById(id).classList.add('hidden');
+        }
+        resetGameToMenu();
     }
     function resetGameToMenu(){
         if (_gameOverProtect) return;
@@ -8922,7 +8978,7 @@
 
     function _showLevelUpRewardPopup(level, rewards) {
         const li = getLevelInfo(saveData.totalXP);
-        const rankName = li.isCelestite ? 'CELESTITE' : li.rank;
+        const rankName = li.rank.name;
         const _liLvlInRank = li.lvlInRank ?? ((li.level - 1) % 10);
         const levelStr = li.isCelestite ? (' ' + _toRoman(li.level)) : (_liLvlInRank === 0 ? '' : (' ' + _toRoman(_liLvlInRank)));
         document.getElementById('level-up-popup-overlay')?.remove();
@@ -10211,7 +10267,7 @@
     };
     window.renderMissionsOverlay = renderMissionsOverlay;
 
-    window.LBSeasonUI.mount({
+    const _seasonScreen = window.LBSeasonUI.mount({
         getSave: () => saveData,
         save: saveDataToFile,
         partName: _partItemName,
@@ -10760,7 +10816,7 @@
         document.getElementById('fun-cols-val').value = funModeConfig.cols;
         document.getElementById('fun-rows-val').value = funModeConfig.rows;
         document.getElementById('fun-speed-val').value = funModeConfig.startSpeed;
-        localStorage.setItem('tetrisRPG_funConfig', JSON.stringify(funModeConfig));
+        if (!_qaDemo) localStorage.setItem('tetrisRPG_funConfig', JSON.stringify(funModeConfig));
 
         const board = document.getElementById('play-board-preview');
         board.style.setProperty('--play-cols', funModeConfig.cols);
@@ -11525,7 +11581,7 @@
     const controlsEditor = LBControls.createEditor(document.getElementById('controls-settings'),
         () => settings.keyBindings, bindings => { settings.keyBindings = bindings; saveSettings(); });
     LBGamepad.start({ press: pressGameInput, release: releaseGameInput, back: backFromOverlay });
-    const _reminders = window.LBNotifications.mount({
+    const _reminders = _qaDemo ? null : window.LBNotifications.mount({
         getSettings: () => settings,
         saveSettings,
         streakRequirementMet: () => {

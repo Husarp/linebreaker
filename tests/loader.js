@@ -5,7 +5,6 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   if (fetchImpl && typeof fetchImpl === 'object') { initialSettings = fetchImpl; fetchImpl = async () => ({ok:true, json:async () => []}); }
   const dom = new JSDOM(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), {url:'https://linebreaker.test/', runScripts:'outside-only', pretendToBeVisual:true});
   const w = dom.window;
-  configureWindow?.(w);
   const RealDate = w.Date;
   w.Date = class extends RealDate { constructor(...args) { super(...(args.length ? args : ['2026-11-18T12:00:00Z'])); } static now() { return Date.parse('2026-11-18T12:00:00Z'); } };
   w.fetch = fetchImpl;
@@ -47,6 +46,7 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   let seed = 42; w.Math.random = () => ((seed = (Math.imul(seed,1664525)+1013904223) >>> 0)/4294967296);
   if (desktopInvoke) w.__TAURI__ = { core: { invoke: desktopInvoke } };
   if (capacitor) w.Capacitor = capacitor;
+  configureWindow?.(w);
   w.eval(readFileSync(new URL('../native-save.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../41-season-pass.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../save-sanitize.js', import.meta.url), 'utf8'));
@@ -61,6 +61,7 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   w.eval(readFileSync(new URL('../44-art-pack.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../42-line-clear.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../41-season-pass-ui.js', import.meta.url), 'utf8'));
+  w.eval(readFileSync(new URL('../qa-demo.js', import.meta.url), 'utf8'));
   w.__LB_TEST__ = flag;
   w.eval(readFileSync(new URL('../app.js', import.meta.url), 'utf8').replace('window.__lb = {', 'window.__lb = { writeSaveFile, applyLoadedData, startMusic, switchMusicMode, _initTrackCatalog, _getPlaylist,'));
   // Let IndexedDB-backed startup finish before tests mutate state or close the window.

@@ -185,7 +185,7 @@
             entry.focus({ preventScroll: true });
         }
 
-        entry.addEventListener('click', () => {
+        function open() {
             if (isOpen()) return;
             inertTargets = [missions, menu].filter(element => !element.hasAttribute('inert'));
             inertTargets.forEach(element => element.setAttribute('inert', ''));
@@ -196,9 +196,10 @@
             announcement.textContent = '';
             back.focus({ preventScroll: true });
             refresh(true);
-            loadConfig();
             timer = setInterval(refresh, 1000);
-        });
+            return loadConfig();
+        }
+        entry.addEventListener('click', open);
         back.addEventListener('click', close);
         find('.sp-missions').addEventListener('click', close);
         retry.addEventListener('click', loadConfig);
@@ -229,6 +230,7 @@
             }
             refresh(true);
         });
+        return { open, close };
     }
 
     window.LBSeasonUI = { mount };
