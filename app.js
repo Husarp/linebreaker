@@ -11300,94 +11300,104 @@
 
     function renderHelp() {
         const number = value => value.toLocaleString();
-        const definitions = entries => `<dl>${entries.map(([term, text]) => `<dt>${term}</dt><dd>${text}</dd>`).join('')}</dl>`;
-        const milestoneList = milestones => milestones.map(({ pts, label }) => `${pts} pts (${label})`).join(' · ');
+        const definitions = entries => `<dl class="lb-help-rows">${entries.map(([term, text]) => `<div><dt>${term}</dt><dd>${text}</dd></div>`).join('')}</dl>`;
+        const bullets = (...items) => `<ul>${items.map(item => `<li>${item}</li>`).join('')}</ul>`;
+        const block = (title, body, id = '') => `<div class="lb-help-block"><h3 class="lb-block-section-title"${id ? ` id="help-${id}" tabindex="-1"` : ''}>${title}</h3>${body}</div>`;
+        const table = (label, columns, rows) => `<table class="lb-help-table" aria-label="${label}"><thead><tr>${columns.map(column => `<th scope="col">${column}</th>`).join('')}</tr></thead><tbody>${rows.map(([heading, ...cells]) => `<tr><th scope="row">${heading}</th>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+        const milestones = entries => definitions(entries.map(({ pts, label }) => [`${pts} pts`, escapeHtml(label)]));
+        const keycap = code => `<kbd>${escapeHtml(LBControls.keyLabel(code))}</kbd>`;
         const settingRange = id => {
             const input = document.getElementById(id);
             return `${input.min}–${input.max}`;
         };
         const lineNames = ['Single', 'Double', 'Triple', 'Quad'];
-        const controls = Object.entries(LBControls.actions).map(([action, label]) => [
-            label, settings.keyBindings[action].filter(Boolean).map(LBControls.keyLabel).join(' / ') || 'Unbound'
-        ]);
+        const controls = Object.entries(LBControls.actions).map(([action, label]) => {
+            const keys = settings.keyBindings[action].filter(Boolean);
+            return [label, keys.length ? `<span class="lb-help-keycaps">${keys.map(keycap).join('')}</span>` : '<span class="lb-help-unbound">Unbound</span>'];
+        });
+        const pieces = BASE_PIECES.slice(1).map((matrix, index) => {
+            const cells = matrix.flatMap((row, rowIndex) => row.flatMap((filled, column) => filled ? [[column, rowIndex]] : []));
+            const columns = cells.map(([column]) => column);
+            const rows = cells.map(([, row]) => row);
+            const left = (3 - Math.max(...columns) - Math.min(...columns)) * 5;
+            const top = (1 - Math.max(...rows) - Math.min(...rows)) * 5;
+            return `<li><svg viewBox="0 0 40 20" width="40" height="20" color="${COLORS[index + 1]}" aria-hidden="true">${cells.map(([column, row]) => `<rect x="${column * 10 + left + 1}" y="${row * 10 + top + 1}" width="8" height="8" rx="1"/>`).join('')}</svg><span>${'IJLOSTZ'[index]}</span></li>`;
+        }).join('');
         const rankRows = RANKS.map(({ name, maxLvl }, index) => [
-            name, `Levels ${(RANKS[index - 1]?.maxLvl || 0) + 1}–${maxLvl} · ${number(_RANK_XP_PER_LEVEL[index])} XP per level`
+            name, `${(RANKS[index - 1]?.maxLvl || 0) + 1}–${maxLvl}`, number(_RANK_XP_PER_LEVEL[index])
         ]);
-        rankRows.push([CELESTITE_RANK.name, `Level ${RANKS.at(-1).maxLvl + 1} onward · ${number(CELESTITE_XP_PER_LEVEL)} XP per level`]);
+        rankRows.push([CELESTITE_RANK.name, `${RANKS.at(-1).maxLvl + 1}+`, number(CELESTITE_XP_PER_LEVEL)]);
         const modifiers = playModifiers.map(({ key, name, percent, level, description }) => {
             const text = key === 'optHold'
                 ? 'Store a piece or swap it back in with your Hold binding. Each piece can only be held once per turn.'
                 : description;
             const pct = `${percent > 0 ? '+' : '−'}${Math.abs(percent)}%`;
-            return [name, `${text} Unlocks at level ${level}. ${pct} in Normal.`];
+            return [name, `${text}<span class="lb-help-meta">Level ${level} · ${pct} in Normal</span>`];
         });
         const sections = [
             ['basics', 'Basics & controls', `
-                <p>Stack falling pieces to fill horizontal rows. Full rows disappear and free up space. The run ends when a new piece cannot enter the board.</p>
-                <h3>Keyboard bindings</h3>
-                <p>These are your current bindings. Change either slot in Settings → Controls. Select a slot, press a key to bind it, or press Backspace to clear it. Reset to defaults restores the original layout.</p>
-                ${definitions(controls)}
-                <h3>Touch</h3>
-                <p>Use the on-screen buttons or the board gestures. Drag sideways to move and drag slowly down to soft drop. Flick down to hard drop, swipe up to hold, or tap to rotate. Tap on the left side or with two fingers for counter-clockwise rotation.</p>
-                <h3>Gamepad</h3>
-                <p>With a standard-mapped controller, use the D-pad or left stick to move, the left bumper to soft drop and the right bumper to hard drop. The bottom and right face buttons rotate in opposite directions; the left and top face buttons hold. Start pauses. In menus, the D-pad moves focus, the bottom face button selects, and the right face button goes back.</p>
-                <h3 id="help-sound" tabindex="-1">Sound settings</h3>
-                <p>Adjust music and sound effects independently. Open the playlist from Sound to choose which tracks can play.</p>
-                <h3 id="help-display" tabindex="-1">Display settings</h3>
-                <p>Adjust font size and other display preferences in Settings. Look in Gameplay for effects such as screen shake and grid visibility, or use Inventory to equip owned appearance items.</p>`],
+                ${block('Stack & clear', `<p>Fill horizontal rows to clear them and make room. If a new piece can’t enter the board, the run ends.</p><ul class="lb-help-pieces" aria-label="The seven pieces">${pieces}</ul>`)}
+                ${block('Keyboard bindings', `${definitions(controls)}${bullets('Change either slot in <strong>Settings → Controls</strong>. Select a slot and press a key to bind it.', `Press ${keycap('Backspace')} to clear a selected slot, or choose <strong>Reset to defaults</strong> to restore the layout.`)}`)}
+                ${block('Touch', `<p>Use the on-screen buttons or gesture on the board.</p>${definitions([
+                    ['Drag sideways', 'Move'], ['Drag down slowly', 'Soft drop'], ['Flick down', 'Hard drop'],
+                    ['Swipe up', 'Hold'], ['Tap', 'Rotate'], ['Left-side or two-finger tap', 'Rotate counter-clockwise']
+                ])}`)}
+                ${block('Gamepad', `${definitions([
+                    ['D-pad / left stick', 'Move'], ['Left / right bumper', 'Soft drop / hard drop'],
+                    ['Bottom / right face button', 'Rotate in opposite directions'], ['Left / top face button', 'Hold'], ['Start', 'Pause']
+                ])}<p>In menus: use the D-pad to move focus, the bottom button to select and the right button to go back.</p>`)}
+                ${block('Sound settings', bullets('Adjust music and sound effects separately.', 'Use the playlist under Sound to pick which tracks can play.'), 'sound')}
+                ${block('Display settings', bullets('Change font size and display preferences in Settings.', 'Find screen shake and grid visibility under Gameplay.', 'Equip owned appearance items in Inventory.'), 'display')}`],
             ['scoring', 'Scoring & speed', `
-                <p>Placed pieces and completed lines earn points. These are the base points for a line clear, before speed, modifiers and combo bonuses:</p>
-                ${definitions(_LINE_PTS.slice(1).map((points, index) => [lineNames[index], `${points} points`]))}
-                <p>Speed rises every ${LINES_PER_SPEED} lines, up to speed ${SPEED_MULTIPLIERS.length}. At higher speeds, pieces fall faster and speed multiplies the base points for placements and clears, from ×${SPEED_MULTIPLIERS[0]} to ×${SPEED_MULTIPLIERS.at(-1)}.</p>
-                <p>Successive line-clearing placements build a combo. Each cleared line adds a combo step; after the first step each step is worth ${COMBO_STEP_POINTS} bonus points before modifiers. A placement with no line clear breaks the combo.</p>`],
+                ${block('Line clear points', `<p>Placements and line clears both score. Here’s what a clear earns before bonuses and modifiers.</p>${table('Base line clear points', ['Clear', 'Lines', 'Points'], _LINE_PTS.slice(1).map((points, index) => [lineNames[index], index + 1, points]))}`)}
+                ${block('Speed', bullets(`Speed rises every ${LINES_PER_SPEED} lines, up to speed ${SPEED_MULTIPLIERS.length}.`, `Pieces fall faster, and placement and clear points scale from ×${SPEED_MULTIPLIERS[0]} to ×${SPEED_MULTIPLIERS.at(-1)}.`))}
+                ${block('Combos', bullets('Keep clearing lines on consecutive placements. Every line adds a combo step.', `After the first step, each step adds ${COMBO_STEP_POINTS} points before modifiers.`, 'A placement without a clear breaks the combo.'))}`],
             ['ranks', 'Ranks & XP', `
-                <p>In Normal, clear at least one line to earn run XP. Score and any personal-best bonus contribute to XP before the daily streak multiplier. Total XP advances your level and unlocks ranks, rewards and modifiers.</p>
-                ${definitions(rankRows)}`],
+                ${block('Earn run XP', bullets('Clear at least one line in Normal.', 'Your score and any personal-best bonus count before the daily streak multiplier.', 'Total XP unlocks levels, ranks, rewards and modifiers.'))}
+                ${block('Rank ladder', table('Rank ladder', ['Rank', 'Levels', 'XP / level'], rankRows))}`],
             ['missions', 'Missions & milestones', `
-                <p>Daily quests refresh each day; weekly missions reset on Monday. Normal runs count toward both, and daily quest points also count toward weekly milestones. Claim completed missions and unlocked milestone rewards from the Missions screen.</p>
-                <p>A hidden secret quest can appear in the daily list. The Change control lets you replace an eligible mission; secret quests cannot be swapped.</p>
-                ${definitions([['Daily milestones', milestoneList(MQ_DAILY_MILESTONES)], ['Weekly milestones', milestoneList(MQ_WEEKLY_MILESTONES)]])}
-                <h3>Bonus Box</h3>
-                <p>Daily points beyond the last daily milestone fill the Bonus Box. Every ${MQ_SPECIAL_BOX_CAP} overflow points earn ${MQ_SPECIAL_BOX_PARTS} universal parts.</p>
-                <h3>Golden Zone</h3>
-                <p>Every weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD} earns a universal part to claim from the weekly panel.</p>`],
+                ${block('Play & claim', bullets('Normal runs count toward daily quests and weekly missions. Daily points also count toward weekly milestones.', 'Daily quests refresh every day; weekly missions reset on Monday.', 'Claim completed missions and milestone rewards in Missions.', 'Use <strong>Change</strong> to swap eligible missions. Hidden secret quests can’t be swapped.'))}
+                ${block('Daily milestones', milestones(MQ_DAILY_MILESTONES))}
+                ${block('Weekly milestones', milestones(MQ_WEEKLY_MILESTONES))}
+                ${block('Bonus Box', `<p>Beyond the last daily milestone, every ${MQ_SPECIAL_BOX_CAP} overflow points earn ${MQ_SPECIAL_BOX_PARTS} universal parts.</p>`)}
+                ${block('Golden Zone', `<p>Claim one universal part for every weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD}.</p>`)}`],
             ['streaks', 'Streaks & multipliers', `
-                <p>Keep a daily streak by earning the required pre-streak run XP in Normal each day. The requirement depends on rank; yours is ${number(_dailyStreakXPThreshold())} raw XP per day. Missing a day or its XP target breaks the streak.</p>
-                ${definitions(MISSION_STREAK_XP_TIERS.map(([days, multiplier]) => [`${days}+ days`, `×${multiplier.toFixed(2)} run XP`]))}
-                <p>The daily streak affects XP, not the in-run score. Mode modifiers affect scoring in Normal, and a booster can add XP after a run.</p>`],
+                ${block('Keep your streak', bullets(`Earn <strong>${number(_dailyStreakXPThreshold())} raw XP</strong> in Normal each day, before applying the streak multiplier. The target depends on rank.`, 'Missing a day or falling short of the target breaks the streak.'))}
+                ${block('Streak bonuses', definitions(MISSION_STREAK_XP_TIERS.map(([days, multiplier]) => [`${days}+ days`, `×${multiplier.toFixed(2)} run XP`])))}
+                ${block('What changes', definitions([['Daily streak', 'Run XP only'], ['Mode modifiers', 'Scoring in Normal'], ['Booster', 'XP after the run']]))}`],
             ['boxes', 'Boxes & parts', `
-                <p>Level and milestone boxes supply item parts and universal parts. Missions also award parts. Item parts belong to a specific cosmetic, such as a block skin, palette, theme color, grid style or sound pack. Once you have enough parts, unlock the item and equip it in Inventory.</p>
-                <p>Universal parts can fill missing item parts. Use them from Inventory → Other. If no part-unlockable items remain, you can exchange universal parts for XP instead.</p>`],
+                ${block('Find parts', bullets('Open level and milestone boxes for item parts and universal parts.', 'Missions also award parts.'))}
+                ${block('Item parts', bullets('Each part belongs to a specific cosmetic: a skin, palette, theme color, grid style or sound pack.', 'Collect enough parts, then unlock and equip the item in Inventory.'))}
+                ${block('Universal parts', bullets('Use <strong>Inventory → Other</strong> to fill in missing item parts.', 'If no part-unlockable items remain, exchange universal parts for XP.'))}`],
             ['achievements', 'Achievements & rarities', `
-                <p>Achievements track feats and milestones. Open Achievements to see progress and claim XP from completed achievements. Secret goals are hidden until discovered.</p>
-                <p>These are the standard XP rewards by rarity; the achievement card shows the actual reward.</p>
-                ${definitions(Object.entries(RARITY_ACH).map(([id, { label }]) => [label, `${number(_ACH_XP[id])} XP`]))}`],
+                ${block('Track & claim', bullets('Open Achievements to track feats and milestones and claim XP for completed goals.', 'Secret goals stay hidden until discovered.'))}
+                ${block('Rarity rewards', `<p>These are standard rewards. Check the achievement card for its actual XP.</p>${table('Standard XP by rarity', ['Rarity', 'XP'], Object.entries(RARITY_ACH).map(([id, { label }]) => [label, number(_ACH_XP[id])]))}`)}`],
             ['boosters', 'Boosters', `
-                <p>Earn boosters from rewards and find them in Inventory → Other. Use an available booster on the results screen of a Normal run that earned XP. You can use one per run. Boosters multiply the XP awarded for that run, not the leaderboard score.</p>
-                ${definitions(BOOSTER_KEYS.map(key => [BOOSTER_META[key].label, `×${BOOSTER_INFO[key].mult} run XP`]))}`],
+                ${block('Use a booster', bullets('Find earned boosters in <strong>Inventory → Other</strong>.', 'Use one booster on the results screen of a Normal run that earned XP.', 'Boosters multiply run XP, not your leaderboard score.'))}
+                ${block('XP multipliers', definitions(BOOSTER_KEYS.map(key => [BOOSTER_META[key].label, `×${BOOSTER_INFO[key].mult} run XP`])))}`],
             ['modes', 'Game modes & modifiers', `
-                <h3>Normal</h3>
-                <p>Play on the standard board (${COLS_NORMAL} columns × ${VISIBLE_ROWS} visible rows), post scores to the Normal leaderboard, and earn XP and mission progress.</p>
-                <h3>Fun</h3>
-                <p>Sandbox with its own scores. Set board width to ${settingRange('fun-cols')} columns, height to ${settingRange('fun-rows')} rows, and initial speed to ${settingRange('fun-speed')}. Fun runs do not earn run XP or mission progress, but can count toward applicable achievements.</p>
-                <h3>Modifiers</h3>
-                <p>Toggle unlocked options before a run. Their percentages add together in Normal to adjust scoring and therefore run XP. In Fun, modifiers change play without a scoring multiplier.</p>
-                ${definitions(modifiers)}`],
+                ${block('Normal', bullets(`Standard board: ${COLS_NORMAL} columns × ${VISIBLE_ROWS} visible rows.`, 'Post scores to the Normal leaderboard and earn XP and mission progress.'))}
+                ${block('Fun', `<p>A sandbox with its own scores. Runs count toward applicable achievements, but give no run XP or mission progress.</p>${definitions([
+                    ['Width', `${settingRange('fun-cols')} columns`], ['Height', `${settingRange('fun-rows')} rows`], ['Starting speed', settingRange('fun-speed')]
+                ])}`)}
+                ${block('Modifiers', `${bullets('Toggle unlocked options before a run.', 'In Normal, percentages add together and affect scoring and run XP. In Fun, modifiers change play without a scoring multiplier.')}${definitions(modifiers)}`)}`],
             ['glossary', 'Glossary', `
-                ${definitions([
-                    ...lineNames.map((name, index) => [name, `Clear ${index + 1} ${index ? 'lines' : 'line'} with one placement.`]),
+                ${block('Line clear names', definitions(lineNames.map((name, index) => [name, `${index + 1} ${index ? 'lines' : 'line'} in one placement`])))}
+                ${block('Moves & board', definitions([
                     ['Hard drop', 'Send a piece to the lowest valid row and lock it immediately.'],
                     ['Soft drop', 'Move the piece down faster without an instant lock.'],
                     ['T-spin', 'Rotate a T-piece into a tight slot so most of its corners are blocked.'],
-                    ['Combo', 'The number of lines cleared across uninterrupted line-clearing placements.'],
-                    ['Line streak', 'The number of consecutive placements that clear at least one line.'],
                     ['Ghost piece', 'A preview of where the active piece would land.'],
                     ['Top out', 'The point at which a new piece cannot enter the board.']
-                ])}
-                <p><button type="button" class="lb-btn lb-btn--ghost" id="help-tutorial">Open tutorials</button></p>`]
+                ]))}
+                ${block('Scoring terms', definitions([
+                    ['Combo', 'Lines cleared across uninterrupted line-clearing placements.'],
+                    ['Line streak', 'Consecutive placements that clear at least one line.']
+                ]))}
+                <button type="button" class="lb-block-btn" id="help-tutorial">Open tutorials</button>`]
         ];
-        helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-btn lb-btn--ghost" data-help-jump="${id}">${title}</button>`).join('');
-        helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" tabindex="-1">${title}</h2>${body}</section>`).join('');
+        helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-block-btn" data-help-jump="${id}">${title}</button>`).join('');
+        helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-help-topic lb-block-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" class="lb-help-chapter-title" tabindex="-1">${title}</h2>${body}</section>`).join('');
         document.getElementById('help-tutorial').addEventListener('click', () => {
             window.openTutorial();
             document.querySelector('#tutorial-overlay .btn-back').focus();
