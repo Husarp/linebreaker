@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="41-season-pass.css">
     <link rel="stylesheet" href="43-crates-daily-gift.css">
     <link rel="stylesheet" href="60-foundation.css">
+    <link rel="stylesheet" href="61-achievements.css">
 </head>
 <body>
 
@@ -933,9 +934,9 @@
     <div style="width:100%; max-width:640px; margin:0 auto; padding:16px 20px;">
         <!-- Tabs -->
         <div style="display:flex; gap:6px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
-            <button class="opt-btn active" data-achtab="all">ALL</button>
-            <button class="opt-btn" data-achtab="unlocked">UNLOCKED</button>
-            <button class="opt-btn" data-achtab="locked">LOCKED</button>
+            <button class="lb-block-btn lb-block-tab" data-achtab="all" aria-pressed="true">ALL</button>
+            <button class="lb-block-btn lb-block-tab" data-achtab="unlocked" aria-pressed="false">UNLOCKED</button>
+            <button class="lb-block-btn lb-block-tab" data-achtab="locked" aria-pressed="false">LOCKED</button>
             <label style="margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;" title="Show unlock dates on hover">
                 <span style="font-size:0.55rem;color:#555;">Dates</span>
                 <span class="toggle">
