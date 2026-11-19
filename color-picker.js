@@ -86,7 +86,7 @@
             </header>
             ${pieces ? `<div class="lb-color-piece-header">
                 <span class="lb-color-label"></span>
-                <button type="button" class="lb-btn lb-btn--ghost lb-btn--icon lb-color-info" aria-label="Palette help" aria-expanded="false" aria-controls="${id}-help">i</button>
+                <button type="button" class="lb-block-info-icon lb-color-info" aria-label="Palette help" aria-expanded="false" aria-controls="${id}-help"></button>
             </div>
             <p id="${id}-help" class="lb-color-hint" hidden>Click a piece to change its colour.</p>
             <div class="lb-color-pieces" role="group" aria-label="Piece colours">${pieces.map(drawPiece).join('')}</div>` : ''}
