@@ -6381,7 +6381,9 @@
         const _isAchTabSwitch = !!_prevAchTab && _prevAchTab !== tab;
         const _ACH_ORD = ['all', 'unlocked', 'locked'];
 
-        overlay.querySelectorAll('[data-achtab]').forEach(b => b.classList.toggle('active', b.dataset.achtab === tab));
+        overlay.querySelectorAll('[data-achtab]').forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.achtab === tab));
+        });
 
         const container = document.getElementById('ach-list');
         if (!container) return;
@@ -6411,15 +6413,15 @@
         if (oldTip) oldTip.remove();
 
         if (saveData.pendingAchievementClaims?.length > 0) {
-            const pendingSection = document.createElement('div');
-            pendingSection.style.cssText = 'width:100%;margin-bottom:20px;padding:12px;border-radius:10px;background:rgba(0,255,255,0.04);border:1px solid rgba(0,255,255,0.15);';
+            const pendingSection = document.createElement('section');
+            pendingSection.className = 'ach-pending lb-block-panel';
+            pendingSection.setAttribute('aria-label', 'Pending rewards');
             const pendingHeader = document.createElement('div');
-            pendingHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;';
-            pendingHeader.innerHTML = `<span style="font-size:0.62rem;color:var(--primary);letter-spacing:2px;font-weight:bold;">PENDING REWARDS</span>`;
+            pendingHeader.className = 'ach-pending-head';
+            pendingHeader.innerHTML = '<h2>PENDING REWARDS</h2>';
             if (saveData.pendingAchievementClaims.length > 1) {
                 const claimAllBtn = document.createElement('button');
-                claimAllBtn.className = 'btn-secondary';
-                claimAllBtn.style.cssText = 'font-size:0.55rem;padding:4px 12px;min-height:unset;background:rgba(0,255,255,0.1);border:1px solid var(--primary);color:var(--primary);cursor:pointer;border-radius:6px;font-weight:bold;letter-spacing:1px;';
+                claimAllBtn.className = 'lb-block-btn lb-block-btn--primary';
                 claimAllBtn.textContent = 'CLAIM ALL';
                 claimAllBtn.addEventListener('click', () => {
                     let totalXpGained = 0;
@@ -6438,17 +6440,19 @@
             }
             pendingSection.appendChild(pendingHeader);
             const pendingGrid = document.createElement('div');
-            pendingGrid.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+            pendingGrid.className = 'ach-pending-list';
             saveData.pendingAchievementClaims.forEach((claim, idx) => {
-                const rc = Object.hasOwn(RARITY_ACH, claim.rarity) ? RARITY_ACH[claim.rarity] : RARITY_ACH.common;
+                const rarity = Object.hasOwn(RARITY_ACH, claim.rarity) ? claim.rarity : 'common';
+                const rc = RARITY_ACH[rarity];
                 const card = document.createElement('div');
-                card.style.cssText = `display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid ${rc.color}30;`;
-                const nameHtml = `<div style="font-size:0.48rem;color:${rc.color};font-weight:bold;letter-spacing:1px;min-width:55px;text-align:center;">${rc.label}</div><div style="flex:1;min-width:0;font-size:0.65rem;font-weight:bold;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(claim.name)}</div>`;
-                const xpHtml = `<div style="font-size:0.65rem;font-weight:bold;color:${rc.color};white-space:nowrap;text-shadow:0 0 8px ${rc.color}40;">+${escapeHtml(claim.xp.toLocaleString())} XP</div>`;
+                card.className = 'ach-pending-row';
+                card.dataset.rarity = rarity;
+                const nameHtml = `<span class="ach-pending-rarity">${rc.label}</span><span class="ach-pending-name">${escapeHtml(claim.name)}</span>`;
+                const xpHtml = `<span class="ach-pending-xp">+${escapeHtml(claim.xp.toLocaleString())} XP</span>`;
                 const claimBtn = document.createElement('button');
-                claimBtn.className = 'btn-secondary';
-                claimBtn.style.cssText = `font-size:0.5rem;padding:4px 10px;min-height:unset;background:${rc.color}18;border:1px solid ${rc.color}60;color:${rc.color};cursor:pointer;border-radius:5px;font-weight:bold;letter-spacing:1px;`;
+                claimBtn.className = 'lb-block-btn';
                 claimBtn.textContent = 'CLAIM';
+                claimBtn.setAttribute('aria-label', `Claim ${claim.name}`);
                 claimBtn.addEventListener('click', () => {
                     _grantXP(claim.xp);
                     saveData.pendingAchievementClaims.splice(idx, 1);

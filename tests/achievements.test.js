@@ -46,7 +46,7 @@ describe('achievement screen', () => {
     game.w.openAchievements();
     expect(sections().map(section => section.firstElementChild.firstElementChild.textContent)).toEqual(['BASIC', 'SECRET']);
     filter('locked');
-    expect(query('[data-achtab="locked"]').classList.contains('active')).toBe(true);
+    expect(query('[data-achtab][aria-pressed="true"]').dataset.achtab).toBe('locked');
     const mystery = badges('SECRET').map(hover).find(text => text.includes('Balance is everything.'));
     expect(mystery).toContain('???');
     expect(mystery).not.toContain('Mirror Universe');
@@ -76,6 +76,10 @@ describe('achievement screen', () => {
     game.w.openAchievements('unlocked');
     expect(query('#ach-list').textContent).toContain('Nothing here yet.');
     expect(query('#ach-list').textContent).toContain('PENDING REWARDS');
+    const rareReward = query('.ach-pending-row[data-rarity="rare"]');
+    expect(rareReward.querySelector('.ach-pending-rarity').textContent).toBe('RARE');
+    expect(rareReward.querySelector('.ach-pending-xp').textContent).toBe('+1,000 XP');
+    expect(rareReward.querySelector('button').getAttribute('aria-label')).toBe('Claim Mirror Universe');
     expect(game.api.save.totalXP).toBe(0);
     [...query('#ach-list').querySelectorAll('button')].find(button => button.textContent === 'CLAIM').click();
     expect(game.api.save.totalXP).toBe(500);
@@ -85,6 +89,6 @@ describe('achievement screen', () => {
     expect(game.api.save.totalXP).toBe(2000);
     expect(game.api.save.pendingAchievementClaims).toEqual([]);
     expect(query('#ach-list').textContent).not.toContain('PENDING REWARDS');
-    expect(query('[data-achtab="locked"]').classList.contains('active')).toBe(true);
+    expect(query('[data-achtab][aria-pressed="true"]').dataset.achtab).toBe('locked');
   });
 });
