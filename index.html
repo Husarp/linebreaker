@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="41-season-pass.css">
     <link rel="stylesheet" href="43-crates-daily-gift.css">
     <link rel="stylesheet" href="60-foundation.css">
+    <link rel="stylesheet" href="68-inventory.css">
 </head>
 <body>
 
@@ -300,37 +301,37 @@
 <!-- INVENTORY SCREEN -->
 <div id="inventory-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1004;">
     <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding:14px 20px; flex-shrink:0; position:sticky; top:0; z-index:1;">
-        <button class="btn-back" onclick="window.closeInventory()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
-        <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary);">INVENTORY</span>
+        <button class="btn-back lb-block-back" onclick="window.closeInventory()"><svg aria-hidden="true" viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
+        <h1>Inventory</h1>
         <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About the inventory" title="About the inventory"></button>
     </div>
     <div style="width:100%; max-width:560px; margin:0 auto; padding:16px 20px;">
 
         <!-- Tab buttons -->
-        <div style="display:flex; gap:6px; justify-content:center; margin-bottom:14px; flex-wrap:wrap;">
-            <button class="opt-btn active" onclick="window.inventoryTab('blocks')" data-invtab="blocks">Blocks</button>
-            <button class="opt-btn" onclick="window.inventoryTab('colors')" data-invtab="colors">Themes</button>
-            <button class="opt-btn" onclick="window.inventoryTab('other')" data-invtab="other">Other</button>
+        <div class="lb-block-tabs lb-inventory-tabs" role="tablist" aria-label="Inventory categories">
+            <button class="lb-block-btn lb-block-tab active" id="inventory-tab-blocks" role="tab" aria-selected="true" aria-controls="inventory-blocks" onclick="window.inventoryTab('blocks')" data-invtab="blocks">Blocks</button>
+            <button class="lb-block-btn lb-block-tab" id="inventory-tab-colors" role="tab" tabindex="-1" aria-selected="false" aria-controls="inventory-colors" onclick="window.inventoryTab('colors')" data-invtab="colors">Themes</button>
+            <button class="lb-block-btn lb-block-tab" id="inventory-tab-other" role="tab" tabindex="-1" aria-selected="false" aria-controls="inventory-other" onclick="window.inventoryTab('other')" data-invtab="other">Other</button>
         </div>
 
         <!-- ===== BLOCKS TAB ===== -->
-        <div data-invtab-content="blocks">
-            <div class="settings-section">
-                <div class="settings-title lb-help-label">APPEARANCE <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About appearance" title="About appearance"></button></div>
+        <div id="inventory-blocks" role="tabpanel" aria-labelledby="inventory-tab-blocks" data-invtab-content="blocks">
+            <section class="lb-block-card lb-inventory-section">
+                <h2 class="lb-block-section-title lb-help-label">Appearance <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About appearance" title="About appearance"></button></h2>
                 <div id="ghost-section-wrap"></div>
-            </div>
-            <div class="settings-section">
-                <div class="settings-title lb-help-label">BLOCK SKIN <span id="skin-owned-count" style="font-size:0.55rem;color:#666;font-weight:normal;"></span> <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About block skin" title="About block skin"></button></div>
-                <div id="owned-skin-btns" style="margin-top:6px;"></div>
-            </div>
-            <div class="settings-section" style="border-bottom:none;">
-                <div class="settings-title lb-help-label">GRID STYLE <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About grid style" title="About grid style"></button></div>
-                <div id="owned-grid-style-btns" style="margin-top:6px;"></div>
-            </div>
+            </section>
+            <section class="lb-block-card lb-inventory-section">
+                <h2 class="lb-block-section-title lb-help-label">Block Skin <span id="skin-owned-count"></span> <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About block skin" title="About block skin"></button></h2>
+                <div id="owned-skin-btns"></div>
+            </section>
+            <section class="lb-block-card lb-inventory-section">
+                <h2 class="lb-block-section-title lb-help-label">Grid Style <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About grid style" title="About grid style"></button></h2>
+                <div id="owned-grid-style-btns"></div>
+            </section>
         </div>
 
         <!-- ===== COLORS TAB ===== -->
-        <div data-invtab-content="colors" class="hidden">
+        <div id="inventory-colors" role="tabpanel" aria-labelledby="inventory-tab-colors" data-invtab-content="colors" class="hidden">
             <div class="settings-section">
                 <div class="settings-title lb-help-label">THEME COLOR <span id="theme-owned-count" style="font-size:0.55rem;color:#666;font-weight:normal;"></span> <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About theme color" title="About theme color"></button></div>
                 <div id="owned-theme-btns" style="margin-top:6px;"></div>
@@ -342,7 +343,7 @@
         </div>
 
         <!-- ===== OTHER TAB ===== -->
-        <div data-invtab-content="other" class="hidden">
+        <div id="inventory-other" role="tabpanel" aria-labelledby="inventory-tab-other" data-invtab-content="other" class="hidden">
             <div id="inventory-other-content"></div>
         </div>
 

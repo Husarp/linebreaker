@@ -3783,14 +3783,31 @@
     }
 
     function settingsTab(tab) { /* tabs removed — settings is a single scroll */ }
+    let inventoryPreviewTimer;
+    let inventoryPreviewColor = 6;
     function inventoryTab(tab) {
         const _invOv = document.getElementById('inventory-overlay');
         const _prevInvTab = _invOv ? _invOv._invTab : null;
         if (_invOv) _invOv._invTab = tab;
-        document.querySelectorAll('[data-invtab]').forEach(b => b.classList.toggle('active', b.dataset.invtab === tab));
+        document.querySelectorAll('[data-invtab]').forEach(b => {
+            const selected = b.dataset.invtab === tab;
+            b.classList.toggle('active', selected);
+            b.setAttribute('aria-selected', selected);
+            b.tabIndex = selected ? 0 : -1;
+        });
         document.querySelectorAll('[data-invtab-content]').forEach(p => p.classList.toggle('hidden', p.dataset.invtabContent !== tab));
         if (tab === 'other') _populateInventoryOther();
         if (tab === 'blocks' || tab === 'colors' || tab === 'fonts') _populateVisualCustomize();
+        clearInterval(inventoryPreviewTimer);
+        if (tab === 'blocks' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            inventoryPreviewTimer = setInterval(() => {
+                if (document.hidden || _invOv.classList.contains('hidden')) return;
+                inventoryPreviewColor = inventoryPreviewColor % (COLORS.length - 1) + 1;
+                document.querySelectorAll('#owned-skin-btns canvas').forEach(canvas => {
+                    _drawSkinPreview(canvas, canvas.parentElement.dataset.itemKey, inventoryPreviewColor, 40);
+                });
+            }, 3000);
+        }
         if (_prevInvTab && _prevInvTab !== tab) {
             const _ord = ['blocks', 'colors', 'other'];
             const _oi = _ord.indexOf(_prevInvTab), _ni = _ord.indexOf(tab);
@@ -3798,6 +3815,17 @@
             if (_p) _animateIn(_p, _ni > _oi ? 'tab-slide-in-right' : 'tab-slide-in-left');
         }
     }
+    document.querySelector('.lb-inventory-tabs')?.addEventListener('keydown', event => {
+        const tabs = [...event.currentTarget.querySelectorAll('[data-invtab]')];
+        const current = tabs.indexOf(event.target);
+        if (current < 0) return;
+        const next = { ArrowLeft: (current + tabs.length - 1) % tabs.length,
+            ArrowRight: (current + 1) % tabs.length, Home: 0, End: tabs.length - 1 }[event.key];
+        if (typeof next !== 'number') return;
+        event.preventDefault();
+        inventoryTab(tabs[next].dataset.invtab);
+        tabs[next].focus();
+    });
     function settingsVisualSubTab(tab) {
         document.querySelectorAll('[data-vstab]').forEach(b => b.classList.toggle('active', b.dataset.vstab === tab));
         document.querySelectorAll('[data-vstab-content]').forEach(p => p.classList.toggle('hidden', p.dataset.vstabContent !== tab));
@@ -3854,7 +3882,15 @@
         }
         _updateMusicWidget();
     }
-    function _makeTrackRow(label, isActive, isOwned, partCount, onEquipJs, onUnlockJs, extraHtml, itemKey, configurable = false) {
+    function _inventoryState(equipped) {
+        const label = equipped ? 'Equipped' : 'Locked';
+        const path = equipped ? '<path d="m5 12 4 4L19 6"/>' : '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>';
+        return `<svg class="lb-inventory-state" role="img" aria-label="${label}" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+    }
+
+    function _makeInventoryRow(...args) { return _makeTrackRow(...args, false, true); }
+
+    function _makeTrackRow(label, isActive, isOwned, partCount, onEquipJs, onUnlockJs, extraHtml, itemKey, configurable = false, blockBuilt = false) {
         const equipped = isOwned && isActive;
         const status = equipped ? 'Equipped' : isOwned ? 'Owned' : 'Locked';
         const cost = !isOwned && itemKey ? _getItemCost(itemKey) : 0;
@@ -3862,17 +3898,18 @@
         const ready = cost > 0 && parts >= cost;
         const canEquip = isOwned && (!equipped || configurable) && onEquipJs;
         const safeLabel = escapeHtml(label);
+        const actionClass = `lb-inventory-action${blockBuilt ? ' lb-block-btn' : ''}`;
         const progress = cost > 0 ? `<div class="lb-inventory-progress">
-            <progress class="lb-progress lb-progress--pattern" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
+            <progress class="${blockBuilt ? 'lb-block-progress' : 'lb-progress lb-progress--pattern'}" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
             <span>${Math.min(parts, cost)}/${cost} parts</span>
         </div>` : '';
         const action = ready
-            ? `<button type="button" class="lb-inventory-action lb-inventory-action--unlock" onclick="${onUnlockJs}">Unlock</button>`
-            : canEquip ? `<button type="button" class="lb-inventory-action" onclick="event.stopPropagation();${onEquipJs}">${equipped ? 'Edit' : 'Equip'}</button>` : '';
-        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" class="inv-row lb-inventory-card${ready ? ' glow-notify' : ''}"${canEquip ? ` style="cursor:pointer;" onclick="${onEquipJs}"` : ''}>
+            ? `<button type="button" class="${actionClass} ${blockBuilt ? 'lb-block-btn--primary' : 'lb-inventory-action--unlock'}" onclick="${onUnlockJs}">Unlock</button>`
+            : canEquip ? `<button type="button" class="${actionClass}" onclick="event.stopPropagation();${onEquipJs}">${equipped ? 'Edit' : 'Equip'}</button>` : '';
+        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" class="inv-row lb-inventory-card${blockBuilt ? ' lb-inventory-item lb-block-card' : ready ? ' glow-notify' : ''}"${canEquip ? ` style="cursor:pointer;" onclick="${onEquipJs}"` : ''}>
             <div class="lb-inventory-heading">
                 <div class="lb-inventory-name">${safeLabel}</div>
-                <div class="lb-item-state">${status}</div>
+                ${blockBuilt ? (equipped || !isOwned ? _inventoryState(equipped) : '') : `<div class="lb-item-state">${status}</div>`}
             </div>
             ${extraHtml ? `<div class="lb-inventory-detail">${extraHtml}</div>` : ''}
             ${progress || action ? `<div class="lb-inventory-controls">${progress}${action}</div>` : ''}
@@ -3905,18 +3942,14 @@
         if (ghostWrap) {
             const _ghostLevel = getLevelInfo(saveData.totalXP).level;
             if (_ghostLevel < 11) {
-                ghostWrap.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);opacity:0.5;margin:8px 0;">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <span style="font-size:0.72rem;color:#555;">Locked</span>
-                    <span style="font-size:0.55rem;color:#444;margin-left:auto;">Unlocks at Silver I</span>
-                </div>`;
+                ghostWrap.innerHTML = _makeInventoryRow('Ghost Piece', false, false, 0, '', '', 'Unlocks at Silver I', '');
             } else {
                 const gc = settings.ghostColor || 'white';
                 const parts = saveData.parts?.['ghostColor'] || 0;
-                const whiteRow = _makeTrackRow('White Ghost', gc === 'white', true, 10, "window.onSettingChange('ghostColor','white')", '', '');
+                const whiteRow = _makeInventoryRow('White Ghost', gc === 'white', true, 0, "window.onSettingChange('ghostColor','white')", '', '', '');
                 const coloredOwned = saveData.ghostColorUnlocked;
-                const coloredRow = _makeTrackRow('Colored Ghost', gc === 'colored', coloredOwned, parts, "window.onSettingChange('ghostColor','colored')", "window.playerUnlockItem('ghostColor','ghostColor')", 'ghost matches piece color', 'ghostColor');
-                ghostWrap.innerHTML = `<div style="font-size:0.68rem;color:#888;letter-spacing:1px;font-weight:600;margin:10px 0 4px;">GHOST PIECE</div><div>${whiteRow}${coloredRow}</div>`;
+                const coloredRow = _makeInventoryRow('Colored Ghost', gc === 'colored', Boolean(coloredOwned), parts, "window.onSettingChange('ghostColor','colored')", "window.playerUnlockItem('ghostColor','ghostColor')", 'Ghost matches piece color', 'ghostColor');
+                ghostWrap.innerHTML = `<h3 class="lb-inventory-subtitle">Ghost Piece</h3>${whiteRow}${coloredRow}`;
             }
         }
 
@@ -3932,7 +3965,7 @@
                 const isOwned = ownedSkins.includes(s);
                 const isActive = settings.skin === s;
                 const parts = saveData.parts?.[s] || 0;
-                return _makeTrackRow(
+                return _makeInventoryRow(
                     skinNames[s],
                     isActive, isOwned, parts,
                     `window.applyBlockSkin('${s}')`,
@@ -3941,43 +3974,14 @@
                 );
             }).join('');
             ownedSkinContainer.innerHTML = rows;
-            // Persistent previews use the same renderer as the game, including locked skins.
             ownedSkinContainer.querySelectorAll('[data-item-key]').forEach(row => {
                 const canvas = document.createElement('canvas');
                 canvas.className = 'lb-inventory-preview';
-                canvas.width = 96; canvas.height = 64;
+                canvas.width = 120; canvas.height = 80;
                 canvas.setAttribute('role', 'img');
                 canvas.setAttribute('aria-label', `${skinNames[row.dataset.itemKey]} block preview`);
-                _drawSkinPreview(canvas, row.dataset.itemKey, 6, 30);
+                _drawSkinPreview(canvas, row.dataset.itemKey, inventoryPreviewColor, 40);
                 row.querySelector('.lb-inventory-heading').after(canvas);
-            });
-            // Hover preview for owned skins
-            let skinTip = document.getElementById('skin-preview-tip');
-            if (!skinTip) {
-                skinTip = document.createElement('div');
-                skinTip.id = 'skin-preview-tip';
-                skinTip.style.cssText = 'position:fixed;z-index:9999;background:#111;border:1px solid #444;border-radius:8px;padding:6px;display:none;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.7);';
-                document.body.appendChild(skinTip);
-            }
-            ownedSkinContainer.querySelectorAll('[data-item-key]').forEach(btn => {
-                let _skinBuilt = false;
-                btn.addEventListener('mouseenter', (e) => {
-                    const skinName = btn.dataset.itemKey;
-                    const piece = BASE_PIECES[6];
-                    const bs = 22;
-                    const cols = piece[0].length, rows2 = piece.length;
-                    const pc = document.createElement('canvas');
-                    pc.width = cols * bs; pc.height = rows2 * bs;
-                    const colorId = Math.floor(Math.random() * 7) + 1;
-                    _drawSkinPreview(pc, skinName, colorId, bs, '#111');
-                    skinTip.innerHTML = '';
-                    skinTip.appendChild(pc);
-                    skinTip.style.display = 'block';
-                    _skinBuilt = true;
-                    _positionTip(skinTip, e);
-                });
-                btn.addEventListener('mousemove', (e) => { if (_skinBuilt) _positionTip(skinTip, e); });
-                btn.addEventListener('mouseleave', () => { skinTip.style.display = 'none'; _skinBuilt = false; });
             });
         }
 
@@ -4132,27 +4136,18 @@
                 const _curGrid = settings.gridStyle || 'lines';
                 const isActive = (GRID_STYLES[_curGrid] ? _curGrid : 'lines') === k;
                 const parts = saveData.parts?.[k] || 0;
-                return _makeTrackRow(gs.name, isActive, isOwned, parts,
+                return _makeInventoryRow(gs.name, isActive, isOwned, parts,
                     `window.applyGridStyle('${k}')`,
                     `window.playerUnlockItem('gridStyle','${k}')`,
                     '', k
                 );
             }).join('');
             ownedGridContainer.innerHTML = gridStyleRows;
-            // Hover preview for grid styles
-            let gridTip = document.getElementById('grid-preview-tip');
-            if (!gridTip) {
-                gridTip = document.createElement('div');
-                gridTip.id = 'grid-preview-tip';
-                gridTip.style.cssText = 'position:fixed;z-index:9999;background:#111;border:1px solid #333;border-radius:8px;padding:6px;display:none;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.8);';
-                document.body.appendChild(gridTip);
-            }
             function _drawGridPreview(style) {
                 const GC = 5, GR = 7, BS = 16;
                 const gc = document.createElement('canvas');
                 gc.width = GC * BS; gc.height = GR * BS;
                 const gx = gc.getContext('2d');
-                gx.fillStyle = '#0a0a18'; gx.fillRect(0, 0, gc.width, gc.height);
                 const alpha = 0.55;
                 if (style === 'dots') {
                     gx.fillStyle = `rgba(190,220,255,${alpha})`;
@@ -4181,16 +4176,12 @@
                 return gc;
             }
             ownedGridContainer.querySelectorAll('[data-item-key]').forEach(row => {
-                row.addEventListener('mouseenter', (e) => {
-                    const key = row.dataset.itemKey;
-                    const gc = _drawGridPreview(key);
-                    gridTip.innerHTML = '';
-                    gridTip.appendChild(gc);
-                    gridTip.style.display = 'block';
-                    _positionTip(gridTip, e);
-                });
-                row.addEventListener('mousemove', (e) => { if (gridTip.style.display !== 'none') _positionTip(gridTip, e); });
-                row.addEventListener('mouseleave', () => { gridTip.style.display = 'none'; });
+                const key = row.dataset.itemKey;
+                const canvas = _drawGridPreview(key);
+                canvas.className = 'lb-inventory-grid-preview';
+                canvas.setAttribute('role', 'img');
+                canvas.setAttribute('aria-label', `${GRID_STYLES[key].name} grid preview`);
+                row.querySelector('.lb-inventory-heading').after(canvas);
             });
         }
 
@@ -4247,39 +4238,31 @@
         const container = document.getElementById('inventory-other-content');
         if (!container) return;
         const boosters = saveData.boosters || {};
-        const secTitle = 'font-size:0.6rem;color:var(--primary);letter-spacing:2px;font-weight:bold;margin:16px 0 8px;padding-bottom:5px;';
-
-        const xchSvg = `<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>`;
-        function _xchBtn(color, fromKey, toKey, type, enabled) {
-            if (enabled) return `<button onclick="window._openExchangeModal('${fromKey}','${toKey}','${type}')" style="font-size:0.6rem;padding:5px 10px;border-radius:8px;font-family:inherit;white-space:nowrap;cursor:pointer;background:linear-gradient(135deg,${color}22,${color}11);border:1px solid ${color};color:${color};font-weight:600;box-shadow:0 0 6px ${color}28;display:inline-flex;align-items:center;gap:4px;">${xchSvg}Exchange</button>`;
-            return `<button disabled style="font-size:0.6rem;padding:5px 10px;border-radius:8px;font-family:inherit;white-space:nowrap;cursor:default;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.18);display:inline-flex;align-items:center;gap:4px;">${xchSvg}Exchange</button>`;
-        }
 
         // Universal parts section
         const _uniVal = saveData.universalParts || 0;
         const _uniInt = Math.floor(_uniVal);
         const _uniDec = Math.round((_uniVal - _uniInt) * 10);
         const _uniDisplay = _uniDec > 0 ? `${_uniInt}<span style="font-size:0.6em;opacity:0.7;">.${_uniDec}</span>` : `${_uniInt}`;
-        const uniRow = `<div style="display:flex;align-items:center;padding:10px 4px;gap:8px;margin-bottom:4px;">
-            <span class="lb-help-label" style="font-size:0.75rem;color:#ffd700;font-weight:600;flex:1;">⭐ Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" title="About universal parts"></button></span>
-            <span style="font-size:1rem;font-weight:bold;color:#ffd700;">${_uniDisplay}</span>
-            ${(saveData.universalParts||0) >= 1 ? (_getAllPartsItems().length === 0 ? `<button onclick="window.openExchangeUniversalParts()" style="font-size:0.65rem;padding:4px 12px;border-radius:8px;border:1px solid #ffd700;background:rgba(255,215,0,0.1);color:#ffd700;cursor:pointer;font-family:inherit;font-weight:bold;">Exchange</button>` : `<button onclick="window.openUseUniversalPart()" style="font-size:0.65rem;padding:4px 12px;border-radius:8px;border:1px solid #ffd700;background:rgba(255,215,0,0.1);color:#ffd700;cursor:pointer;font-family:inherit;font-weight:bold;">Use</button>`) : ''}
-        </div>`;
+        const canUseParts = _getAllPartsItems().length > 0;
+        const uniRow = `<section class="lb-block-card lb-inventory-parts">
+            <h2 class="lb-block-section-title lb-help-label"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" title="About universal parts"></button></h2>
+            <span class="lb-inventory-quantity">${_uniDisplay}</span>
+            ${_uniVal >= 1 ? `<button type="button" class="lb-block-btn lb-block-btn--primary" onclick="window.${canUseParts ? 'openUseUniversalPart' : 'openExchangeUniversalParts'}()">${canUseParts ? 'Use' : 'Exchange'}</button>` : ''}
+        </section>`;
 
         // Boosters section
-        let boosterHtml = BOOSTER_KEYS.map((key, i) => {
+        const boosterHtml = BOOSTER_KEYS.map((key, i) => {
             const meta = BOOSTER_META[key];
             const count = boosters[key] || 0;
             const nextKey = BOOSTER_KEYS[i + 1];
             const canExchange = count >= 3;
-            const xchBtnHtml = nextKey ? _xchBtn(meta.color, key, nextKey, 'booster', canExchange) : '';
-            const rarityColor = (RARITY_ACH[meta.rarity] || RARITY_ACH.common).color;
-            return `<div class="lb-booster-inventory-row">
+            const xchBtnHtml = nextKey ? `<button type="button" class="lb-block-btn" ${canExchange ? `onclick="window.exchangeBoosters('${key}','${nextKey}')"` : 'disabled'}>Exchange</button>` : '';
+            return `<div class="lb-booster-inventory-row" data-rarity="${meta.rarity}">
                 ${LBArtPack.boosterIcon(key)}
-                <span style="font-size:0.75rem;color:${rarityColor};font-weight:600;">${meta.label}</span>
-                <span style="font-size:0.55rem;color:${rarityColor};opacity:0.7;text-transform:uppercase;letter-spacing:1px;text-align:center;">${meta.rarity}</span>
-                <span style="font-size:0.85rem;font-weight:700;color:#fff;text-align:center;">${escapeHtml(count)}</span>
-                <div style="display:flex;gap:5px;justify-content:flex-end;">${xchBtnHtml}</div>
+                <div><div class="lb-inventory-name">${meta.label}</div><div class="lb-inventory-rarity">${meta.rarity}</div></div>
+                <span class="lb-inventory-quantity">${escapeHtml(count)}</span>
+                <div class="lb-inventory-exchange">${xchBtnHtml}</div>
             </div>`;
         }).join('');
 
@@ -4292,14 +4275,14 @@
         ];
         const _ownedSfx = saveData.ownedSfxPacks || ['default'];
         const _activeSfxPack = settings.sfxPack || 'default';
-        let sfxPacksHtml = `<div style="${secTitle}">SFX PACKS</div>`;
+        let sfxPacksHtml = '';
         // Default pack row (always owned)
-        sfxPacksHtml += _makeTrackRow('Default SFX', _activeSfxPack === 'default', true, 0, "window.onSettingChange('sfxPack','default')", '', 'the original sound effects');
+        sfxPacksHtml += _makeInventoryRow('Default SFX', _activeSfxPack === 'default', true, 0, "window.onSettingChange('sfxPack','default')", '', 'The original sound effects', '');
         _sfxPackDefs.forEach(p => {
             const owned = _ownedSfx.includes(p.packId);
             const active = _activeSfxPack === p.packId;
             const parts = saveData.parts?.[p.key] || 0;
-            sfxPacksHtml += _makeTrackRow(p.label, active, owned, parts,
+            sfxPacksHtml += _makeInventoryRow(p.label, active, owned, parts,
                 `window.onSettingChange('sfxPack','${p.packId}')`,
                 `window.playerUnlockItem('sfxPack','${p.key}')`,
                 '', p.key);
@@ -4307,31 +4290,34 @@
 
         container.innerHTML = `
             ${uniRow}
-            <div class="lb-help-label" style="${secTitle}">BOOSTERS <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" title="About boosters"></button></div>
-            ${boosterHtml}
-            ${sfxPacksHtml}`;
+            <section class="lb-block-card lb-inventory-section">
+                <h2 class="lb-block-section-title lb-help-label">Boosters <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" title="About boosters"></button></h2>
+                ${boosterHtml}
+            </section>
+            <section class="lb-block-card lb-inventory-section">
+                <h2 class="lb-block-section-title">SFX Packs</h2>
+                ${sfxPacksHtml}
+            </section>`;
 
         // SFX pack rows — click to open preview (not on buttons)
-        const _sfxPlayFns = { default: playSFX, cyber: _playSFX_B, retro: _playSFX_C, zen: _playSFX_D, arcade: _playSFX_E };
-        const _sfxPackNames = { default: 'Default', cyber: 'Cyber', retro: 'Retro', zen: 'Zen', arcade: 'Arcade' };
-        container.querySelectorAll('.inv-row').forEach(row => {
-            const key = row.dataset?.itemKey;
-            const packMap = { sfxCyber:'cyber', sfxRetro:'retro', sfxZen:'zen', sfxArcade:'arcade' };
-            let packId = packMap[key];
-            // Check if it's the default row (no data-item-key but contains "Default SFX")
-            if (!packId && row.textContent.includes('Default SFX')) packId = 'default';
-            if (!packId) return;
-            const owned = (saveData.ownedSfxPacks || ['default']).includes(packId);
+        const packIds = new Map(_sfxPackDefs.map(pack => [pack.key, pack.packId]));
+        container.querySelectorAll('.lb-inventory-item').forEach(row => {
+            const packId = packIds.get(row.dataset.itemKey) || 'default';
+            const preview = document.createElement('button');
+            preview.type = 'button';
+            preview.className = 'lb-block-btn';
+            preview.textContent = 'Preview';
+            preview.setAttribute('aria-label', `Preview ${row.querySelector('.lb-inventory-name').textContent}`);
+            preview.addEventListener('click', () => _openSfxPreviewPopup(packId, preview));
+            row.querySelector('.lb-inventory-heading').appendChild(preview);
             row.style.cursor = 'pointer';
-            const origClick = row.onclick;
             row.onclick = (e) => {
-                if (e.target.closest('button')) { if (origClick) origClick(e); return; }
-                _openSfxPreviewPopup(packId);
+                if (!e.target.closest('button')) _openSfxPreviewPopup(packId, preview);
             };
         });
     }
 
-    function _openSfxPreviewPopup(packId) {
+    function _openSfxPreviewPopup(packId, opener) {
         document.getElementById('sfx-inv-preview')?.remove();
         const _sfxPlayFns = { default: playSFX, cyber: _playSFX_B, retro: _playSFX_C, zen: _playSFX_D, arcade: _playSFX_E };
         const _sfxPackNames = { default: 'Default', cyber: 'Cyber', retro: 'Retro', zen: 'Zen', arcade: 'Arcade' };
@@ -4349,25 +4335,29 @@
             { name: 'rankup', desc: 'Level up' },
             { name: 'newrank', desc: 'New rank' },
         ];
-        const ov = document.createElement('div');
+        const ov = document.createElement('dialog');
         ov.id = 'sfx-inv-preview';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;';
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:20px;width:min(340px,90vw);max-height:80vh;overflow-y:auto;position:relative;">
-            <button onclick="window._closeModal('sfx-inv-preview')" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;">✕</button>
-            <div style="font-size:0.6rem;letter-spacing:2px;color:var(--primary);margin-bottom:12px;">🔊 ${(_sfxPackNames[packId] || packId).toUpperCase()} SFX</div>
-            ${sfxList.map(s => `<div class="sfx-prev-row" data-sfx="${s.name}" style="display:flex;align-items:center;gap:10px;padding:7px 6px;cursor:pointer;border-radius:6px;transition:background 0.15s;">
-                <div style="width:28px;height:28px;border-radius:6px;background:rgba(0,255,255,0.06);border:1px solid rgba(0,255,255,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="var(--primary)"><polygon points="2,5 5,5 9,2 9,14 5,11 2,11"/><path d="M11 5.5a3 3 0 010 5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M13 3.5a5.5 5.5 0 010 9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
-                </div>
-                <div>
-                    <div style="font-size:0.72rem;color:#fff;font-weight:bold;">${s.name}</div>
-                    <div style="font-size:0.55rem;color:#666;">${s.desc}</div>
-                </div>
-            </div>`).join('')}
+        ov.className = 'lb-block-dialog';
+        ov.setAttribute('aria-labelledby', 'sfx-inv-title');
+        ov.innerHTML = `<div class="lb-inventory-sfx-head">
+            <h2 class="lb-block-dialog-title" id="sfx-inv-title">${_sfxPackNames[packId] || packId} SFX</h2>
+            <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Close sound preview" autofocus onclick="this.closest('dialog').close()"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div class="lb-inventory-sound-list">
+            ${sfxList.map(sound => `<button type="button" class="lb-block-btn sfx-prev-row" aria-label="Play ${sound.desc.toLowerCase()}" data-sfx="${sound.name}">
+                <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M4 2.5v11L13 8z"/></svg>
+                ${sound.desc}
+            </button>`).join('')}
         </div>`;
-        ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('sfx-inv-preview'); });
+        ov.addEventListener('click', e => {
+            if (e.target !== ov) return;
+            const bounds = ov.getBoundingClientRect();
+            if (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom) ov.close();
+        });
+        ov.addEventListener('close', () => { ov.remove(); opener.focus(); });
         document.body.appendChild(ov);
-        _animateIn(ov.querySelector('div'), 'anim-in-up');
+        ov.showModal();
+        _animateIn(ov, 'anim-in-up');
         ov.querySelectorAll('.sfx-prev-row').forEach(row => {
             row.addEventListener('click', () => playFn(row.dataset.sfx));
         });
@@ -4438,13 +4428,13 @@
     }
     function openInventory() {
         inventoryTab('blocks');
-        _populateVisualCustomize();
         _checkGlowNotifications();
         const _invEl = document.getElementById('inventory-overlay');
         _invEl.classList.remove('hidden');
         _animateIn(_invEl, 'anim-in-right');
     }
     function closeInventory() {
+        clearInterval(inventoryPreviewTimer);
         const _mEl = document.getElementById('menu-overlay');
         _animateOut(document.getElementById('inventory-overlay'), 'anim-out-right');
         if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
@@ -7674,21 +7664,20 @@
         }
         return _skinTints.get(key);
     }
-    function _drawSkinPreview(canvas, skin, id, size, background) {
+    function _drawSkinPreview(canvas, skin, id, size) {
+        canvas.dataset.previewColor = id;
         const context = canvas.getContext('2d');
         const draw = () => {
             context.clearRect(0, 0, canvas.width, canvas.height);
-            if (background) {
-                context.fillStyle = background;
-                context.fillRect(0, 0, canvas.width, canvas.height);
-            }
             BASE_PIECES[6].forEach((row, y) => row.forEach((cell, x) => {
                 if (cell) drawGameBlock(context, x, y, id, size, false, skin);
             }));
         };
         draw();
         const atlas = _getSkinAtlas(skin);
-        if (atlas && !atlas.ready) atlas.promise.then(loaded => { if (loaded && canvas.isConnected) draw(); });
+        if (atlas && !atlas.ready) atlas.promise.then(loaded => {
+            if (loaded && canvas.isConnected && Number(canvas.dataset.previewColor) === id) draw();
+        });
     }
 
     const _blockCache = new Map();

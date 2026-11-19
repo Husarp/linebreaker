@@ -199,7 +199,7 @@ it('applies the custom theme colour from the picker to the page', () => {
   expect(game.save.customThemeColor).toBe('#12abef');
 });
 
-it('shows one inventory status, actions and locked-only progress, and counts catalog skins', () => {
+it('marks equipped and locked inventory cards without adding owned tags', () => {
   const manifest = JSON.parse(readFileSync(new URL('../assets/skins/skins.json', import.meta.url), 'utf8'));
   const builtInSkinCount = 7;
   game.setup({ save: { ownedSkins: ['retro', 'retro', 'bubble', 'neon', 'matrix', 'unknown'], parts: { glass: 10, shadow: 2 } } });
@@ -211,8 +211,10 @@ it('shows one inventory status, actions and locked-only progress, and counts cat
   const ready = row('glass');
   expect(document.getElementById('skin-owned-count').innerText).toBe(`(2/${builtInSkinCount + manifest.length})`);
   expect(row('neon')).toBeNull();
-  for (const [card, status] of [[equipped, 'Equipped'], [owned, 'Owned'], [locked, 'Locked'], [ready, 'Locked']]) {
-    expect([...card.querySelectorAll('.lb-item-state')].map(chip => chip.textContent)).toEqual([status]);
+  for (const [card, status] of [[equipped, 'Equipped'], [owned, null], [locked, 'Locked'], [ready, 'Locked']]) {
+    expect(card.querySelector('.lb-item-state')).toBeNull();
+    expect(card.querySelector('svg.lb-inventory-state')?.getAttribute('aria-label') ?? null).toBe(status);
+    expect(card.querySelector('canvas[role="img"]').width).toBe(120);
   }
   expect(equipped.querySelector('button, progress')).toBeNull();
   expect(owned.querySelector('button').textContent).toBe('Equip');
@@ -222,4 +224,39 @@ it('shows one inventory status, actions and locked-only progress, and counts cat
   expect(locked.querySelector('button')).toBeNull();
   expect(ready.querySelector('progress').value).toBe(10);
   expect(ready.querySelector('button').textContent).toBe('Unlock');
+});
+
+it('cycles the inline skin previews only while Blocks is open', () => {
+  Object.defineProperty(document, 'hidden', { value: false });
+  const intervals = vi.spyOn(window, 'setInterval');
+  const clear = vi.spyOn(window, 'clearInterval');
+  window.openInventory();
+  const preview = document.querySelector('[data-item-key="retro"] canvas');
+  const color = preview.dataset.previewColor;
+  const index = intervals.mock.calls.findIndex(([, delay]) => delay === 3000);
+  expect(index).toBeGreaterThanOrEqual(0);
+  intervals.mock.calls[index][0]();
+  expect(preview.dataset.previewColor).not.toBe(color);
+  preview.parentElement.dispatchEvent(new window.MouseEvent('mouseenter'));
+  expect(document.getElementById('skin-preview-tip')).toBeNull();
+  window.inventoryTab('other');
+  expect(clear).toHaveBeenCalledWith(intervals.mock.results[index].value);
+});
+
+it('opens and closes a keyboard-accessible SFX preview from its card', () => {
+  game.setup({ save: { ownedSfxPacks: ['default', 'retro'] } });
+  window.openInventory();
+  const blocks = document.getElementById('inventory-tab-blocks');
+  blocks.focus();
+  blocks.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+  expect(document.activeElement.id).toBe('inventory-tab-other');
+  expect(document.activeElement.getAttribute('aria-selected')).toBe('true');
+  const preview = document.querySelector('[aria-label="Preview Retro SFX"]');
+  preview.click();
+  const dialog = document.getElementById('sfx-inv-preview');
+  expect(dialog.open).toBe(true);
+  expect(dialog.querySelectorAll('button[data-sfx]')).toHaveLength(11);
+  dialog.querySelector('[aria-label="Close sound preview"]').click();
+  expect(document.getElementById('sfx-inv-preview')).toBeNull();
+  expect(document.activeElement).toBe(preview);
 });
