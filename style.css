@@ -1790,7 +1790,7 @@ body[data-pack="pixel"] .mt-enable-btn {
 input[type="range"]:focus-visible { outline: 3px solid var(--accent-bright); outline-offset: 3px; }
 .ach-menu-toast, #lb-tooltip-global, #mode-opt-tooltip,
 #block-preview-tip, #skin-preview-tip, #theme-preview-tip, #grid-preview-tip,
-#ach-tip, #pl-row-tip {
+#pl-row-tip {
     background: var(--surface-1) !important; color: var(--text) !important;
     font-family: var(--font-body) !important; border-radius: var(--radius-md) !important;
 }
@@ -2006,4 +2006,3 @@ input.c-pill-input, input.d-steps-input {
 .lb-r3-picker :is(div, span)[style*="font-size"] { font-size: .875rem !important; line-height: 1.5; }
 .lb-r3-picker input[type=text] { min-width: 0; padding: 8px !important; }
 .lb-r3-picker #cp-hex-input { width: 100px; }
-#ach-tip .ach-progress-fill { background-image: repeating-linear-gradient(120deg, transparent 0 8px, #0003 8px 10px) !important; }

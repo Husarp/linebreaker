@@ -6283,222 +6283,393 @@
         });
     }
 
-    const _ACH_RARITIES = Object.keys(RARITY_ACH);
-    const _ACH_CATEGORIES = { basic: 'Basic', secret: 'Secret' };
+    const _SVG_CALENDAR = `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:2px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
-    function _achievementOverview(definitions, earned, getProgress) {
-        const count = () => ({ done: 0, total: 0 });
-        const totals = count();
-        const publicTotals = count();
-        const rarities = Object.fromEntries(_ACH_RARITIES.map(rarity => [rarity, count()]));
-        const categories = Object.fromEntries(Object.keys(_ACH_CATEGORIES).map(category => [category, count()]));
-        const items = [];
-        for (const ach of definitions) {
-            const state = earned?.[ach.id];
-            const tiers = ach.type === 'tiered' ? ach.tiers : [ach];
-            const curTier = Math.min(tiers.length, Math.max(0, ach.type === 'tiered' ? state?.tier || 0 : Number(!!state?.unlocked)));
-            tiers.forEach((tier, index) => {
-                const unlocked = index < curTier;
-                const counts = [totals, rarities[tier.rarity], categories[ach.cat]];
-                if (ach.cat !== 'secret') counts.push(publicTotals);
-                for (const entry of counts) {
-                    entry.total++;
-                    if (unlocked) entry.done++;
-                }
-            });
-            const addCard = (tier, unlocked) => {
-                const secretLocked = ach.cat === 'secret' && !unlocked;
-                const goal = !unlocked && !secretLocked && (tier.progress || tier.progressDisplay);
-                const value = goal ? Math.max(0, getProgress(goal.path)) : 0;
-                const progress = unlocked ? 1 : goal ? Math.min(1, value / goal.target) : 0;
-                const date = unlocked ? (ach.type === 'tiered' ? state?.tierDates?.[curTier] : state?.unlockedAt) : '';
-                items.push({ ach, tier, curTier, unlocked, secretLocked, goal, value, progress, date, name: secretLocked ? '???' : tier.name });
-            };
-            if (curTier > 0) addCard(tiers[curTier - 1], true);
-            if (curTier < tiers.length) addCard(tiers[curTier], false);
+    function _achShapePath(rarity, size) {
+        const center = size / 2;
+        const inset = 1.5;
+        if (rarity === 'common') {
+            const radius = center - inset;
+            return `M${center},${inset} A${radius},${radius} 0 1,1 ${center - 0.01},${inset} Z`;
         }
-        const percent = publicTotals.total ? Math.round(100 * publicTotals.done / publicTotals.total) : 0;
-        return { totals, rarities, categories, percent, items };
-    }
-
-    function _selectAchievementCards(items, tab, sort) {
-        const comparators = {
-            rarity: (left, right) => _ACH_RARITIES.indexOf(right.tier.rarity) - _ACH_RARITIES.indexOf(left.tier.rarity),
-            progress: (left, right) => right.progress - left.progress,
-            name: () => 0,
-            recent: (left, right) => Number(right.unlocked) - Number(left.unlocked) || LBSave.date(right.date).localeCompare(LBSave.date(left.date))
+        if (rarity === 'rare') {
+            return `M${center},${inset} L${size-inset},${inset} L${size-inset},${size-inset} L${inset},${size-inset} L${inset},${inset} Z`;
+        }
+        const rawPts = {
+            epic:      [[50,6.7],[75,6.7],[100,50],[75,93.3],[25,93.3],[0,50],[25,6.7]],
+            legendary: [[50,0],[64.5,14.9],[85.4,14.6],[85.1,35.5],[100,50],[85.1,64.5],[85.4,85.4],[64.5,85.1],[50,100],[35.5,85.1],[14.6,85.4],[14.9,64.5],[0,50],[14.9,35.5],[14.6,14.6],[35.5,14.9]],
+            mythic:    [[50,0],[60,11],[75,7],[78,22],[93,25],[89,40],[100,50],[89,60],[93,75],[78,78],[75,93],[60,89],[50,100],[40,89],[25,93],[22,78],[7,75],[11,60],[0,50],[11,40],[7,25],[22,22],[25,7],[40,11]],
         };
-        return items.filter(item => tab === 'locked' ? !item.unlocked : tab === 'unlocked' ? item.unlocked : true)
-            .sort((left, right) => (comparators[sort] || comparators.rarity)(left, right) || left.name.localeCompare(right.name));
+        const pts = rawPts[rarity] || rawPts.epic;
+        const mapped = pts.map(([px, py]) => {
+            const pointX = px * size / 100, pointY = py * size / 100;
+            const deltaX = pointX - center, deltaY = pointY - center;
+            const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY) || 1;
+            return [pointX - deltaX / dist * inset, pointY - deltaY / dist * inset];
+        });
+        return 'M' + mapped.map(([pointX, pointY]) => `${pointX.toFixed(1)},${pointY.toFixed(1)}`).join(' L') + ' Z';
     }
 
-    function _achievementElement(tag, className, text) {
-        const element = document.createElement(tag);
-        if (className) element.className = className;
-        if (text !== undefined) element.textContent = text;
-        return element;
-    }
-
-    function _achievementRarity(element, rarity) {
-        element.style.setProperty('--tone', `var(--rarity-${rarity})`);
-    }
-
-    function _renderAchievementClaims(container, tab) {
-        const claims = saveData.pendingAchievementClaims;
-        container.replaceChildren();
-        container.hidden = !claims?.length;
-        if (container.hidden) return;
-
-        const section = _achievementElement('section', 'lb-card lb-stack');
-        const header = _achievementElement('div', 'lb-ach-summary-heading');
-        header.appendChild(_achievementElement('h2', '', 'Pending rewards'));
-        if (claims.length > 1) {
-            const claimAllBtn = _achievementElement('button', 'lb-btn lb-btn--claim', 'Claim all');
-            claimAllBtn.type = 'button';
-            claimAllBtn.addEventListener('click', () => {
-                let totalXpGained = 0;
-                const claims = [...saveData.pendingAchievementClaims];
-                saveData.pendingAchievementClaims = [];
-                claims.forEach(c => { _grantXP(c.xp); totalXpGained += c.xp; });
-                playSFX('unlock');
-                const rect = claimAllBtn.getBoundingClientRect();
-                _spawnAchClaimFloat(rect.left + rect.width / 2, rect.top, totalXpGained, '#00ffff');
-                _checkAchGlow();
-                saveDataToFile();
-                drawRankBadge();
-                renderAchievementsOverlay(tab);
-            });
-            header.appendChild(claimAllBtn);
-        }
-        section.appendChild(header);
-        for (const [index, claim] of claims.entries()) {
-            const rarity = Object.hasOwn(RARITY_ACH, claim.rarity) ? claim.rarity : 'common';
-            const rc = RARITY_ACH[rarity];
-            const row = _achievementElement('div', 'lb-ach-claim-row');
-            _achievementRarity(row, rarity);
-            const label = _achievementElement('div');
-            label.append(_achievementElement('strong', '', claim.name), _achievementElement('span', 'lb-ach-rarity-label', rc.label));
-            const button = _achievementElement('button', 'lb-btn lb-btn--claim', `Claim +${claim.xp.toLocaleString()} XP`);
-            button.type = 'button';
-            button.addEventListener('click', () => {
-                _grantXP(claim.xp);
-                saveData.pendingAchievementClaims.splice(index, 1);
-                playSFX('unlock');
-                const rect = button.getBoundingClientRect();
-                _spawnAchClaimFloat(rect.left + rect.width / 2, rect.top, claim.xp, rc.color);
-                _checkAchGlow();
-                saveDataToFile();
-                drawRankBadge();
-                renderAchievementsOverlay(tab);
-            });
-            row.append(label, button);
-            section.appendChild(row);
-        }
-        container.appendChild(section);
-    }
-
-    function _buildAchievementCard(item, showDates) {
-        const { ach, tier, curTier, unlocked, secretLocked, goal, value, date, name } = item;
-        const rarity = tier.rarity;
-        const rc = RARITY_ACH[rarity];
-        const shape = _achShapeStyle(rarity);
-        const size = rarity === 'rare' ? 62 : 68;
-        const borderColor = unlocked ? rc.color : '#3a3a4a';
-        const innerBg = unlocked ? 'rgba(15,10,30,0.95)' : 'rgba(10,10,14,0.95)';
-        const iconColor = unlocked ? '#fff' : secretLocked ? '#3a3a4a' : '#2e2e3a';
-        const icon = secretLocked ? _getSecretQMark(rarity, ach.id) : ach.svgIcon;
-        const iconSize = secretLocked ? 44 : 30;
-        const card = _achievementElement('article', 'lb-rarity lb-ach-card');
-        _achievementRarity(card, rarity);
-        const badge = _achievementElement('div', 'lb-ach-badge');
-        badge.setAttribute('aria-hidden', 'true');
-        badge.innerHTML = `
-            <div class="lb-ach-badge-frame" style="width:${size}px;height:${size}px;${shape.outer}background:${borderColor};">
-                <div class="lb-ach-badge-icon" style="${shape.inner}background:${innerBg};color:${iconColor};">
-                    <svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}">${icon}</svg>
-                </div>
-            </div>`;
-        const body = _achievementElement('div', 'lb-ach-card-body');
-        const labels = _achievementElement('div', 'lb-actions');
-        labels.append(_achievementElement('span', 'lb-ach-rarity-label', rc.label), _achievementElement('span', 'lb-ach-status', unlocked ? 'Unlocked' : 'Locked'));
-        body.append(labels, _achievementElement('h3', '', name), _achievementElement('p', '', secretLocked ? `Hint: ${ach.clue}` : tier.desc));
-        if (unlocked && ach.clue) body.appendChild(_achievementElement('p', '', `Hint: ${ach.clue}`));
-        if (goal) {
-            const progress = _achievementElement('progress', 'lb-progress lb-progress--pattern');
-            progress.max = goal.target;
-            progress.value = Math.min(value, goal.target);
-            progress.setAttribute('aria-label', `${name} progress`);
-            body.append(progress, _achievementElement('p', '', `${value.toLocaleString()} of ${goal.target.toLocaleString()}`));
-        }
-        const displayedDate = showDates && LBSave.displayDate(date);
-        if (displayedDate) body.appendChild(_achievementElement('p', '', `Unlocked on ${displayedDate}`));
-        if (ach.type === 'tiered' && !secretLocked) {
-            body.appendChild(_achievementElement('p', '', `${ach.name} · ${curTier} of ${ach.tiers.length} tiers unlocked`));
-            if (unlocked && curTier > 1) {
-                const details = _achievementElement('details');
-                const earlier = _achievementElement('ul');
-                const dates = saveData.achievements[ach.id].tierDates;
-                ach.tiers.slice(0, curTier - 1).forEach((earnedTier, index) => {
-                    const earlierDate = showDates && LBSave.displayDate(dates?.[index + 1]);
-                    earlier.appendChild(_achievementElement('li', '', `${RARITY_ACH[earnedTier.rarity].label} · ${earnedTier.name} — ${earnedTier.desc}${earlierDate ? ` · ${earlierDate}` : ''}`));
-                });
-                details.append(_achievementElement('summary', '', 'Earlier unlocked tiers'), earlier);
-                body.appendChild(details);
-            }
-        }
-        if (!secretLocked && ach.type === 'tiered' && ach.counter && (unlocked ? curTier === ach.tiers.length : !ach.tiers.some(entry => entry.progress || entry.progressDisplay))) {
-            const counterValue = _getProgressVal(ach.counter.path);
-            if (counterValue > 0) body.appendChild(_achievementElement('p', '', `${ach.counter.label}: ${_fmtCounter(ach.counter, counterValue)}`));
-        }
-        if (unlocked && ach.id === 'afk' && saveData.stats?.menuIdleTime > 0) {
-            const seconds = saveData.stats.menuIdleTime;
-            body.appendChild(_achievementElement('p', '', `Longest idle: ${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`));
-        }
-        card.append(badge, body);
-        return card;
+    function _achProgressOutlineSvg(rarity, fraction, color, size) {
+        const outline = _achShapePath(rarity, size);
+        const filled = Math.min(1, fraction) * 100;
+        return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="position:absolute;inset:0;pointer-events:none;z-index:2;">
+            <path d="${outline}" pathLength="100" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"
+                stroke-dasharray="${filled} ${100 - filled}" stroke-dashoffset="0" opacity="0.85"/>
+        </svg>`;
     }
 
     function renderAchievementsOverlay(tab) {
+        tab = tab || 'all';
+        checkProgressAchievements();
         const overlay = document.getElementById('achievements-overlay');
         if (!overlay) return;
-        tab = tab || overlay.querySelector('[data-achtab][aria-pressed="true"]')?.dataset.achtab || 'all';
-        checkProgressAchievements();
-        overlay.querySelectorAll('[data-achtab]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.achtab === tab)));
 
-        const { totals, rarities, categories, percent, items } = _achievementOverview(ACHIEVEMENTS_DEF, saveData.achievements, _getProgressVal);
-        const formatCount = ({ done, total }) => `${done} of ${total}`;
-        overlay.querySelector('#ach-counter').textContent = formatCount(totals);
-        overlay.querySelector('#ach-percent').textContent = `${percent}%`;
-        overlay.querySelector('#ach-progress').value = percent;
-        overlay.querySelector('#ach-tier-counts').replaceChildren(..._ACH_RARITIES.map(rarity => {
-            const count = _achievementElement('li');
-            _achievementRarity(count, rarity);
-            count.append(_achievementElement('span', 'lb-ach-rarity-label', RARITY_ACH[rarity].label), _achievementElement('strong', '', formatCount(rarities[rarity])));
-            return count;
-        }));
-        _renderAchievementClaims(overlay.querySelector('#ach-claims'), tab);
+        const _prevAchTab = overlay._achTab || null;
+        overlay._achTab = tab;
+        const _isAchTabSwitch = !!_prevAchTab && _prevAchTab !== tab;
+        const _ACH_ORD = ['all', 'unlocked', 'locked'];
 
-        const container = overlay.querySelector('#ach-list');
+        overlay.querySelectorAll('[data-achtab]').forEach(b => b.classList.toggle('active', b.dataset.achtab === tab));
+
+        const container = document.getElementById('ach-list');
+        if (!container) return;
         const showDates = overlay.querySelector('#ach-dates-toggle').checked;
-        const selected = _selectAchievementCards(items, tab, overlay.querySelector('#ach-sort').value);
-        const makeGrid = list => {
-            const grid = _achievementElement('div', 'lb-grid');
-            grid.append(...list.map(item => _buildAchievementCard(item, showDates)));
-            return grid;
-        };
-        if (!selected.length) {
-            const message = tab === 'unlocked' ? 'No achievements unlocked yet. Play to earn your first badge.' : 'No achievements match this filter.';
-            container.replaceChildren(_achievementElement('p', 'lb-empty', message));
-        } else if (tab === 'categories') {
-            container.replaceChildren(...Object.entries(_ACH_CATEGORIES).map(([category, label]) => {
-                const section = _achievementElement('section', 'lb-stack');
-                const header = _achievementElement('div', 'lb-ach-category-heading');
-                header.append(_achievementElement('h2', '', label), _achievementElement('span', 'lb-pill', formatCount(categories[category])));
-                section.append(header, makeGrid(selected.filter(item => item.ach.cat === category)));
-                return section;
-            }));
-        } else {
-            container.replaceChildren(makeGrid(selected));
+
+        if (_isAchTabSwitch && container.innerHTML.trim()) {
+            const _bRect = container.getBoundingClientRect();
+            const _exitEl = document.createElement('div');
+            _exitEl.style.cssText = `position:fixed;top:${_bRect.top}px;left:${_bRect.left}px;width:${_bRect.width}px;height:${_bRect.height}px;pointer-events:none;z-index:2000;overflow:hidden;`;
+            _exitEl.setAttribute('aria-hidden', 'true');
+            _exitEl.append(...Array.from(container.childNodes, child => child.cloneNode(true)));
+            _exitEl.inert = true;
+            document.body.appendChild(_exitEl);
+            const _oi = _ACH_ORD.indexOf(_prevAchTab), _ni = _ACH_ORD.indexOf(tab);
+            _exitEl.classList.add(_ni > _oi ? 'mq-tab-slide-out-left' : 'mq-tab-slide-out-right');
+            _exitEl.addEventListener('animationend', () => _exitEl.remove(), { once: true });
+        }
+
+        container.innerHTML = '';
+
+        if (_isAchTabSwitch) {
+            const _oi = _ACH_ORD.indexOf(_prevAchTab), _ni = _ACH_ORD.indexOf(tab);
+            _animateIn(container, _ni > _oi ? 'tab-slide-in-right' : 'tab-slide-in-left');
+        }
+
+        const oldTip = document.getElementById('ach-tip');
+        if (oldTip) oldTip.remove();
+
+        if (saveData.pendingAchievementClaims?.length > 0) {
+            const pendingSection = document.createElement('div');
+            pendingSection.style.cssText = 'width:100%;margin-bottom:20px;padding:12px;border-radius:10px;background:rgba(0,255,255,0.04);border:1px solid rgba(0,255,255,0.15);';
+            const pendingHeader = document.createElement('div');
+            pendingHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;';
+            pendingHeader.innerHTML = `<span style="font-size:0.62rem;color:var(--primary);letter-spacing:2px;font-weight:bold;">PENDING REWARDS</span>`;
+            if (saveData.pendingAchievementClaims.length > 1) {
+                const claimAllBtn = document.createElement('button');
+                claimAllBtn.className = 'btn-secondary';
+                claimAllBtn.style.cssText = 'font-size:0.55rem;padding:4px 12px;min-height:unset;background:rgba(0,255,255,0.1);border:1px solid var(--primary);color:var(--primary);cursor:pointer;border-radius:6px;font-weight:bold;letter-spacing:1px;';
+                claimAllBtn.textContent = 'CLAIM ALL';
+                claimAllBtn.addEventListener('click', () => {
+                    let totalXpGained = 0;
+                    const claims = [...saveData.pendingAchievementClaims];
+                    saveData.pendingAchievementClaims = [];
+                    claims.forEach(c => { _grantXP(c.xp); totalXpGained += c.xp; });
+                    playSFX('unlock');
+                    const rect = claimAllBtn.getBoundingClientRect();
+                    _spawnAchClaimFloat(rect.left + rect.width / 2, rect.top, totalXpGained, '#00ffff');
+                    _checkAchGlow();
+                    saveDataToFile();
+                    drawRankBadge();
+                    renderAchievementsOverlay(tab);
+                });
+                pendingHeader.appendChild(claimAllBtn);
+            }
+            pendingSection.appendChild(pendingHeader);
+            const pendingGrid = document.createElement('div');
+            pendingGrid.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+            saveData.pendingAchievementClaims.forEach((claim, idx) => {
+                const rc = Object.hasOwn(RARITY_ACH, claim.rarity) ? RARITY_ACH[claim.rarity] : RARITY_ACH.common;
+                const card = document.createElement('div');
+                card.style.cssText = `display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid ${rc.color}30;`;
+                const nameHtml = `<div style="font-size:0.48rem;color:${rc.color};font-weight:bold;letter-spacing:1px;min-width:55px;text-align:center;">${rc.label}</div><div style="flex:1;min-width:0;font-size:0.65rem;font-weight:bold;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(claim.name)}</div>`;
+                const xpHtml = `<div style="font-size:0.65rem;font-weight:bold;color:${rc.color};white-space:nowrap;text-shadow:0 0 8px ${rc.color}40;">+${escapeHtml(claim.xp.toLocaleString())} XP</div>`;
+                const claimBtn = document.createElement('button');
+                claimBtn.className = 'btn-secondary';
+                claimBtn.style.cssText = `font-size:0.5rem;padding:4px 10px;min-height:unset;background:${rc.color}18;border:1px solid ${rc.color}60;color:${rc.color};cursor:pointer;border-radius:5px;font-weight:bold;letter-spacing:1px;`;
+                claimBtn.textContent = 'CLAIM';
+                claimBtn.addEventListener('click', () => {
+                    _grantXP(claim.xp);
+                    saveData.pendingAchievementClaims.splice(idx, 1);
+                    playSFX('unlock');
+                    const rect = claimBtn.getBoundingClientRect();
+                    _spawnAchClaimFloat(rect.left + rect.width / 2, rect.top, claim.xp, rc.color);
+                    _checkAchGlow();
+                    saveDataToFile();
+                    drawRankBadge();
+                    renderAchievementsOverlay(tab);
+                });
+                card.innerHTML = nameHtml + xpHtml;
+                card.appendChild(claimBtn);
+                pendingGrid.appendChild(card);
+            });
+            pendingSection.appendChild(pendingGrid);
+            container.appendChild(pendingSection);
+        }
+
+        let totalCount = 0, doneCount = 0;
+        for (const ach of ACHIEVEMENTS_DEF) {
+            if (ach.type === 'tiered') {
+                totalCount += ach.tiers.length;
+                doneCount += Math.min(Math.max(0, saveData.achievements?.[ach.id]?.tier || 0), ach.tiers.length);
+            } else {
+                totalCount++;
+                doneCount += saveData.achievements?.[ach.id]?.unlocked ? 1 : 0;
+            }
+        }
+        const ctr = document.getElementById('ach-counter');
+        if (ctr) ctr.textContent = `${doneCount} / ${totalCount}`;
+
+        const renderItems = [];
+        for (const ach of ACHIEVEMENTS_DEF) {
+            const maxTier = ach.type === 'tiered' ? ach.tiers.length : 1;
+            const curTier = ach.type === 'tiered' ? Math.min(Math.max(0, saveData.achievements?.[ach.id]?.tier || 0), maxTier) : 0;
+            const unlocked = ach.type === 'tiered' ? curTier > 0 : !!(saveData.achievements?.[ach.id]?.unlocked);
+            if (ach.type === 'tiered') {
+                if (curTier > 0 && (tab === 'all' || tab === 'unlocked'))
+                    renderItems.push({ ach, kind: 'unlocked', curTier, maxTier });
+                if (curTier < maxTier && (tab === 'all' || tab === 'locked'))
+                    renderItems.push({ ach, kind: 'locked', curTier, maxTier });
+            } else {
+                if (tab === 'all' || (tab === 'unlocked' && unlocked) || (tab === 'locked' && !unlocked))
+                    renderItems.push({ ach, kind: unlocked ? 'unlocked' : 'locked', curTier: unlocked ? 1 : 0, maxTier: 1 });
+            }
+        }
+
+        const _RARITY_ORDER = { common:1, rare:2, epic:3, legendary:4, mythic:5 };
+        function _getRarityOfItem(item) {
+            const { ach, kind, curTier } = item;
+            if (ach.type === 'tiered') {
+                return kind === 'unlocked' ? ach.tiers[curTier - 1].rarity : ach.tiers[curTier].rarity;
+            }
+            return ach.rarity;
+        }
+        function _getProgressOfItem(item) {
+            const { ach, kind, curTier } = item;
+            if (kind === 'unlocked') return 1;
+            if (ach.type === 'tiered' && curTier < ach.tiers.length) {
+                const nxt = ach.tiers[curTier];
+                const progressInfo = nxt.progress || nxt.progressDisplay;
+                if (progressInfo) {
+                    const cur = _getProgressVal(progressInfo.path);
+                    return Math.min(1, cur / progressInfo.target);
+                }
+            }
+            return 0;
+        }
+        function _getNameOfItem(item) {
+            const { ach, kind, curTier } = item;
+            if (ach.type === 'tiered') {
+                return kind === 'unlocked' ? ach.tiers[curTier - 1].name : ach.tiers[curTier].name;
+            }
+            return ach.name;
+        }
+        renderItems.sort((a, b) => {
+            if (a.kind !== b.kind) return a.kind === 'unlocked' ? -1 : 1;
+            const ra = _RARITY_ORDER[_getRarityOfItem(a)] || 0, rb = _RARITY_ORDER[_getRarityOfItem(b)] || 0;
+            if (ra !== rb) return rb - ra;
+            const pa = _getProgressOfItem(a), pb = _getProgressOfItem(b);
+            if (Math.abs(pa - pb) > 0.001) return pb - pa;
+            return _getNameOfItem(a).localeCompare(_getNameOfItem(b));
+        });
+
+        if (!renderItems.length) {
+            const empty = document.createElement('div');
+            empty.style.cssText = 'text-align:center;color:#555;padding:40px;font-size:0.75rem;';
+            empty.textContent = 'Nothing here yet.';
+            container.appendChild(empty);
+            return;
+        }
+
+        function _posAchTip(t, e) {
+            const tw = t.offsetWidth || 280, th = t.offsetHeight || 200;
+            let tx = e.clientX + 14, ty = e.clientY - 10;
+            if (tx + tw > window.innerWidth - 10) tx = e.clientX - tw - 10;
+            if (ty + th > window.innerHeight - 10) ty = window.innerHeight - th - 10;
+            if (ty < 10) ty = 10;
+            if (tx < 10) tx = 10;
+            t.style.left = tx + 'px'; t.style.top = ty + 'px';
+        }
+        const tip = document.createElement('div');
+        tip.id = 'ach-tip';
+        tip.style.cssText = 'display:none;position:fixed;z-index:2100;background:rgba(5,5,20,0.97);border:1px solid color-mix(in srgb, var(--primary) 30%, transparent);border-radius:8px;padding:8px 10px;min-width:270px;max-width:340px;pointer-events:none;font-family:inherit;font-size:0.68rem;color:#bbb;line-height:1.5;';
+        document.body.appendChild(tip);
+
+        function buildCard(item) {
+            const { ach, kind, curTier, maxTier } = item;
+            const isUnlocked = kind === 'unlocked';
+            let rarity;
+            if (ach.type === 'tiered') {
+                rarity = isUnlocked ? ach.tiers[curTier - 1].rarity : ach.tiers[curTier].rarity;
+            } else {
+                rarity = ach.rarity;
+            }
+            const rc = RARITY_ACH[rarity] || RARITY_ACH.common;
+            const sh = _achShapeStyle(rarity);
+            const borderColor = isUnlocked ? rc.color : '#3a3a4a';
+            const innerBg     = isUnlocked ? 'rgba(15,10,30,0.95)' : 'rgba(10,10,14,0.95)';
+            const iconColor   = isUnlocked ? '#fff' : '#2e2e3a';
+
+            const isSecretLocked = ach.cat === 'secret' && !isUnlocked;
+            let _progressFrac = 0;
+            if (!isUnlocked && !isSecretLocked) {
+                if (ach.type === 'tiered' && curTier < maxTier) {
+                    const nxt = ach.tiers[curTier];
+                    const progressInfo = nxt.progress || nxt.progressDisplay;
+                    if (progressInfo) {
+                        const cur2 = _getProgressVal(progressInfo.path);
+                        _progressFrac = Math.min(1, cur2 / progressInfo.target);
+                    }
+                }
+            }
+
+            const isGold = rarity === 'legendary';
+            const wrap = document.createElement('div');
+            const _badgeSize = rarity === 'rare' ? 62 : 68;
+            wrap.style.cssText = `position:relative;width:68px;height:68px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;`;
+            const innerWrap = document.createElement('div');
+            innerWrap.style.cssText = `width:${_badgeSize}px;height:${_badgeSize}px;position:relative;`;
+            if (isUnlocked && isGold) {
+                wrap.style.filter = 'drop-shadow(0 0 4px rgba(255,215,64,0.4))';
+            }
+            const _secretQIcon = isSecretLocked ? _getSecretQMark(rarity, ach.id) : '';
+            const _displayIcon = isSecretLocked ? _secretQIcon : ach.svgIcon;
+            const _pulseDelay = (Math.random() * 20).toFixed(1);
+            const _iconAttrs = isSecretLocked
+                ? `style="color:#3a3a4a;"`
+                : (isUnlocked ? (_isColoredSvg(_displayIcon) ? 'class="ach-badge-colored"' : `class="ach-badge-icon" style="color:#fff;--glow-c:${rc.color};--ach-pulse-delay:-${_pulseDelay}s;"`) : `style="color:${iconColor};"`);
+            const _progressSvg = (_progressFrac > 0 && !isUnlocked) ? _achProgressOutlineSvg(rarity, _progressFrac, rc.color, _badgeSize) : '';
+            innerWrap.innerHTML = `
+                <div style="width:100%;height:100%;${sh.outer}background:${borderColor};display:flex;align-items:center;justify-content:center;">
+                    <div style="width:calc(100% - 6px);height:calc(100% - 6px);${sh.inner}background:${innerBg};display:flex;align-items:center;justify-content:center;position:relative;">
+                        <svg viewBox="0 0 24 24" width="${isSecretLocked ? '44' : '30'}" height="${isSecretLocked ? '44' : '30'}" ${_iconAttrs}>${_displayIcon}</svg>
+                    </div>
+                </div>
+                ${_progressSvg}`;
+            wrap.appendChild(innerWrap);
+            const _showAchTooltip = (e) => {
+                const isSecret = ach.cat === 'secret';
+                let html = '';
+                if (ach.type === 'tiered') {
+                    html += `<div style="font-weight:bold;color:${isUnlocked?'#fff':'#888'};margin-bottom:4px;font-size:0.72rem;white-space:nowrap;">${ach.name}</div>`;
+                    if (isUnlocked) {
+                        const tierDates = saveData.achievements?.[ach.id]?.tierDates || {};
+                        for (let i = 0; i < curTier; i++) {
+                            const t = ach.tiers[i]; const tr = RARITY_ACH[t.rarity] || RARITY_ACH.common;
+                            html += `<div style="color:${tr.color};font-weight:bold;letter-spacing:1px;">${tr.label} — ${t.name}</div>`;
+                            html += `<div style="color:#555;font-size:0.58rem;font-style:italic;margin-bottom:2px;">${t.desc}</div>`;
+                            const date = LBSave.displayDate(tierDates[i + 1]);
+                            if (showDates && date) html += `<div style="color:#666;font-size:0.55rem;margin-bottom:3px;">${_SVG_CALENDAR}${escapeHtml(date)}</div>`;
+                        }
+                        if (ach.counter && curTier >= maxTier) {
+                            const cv = _getProgressVal(ach.counter.path);
+                            if (cv > 0) {
+                                const lastRc = RARITY_ACH[ach.tiers[maxTier - 1].rarity];
+                                html += `<div style="margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.07);"><span style="font-size:0.55rem;color:#555;">${ach.counter.label}: </span><span style="color:${lastRc.color};font-weight:bold;">${_fmtCounter(ach.counter, cv)}</span></div>`;
+                            }
+                        }
+                    } else {
+                        const nxt = ach.tiers[curTier]; const ntr = RARITY_ACH[nxt.rarity];
+                        html += `<div style="color:#888;">${curTier === 0 ? 'First tier' : 'Next'}: <span style="color:${ntr.color};">${nxt.name}</span></div>`;
+                        html += `<div style="color:#888;font-style:italic;margin-top:2px;">${nxt.desc}</div>`;
+                        const progressInfo = nxt.progress || nxt.progressDisplay;
+                        if (progressInfo) {
+                            const cur2 = _getProgressVal(progressInfo.path);
+                            const pct = Math.min(100, Math.round(cur2 / progressInfo.target * 100));
+                            html += `<div class="ach-progress-bar" style="margin-top:4px;width:100%;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;"><div class="ach-progress-fill" style="height:100%;width:${pct}%;background:${ntr.color};border-radius:2px;"></div></div>`;
+                            html += `<div style="color:#555;margin-top:2px;">${cur2} / ${progressInfo.target}</div>`;
+                        }
+                        if (ach.counter && !ach.tiers.some(t => t.progress || t.progressDisplay)) {
+                            const cv = _getProgressVal(ach.counter.path);
+                            if (cv > 0) {
+                                html += `<div style="margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.07);"><span style="font-size:0.55rem;color:#555;">${ach.counter.label}: </span><span style="color:${ntr.color};font-weight:bold;">${_fmtCounter(ach.counter, cv)}</span></div>`;
+                            }
+                        }
+                    }
+                    const _dots = ach.tiers.map((t2, i) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${i<curTier?(RARITY_ACH[t2.rarity]?.color||'#888'):'#2a2a3a'};margin-right:2px;"></span>`).join('');
+                    html += `<div style="margin:4px 0;">${_dots} <span style="color:#666;">${curTier}/${maxTier}</span></div>`;
+                } else {
+                    const tr = RARITY_ACH[ach.rarity] || RARITY_ACH.common;
+                    const showReal = isUnlocked || !isSecret;
+                    html += `<div style="font-weight:bold;color:${isUnlocked?'#fff':'#888'};margin-bottom:3px;font-size:0.72rem;white-space:nowrap;">${showReal ? ach.name : '???'}</div>`;
+                    if (isUnlocked || !isSecret) html += `<div style="color:${isUnlocked?tr.color:'#555'};font-weight:bold;letter-spacing:1px;margin-bottom:5px;">${tr.label}</div>`;
+                    if (isSecret && !isUnlocked) {
+                        html += `<div style="color:#555;font-style:italic;">"${ach.clue}"</div>`;
+                    } else {
+                        html += `<div style="color:#aaa;">${ach.desc}</div>`;
+                        const date = LBSave.displayDate(saveData.achievements?.[ach.id]?.unlockedAt);
+                        if (showDates && isUnlocked && date)
+                            html += `<div style="color:#666;margin-top:3px;font-size:0.55rem;">${_SVG_CALENDAR}${escapeHtml(date)}</div>`;
+                        if (isSecret && ach.clue)
+                            html += `<div style="color:#555;font-style:italic;margin-top:4px;">"${ach.clue}"</div>`;
+                        if (isUnlocked && isSecret) {
+                            let _bestHtml = '';
+                            if (ach.id === 'afk') {
+                                const _secs = saveData.stats?.menuIdleTime || 0;
+                                if (_secs > 0) { const _m = Math.floor(_secs/60), _s = _secs%60; _bestHtml = `Longest idle: ${_m}m ${String(_s).padStart(2,'0')}s`; }
+                            }
+                            if (_bestHtml) html += `<div style="margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.07);font-size:0.6rem;color:#888;">${_bestHtml}</div>`;
+                        }
+                    }
+                }
+                tip.innerHTML = html;
+                tip.style.display = 'block';
+                _posAchTip(tip, e);
+            };
+            wrap.addEventListener('mouseenter', e => { _showAchTooltip(e); });
+            wrap.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+            wrap.addEventListener('mousemove', e => { _posAchTip(tip, e); });
+            return wrap;
+        }
+
+        function sectionCounts(cat) {
+            let total = 0, done = 0;
+            for (const ach of ACHIEVEMENTS_DEF.filter(a => a.cat === cat)) {
+                if (ach.type === 'tiered') {
+                    total += ach.tiers.length;
+                    done += Math.min(Math.max(0, saveData.achievements?.[ach.id]?.tier || 0), ach.tiers.length);
+                } else {
+                    total++;
+                    done += saveData.achievements?.[ach.id]?.unlocked ? 1 : 0;
+                }
+            }
+            return { total, done };
+        }
+
+        function renderSection(items, title, counts) {
+            if (!items.length) return;
+            const section = document.createElement('div');
+            section.style.cssText = 'width:100%;margin-bottom:4px;';
+            const header = document.createElement('div');
+            header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:12px;';
+            header.innerHTML = `<span style="font-size:0.58rem;color:#666;letter-spacing:2px;font-weight:bold;">${title}</span><span style="flex:1;height:1px;background:rgba(255,255,255,0.07);"></span><span style="font-size:0.58rem;color:#444;">${counts.done}/${counts.total}</span>`;
+            section.appendChild(header);
+            const grid = document.createElement('div');
+            grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start;padding:0 0 20px 0;align-items:center;';
+            items.forEach(item => grid.appendChild(buildCard(item)));
+            section.appendChild(grid);
+            container.appendChild(section);
+        }
+
+        const sortItems = arr => [
+            ...arr.filter(it => it.kind === 'unlocked'),
+            ...arr.filter(it => it.kind === 'locked'),
+        ];
+        const basicItems  = sortItems(renderItems.filter(it => it.ach.cat === 'basic'));
+        const secretItems = sortItems(renderItems.filter(it => it.ach.cat === 'secret'));
+        renderSection(basicItems,  'BASIC',  sectionCounts('basic'));
+        if (secretItems.length) {
+            renderSection(secretItems, 'SECRET', sectionCounts('secret'));
         }
     }
     // ===================== END ACHIEVEMENTS =====================
@@ -11397,15 +11568,20 @@
         if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
     };
     window.renderAchievementsOverlay = renderAchievementsOverlay;
-    document.querySelectorAll('#achievements-overlay [data-achtab]').forEach(button => {
+    const achievementsOverlay = document.getElementById('achievements-overlay');
+    achievementsOverlay.querySelectorAll('[data-achtab]').forEach(button => {
         button.addEventListener('click', () => renderAchievementsOverlay(button.dataset.achtab));
     });
-    document.getElementById('ach-sort').addEventListener('change', () => renderAchievementsOverlay());
-    document.getElementById('ach-dates-toggle').addEventListener('change', () => renderAchievementsOverlay());
+    achievementsOverlay.querySelector('#ach-dates-toggle').addEventListener('change', () => {
+        if (!achievementsOverlay.classList.contains('hidden')) renderAchievementsOverlay(achievementsOverlay._achTab);
+    });
     window.openAchievements = function(tab) { renderAchievementsOverlay(tab || 'all'); const _achEl = document.getElementById('achievements-overlay'); _achEl.classList.remove('hidden'); _animateIn(_achEl, 'anim-in-right'); };
     window.closeAchievements = function() {
         const _mEl = document.getElementById('menu-overlay');
-        _animateOut(document.getElementById('achievements-overlay'), 'anim-out-right', _checkAchGlow);
+        _animateOut(document.getElementById('achievements-overlay'), 'anim-out-right', function() {
+            const t = document.getElementById('ach-tip'); if (t) t.remove();
+            _checkAchGlow();
+        });
         if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
     };
     window.openModeSelect = openModeSelect;
@@ -11588,7 +11764,6 @@
             moveBgBlock: _moveBgBlock, makeBgBlock: falling => new BgBlock(BG_STYLES.default, falling),
             rewardLabel: _rewardLabel, grantRewardPart: _grantRewardPart, generateLevelBoxRewards: _generateLevelBoxRewards,
             spawnSpecialBlock: _spawnSpecialBlock, previewRunMissions: _previewRunMissions,
-            achievementOverview: _achievementOverview, selectAchievementCards: _selectAchievementCards,
             encSave: _encSave, decSave: _decSave,
             defaultMissions: _defaultMissions, refreshMissions: _checkMissionsRefresh,
             generateDailyQuests: _generateDailyQuests, generateWeeklyMissions: _generateWeeklyMissions,

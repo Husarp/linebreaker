@@ -23,10 +23,10 @@
     .settings-row > * { min-width: 0; max-width: 100%; }
     .settings-row > span:first-child { flex-basis: 100%; }
     .lb-fullscreen [style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
-    .lb-fullscreen :is(div:has(> [data-invtab]), div:has(> [data-achtab]), div:has(> [data-rulestab])) {
+    .lb-fullscreen :is(div:has(> [data-invtab]), div:has(> [data-rulestab])) {
         display: flex !important; flex-wrap: nowrap !important; overflow-x: auto; justify-content: flex-start !important;
     }
-    .lb-fullscreen :is([data-invtab], [data-achtab], [data-rulestab]) { flex-shrink: 0; }
+    .lb-fullscreen :is([data-invtab], [data-rulestab]) { flex-shrink: 0; }
     :is(.modal-box, .transfer-box, .lb-run-panel, .lb-reward-panel) {
         width: 100% !important; max-width: 100% !important; min-width: 0 !important;
         max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));

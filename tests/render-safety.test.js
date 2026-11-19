@@ -96,30 +96,28 @@ it('renders achievement claims and saved reward cards as text and rejects an inv
   expect(box.querySelector('[data-render-probe]')).toBeNull();
 });
 
-it('shows single and tiered achievement dates as literal text on unlocked cards', () => {
+it('omits malformed single and tiered achievement dates from unlocked badge tooltips', () => {
   const singleDate = `${markup} single`;
   const tierDate = `${markup} tier`;
-  const earlierDate = `${markup} earlier tier`;
   game.setup({ save: { achievements: {
     rules_reader: { unlocked: true, unlockedAt: singleDate },
-    collector: { tier: 2, tierDates: { 1: earlierDate, 2: tierDate } }
+    collector: { tier: 2, tierDates: { 1: '2026-01-31', 2: tierDate } }
   } } });
-  window.openAchievements();
-  document.querySelector('[data-achtab="unlocked"]').click();
+  window.openAchievements('unlocked');
   document.getElementById('ach-dates-toggle').click();
-  const list = document.getElementById('ach-list');
-  const cards = [...list.querySelectorAll('.lb-ach-card')];
-  const cardNamed = name => cards.find(card => card.querySelector('h3').textContent === name);
-  const paragraphs = card => [...card.querySelectorAll('p')].map(paragraph => paragraph.textContent);
-  // Invalid dates are dropped by the save sanitizer; any date that is shown must be literal text.
-  const unlockedLine = card => paragraphs(card).find(text => text.startsWith('Unlocked on'));
-  expect([undefined, `Unlocked on ${singleDate}`]).toContain(unlockedLine(cardNamed('Dementia')));
-  expect(list.querySelector('[data-render-probe]')).toBeNull();
-  const collector = cardNamed('Accumulator');
-  expect([undefined, `Unlocked on ${tierDate}`]).toContain(unlockedLine(collector));
-  const tierLine = collector.querySelector('details li').textContent;
-  expect(tierLine.includes(earlierDate) || !tierLine.includes('<')).toBe(true);
-  expect(list.querySelector('[data-render-probe]')).toBeNull();
+  const tooltip = document.getElementById('ach-tip');
+  const badges = document.querySelectorAll('#ach-list > div > div:nth-child(2) > div');
+  const tooltips = new Map();
+  for (const badge of badges) {
+    badge.dispatchEvent(new window.MouseEvent('mouseenter'));
+    expect(tooltip.querySelector('[data-render-probe]')).toBeNull();
+    tooltips.set(tooltip.firstElementChild.textContent, tooltip.textContent);
+  }
+  expect(tooltips.get('Dementia')).toBeDefined();
+  expect(tooltips.get('Dementia')).not.toContain(singleDate);
+  expect(tooltips.get('Collector')).toContain('Accumulator');
+  expect(tooltips.get('Collector')).toContain('31.01.2026');
+  expect(tooltips.get('Collector')).not.toContain(tierDate);
 });
 
 it('keeps imported track metadata as text and passes the unchanged name to the playlist action', async () => {
