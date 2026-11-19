@@ -47,6 +47,28 @@
  --mission-normal: #4499ff;
  --mission-hard: #ff3355;
  --mission-secret: #cc88ff;
+ --bb-font-pixel: 'Press Start 2P', monospace;
+ --bb-page: #191c19;
+ --bb-panel: #262b27;
+ --bb-heading: #373e38;
+ --bb-well: #121512;
+ --bb-edge: #777f76;
+ --bb-face: #343936;
+ --bb-hover: #454d47;
+ --bb-pressed: #242924;
+ --bb-ink: #f5f4f0;
+ --bb-muted: #c9cec6;
+ --bb-danger: #ff6873;
+ --bb-rarity-common: #b7c0b7;
+ --bb-rarity-rare: #73b5ff;
+ --bb-rarity-epic: #ce9aff;
+ --bb-rarity-legendary: #ffcc66;
+ --bb-rarity-mythic: #ff6873;
+ --bb-cap: 6px;
+ --bb-frame: 4px 14px 4px 14px;
+ --bb-stroke: 2px;
+ --bb-cap-shadow: inset 0 2px #ffffff1e, inset 0 -4px #0007, 0 2px #0e100e;
+ --bb-frame-shadow: inset 0 0 0 3px #101310, 3px 3px #0e100e;
 }
 [data-theme="default"] { --accent: #00ffff; --background: radial-gradient(ellipse at center, #0d1b3e 0%, #020818 60%, #000 100%); }
 [data-theme="ocean"] { --accent: #0099ff; --background: radial-gradient(ellipse at center, #00204d 0%, #000c24 60%, #000 100%); }

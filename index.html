@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="42-line-clear.css">
     <link rel="stylesheet" href="41-season-pass.css">
     <link rel="stylesheet" href="43-crates-daily-gift.css">
+    <link rel="stylesheet" href="60-foundation.css">
 </head>
 <body>
 
@@ -49,10 +50,10 @@
 
 <!-- CUSTOM ALERT MODAL -->
 <div id="custom-alert" role="dialog" aria-modal="true" aria-labelledby="alert-title" class="overlay hidden" style="z-index: 1100;">
-    <div class="modal-box" id="alert-box">
+    <div class="modal-box lb-block-dialog lb-block-dialog--notice" id="alert-box">
         <div class="modal-title" id="alert-title">NOTICE</div>
         <div class="modal-text" id="alert-text">Message goes here.</div>
-        <button class="btn-secondary" onclick="window.closeAlert()">OK</button>
+        <button type="button" class="lb-block-btn lb-block-btn--primary" onclick="window.closeAlert()">OK</button>
     </div>
 </div>
 
@@ -68,12 +69,12 @@
 
 <!-- CUSTOM CONFIRM MODAL -->
 <div id="custom-confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" class="overlay hidden" style="z-index: 1101;">
-    <div class="modal-box" style="border-color: var(--error);">
-        <div class="modal-title" id="confirm-title" style="color: var(--error);">WARNING</div>
+    <div class="modal-box lb-block-dialog lb-block-dialog--warning">
+        <div class="modal-title" id="confirm-title">WARNING</div>
         <div class="modal-text" id="confirm-text">Message goes here.</div>
-        <div class="modal-btn-group">
-            <button class="btn-secondary" id="confirm-no">CANCEL</button>
-            <button class="btn-secondary" style="background: var(--error); border-color: var(--error);" id="confirm-yes">PROCEED</button>
+        <div class="modal-btn-group lb-block-dialog-actions">
+            <button type="button" class="lb-block-btn" id="confirm-no">CANCEL</button>
+            <button type="button" class="lb-block-btn lb-block-btn--danger" id="confirm-yes">PROCEED</button>
         </div>
     </div>
 </div>
@@ -241,7 +242,7 @@
 <!-- STATS & LEADERBOARD SCREEN -->
 <div id="stats-overlay" class="overlay hidden lb-fullscreen" role="region" aria-labelledby="stats-title">
     <div class="lb-stats-shell">
-        <header class="lb-header">
+        <header class="lb-header lb-block-topbar">
             <button class="lb-btn lb-btn--ghost" type="button" onclick="window.closeStats()">Back</button>
             <h1 id="stats-title">Statistics</h1>
         </header>
@@ -298,7 +299,7 @@
 
 <!-- INVENTORY SCREEN -->
 <div id="inventory-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1004;">
-    <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
+    <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding:14px 20px; flex-shrink:0; position:sticky; top:0; z-index:1;">
         <button class="btn-back" onclick="window.closeInventory()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary);">INVENTORY</span>
         <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About the inventory" title="About the inventory"></button>
@@ -393,7 +394,7 @@
 
 <!-- SETTINGS SCREEN -->
 <div id="settings-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1004;">
-    <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:20;">
+    <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding:14px 20px; flex-shrink:0; position:sticky; top:0; z-index:20;">
         <button class="btn-back" onclick="window.closeSettings()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary);">SETTINGS</span>
     </div>
@@ -442,7 +443,7 @@
                 <label class="settings-row">
                     <span>Music follows speed</span>
                     <span class="toggle">
-                        <input type="checkbox" id="setting-music-follows-speed" checked>
+                        <input type="checkbox" role="switch" id="setting-music-follows-speed" checked>
                         <span class="toggle-slider"></span>
                     </span>
                 </label>
@@ -528,22 +529,22 @@
                     </select>
                 </label>
                 <div class="settings-row">
-                    <span>Speed Up text</span>
+                    <label for="setting-speed-up-text">Speed Up text</label>
                     <div style="display:flex;align-items:center;justify-content:flex-end;min-width:190px;">
-                        <label class="toggle">
-                            <input type="checkbox" id="setting-speed-up-text" checked onchange="window.onSettingChange('showSpeedUp', this.checked)">
+                        <span class="toggle">
+                            <input type="checkbox" role="switch" id="setting-speed-up-text" checked>
                             <span class="toggle-slider"></span>
-                        </label>
+                        </span>
                     </div>
                     <div class="settings-tip">Show "SPEED UP!" floating text when game speed increases.</div>
                 </div>
                 <div class="settings-row">
-                    <span>Hard drop lock delay</span>
+                    <label for="setting-hard-drop-lock">Hard drop lock delay</label>
                     <div style="display:flex;align-items:center;justify-content:flex-end;min-width:190px;">
-                        <label class="toggle">
-                            <input type="checkbox" id="setting-hard-drop-lock" onchange="window.onSettingChange('hardDropLock', this.checked)">
+                        <span class="toggle">
+                            <input type="checkbox" role="switch" id="setting-hard-drop-lock">
                             <span class="toggle-slider"></span>
-                        </label>
+                        </span>
                     </div>
                     <div class="settings-tip">After placing a block, prevents instant drop for a short time to avoid accidental drops on the next piece.</div>
                 </div>
@@ -648,19 +649,19 @@
                 <div class="settings-title">REMINDERS</div>
                 <label class="settings-row">
                     <span>Enable reminders</span>
-                    <span class="toggle"><input type="checkbox" data-reminder="enabled"><span class="toggle-slider"></span></span>
+                    <span class="toggle"><input type="checkbox" role="switch" data-reminder="enabled"><span class="toggle-slider"></span></span>
                 </label>
                 <label class="settings-row">
                     <span>Daily mission refresh</span>
-                    <span class="toggle"><input type="checkbox" data-reminder="daily"><span class="toggle-slider"></span></span>
+                    <span class="toggle"><input type="checkbox" role="switch" data-reminder="daily"><span class="toggle-slider"></span></span>
                 </label>
                 <label class="settings-row">
                     <span>Streak ending tonight</span>
-                    <span class="toggle"><input type="checkbox" data-reminder="streak"><span class="toggle-slider"></span></span>
+                    <span class="toggle"><input type="checkbox" role="switch" data-reminder="streak"><span class="toggle-slider"></span></span>
                 </label>
                 <label class="settings-row">
                     <span>Weekly mission refresh</span>
-                    <span class="toggle"><input type="checkbox" data-reminder="weekly"><span class="toggle-slider"></span></span>
+                    <span class="toggle"><input type="checkbox" role="switch" data-reminder="weekly"><span class="toggle-slider"></span></span>
                 </label>
                 <div role="status"></div>
             </div>
@@ -674,7 +675,7 @@
             </div>
             <div class="settings-section" style="border-bottom:none;">
                 <p style="font-size:0.72rem; color:#666; margin-bottom:10px; line-height:1.5;">Permanently delete all progress, scores, and achievements.</p>
-                <button class="btn-secondary" style="width:100%; font-size:0.75rem; border-color:#ff4444; color:#ff4444;" onclick="window.resetAllProgress()">⚠ RESET ALL PROGRESS</button>
+                <button type="button" class="lb-block-btn lb-block-btn--danger" id="settings-reset-progress" style="width:100%;">⚠ RESET ALL PROGRESS</button>
             </div>
 
     </div>
@@ -697,7 +698,7 @@
 <!-- MODE SELECT -->
 <div id="mode-select-overlay" class="overlay hidden" role="dialog" aria-labelledby="play-title">
     <div class="play-layout">
-        <header class="lb-header play-header">
+        <header class="lb-header play-header lb-block-topbar">
             <button type="button" class="lb-btn lb-btn--ghost" id="play-back"><span aria-hidden="true">←</span> Back</button>
             <h1 id="play-title">Play</h1>
             <button type="button" class="lb-btn lb-btn--ghost" id="play-rules">Rules</button>
@@ -759,13 +760,13 @@
 
 <!-- PLAYLIST PANEL -->
 <div id="playlist-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1010;">
-    <div style="display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
+    <div class="lb-block-topbar lb-playlist-topbar">
         <div style="display:flex;align-items:center;gap:8px;">
             <button class="btn-back" onclick="window.closePlaylistPanel()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
             <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary); flex-shrink:0;">PLAYLIST</span>
         </div>
         <!-- Mini now-playing widget — centered -->
-        <div style="display:flex;justify-content:center;">
+        <div class="lb-playlist-player">
         <div id="pl-mini-widget" style="max-width:420px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 10px;">
             <div style="min-width:0;flex:0 1 200px;">
                 <div id="pl-mw-title" style="font-size:0.58rem;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;">—</div>
@@ -776,23 +777,32 @@
                 </div>
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0;align-items:center;">
-                <button onclick="window.musicWidgetPrev()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:5px;color:#ccc;cursor:pointer;padding:4px 6px;display:flex;align-items:center;"><svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><rect x="2" y="3" width="2" height="10"/><polygon points="13,3 6,8 13,13"/></svg></button>
-                <button id="pl-mw-pause" onclick="window.musicWidgetPause()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:5px;color:#ccc;cursor:pointer;padding:4px 6px;display:flex;align-items:center;"><svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/></svg></button>
-                <button onclick="window.musicWidgetNext()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:5px;color:#ccc;cursor:pointer;padding:4px 6px;display:flex;align-items:center;"><svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><rect x="12" y="3" width="2" height="10"/><polygon points="3,3 10,8 3,13"/></svg></button>
-                <button id="pl-mw-mute" onclick="window.toggleMute('music')" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:5px;color:#ccc;cursor:pointer;padding:4px 6px;display:flex;align-items:center;"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polygon points="7,3 3,6 1,6 1,10 3,10 7,13" fill="currentColor" stroke="none"/><path d="M10 6.5a2.5 2.5 0 0 1 0 3M12.5 4.5a5 5 0 0 1 0 7"/></svg></button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Previous track" onclick="window.musicWidgetPrev()"><svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><rect x="2" y="3" width="2" height="10"/><polygon points="13,3 6,8 13,13"/></svg></button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Play or pause music" id="pl-mw-pause" onclick="window.musicWidgetPause()"><svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/></svg></button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Next track" onclick="window.musicWidgetNext()"><svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><rect x="12" y="3" width="2" height="10"/><polygon points="3,3 10,8 3,13"/></svg></button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Toggle music mute" id="pl-mw-mute" onclick="window.toggleMute('music')"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polygon points="7,3 3,6 1,6 1,10 3,10 7,13" fill="currentColor" stroke="none"/><path d="M10 6.5a2.5 2.5 0 0 1 0 3M12.5 4.5a5 5 0 0 1 0 7"/></svg></button>
             </div>
         </div>
         </div>
-        <div></div>
     </div>
     <div style="width:100%; max-width:640px; margin:0 auto; padding:16px 20px;">
+        <div class="lb-playlist-tools">
+            <div class="lb-help-label">
+                <h2 class="lb-block-section-title">Track selection</h2>
+                <details class="lb-block-info">
+                    <summary class="lb-block-info-icon" aria-label="About playlist selection"></summary>
+                    <div class="lb-block-tooltip">Menu tracks play outside a run. Game tracks play during a run. Select a track name to play it now.</div>
+                </details>
+            </div>
+            <button type="button" class="lb-block-btn" onclick="window.resetPlaylist()">↺ Reset</button>
+        </div>
         <div id="playlist-panel-content"></div>
     </div>
 </div>
 
 <!-- HELP SCREEN -->
 <div id="rules-overlay" class="overlay hidden lb-help" role="dialog" aria-modal="true" aria-labelledby="help-title">
-    <header class="lb-help-header">
+    <header class="lb-help-header lb-block-topbar">
         <button type="button" id="help-back" class="lb-btn lb-btn--ghost" onclick="window.closeHelp()">Back</button>
         <h1 id="help-title">Game Help</h1>
     </header>
@@ -915,7 +925,7 @@
 
 <!-- ACHIEVEMENTS OVERLAY -->
 <div id="achievements-overlay" class="overlay hidden" style="z-index: 1003; background: rgba(5,5,16,0.92); backdrop-filter: none; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
-    <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
+    <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding:14px 20px; flex-shrink:0; position:sticky; top:0; z-index:1;">
         <button class="btn-back" onclick="window.closeAchievements()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:'Press Start 2P'; font-size:0.58rem; color:var(--primary); display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4H4v5c0 1.65 1.35 3 3 3"/><path d="M17 4h3v5c0 1.65-1.35 3-3 3"/><path d="M7 12c0 2.76 2.24 5 5 5s5-2.24 5-5V4H7v8z"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="9 21 12 21 15 21"/></svg>ACHIEVEMENTS</span>
         <span id="ach-counter" style="margin-left:6px; font-size:0.65rem; color:#888;"></span>
@@ -928,8 +938,8 @@
             <button class="opt-btn" data-achtab="locked">LOCKED</button>
             <label style="margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;" title="Show unlock dates on hover">
                 <span style="font-size:0.55rem;color:#555;">Dates</span>
-                <span class="toggle" style="transform:scale(0.75);transform-origin:center;">
-                    <input type="checkbox" id="ach-dates-toggle">
+                <span class="toggle">
+                    <input type="checkbox" role="switch" id="ach-dates-toggle">
                     <span class="toggle-slider"></span>
                 </span>
             </label>
@@ -941,7 +951,7 @@
 
 <!-- TUTORIAL OVERLAY -->
 <div id="tutorial-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1008;">
-    <div style="display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; background:rgba(5,5,16,0.97); position:sticky; top:0; z-index:1;">
+    <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding:14px 20px; flex-shrink:0; position:sticky; top:0; z-index:1;">
         <button class="btn-back" onclick="window.closeTutorial()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
         <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary); display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polygon points="10 8 16 11 10 14 10 8" fill="currentColor" opacity="0.7"/></svg>TUTORIALS</span>
     </div>
@@ -958,7 +968,7 @@
 <div id="credits-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index:1010; align-items:flex-start;">
     <div style="max-width:520px;width:100%;margin:0 auto;padding:24px 16px 48px;box-sizing:border-box;">
         <!-- Header -->
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:28px;position:sticky;top:0;background:rgba(5,5,16,0.97);padding:12px 0;z-index:1;">
+        <div class="lb-block-topbar" style="display:flex;align-items:center;gap:10px;margin-bottom:28px;position:sticky;top:0;padding:12px 0;z-index:1;">
             <button class="btn-back" onclick="window.closeCredits()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
             <span style="font-size:0.85rem;font-weight:700;letter-spacing:2px;color:#00ffff;">CREDITS &amp; ABOUT</span>
         </div>

@@ -672,7 +672,7 @@
     function customAlert(msg, title="NOTICE", isError=false, callback=null) {
         document.getElementById('alert-title').innerText = title;
         document.getElementById('alert-title').style.color = isError ? 'var(--error)' : 'var(--primary)';
-        document.getElementById('alert-box').style.borderColor = isError ? 'var(--error)' : '#444';
+        document.getElementById('alert-box').classList.toggle('lb-block-dialog--warning', isError);
         document.getElementById('alert-text').innerHTML = msg;
         document.getElementById('custom-alert').classList.remove('hidden');
         _animateIn(document.getElementById('alert-box'), 'anim-in-down');
@@ -912,7 +912,7 @@
 
     // Settings
     const defaultSettings = { musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: DEFAULT_BLOCK_SKIN, fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
-    Object.assign(defaultSettings, { bgBlockMotion: 'spinning', showRunMissions: false, musicFollowsSpeed: true });
+    Object.assign(defaultSettings, { bgBlockMotion: 'spinning', showRunMissions: false, musicFollowsSpeed: true, showSpeedUp: true });
     defaultSettings.themeBackground = 'image';
     defaultSettings.lineClearEffect = 'default';
     let settings = { ...defaultSettings };
@@ -925,6 +925,9 @@
     _bgBlockMotionSelect.addEventListener('change', () => onSettingChange('bgBlockMotion', _bgBlockMotionSelect.value));
     _runMissionsSelect.addEventListener('change', () => onSettingChange('showRunMissions', _runMissionsSelect.value === 'on'));
     _musicFollowsSpeedToggle.addEventListener('change', () => onSettingChange('musicFollowsSpeed', _musicFollowsSpeedToggle.checked));
+    document.getElementById('setting-speed-up-text').addEventListener('change', event => onSettingChange('showSpeedUp', event.target.checked));
+    document.getElementById('setting-hard-drop-lock').addEventListener('change', event => onSettingChange('hardDropLock', event.target.checked));
+    document.getElementById('settings-reset-progress').addEventListener('click', resetAllProgress);
     _lineClearEffectSelect.addEventListener('change', () => onSettingChange('lineClearEffect', _lineClearEffectSelect.value));
     function loadSettings() {
         if (!_qaDemo) try { settings = { ...defaultSettings, ...LBSave.cleanSettings(JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}')) }; } catch(e) {}
@@ -4547,7 +4550,7 @@
         const hdlSlider = document.getElementById('setting-hard-drop-lock-slider-wrap');
         const hdlCheck = document.getElementById('setting-hard-drop-lock');
         if (hdlCheck) hdlCheck.checked = settings.hardDropLock || false;
-        if (hdlSlider) hdlSlider.style.display = (settings.hardDropLock) ? 'flex' : 'none';
+        if (hdlSlider) hdlSlider.style.display = settings.hardDropLock ? '' : 'none';
         const hdlRange = document.getElementById('setting-hard-drop-lock-ms');
         if (hdlRange) { hdlRange.value = settings.hardDropLockMs || 50; _dStepsSync('hdl-dtrack','',hdlRange,0,100); }
         const hdlVal = document.getElementById('setting-hard-drop-lock-ms-val');
@@ -4602,29 +4605,38 @@
     async function resetAllProgress() {
         const phrase = 'RESET MY PROGRESS';
         const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:inherit;';
+        const opener = document.activeElement;
+        overlay.className = 'lb-block-reset-overlay';
+        overlay.setAttribute('role', 'alertdialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'reset-progress-title');
+        overlay.setAttribute('aria-describedby', 'reset-progress-description');
         overlay.innerHTML = `
-            <div style="background:rgba(8,4,4,0.98);border:1px solid #ff4444;border-radius:14px;padding:24px 20px;max-width:320px;width:90%;text-align:center;box-shadow:0 0 40px rgba(255,68,68,0.3);">
-                <div style="font-size:0.85rem;font-weight:bold;color:#ff4444;letter-spacing:2px;margin-bottom:10px;">⚠ RESET ALL PROGRESS</div>
-                <p style="font-size:0.7rem;color:#aaa;margin-bottom:14px;line-height:1.6;">This will permanently delete <b style="color:#fff;">all XP, scores, unlocks, and achievements</b>.<br>To confirm, type exactly:</p>
-                <div style="font-size:0.75rem;color:#ff4444;font-weight:bold;letter-spacing:1px;margin-bottom:10px;">"${phrase}"</div>
-                <input id="reset-phrase-input" type="text" placeholder="Type here…" style="width:100%;box-sizing:border-box;padding:8px 10px;background:rgba(255,255,255,0.04);border:1px solid #555;border-radius:6px;color:#fff;font-family:inherit;font-size:0.72rem;margin-bottom:14px;outline:none;" autocomplete="off">
-                <div style="display:flex;gap:8px;justify-content:center;">
-                    <button type="button" id="reset-cancel-btn" style="flex:1;padding:8px;font-size:0.72rem;border:1px solid #555;border-radius:8px;background:rgba(255,255,255,0.05);color:#888;cursor:pointer;font-family:inherit;">Cancel</button>
-                    <button type="button" id="reset-confirm-btn" style="flex:1;padding:8px;font-size:0.72rem;border:1px solid #ff4444;border-radius:8px;background:rgba(255,68,68,0.12);color:#ff4444;cursor:pointer;font-family:inherit;font-weight:bold;">RESET</button>
+            <div class="lb-block-dialog lb-block-dialog--warning">
+                <h2 class="lb-block-dialog-title" id="reset-progress-title">Reset all progress</h2>
+                <p id="reset-progress-description">This will permanently delete <strong>all XP, scores, unlocks, and achievements</strong>.</p>
+                <label for="reset-phrase-input">Type <strong>${phrase}</strong> to confirm.</label>
+                <input id="reset-phrase-input" type="text" autocomplete="off" spellcheck="false">
+                <p id="reset-phrase-error" role="status" hidden>Incorrect phrase. Try again.</p>
+                <div class="lb-block-dialog-actions">
+                    <button type="button" class="lb-block-btn" id="reset-cancel-btn">Cancel</button>
+                    <button type="button" class="lb-block-btn lb-block-btn--danger" id="reset-confirm-btn">Reset</button>
                 </div>
             </div>`;
         document.body.appendChild(overlay);
         const inp = overlay.querySelector('#reset-phrase-input');
-        inp.addEventListener('keydown', e => {
+        const error = overlay.querySelector('#reset-phrase-error');
+        const cancel = () => { overlay.remove(); opener?.focus(); };
+        overlay.addEventListener('keydown', e => {
             e.stopPropagation();
-            if (e.key === 'Enter') { e.preventDefault(); overlay.querySelector('#reset-confirm-btn').click(); }
+            if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+            if (e.key === 'Enter' && e.target === inp) { e.preventDefault(); overlay.querySelector('#reset-confirm-btn').click(); }
         });
         inp.focus();
-        overlay.querySelector('#reset-cancel-btn').onclick = () => overlay.remove();
+        overlay.querySelector('#reset-cancel-btn').onclick = cancel;
         overlay.querySelector('#reset-confirm-btn').onclick = async (e) => {
             e.preventDefault();
-            if (inp.value !== phrase) { inp.style.borderColor='#ff4444'; inp.style.background='rgba(255,68,68,0.08)'; inp.value=''; inp.placeholder='Incorrect phrase, try again'; return; }
+            if (inp.value !== phrase) { inp.setAttribute('aria-invalid', 'true'); error.hidden = false; inp.select(); inp.focus(); return; }
             overlay.remove();
             saveData = JSON.parse(JSON.stringify(defaultSaveData));
             // Reset visual settings to defaults so owned items show correctly
@@ -4668,6 +4680,9 @@
             settings.musicFollowsSpeed = value === true;
             _syncGameMusicTempo();
             saveSettingsDebounced(); return;
+        } else if (key === 'showSpeedUp') {
+            settings.showSpeedUp = value === true;
+            saveSettings(); return;
         } else if (key === 'musicVol') {
             settings.musicVol = parseInt(value);
             _cPillSync('music', value);
@@ -4763,7 +4778,7 @@
         if (key === 'hardDropLock') {
             settings.hardDropLock = value;
             const sliderEl = document.getElementById('setting-hard-drop-lock-slider-wrap');
-            if (sliderEl) sliderEl.style.display = value ? 'flex' : 'none';
+            if (sliderEl) sliderEl.style.display = value ? '' : 'none';
         }
         if (key === 'hardDropLockMs') {
             settings.hardDropLockMs = parseInt(value);
@@ -10826,29 +10841,19 @@
         const el = document.getElementById('playlist-panel-content');
         if (!el) return;
         if (_trackPool.size === 0) {
-            el.innerHTML = `<div style="font-size:0.6rem;color:#555;padding:20px 2px;font-style:italic;">Loading tracks…</div>`;
+            el.innerHTML = '<p class="lb-playlist-loading" role="status">Loading tracks…</p>';
             return;
         }
-        const svgCheck = `<svg viewBox="0 0 10 10" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1.5 5 4 8 8.5 2"/></svg>`;
+        const focusLabel = el.contains(document.activeElement) ? document.activeElement.getAttribute('aria-label') : null;
+        const svgCheck = `<svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 8 3 3 7-7"/></svg>`;
         const menuPlaylist = _getPlaylist('menu');
         const gamePlaylist = _getPlaylist('game');
         const actionPlaylist = _getPlaylist('action');
         const allNames = [..._trackPool.keys()].sort((a, b) => a.localeCompare(b));
         const TAG_COLORS = { chill:'#4488cc', electronic:'#44bb88', retro:'#cc8844', intense:'#cc4444', upbeat:'#aa44cc' };
-        // Fixed column widths so header and rows always align
-        const COL = 'grid-template-columns:1fr 44px 44px 130px;';
-        const GAP = 'gap:0;';
-        const mkCb = (on, color, ctx, name) => {
-            const border = on ? color : '#333';
-            const bg = on ? color + '22' : 'transparent';
-            return `<button type="button" aria-label="${ctx} playlist: ${escapeHtml(name)}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}',${escapeHtml(JSON.stringify(name))},${!on})" style="width:20px;height:20px;border-radius:4px;border:1.5px solid ${border};background:${bg};cursor:pointer;display:flex;align-items:center;justify-content:center;color:${on?color:'transparent'};flex-shrink:0;">${on?svgCheck:''}</button>`;
-        };
-        const header = `<div data-pl-row style="position:relative;display:grid;${COL}${GAP}align-items:center;padding:0 0 8px 0;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:2px;cursor:default;">
-            <div style="font-size:0.5rem;color:#444;letter-spacing:1.5px;">TRACK</div>
-            <div style="font-size:0.5rem;color:#4488ff;letter-spacing:1px;text-align:center;">MENU</div>
-            <div style="font-size:0.5rem;color:#44aa55;letter-spacing:1px;text-align:center;">GAME</div>
-            <div style="font-size:0.5rem;color:#444;letter-spacing:1px;padding-left:16px;padding-right:82px;">TAGS</div>
-            <button onclick="window.resetPlaylist()" style="position:absolute;right:0;top:calc(50% - 4px);transform:translateY(-50%);font-size:0.55rem;padding:3px 9px;background:rgba(255,60,60,0.08);border:1px solid rgba(255,60,60,0.35);border-radius:5px;color:#ff6666;cursor:pointer;font-family:inherit;white-space:nowrap;">↺ Reset</button>
+        const trackToggle = (on, ctx, name) => `<button type="button" class="lb-block-btn lb-block-btn--icon lb-playlist-check" aria-label="${ctx === 'menu' ? 'Menu' : 'Game'} playlist: ${escapeHtml(name)}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}',${escapeHtml(JSON.stringify(name))},${!on})">${svgCheck}</button>`;
+        const header = `<div class="lb-playlist-grid lb-playlist-columns" aria-hidden="true">
+            <span>Track</span><span>Menu</span><span>Game</span><span>Tags</span>
         </div>`;
         const rows = allNames.map(name => {
             const entry = _trackPool.get(name);
@@ -10859,36 +10864,23 @@
             const menuOn = menuPlaylist.includes(name);
             const gameOn = isAction ? actionPlaylist.includes(name) : gamePlaylist.includes(name);
             const gameCtx = isAction ? 'action' : 'game';
-            const col = isPlaying ? 'var(--primary)' : '#ccc';
-            const playMark = isPlaying ? `<span style="color:var(--primary);margin-right:4px;font-size:0.55rem;">▶</span>` : '';
+            const playMark = isPlaying ? '<span aria-hidden="true">▶</span> ' : '';
             const tagChips = [...tags].sort().map(t => {
                 const tc = hexColor(TAG_COLORS[t], '#888888');
-                return `<span style="font-size:0.47rem;padding:2px 5px;border-radius:3px;background:${tc}20;border:1px solid ${tc}55;color:${tc};letter-spacing:0.3px;white-space:nowrap;">${escapeHtml(t)}</span>`;
+                return `<span class="lb-playlist-tag" style="--tag-tone:${tc}">${escapeHtml(t)}</span>`;
             }).join('');
-            return `<div style="display:grid;${COL}${GAP}align-items:center;padding:7px 0;">
-                <div onclick="window.playTrackInPlaylist(${escapeHtml(JSON.stringify(name))})" style="min-width:0;padding-right:8px;text-align:left;cursor:pointer;" title="Play now">
-                    <div style="font-size:0.63rem;color:${col};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${playMark}${escapeHtml(name)}</div>
-                    ${artist ? `<div style="font-size:0.53rem;color:#444;margin-top:1px;">by ${escapeHtml(artist)}</div>` : ''}
-                </div>
-                <div style="display:flex;justify-content:center;align-items:center;">${mkCb(menuOn,'#4488ff','menu',name)}</div>
-                <div style="display:flex;justify-content:center;align-items:center;">${mkCb(gameOn,'#44aa55',gameCtx,name)}</div>
-                <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center;padding-left:16px;">${tagChips}</div>
+            return `<div class="lb-playlist-grid lb-playlist-row">
+                <button type="button" class="lb-playlist-track" aria-label="Play ${escapeHtml(name)}" ${isPlaying ? 'aria-current="true"' : ''} onclick="window.playTrackInPlaylist(${escapeHtml(JSON.stringify(name))})">
+                    <span>${playMark}${escapeHtml(name)}</span>
+                    ${artist ? `<small>by ${escapeHtml(artist)}</small>` : ''}
+                </button>
+                ${trackToggle(menuOn, 'menu', name)}
+                ${trackToggle(gameOn, gameCtx, name)}
+                <div class="lb-playlist-tags">${tagChips}</div>
             </div>`;
         }).join('');
-        let _plTip = document.getElementById('pl-row-tip');
-        if (!_plTip) {
-            _plTip = document.createElement('div');
-            _plTip.id = 'pl-row-tip';
-            _plTip.style.cssText = 'display:none;position:fixed;z-index:3000;background:rgba(5,5,20,0.97);border:1px solid color-mix(in srgb, var(--primary) 30%, transparent);border-radius:8px;padding:8px 12px;font-size:0.65rem;color:#bbb;line-height:1.6;pointer-events:none;font-family:inherit;max-width:260px;';
-            _plTip.innerHTML = '<b style="color:#4488ff;">MENU</b> — plays in the background during menus, settings and transition screens.<br><b style="color:#44aa55;">GAME</b> — plays during gameplay.<br><span style="color:#666;font-size:0.58rem;">Click a track name to play it immediately.</span>';
-            document.body.appendChild(_plTip);
-        }
-        el.innerHTML = header + (rows || `<div style="font-size:0.58rem;color:#555;padding:12px 4px;">No tracks found</div>`);
-        el.querySelectorAll('[data-pl-row]').forEach(row => {
-            row.addEventListener('mouseenter', ev => { _plTip.style.display = 'block'; _plTip.style.left = (ev.clientX + 14) + 'px'; _plTip.style.top = (ev.clientY - 10) + 'px'; });
-            row.addEventListener('mousemove', ev => { _plTip.style.left = (ev.clientX + 14) + 'px'; _plTip.style.top = (ev.clientY - 10) + 'px'; });
-            row.addEventListener('mouseleave', () => { _plTip.style.display = 'none'; });
-        });
+        el.innerHTML = header + rows;
+        if (focusLabel) [...el.querySelectorAll('button')].find(button => button.getAttribute('aria-label') === focusLabel)?.focus({ preventScroll: true });
     }
     window.openPlaylistPanel = openPlaylistPanel;
     window.closePlaylistPanel = closePlaylistPanel;

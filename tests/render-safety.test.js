@@ -126,17 +126,20 @@ it('keeps imported track metadata as text and passes the unchanged name to the p
   const playlist = document.querySelector('#playlist-panel-content');
   const { title, artist, tags } = importedTrack;
   const toggle = await vi.waitFor(() => {
-    const button = [...playlist.querySelectorAll('button')].find(button => button.getAttribute('aria-label') === `menu playlist: ${title}`);
+    const button = [...playlist.querySelectorAll('button[aria-pressed]')].find(button => button.getAttribute('aria-label') === `Menu playlist: ${title}`);
     expect(button).toBeDefined();
     return button;
   });
-  const row = toggle.parentElement.parentElement;
-  const metadata = row.querySelector('[title="Play now"]');
+  const row = toggle.closest('.lb-playlist-row');
+  const metadata = row.querySelector('.lb-playlist-track');
   expect([...metadata.children].map(field => field.textContent)).toEqual([title, `by ${artist}`]);
-  expect([...row.lastElementChild.querySelectorAll('span')].map(chip => chip.textContent)).toEqual(tags);
+  expect([...row.querySelectorAll('.lb-playlist-tag')].map(chip => chip.textContent)).toEqual(tags);
   expect(playlist.querySelector('[data-render-probe]')).toBeNull();
   toggle.click();
   expect(window.moveTrack).toHaveBeenCalledExactlyOnceWith('menu', title, false);
+  window.playTrackInPlaylist = vi.fn();
+  metadata.click();
+  expect(window.playTrackInPlaylist).toHaveBeenCalledExactlyOnceWith(title);
 });
 
 it('only renders valid hex colors in palette inputs, previews and copy handlers', () => {
