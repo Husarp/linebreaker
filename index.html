@@ -25,6 +25,7 @@
     <link rel="stylesheet" href="60-foundation.css">
     <link rel="stylesheet" href="61-achievements.css">
     <link rel="stylesheet" href="71-backgrounds.css">
+    <link rel="stylesheet" href="72-pause.css">
 </head>
 <body>
 
@@ -85,13 +86,11 @@
 <div id="pause-overlay" class="overlay hidden lb-run-overlay" style="z-index: 999;" role="dialog" aria-modal="true" aria-labelledby="pause-title">
     <div class="lb-run-panel">
         <h1 id="pause-title">PAUSED</h1>
-        <p>Take a breath. Your next move can wait.</p>
-        <p class="lb-run-note">Leaving saves your score and XP in the run results. Restart begins a fresh run.</p>
-        <button class="lb-run-primary" data-lb-drift="accent" onclick="window.resumeGame()">RESUME</button>
+        <button type="button" class="lb-run-primary" onclick="window.resumeGame()">RESUME</button>
         <div class="lb-run-icons" role="group" aria-label="Run actions">
-            <button data-lb-drift="surface" aria-label="Restart run" title="Restart run" onclick="window.startGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/></svg></button>
-            <button aria-label="Main menu via run results" title="End run — return through results" onclick="window.quitGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/></svg></button>
-            <button aria-label="Settings" title="Settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 4 4 1v8l-4 1-1 4H9l-1-4-4-1V8l4-1z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            <button type="button" aria-label="Restart run" title="Restart run" onclick="window.restartPausedRun()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 2 8M4 4v6h6"/></svg></button>
+            <button type="button" aria-label="Settings" title="Settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3h4l1 3 2 1 3-1 2 4-2 2 2 2-2 4-3-1-2 1-1 3h-4l-1-3-2-1-3 1-2-4 2-2-2-2 2-4 3 1 2-1z"/><circle cx="12" cy="12" r="2.5"/></svg></button>
+            <button type="button" aria-label="Main menu via run results" title="End run and return through results" onclick="window.quitGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-7 9 7M5 10v10h14V10M10 20v-6h4v6"/></svg></button>
         </div>
     </div>
 </div>
