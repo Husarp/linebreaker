@@ -69,10 +69,10 @@ it('shows grouped converted parts in a level box while escaping reward text', ()
   api.showLevelBox();
   document.getElementById('lb-open-btn').click();
   const card = document.querySelector('#level-box-overlay .lb-reward-card');
-  expect(card.querySelector('s')?.textContent).toBe('+2 parts (Retro<b>)');
-  expect(Array.from(card.children, field => field.textContent)).toEqual([
-    reward.icon, '+2 parts (Retro<b>) → +0.4 universal parts', reward.desc, reward.rarity,
-  ]);
+  expect(card.querySelector('.lb64-reward-name').textContent).toBe('Universal Part');
+  expect(card.querySelector('.lb-block-reward-amount').textContent).toBe('×0.4');
+  expect(card.querySelector('.lb64-reward-desc').textContent).toBe('From duplicate Retro<b> parts');
+  expect(card.querySelector('.lb-reward-rarity').textContent).toBe(reward.rarity);
   expect(card.querySelector('b')).toBeNull();
 });
 
@@ -95,7 +95,10 @@ it('shows mission milestone conversions and restores pending level milestone con
   api.setup({ save: { parts: cappedParts(), missions } });
   window.Math.random = () => 0;
   window._claimMissionMilestone(6, false);
-  expect(document.querySelector('.lb-reward-overlay s')?.parentElement.textContent).toBe('+1 part (Glass) → +0.2 universal parts');
+  const card = document.querySelector('.lb64-mission-crate .lb-block-reward');
+  expect(card.querySelector('.lb64-reward-name').textContent).toBe('Universal Part');
+  expect(card.querySelector('.lb-block-reward-amount').textContent).toBe('×0.2');
+  expect(card.querySelector('.lb64-reward-desc').textContent).toBe('From duplicate Glass parts');
 
   const rewards = api.generateLevelBoxRewards();
   expect(rewards.filter(reward => reward.type === 'converted_parts')).toHaveLength(10);

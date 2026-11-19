@@ -92,7 +92,11 @@ it('renders achievement claims and saved reward cards as text and rejects an inv
   const box = document.querySelector('#level-box-overlay');
   expect(box.querySelector('.lb-rank-identity').textContent).toBe(markup);
   expect(box.querySelector('.lb-rank-identity').style.color).toBe('rgb(255, 215, 0)');
-  expect([...box.querySelector('.lb-reward-card').children].map(child => child.textContent)).toEqual(Array(4).fill(markup));
+  const card = box.querySelector('.lb-reward-card');
+  for (const selector of ['.lb64-reward-name', '.lb64-reward-desc', '.lb-reward-rarity']) {
+    expect(card.querySelector(selector).textContent).toBe(markup);
+  }
+  expect(card.querySelector('img').getAttribute('src')).toBe('assets/ui/64-item-part.svg');
   expect(box.querySelector('[data-render-probe]')).toBeNull();
 });
 
