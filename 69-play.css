@@ -1,0 +1,185 @@
+#mode-select-overlay {
+    z-index: 1005;
+    display: block;
+    overflow: auto;
+    scrollbar-gutter: stable;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding: max(24px, env(safe-area-inset-top))
+        max(var(--space-4), env(safe-area-inset-right))
+        max(24px, env(safe-area-inset-bottom))
+        max(var(--space-4), env(safe-area-inset-left));
+    background: color-mix(in srgb, var(--bb-page) 72%, #000b);
+    color: var(--bb-ink);
+    font: 15px/1.4 var(--font-body);
+    text-align: start;
+}
+
+#mode-select-overlay [hidden] { display: none; }
+
+.lb69-icon-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+.lb69-icon {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.lb69-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 380px) 174px;
+    align-items: start;
+    justify-content: center;
+    gap: var(--space-4);
+}
+.lb69-panel { padding: var(--space-4); }
+.lb69-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+.lb69-header > #play-title { font-size: 14px !important; }
+#mode-select-overlay button.lb-block-btn { font-size: 14px; }
+.lb69-modes, .lb69-actions, #mode-options-panel {
+    display: grid;
+    gap: var(--space-2);
+}
+#mode-select-overlay .lb69-mode.lb-block-btn {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    gap: 2px var(--space-2);
+    padding: var(--space-2) var(--space-3) var(--space-3) !important;
+    text-align: start;
+    text-decoration: none;
+}
+.lb69-mode strong, .lb69-actions button { text-transform: uppercase; }
+.lb69-mode strong { font-size: 16px; }
+.lb69-mode[aria-pressed="true"] { --bb-button-face: var(--bb-pressed); }
+.lb69-mode[aria-pressed="true"] :is(strong, svg) { color: var(--accent-bright); }
+.lb69-mode-detail {
+    grid-column: 2;
+    color: var(--bb-muted);
+    font-weight: 400;
+    line-height: 1.4;
+}
+.lb69-mode .lb69-lock { display: inline-flex; align-items: center; gap: var(--space-1); }
+#mode-select-overlay button.lb-block-btn--locked { border-style: dashed !important; }
+.lb69-actions {
+    justify-items: center;
+    margin-block: var(--space-4);
+}
+#mode-select-overlay #play-start { width: 100%; min-height: 54px; font-size: 20px; }
+#mode-select-overlay #play-back { min-width: 112px; }
+
+.lb69-options, .lb69-config {
+    border-top: 1px solid var(--bb-edge);
+    padding-top: var(--space-3);
+}
+.lb69-options h2, .lb69-config h2, .lb69-score h2 {
+    margin: 0 0 var(--space-2);
+    color: var(--bb-muted);
+    font: 700 12px/1.4 var(--font-body);
+    letter-spacing: var(--tracking);
+    text-align: center;
+    text-transform: uppercase;
+}
+.lb69-modifier {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto 76px;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--target);
+    padding: 3px var(--space-2);
+    border: 1px solid var(--bb-edge);
+    border-radius: var(--bb-cap);
+    background: var(--bb-well);
+    cursor: pointer;
+}
+label.lb69-modifier:hover { background: var(--bb-pressed); }
+.lb69-modifier-copy { display: grid; gap: 2px; padding-block: 2px; }
+.lb69-modifier-copy small { color: var(--bb-muted); font-size: 12px; }
+.lb69-modifier .lb69-icon { color: var(--bb-muted); }
+.lb69-modifier-score { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.lb69-modifier .toggle-slider::after { font-size: 12px; }
+.lb69-modifier-score[data-effect="bonus"], #mode-xp-mult-val[data-effect="bonus"] { color: #92e1a2; }
+.lb69-modifier-score[data-effect="penalty"], #mode-xp-mult-val[data-effect="penalty"] { color: #ff9b9f; }
+#mode-select-overlay .lb69-modifier.lb69-locked-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    justify-items: start;
+    padding-inline: var(--space-2) !important;
+    opacity: 1;
+    text-align: start;
+}
+.lb69-locked-row .lb69-lock { font-size: 12px; }
+
+.lb69-config {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-3);
+    align-items: center;
+    margin-top: var(--space-4);
+}
+.lb69-config > :is(h2, p) { grid-column: 1 / -1; text-align: center; }
+.lb69-config > p { margin: 0 0 var(--space-1); color: var(--bb-muted); font-size: 12px; }
+.lb69-range {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2ch minmax(var(--target), 1.3fr);
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 13px;
+}
+.lb69-range output { color: var(--accent-bright); font-weight: 700; text-align: end; }
+.lb69-range input { width: 100%; }
+.lb69-board-preview {
+    grid-column: 2;
+    grid-row: 3 / span 3;
+    display: grid;
+    justify-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    color: var(--bb-muted);
+    font-size: 12px;
+}
+.lb69-board-grid {
+    --lb69-cell: 3px;
+    box-sizing: content-box;
+    width: calc(var(--play-cols, 10) * var(--lb69-cell));
+    height: calc(var(--play-rows, 20) * var(--lb69-cell));
+    border: 1px solid var(--accent);
+    background: linear-gradient(to right, var(--bb-edge) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--bb-edge) 1px, var(--bb-well) 1px);
+    background-size: var(--lb69-cell) var(--lb69-cell);
+}
+
+.lb69-score { padding: var(--space-3); text-align: center; }
+#mode-xp-mult-val {
+    display: block;
+    color: var(--accent-bright);
+    font-size: 32px;
+    line-height: 1.15;
+}
+#play-active-modifiers { margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+#play-active-modifiers, #play-no-modifiers { color: var(--bb-muted); font-size: 13px; }
+#play-no-modifiers { margin: var(--space-2) 0 0; }
+#mode-select-overlay[data-mode="fun"] :is(.lb69-score, .lb69-modifier-score) { visibility: hidden; }
+
+@media (width < 600px), (orientation: portrait) {
+    .lb69-layout { grid-template-columns: minmax(0, 380px); }
+    .lb69-score { width: 174px; justify-self: center; }
+    #mode-select-overlay[data-mode="fun"] .lb69-score { display: none; }
+}

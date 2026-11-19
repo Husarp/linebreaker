@@ -31,8 +31,8 @@ it('keeps locked modifiers off and unlocks each at its previous rank', async () 
         const row = modifier(key);
         expect(row.disabled).toBe(true);
         expect(row.textContent).toContain(`Locked · ${rank}`);
+        expect(row.querySelector('use').getAttribute('href')).toBe('#play-icon-lock');
         row.click();
-        expect(row.getAttribute('aria-pressed')).toBe('false');
         expect(savedSettings()[key]).toBe(false);
     }
     expect(score()).toBe('100%');
@@ -55,15 +55,16 @@ it('toggles the whole row, adds modifier percentages, and keeps next options exc
         ['optMirror', '+20%', '120%'], ['optNoNext', '+10%', '110%'], ['optGhost', '−20%', '80%'],
         ['optHold', '−20%', '80%'], ['opt3Next', '−10%', '90%']
     ]) {
-        const row = modifier(key);
-        expect(row.querySelector('.play-modifier-score').textContent).toBe(label);
+        const input = modifier(key);
+        const row = input.closest('label');
+        expect(input.getAttribute('role')).toBe('switch');
+        expect(row.querySelector('.lb69-modifier-score').textContent).toBe(label);
         row.querySelector('strong').click();
         expect(score()).toBe(total);
-        expect(row.getAttribute('aria-pressed')).toBe('true');
-        expect(row.querySelector('.play-modifier-mark').textContent).toBe('✓');
-        expect(get('play-active-modifiers').firstElementChild.textContent).toContain(row.querySelector('strong').textContent);
-        row.click();
-        expect(row.querySelector('.play-modifier-mark').textContent).toBe('×');
+        expect(input.checked).toBe(true);
+        expect(get('play-active-modifiers').firstElementChild.textContent).toBe(`${row.querySelector('strong').textContent} ${label}`);
+        input.click();
+        expect(input.checked).toBe(false);
         expect(score()).toBe('100%');
     }
 
@@ -71,10 +72,10 @@ it('toggles the whole row, adds modifier percentages, and keeps next options exc
     modifier('optNoNext').click();
     expect(score()).toBe('130%');
     modifier('opt3Next').click();
-    expect(modifier('optNoNext').getAttribute('aria-pressed')).toBe('false');
+    expect(modifier('optNoNext').checked).toBe(false);
     expect(score()).toBe('110%');
     modifier('optNoNext').click();
-    expect(modifier('opt3Next').getAttribute('aria-pressed')).toBe('false');
+    expect(modifier('opt3Next').checked).toBe(false);
     expect(score()).toBe('130%');
     expect(savedSettings()).toMatchObject({ optMirror: true, optNoNext: true, opt3Next: false });
 
@@ -85,6 +86,22 @@ it('toggles the whole row, adds modifier percentages, and keeps next options exc
     expect(game.api.sweep()).toBe(true);
     game.advance(200);
     expect(game.api.state.score).toBe(13);
+});
+
+it('keeps Start and Cancel between the mode cards and the options in both modes', async () => {
+    game = await loadGame();
+    setXP(65_000);
+    game.w.openModeSelect();
+
+    const follows = (first, second) => !!(first.compareDocumentPosition(second) & game.w.Node.DOCUMENT_POSITION_FOLLOWING);
+    for (const name of ['normal', 'fun']) {
+        mode(name).click();
+        expect(follows(mode('fun'), get('play-start'))).toBe(true);
+        expect(follows(get('play-start'), get('play-back'))).toBe(true);
+        expect(follows(get('play-back'), get('mode-options-panel'))).toBe(true);
+        expect(follows(get('mode-options-panel'), get('fun-mode-config'))).toBe(true);
+        expect(get('play-start').closest('.lb69-panel')).toBe(mode(name).closest('.lb69-panel'));
+    }
 });
 
 it('previews and starts a custom Fun board without applying score modifiers', async () => {

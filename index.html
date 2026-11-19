@@ -12,7 +12,6 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="touch.css">
     <link rel="stylesheet" href="portrait.css">
-    <link rel="stylesheet" href="31-play-screen.css">
     <link rel="stylesheet" href="controls.css">
     <link rel="stylesheet" href="30-color-picker.css">
     <link rel="stylesheet" href="29-stats.css">
@@ -32,6 +31,7 @@
     <link rel="stylesheet" href="65-game-over.css">
     <link rel="stylesheet" href="66-help.css">
     <link rel="stylesheet" href="67-stats.css">
+    <link rel="stylesheet" href="69-play.css">
 </head>
 <body>
 
@@ -714,63 +714,74 @@
 
 <!-- MODE SELECT -->
 <div id="mode-select-overlay" class="overlay hidden" role="dialog" aria-labelledby="play-title">
-    <div class="play-layout">
-        <header class="lb-header play-header lb-block-topbar">
-            <button type="button" class="lb-btn lb-btn--ghost" id="play-back"><span aria-hidden="true">←</span> Back</button>
-            <h1 id="play-title">Play</h1>
-            <button type="button" class="lb-btn lb-btn--ghost" id="play-rules">Rules</button>
-        </header>
-        <div class="lb-tabs play-tabs" role="group" aria-label="Game mode">
-            <button type="button" class="lb-btn" data-mode="normal" aria-pressed="true">Normal</button>
-            <button type="button" class="lb-btn" data-mode="fun" aria-label="Fun" aria-pressed="false" aria-describedby="play-fun-lock" disabled>
-                Fun <span id="play-fun-lock" class="play-lock">Locked · Silver I</span>
-            </button>
-        </div>
-        <div class="lb-card play-setup">
-            <section aria-labelledby="play-modifiers-title">
-                <h2 id="play-modifiers-title">Modifiers</h2>
-                <div id="mode-options-panel" class="play-modifiers"></div>
+    <svg class="lb69-icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <symbol id="play-icon-normal" viewBox="0 0 24 24"><path d="M3 3h6v6h12v6H3zM3 9h6v6m6-6v6"/></symbol>
+        <symbol id="play-icon-fun" viewBox="0 0 24 24"><path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.4-5.7-3-5.7 3 1.1-6.4-4.6-4.5 6.4-.9z"/></symbol>
+        <symbol id="play-icon-rules" viewBox="0 0 24 24"><path d="M12 6v14m0-14C9 4 5 4 3 5v14c2-1 6-1 9 1 3-2 7-2 9-1V5c-2-1-6-1-9 1Z"/></symbol>
+        <symbol id="play-icon-start" viewBox="0 0 24 24"><path d="m7 4 13 8-13 8z"/></symbol>
+        <symbol id="play-icon-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4m-4 4v2"/></symbol>
+        <symbol id="play-icon-mirror" viewBox="0 0 24 24"><path d="M12 3v18M9 6l-6 12h6M15 6l6 12h-6"/></symbol>
+        <symbol id="play-icon-ghost" viewBox="0 0 24 24"><path d="M9 4h6v5H9zm-5 9h16m-14 4h12m-10 4h8"/></symbol>
+        <symbol id="play-icon-hold" viewBox="0 0 24 24"><rect x="9" y="5" width="6" height="6" rx="1"/><path d="M4 12v7h16v-7"/></symbol>
+        <symbol id="play-icon-no-next" viewBox="0 0 24 24"><path d="M3 12s3-6 9-6 9 6 9 6-3 6-9 6-9-6-9-6Zm2 8L19 4"/></symbol>
+        <symbol id="play-icon-three-next" viewBox="0 0 24 24"><rect x="3" y="9" width="4" height="6" rx="1"/><rect x="10" y="9" width="4" height="6" rx="1"/><rect x="17" y="9" width="4" height="6" rx="1"/></symbol>
+    </svg>
+    <div class="lb69-layout">
+        <div class="lb69-panel lb-block-panel">
+            <header class="lb69-header lb-block-topbar">
+                <h1 id="play-title">Select Mode</h1>
+                <button type="button" class="lb-block-btn" id="play-rules"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-rules"/></svg> Rules</button>
+            </header>
+            <div class="lb69-modes" role="group" aria-label="Game mode">
+                <button type="button" class="lb-block-btn lb-block-tab lb69-mode" data-mode="normal" aria-pressed="true" aria-labelledby="play-normal-name" aria-describedby="play-normal-desc">
+                    <svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-normal"/></svg>
+                    <strong id="play-normal-name">Normal</strong>
+                    <span id="play-normal-desc" class="lb69-mode-detail">Classic Tetris RPG</span>
+                </button>
+                <button type="button" class="lb-block-btn lb-block-tab lb-block-btn--locked lb69-mode" data-mode="fun" aria-pressed="false" aria-labelledby="play-fun-name" aria-describedby="play-fun-lock" disabled>
+                    <svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-fun"/></svg>
+                    <strong id="play-fun-name">Fun</strong>
+                    <span id="play-fun-desc" class="lb69-mode-detail" hidden>Sandbox: custom board and speed. No ranking, XP, or achievements.</span>
+                    <span id="play-fun-lock" class="lb69-mode-detail lb69-lock"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-lock"/></svg> Locked · Silver I</span>
+                </button>
+            </div>
+            <div class="lb69-actions">
+                <button type="button" class="lb-block-btn lb-block-btn--primary" id="play-start" data-lb-drift="accent"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-start"/></svg> Start</button>
+                <button type="button" class="lb-block-btn" id="play-back">Cancel</button>
+            </div>
+            <section class="lb69-options" aria-labelledby="play-modifiers-title">
+                <h2 id="play-modifiers-title">Options</h2>
+                <div id="mode-options-panel"></div>
             </section>
-            <section id="fun-mode-config" aria-labelledby="play-board-title" hidden>
+            <section id="fun-mode-config" class="lb69-config" aria-labelledby="play-board-title" hidden>
                 <h2 id="play-board-title">Fun setup</h2>
-                <div class="play-range">
-                    <label for="fun-cols">Board columns</label>
+                <p>Modifiers don’t affect score in Fun.</p>
+                <div class="lb69-range">
+                    <label for="fun-cols">Columns</label>
                     <output id="fun-cols-val" for="fun-cols">10</output>
-                    <input type="range" class="lb-slider" id="fun-cols" min="6" max="16" value="10">
+                    <input type="range" class="lb-block-range" id="fun-cols" min="6" max="16" value="10">
                 </div>
-                <div class="play-range">
-                    <label for="fun-rows">Board rows</label>
+                <div class="lb69-range">
+                    <label for="fun-rows">Rows</label>
                     <output id="fun-rows-val" for="fun-rows">20</output>
-                    <input type="range" class="lb-slider" id="fun-rows" min="15" max="30" value="20">
+                    <input type="range" class="lb-block-range" id="fun-rows" min="15" max="30" value="20">
                 </div>
-                <div class="play-range">
-                    <label for="fun-speed">Starting speed</label>
+                <div class="lb69-range">
+                    <label for="fun-speed">Start speed</label>
                     <output id="fun-speed-val" for="fun-speed">1</output>
-                    <input type="range" class="lb-slider" id="fun-speed" min="1" max="15" value="1">
+                    <input type="range" class="lb-block-range" id="fun-speed" min="1" max="15" value="1">
                 </div>
-            </section>
-        </div>
-        <section class="lb-card play-summary" aria-labelledby="play-summary-title">
-            <div class="lb-card play-summary-card">
-                <h2 id="play-summary-title">Run summary</h2>
-                <div class="play-score" aria-live="polite" aria-atomic="true">
-                    <div class="lb-eyebrow">Score multiplier</div>
-                    <strong class="lb-number" id="mode-xp-mult-val">100%</strong>
-                </div>
-                <p class="play-mode-note" id="play-fun-note" hidden>Modifiers don’t affect score in Fun.</p>
-                <figure class="play-board-preview" id="play-board-preview" hidden>
-                    <div class="play-board-grid" aria-hidden="true"></div>
+                <figure class="lb69-board-preview" id="play-board-preview" hidden>
+                    <div class="lb69-board-grid" aria-hidden="true"></div>
                     <figcaption id="play-board-size">10 × 20 board</figcaption>
                 </figure>
-                <div class="play-preview">
-                    <h3>Active modifiers</h3>
-                    <p class="play-mode-note" id="play-no-modifiers">None active</p>
-                    <ul id="play-active-modifiers" class="play-active-modifiers" hidden></ul>
-                </div>
-            </div>
-            <div class="play-start-bar">
-                <button type="button" class="lb-btn lb-btn--primary" id="play-start" data-lb-drift="accent"><span aria-hidden="true">▶</span> START</button>
-            </div>
+            </section>
+        </div>
+        <section class="lb69-score lb-block-panel" aria-labelledby="play-score-title" aria-live="polite" aria-atomic="true">
+            <h2 id="play-score-title">Score multiplier</h2>
+            <strong id="mode-xp-mult-val">100%</strong>
+            <p id="play-no-modifiers">No active modifiers</p>
+            <ul id="play-active-modifiers" hidden></ul>
         </section>
     </div>
 </div>
