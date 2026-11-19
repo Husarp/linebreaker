@@ -1,0 +1,15 @@
+.bg-gradient::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(#06061499, #060614b8), var(--lb-theme-art-portrait);
+    background-position: center;
+    background-size: cover;
+    pointer-events: none;
+}
+
+@media (min-aspect-ratio: 1/1) {
+    .bg-gradient::before {
+        background-image: linear-gradient(#06061499, #060614b8), var(--lb-theme-art-landscape);
+    }
+}

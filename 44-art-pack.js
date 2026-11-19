@@ -4,7 +4,9 @@ window.LBArtPack = (() => {
         '1.5x_game': 'rare-1.5x',
         '2xp_game': 'epic-2x',
     };
-    const backgrounds = { ocean: 'ocean', sakura: 'sakura', void: 'void', fire: 'forge' };
+    const backgrounds = new Set([
+        'default', 'ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura',
+    ]);
 
     function boosterToken(key) {
         return Object.hasOwn(boosterTokens, key) ? `assets/ui/boosters/${boosterTokens[key]}.png` : null;
@@ -19,15 +21,19 @@ window.LBArtPack = (() => {
         return value === 'plain' ? 'plain' : 'image';
     }
 
-    function themeBackground(theme, mode) {
-        return backgroundMode(mode) === 'image' && Object.hasOwn(backgrounds, theme)
-            ? `assets/ui/bg/${backgrounds[theme]}.jpg` : null;
+    function themeBackground(theme, mode, orientation = 'landscape') {
+        const variant = orientation === 'portrait' ? 'portrait' : 'landscape';
+        return backgroundMode(mode) === 'image' && backgrounds.has(theme)
+            ? `assets/ui/bg/${theme}-${variant}.jpg` : null;
     }
 
     function applyThemeBackground(element, theme, mode) {
-        const path = themeBackground(theme, mode);
-        if (path) element.style.setProperty('--lb-theme-art', `url("${path}")`);
-        else element.style.removeProperty('--lb-theme-art');
+        for (const orientation of ['landscape', 'portrait']) {
+            const property = `--lb-theme-art-${orientation}`;
+            const path = themeBackground(theme, mode, orientation);
+            if (path) element.style.setProperty(property, `url("${path}")`);
+            else element.style.removeProperty(property);
+        }
     }
 
     return { boosterToken, boosterIcon, backgroundMode, themeBackground, applyThemeBackground };
