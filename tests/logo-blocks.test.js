@@ -11,52 +11,86 @@ it('ships reproducible vectors and a transparent 4K raster', () => {
   expect(asset('logo-store.svg').toString()).toBe(renderStoreLogo());
   const png = asset('logo-blocks@4k.png');
   expect(png.toString('ascii', 12, 16)).toBe('IHDR');
-  expect([png.readUInt32BE(16), png.readUInt32BE(20), png[25]]).toEqual([3840, 704, 6]);
+  const [, width, height] = renderBlocksLogo().match(/viewBox="0 0 (\d+) (\d+)"/).map(Number);
+  expect([png.readUInt32BE(16), png.readUInt32BE(20), png[25]]).toEqual([3840, Math.round(3840 * height / width), 6]);
 });
 
-it('uses one non-overlapping seven-row grid and mirrors each pair of pixel shards', () => {
+it('packs five rows of full squares into edge-connected glyphs with optical gutters', () => {
   const { window } = new JSDOM(renderBlocksLogo());
   try {
     const { document } = window;
-    const size = 16;
+    const size = 32;
     const keys = new Set();
     const rows = new Set();
+    const glyphs = new Map();
     for (const cell of document.querySelectorAll('[data-logo-cell]')) {
+      const [index, row, column] = cell.dataset.logoCell.split(':').map(Number);
       const [x, y] = cell.getAttribute('transform').match(/\d+/g).map(Number);
       const rect = cell.querySelector('rect');
-      expect([x % size, y % size]).toEqual([0, 0]);
-      expect([rect.getAttribute('width'), rect.getAttribute('height')]).toEqual(['16', '16']);
+      expect([x % 8, y - row * size]).toEqual([0, 40]);
+      expect([rect.getAttribute('width'), rect.getAttribute('height')]).toEqual(['32', '32']);
       const key = `${x},${y}`;
       expect(keys.has(key)).toBe(false);
       keys.add(key);
       rows.add(y);
-      expect(y === 80).toBe(cell.parentElement.hasAttribute('data-logo-restored'));
+      expect(row === 2).toBe(cell.parentElement.hasAttribute('data-logo-restored'));
+      if (!glyphs.has(index)) glyphs.set(index, { start: x - column * size, cells: [] });
+      const glyph = glyphs.get(index);
+      expect(x).toBe(glyph.start + column * size);
+      glyph.cells.push([row, column]);
     }
-    expect([...rows].sort((left, right) => left - right)).toEqual([32, 48, 64, 80, 96, 112, 128]);
-
-    const shards = [...document.querySelectorAll('[data-logo-shard]')];
-    expect(shards.length).toBeGreaterThan(0);
-    const bounds = rect => ['x', 'y', 'width', 'height'].map(key => Number(rect.getAttribute(key)));
-    for (const shard of shards) {
-      const side = Number(shard.dataset.logoShard);
-      const rects = [...shard.querySelectorAll('rect')].map(bounds);
-      const cellFragment = rects.length > 2;
-      expect(shard.parentElement.getAttribute('shape-rendering')).toBe('crispEdges');
-      for (const [x, y, width, height] of rects) {
-        const step = cellFragment ? size / 4 : size / 8;
-        expect(width).toBe(height);
-        expect([size / 4, size / 8]).toContain(width);
-        expect([x % step, y % step]).toEqual([0, 0]);
-        if (cellFragment) expect(y >= 80 && y + height <= 96).toBe(true);
+    expect([...rows].sort((left, right) => left - right)).toEqual([40, 72, 104, 136, 168]);
+    expect(glyphs.size).toBe('LINEBREAKER'.length);
+    for (const [index, { start, cells }] of glyphs) {
+      const next = glyphs.get(index + 1);
+      const width = (1 + Math.max(...cells.map(([, column]) => column))) * size;
+      if (next) expect(next.start - start - width).toBe(index < 2 ? 8 : 16);
+      const remaining = new Set(cells.map(cell => cell.join(',')));
+      const frontier = [cells[0]];
+      while (frontier.length) {
+        const [row, column] = frontier.pop();
+        if (!remaining.delete(`${row},${column}`)) continue;
+        frontier.push([row - 1, column], [row + 1, column], [row, column - 1], [row, column + 1]);
       }
-      const partner = side === -1 ? shard.nextElementSibling : shard.previousElementSibling;
-      expect(Number(partner.dataset.logoShard)).toBe(-side);
-      expect(partner.dataset.logoDrift).toBe(shard.dataset.logoDrift);
-      const cellX = Math.floor(rects[0][0] / size) * size;
-      const reflected = rects.map(([x, y, width, height]) =>
-        [cellFragment ? 2 * cellX + size - x - width : x, 176 - y - height, width, height]);
-      expect(reflected.sort()).toEqual([...partner.querySelectorAll('rect')].map(bounds).sort());
+      expect(remaining.size).toBe(0);
     }
+  } finally { window.close(); }
+});
+
+it('clips damage to the cracked row and keeps quarter-block shards on the common subgrid', () => {
+  const { window } = new JSDOM(renderBlocksLogo());
+  try {
+    const { document } = window;
+    const cracked = document.querySelector('[data-logo-cracked]');
+    const restored = document.querySelector('[data-logo-restored]');
+    expect(cracked.querySelectorAll('[data-logo-fissure]')).toHaveLength(restored.children.length);
+    expect(new Set([...cracked.querySelectorAll('.logo-crack-core')].map(path => path.getAttribute('d'))).size).toBe(5);
+    const clipped = [...cracked.querySelectorAll('[clip-path]')];
+    expect(clipped.length).toBeGreaterThan(0);
+    expect(clipped.length).toBeLessThan(restored.children.length);
+    for (const cell of clipped) {
+      const id = cell.getAttribute('clip-path').slice(5, -1);
+      expect(document.getElementById(id).localName).toBe('clipPath');
+      expect(cell.parentElement.getAttribute('transform')).toMatch(/^translate\(\d+ 104\)$/);
+    }
+    const burst = document.querySelector('[data-logo-burst]');
+    expect(burst.getAttribute('opacity')).toBe('0');
+    const shards = [...burst.querySelectorAll('[data-logo-shard] > rect')];
+    const bounds = rect => ['x', 'y', 'width', 'height'].map(key => Number(rect.getAttribute(key)));
+    expect(shards).toHaveLength(restored.children.length * 2);
+    for (const [x, y, width, height] of shards.map(bounds)) {
+      expect([x % 8, y % 8, width, height]).toEqual([0, 0, 8, 8]);
+      expect(y >= 104 && y + height <= 136).toBe(true);
+    }
+    const gutter = [...cracked.querySelectorAll('[data-logo-gutter] > rect')];
+    expect(gutter.length).toBeGreaterThan(0);
+    expect(gutter.length).toBeLessThan(restored.children.length);
+    for (const [x, y, width, height] of gutter.map(bounds)) {
+      expect([x % 4, y % 4, width - height]).toEqual([0, 0, 0]);
+      expect([4, 8]).toContain(width);
+    }
+    const clean = renderBlocksLogo({ effects: false });
+    expect(clean).not.toMatch(/data-logo-(cracked|gutter|burst)/);
   } finally { window.close(); }
 });
 
@@ -92,18 +126,22 @@ function animationFixture(reduced = false) {
   return { window, svg: window.document.querySelector('svg'), effects };
 }
 
-it('clears the middle row, drops the top by exactly one block, then resets', async () => {
+it('reveals the crack, flies the shards, drops the top one block and restores the row', async () => {
   const { window, svg, effects } = animationFixture();
   try {
     const done = playLogoClear(svg);
     const top = effects.find(effect => effect.target.hasAttribute('data-logo-top'));
+    const cracked = effects.find(effect => effect.target.hasAttribute('data-logo-cracked'));
+    const burst = effects.find(effect => effect.target.hasAttribute('data-logo-burst'));
     const restored = effects.find(effect => effect.target.hasAttribute('data-logo-restored'));
     const shard = effects.find(effect => effect.target.hasAttribute('data-logo-shard'));
-    expect(top.frames.map(frame => frame.transform)).toContain('translateY(16px)');
+    expect(top.frames.map(frame => frame.transform)).toContain('translateY(32px)');
     expect(top.frames.at(-1).transform).toBe('translateY(0px)');
-    expect(restored.frames.map(frame => frame.opacity)).toContain(1);
+    expect(cracked.frames.find(frame => frame.opacity === 1).offset).toBeLessThan(burst.frames.find(frame => frame.opacity === 1).offset);
+    expect(burst.frames.at(-1).opacity).toBe(0);
+    expect(restored.frames.find(frame => frame.opacity === 1 && frame.offset > .5).offset).toBeGreaterThan(.61);
     expect(restored.frames.at(-1).opacity).toBe(0);
-    expect(shard.frames.some(frame => frame.opacity === 0 && frame.transform !== shard.frames[0].transform)).toBe(true);
+    expect(shard.frames.at(-1).transform).not.toBe(shard.frames[0].transform);
     for (const effect of effects) effect.resolve();
     await done;
     expect(effects.every(effect => effect.cancel.mock.calls.length === 1)).toBe(true);

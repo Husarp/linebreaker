@@ -2,6 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
 <title>Linebreaker · Logo proof</title>
 <style>
   :root {
@@ -45,10 +46,14 @@
   figcaption strong, figcaption small { display: block; }
   .stage { background: #0b101b; }
   .stage > :is(img, svg) { display: block; width: 100%; height: auto; }
+  .phone .logo-fine-shard, .phone .logo-crack-halo { display: none; }
+  .phone .logo-crack-core { stroke-width: 1; }
+  .menu-check { padding: 0 12px 12px; }
+  .menu-check img { width: min(100%, 280px); height: auto; filter: grayscale(1); }
 </style>
 <main>
   <header>
-    <div><h1>Linebreaker logo proof</h1><p>Ticket 108 · Wordmarks and row-clear motion</p></div>
+    <div><h1>Linebreaker logo proof</h1><p>Ticket 109 · V2 compared with V1</p></div>
     <div>
       <button type="button" data-phone="false" aria-pressed="true">Full · 1920 max</button>
       <button type="button" data-phone="true" aria-pressed="false">Phone · 390</button>
@@ -56,15 +61,19 @@
   </header>
   <section class="proof" aria-label="Logo previews">
     <figure>
-      <figcaption><div><strong>Block-built static</strong><small>D4 · 7-row grid</small></div></figcaption>
-      <div class="stage"><img alt="Linebreaker" src="{{BLOCKS_URL}}"></div>
-    </figure>
-    <figure>
       <figcaption>
-        <div><strong>Block-built motion</strong><small>Menu / start intro</small></div>
+        <div><strong>Block-built V2</strong><small>Five rows · stepped cracks and flying tiles</small></div>
         <button type="button" id="replay">Replay row clear</button>
       </figcaption>
       <div class="stage">{{BLOCKS}}</div>
+    </figure>
+    <figure>
+      <figcaption><div><strong>Block-built V1</strong><small>Seven rows · previous version</small></div></figcaption>
+      <div class="stage"><img alt="Linebreaker V1" src="{{PREVIOUS_URL}}"></div>
+    </figure>
+    <figure>
+      <figcaption><div><strong>V2 legibility check</strong><small>Menu width · grayscale without effects</small></div></figcaption>
+      <div class="stage menu-check"><img alt="Linebreaker V2 without effects" src="{{CLEAN_URL}}"></div>
     </figure>
     <figure>
       <figcaption><div><strong>Store wordmark</strong><small>F minimal · exact center cut</small></div></figcaption>
@@ -91,6 +100,10 @@ function syncMotion() {
 }
 syncMotion();
 motion.addEventListener('change', syncMotion);
-replay.addEventListener('click', () => playLogoClear(svg));
+function replayClear() {
+  return playLogoClear(svg);
+}
+replay.addEventListener('click', replayClear);
+replayClear();
 </script>
 </html>

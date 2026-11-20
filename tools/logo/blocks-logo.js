@@ -3,39 +3,42 @@ import { writeFileSync, readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const word = 'LINEBREAKER';
-const block = 16;
+const block = 32;
 const pixel = block / 4;
-const rows = 7;
+const subpixel = block / 8;
+const rows = 5;
 const middle = Math.floor(rows / 2);
 const padX = block;
-const padY = 2 * block;
+const padY = block * 1.25;
 
 const glyphs = {
-  L: ['#...', '#...', '#...', '#...', '#...', '#...', '####'],
-  I: ['###', '.#.', '.#.', '.#.', '.#.', '.#.', '###'],
-  N: ['#...#', '##..#', '###.#', '#.#.#', '#.###', '#..##', '#...#'],
-  E: ['####', '#...', '#...', '###.', '#...', '#...', '####'],
-  B: ['###.', '#..#', '#..#', '###.', '#..#', '#..#', '###.'],
-  R: ['####.', '#...#', '#...#', '####.', '#.##.', '#..##', '#...#'],
-  A: ['.###.', '##.##', '#...#', '#####', '#...#', '#...#', '#...#'],
-  K: ['#...#', '#..##', '#.##.', '###..', '#.##.', '#..##', '#...#'],
+  L: ['#..', '#..', '#..', '#..', '###'],
+  I: ['###', '.#.', '.#.', '.#.', '###'],
+  N: ['#...#', '###.#', '#.###', '#..##', '#...#'],
+  E: ['####', '#...', '###.', '#...', '####'],
+  B: ['####.', '#..##', '####.', '#..##', '####.'],
+  R: ['####.', '#..##', '####.', '#..##', '#...#'],
+  A: ['.###.', '.#.#.', '#####', '#...#', '#...#'],
+  K: ['#..##', '#.##.', '###..', '#.##.', '#..##'],
 };
 
-const colors = ['#00cce8', '#f3ce08', '#cf24db', '#39ce25', '#f62739', '#1679f8',
-  '#48d824', '#ff8818', '#a438ef', '#37c72d', '#2186fa'];
+const colors = ['#18b8d3', '#e9bb28', '#cc4ab9', '#75c645', '#e94a61', '#4288e5',
+  '#28b988', '#ea8538', '#9c63e6', '#c5c542', '#4f9edf'];
 
-let column = 0;
+let cursor = padX;
 const letters = [...word].map((letter, index) => {
   const glyph = glyphs[letter];
-  const width = glyph[0].length;
-  const cells = glyph.flatMap((line, row) => [...line].flatMap((mark, offset) => mark === '#'
-    ? [{ row, x: padX + (column + offset) * block, y: padY + row * block }]
+  const start = cursor;
+  const end = start + glyph[0].length * block;
+  const cells = glyph.flatMap((line, row) => [...line].flatMap((mark, column) => mark === '#'
+    ? [{ row, column, x: start + column * block, y: padY + row * block }]
     : []));
-  column += width + 1;
-  return { color: colors[index], cells, end: padX + (column - 1) * block };
+  cursor = end + (index < 2 ? pixel : block / 2);
+  return { color: colors[index], cells, end };
 });
-const artWidth = 2 * padX + (column - 1) * block;
+const artWidth = letters.at(-1).end + padX;
 const artHeight = 2 * padY + rows * block;
+const rowY = padY + middle * block;
 
 function tint(color, amount) {
   return '#' + color.slice(1).match(/../g).map(component => {
@@ -45,67 +48,103 @@ function tint(color, amount) {
   }).join('');
 }
 
-function square(x, y, size, fill) {
-  return `<rect x="${x}" y="${y}" width="${size}" height="${size}" fill="${fill}"/>`;
+function rect(x, y, width, height, fill) {
+  return `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${fill}"/>`;
 }
 
-function beveledCell({ x, y }, color) {
-  return `<g data-logo-cell="" transform="translate(${x} ${y})">
-${square(0, 0, block, tint(color, -.56))}
-<path fill="${tint(color, .29)}" d="M1 1H15L12 4H4V12L1 15Z"/>
-<path fill="${tint(color, -.33)}" d="M15 1V15H1L4 12H12V4Z"/>
-<path fill="${color}" d="M3 3H13V13H3Z"/>
-<path fill="${tint(color, .79)}" d="M2 2H9V3H4V4H3V6H2Z"/>
-</g>`;
+function bevel(color) {
+  return `${rect(0, 0, block, block, tint(color, -.46))}
+${rect(0, 0, 29, 28, tint(color, .21))}
+${rect(3, 4, 26, 24, color)}
+${rect(0, 0, 30, 3, tint(color, .46))}
+${rect(30, 0, 2, 30, tint(color, -.29))}
+${rect(0, 28, 29, 2, tint(color, -.23))}
+${rect(3, 0, 8, 1, tint(color, .82))}`;
 }
 
-function glow({ x, y }, color) {
-  return `<g fill="${color}">
-<path opacity=".19" d="M${x - 2} ${y - 2}h2v-2h16v2h2v20h-2v2h-16v-2h-2Z"/>
-<path opacity=".42" d="M${x - 1} ${y + 1}h1v-3h16v3h1v14h-1v3h-16v-3h-1Z"/>
-</g>`;
+function solidCell({ x, y, row, column }, { color }, index) {
+  return `<g data-logo-cell="${index}:${row}:${column}" transform="translate(${x} ${y})">${bevel(color)}</g>`;
 }
 
-function crackedCell({ x, y }, color) {
-  const mirror = (x - padX) / block % 2 === 1;
-  const tiles = ['###.', '##.#', '#.##', '.###'];
-  return [-1, 1].map(side => {
-    const cells = tiles.flatMap((line, row) => [...line].flatMap((mark, tile) => {
-      if (mark !== '#' || (tile < 3 - row) !== (side === -1)) return [];
-      const shade = row === 1 || row === 2 ? .9 : .66;
-      return [square(x + (mirror ? 3 - tile : tile) * pixel, y + row * pixel, pixel, tint(color, shade))];
-    }));
-    return `<g data-logo-shard="${side}" data-logo-drift="${mirror ? -1 : 1}">${cells.join('')}</g>`;
+const cracks = [
+  ['M3 17H9V13H15V19H21V15H29 M15 19V24H18', 'M6 17H9V13H15V19H21'],
+  ['M7 14H11V18H17V12H23V16H29 M17 12V8H20', 'M11 18H17V12H23V16'],
+  ['M3 18H11V14H15V16H22V20H26', 'M8 18H11V14H15V16H22'],
+  ['M3 16H7V20H12V15H20V13H25 M12 20V24', 'M7 20H12V15H20V13'],
+  ['M8 15H12V19H16V15H21V11H25V16H29', 'M12 19H16V15H21V11'],
+];
+
+const damage = [
+  { x: pixel, y: 0, outline: 'M0 0H8V8H16V0H32V32H0Z' },
+  { x: 2 * pixel, y: 3 * pixel, outline: 'M0 0H32V32H24V24H16V32H0Z' },
+];
+
+const rowCells = letters.flatMap((letter, index) => letter.cells.filter(cell => cell.row === middle)
+  .map(cell => ({ ...cell, color: letter.color, index })));
+
+function crackedCell(cell, index) {
+  const { x, y, color } = cell;
+  const nick = index % 7 === 2 ? 0 : index % 7 === 5 ? 1 : -1;
+  const clip = nick < 0 ? '' : ` clip-path="url(#logo-nick-${nick})"`;
+  const [crack, core] = cracks[(index * 3 + cell.index) % cracks.length];
+  return `<g transform="translate(${x} ${y})"><g${clip}>
+${bevel(color)}
+<g data-logo-fissure="" fill="none" opacity="1">
+<path class="logo-crack-halo" d="${crack}" stroke="${tint(color, -.55)}" stroke-width="4"/>
+<path d="${crack}" stroke="${tint(color, .5)}" stroke-width="2.5"/>
+<path class="logo-crack-core" d="${core}" stroke="#fff9ec" stroke-width="1.4"/>
+</g></g></g>`;
+}
+
+function gutterShards() {
+  const clusters = [
+    [2, 1, -2, 2], [2, 2, 1, 1], [3, 1, 4, 2], [5, 2, -1, 1],
+    [6, 1, 6, 2], [6, 2, 3, 1], [8, 1, -3, 2], [8, 3, 3, 1], [9, 2, 4, 1],
+  ];
+  return clusters.map(([index, offset, height, size]) => {
+    const { end, color } = letters[index];
+    const detail = size === 1 ? ' class="logo-fine-shard"' : '';
+    return `<g data-logo-gutter=""${detail}>${rect(end + offset * subpixel, rowY + height * subpixel,
+      size * subpixel, size * subpixel, tint(color, size === 1 ? .2 : -.03))}</g>`;
   }).join('\n');
 }
 
-function sparks(x, color, direction) {
-  const center = padY + (middle + .5) * block;
-  return [-1, 1].map(side => {
-    const outerY = center + (side === -1 ? -10 : 8);
-    const innerY = center + (side === -1 ? -6 : 2);
-    return `<g data-logo-shard="${side}" data-logo-drift="${direction}">
-${square(x + (direction === -1 ? -4 : 2), outerY, 2, tint(color, .38))}
-${square(x - 2, innerY, pixel, tint(color, .72))}
-</g>`;
+function flyingShards() {
+  return rowCells.flatMap(({ x, y, color }, index) => {
+    const nick = index % 7 === 2 ? damage[0] : index % 7 === 5 ? damage[1] : null;
+    const side = nick ? (nick.y === 0 ? -1 : 1) : index % 2 ? 1 : -1;
+    const drift = ((index * 5) % 9 - 4) / 4;
+    const fragment = (offsetX, offsetY, size, direction, travel, shade) =>
+      `<g data-logo-shard="${direction}" data-logo-drift="${travel}">${rect(x + offsetX, y + offsetY,
+        size, size, tint(color, shade))}</g>`;
+    return [fragment(nick?.x ?? (index % 3) * pixel, nick?.y ?? (side < 0 ? pixel : 2 * pixel),
+      pixel, side, drift, .14),
+    fragment(((index + 2) % 4) * pixel, side < 0 ? 3 * pixel : 0, pixel, -side, -drift * .8, -.12)];
   }).join('\n');
 }
 
-export function renderBlocksLogo() {
-  const solid = keep => letters.flatMap(({ cells, color }) => cells.filter(keep)
-    .map(cell => beveledCell(cell, color))).join('\n');
-  const broken = draw => letters.flatMap(({ cells, color }) => cells.filter(cell => cell.row === middle)
-    .map(cell => draw(cell, color))).join('\n');
-  const gutters = [sparks(padX / 2, letters[0].color, -1), ...letters.map(({ end, color }, index) =>
-    sparks(end + block / 2, color, index < letters.length / 2 ? -1 : 1))].join('\n');
+export function renderBlocksLogo({ effects = true } = {}) {
+  const solid = keep => letters.flatMap((letter, index) => letter.cells.filter(keep)
+    .map(cell => solidCell(cell, letter, index))).join('\n');
+  const middleRow = solid(cell => cell.row === middle);
+  const layers = effects ? `<defs>${damage.map(({ outline }, index) =>
+    `<clipPath id="logo-nick-${index}"><path d="${outline}"/></clipPath>`).join('')}</defs>
+<style>@media (max-width: 480px) {
+  .logo-fine-shard, .logo-crack-halo { display: none; }
+  .logo-crack-core { stroke-width: 1; }
+}</style>
+<g data-logo-cracked="">${rowCells.map(crackedCell).join('\n')}
+<g>${gutterShards()}</g></g>
+<g data-logo-restored="" opacity="0">${middleRow}</g>
+<g opacity="0" data-logo-burst="">${flyingShards()}</g>` : middleRow;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${artWidth}" height="${artHeight}" viewBox="0 0 ${artWidth} ${artHeight}" role="img" aria-label="Linebreaker" data-logo-block="${block}">
 <title>Linebreaker</title>
-<g data-logo-glow="" opacity=".7">${broken(glow)}</g>
+<g shape-rendering="crispEdges">
 <g data-logo-top="">${solid(cell => cell.row < middle)}</g>
 <g data-logo-base="">${solid(cell => cell.row > middle)}</g>
-<g data-logo-restored="" opacity="0">${solid(cell => cell.row === middle)}</g>
-<g shape-rendering="crispEdges">${broken(crackedCell)}\n${gutters}</g>
+${layers}
+</g>
 </svg>\n`;
 }
 
@@ -146,6 +185,11 @@ function writeOutputs(args) {
   const blocks = renderBlocksLogo();
   const store = renderStoreLogo();
   const source = fileURLToPath(new URL('assets/ui/logo-blocks.svg', root));
+  const demo = args.indexOf('--demo');
+  if (demo !== -1 && (!args[demo + 1] || !args[demo + 2])) {
+    throw new Error('--demo requires an output HTML path and a V1 SVG path');
+  }
+  const previous = demo === -1 ? '' : readFileSync(args[demo + 2], 'utf8');
   writeFileSync(source, blocks);
   writeFileSync(new URL('assets/ui/logo-store.svg', root), store);
 
@@ -161,13 +205,12 @@ function writeOutputs(args) {
     }
   }
 
-  const demo = args.indexOf('--demo');
   if (demo !== -1) {
-    if (!args[demo + 1]) throw new Error('--demo requires an output HTML path');
     const svgUrl = svg => 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
     const animation = readFileSync(new URL('logo-anim.js', root), 'utf8');
     const template = readFileSync(new URL('blocks-demo.html', import.meta.url), 'utf8');
-    const parts = { BLOCKS_URL: svgUrl(blocks), STORE_URL: svgUrl(store), BLOCKS: blocks, ANIMATION: animation };
+    const parts = { PREVIOUS_URL: svgUrl(previous), STORE_URL: svgUrl(store), BLOCKS: blocks,
+      CLEAN_URL: svgUrl(renderBlocksLogo({ effects: false })), ANIMATION: animation };
     writeFileSync(args[demo + 1], template.replace(/\{\{(\w+)\}\}/g, (_, name) => parts[name]));
   }
 }
