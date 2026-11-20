@@ -129,8 +129,9 @@
         meter.setAttribute('role', 'img');
         meter.setAttribute('aria-label', `${streak}-day gift streak, day ${completed} of ${weekDays} this cycle`);
         const count = element('span', 'lb64-streak-count');
-        count.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a8 8 0 0 1-8-8c0-3 2-6 4-8 0 3 2 5 3 5-1-3 1-6 3-9 0 4 6 6 6 12a8 8 0 0 1-8 8Z M12 22a3 3 0 0 1-3-3c0-2 2-3 3-5 1 2 3 3 3 5a3 3 0 0 1-3 3Z"/></svg>';
-        count.append(element('span', '', streak));
+        const flame = element('span', 'lb84-streak-flame', '🔥');
+        flame.setAttribute('aria-hidden', 'true');
+        count.append(flame, element('span', '', streak));
         const dots = element('span', 'lb64-streak-dots');
         for (let day = 1; day <= weekDays; day++) {
             dots.append(element('span', day === completed ? 'lb64-streak-today' : day < completed ? 'lb64-streak-filled' : ''));
