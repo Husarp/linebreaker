@@ -1106,13 +1106,17 @@
     };
 
     function _colorPickerButton(id, label, swatch, active, handler) {
-        return `<button type="button" id="${id}" class="lb-block-btn lb-colors-launch" data-equipped="${active}" onclick="window.${handler}()">
+        return `<button type="button" id="${id}" class="lb-block-btn lb-block-btn--primary lb-colors-launch" data-equipped="${active}" onclick="window.${handler}()">
             <span class="lb-color-launch-mark" aria-hidden="true" style="--swatch:${swatch}"></span>
             <span>${label}</span>${active ? `<span class="lb-colors-state">${_colorInventoryStatus(true)}</span>` : '<span class="lb-colors-state">Edit</span>'}
         </button>`;
     }
 
-    const _PIECE_LABELS = ['I','O','T','S','Z','J','L'];
+    const _PIECE_LABELS = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
+
+    function _palettePiecePreviews(colors, showLabels = false) {
+        return colors.map((color, index) => `<span class="lb83-piece" style="--piece-color:${color}">${LBColorPicker.pieceSvg(BASE_PIECES[index + 1])}${showLabels ? _PIECE_LABELS[index] : ''}</span>`).join('');
+    }
 
     // --- Render piece to image using current skin via drawGameBlock ---
     function _renderPieceToImg(pieceMatrix, colorId, cellSize) {
@@ -1204,7 +1208,7 @@
                     <input type="color" id="pe-c${i}-native" aria-label="Piece ${i + 1} native color" value="${c}" oninput="window._palEditChange(${i},this.value)">
                     <div style="background:${c}" aria-hidden="true"></div>
                 </div>
-                <input type="text" id="pe-c${i}-hex" aria-label="Piece ${i + 1} hex color" value="${c}" maxlength="7" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
+                <input type="text" id="pe-c${i}-hex" aria-label="${lbl} piece hex color" value="${c}" maxlength="7" autocomplete="off" spellcheck="false" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
                 <button class="lb-block-btn lb-block-btn--icon" onclick="window._palEditEyedrop(${i})" aria-label="Eyedropper for ${lbl}" title="Eyedropper">${_SVG_EYEDROPPER}</button>
                 <button class="lb-block-btn lb-block-btn--icon" onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
             </div>`;
@@ -1251,7 +1255,7 @@
     window._palEditRefreshPreview = function() {
         const row = document.getElementById('pe-preview-row');
         if (!row || !_palEditState) return;
-        row.innerHTML = _palEditState.colors.map((c, i) => `<span><i style="--swatch:${c}"></i>${_PIECE_LABELS[i]}</span>`).join('');
+        row.innerHTML = _palettePiecePreviews(_palEditState.colors, true);
     };
 
     window._palEditApply = function() {
@@ -1326,9 +1330,8 @@
 
     function _openCustomPaletteModal() {
         if (!_allPalettesOwned()) return;
-        const names = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
         const pieces = _customPaletteColors().map((color, index) => ({
-            name: names[index], matrix: BASE_PIECES[index + 1], color,
+            name: _PIECE_LABELS[index], matrix: BASE_PIECES[index + 1], color,
         }));
         LBColorPicker.open({
             id: 'custom-palette-modal',
@@ -3927,8 +3930,8 @@
                 const equipped = settings.theme === key;
                 const color = THEMES[key].primary;
                 return _colorInventoryCard({ key, label, owned, equipped,
-                    preview: `<button type="button" class="lb-block-btn lb-colors-theme-sample" aria-label="Copy ${label} hex ${color}" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)">
-                        <span class="lb-colors-chip" style="--swatch:${color}"></span><code>${color}</code><span aria-hidden="true">${_SVG_COPY}</span></button>`,
+                    preview: `<button type="button" class="lb-block-btn lb-colors-theme-sample" aria-label="Copy ${label} colour" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)">
+                        <span class="lb-colors-chip" aria-hidden="true" style="--swatch:${color}"></span><span aria-hidden="true">${_SVG_COPY}</span></button>`,
                     actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.applyTheme('${key}')">Equip</button>` : '',
                     unlock: `window.playerUnlockItem('theme','${key}')` });
             }).join('');
@@ -3948,7 +3951,7 @@
                 const equipped = (settings.colorPalette || 'classic') === key;
                 const colors = paletteColors(saveData.customPaletteOverrides?.[key], palette.colors);
                 return _colorInventoryCard({ key, label: palette.name, owned: !!owned, equipped,
-                    preview: `<button type="button" class="lb-block-btn lb-palette-preview" aria-label="Preview ${palette.name} palette" onclick="window._openPaletteViewModal('${key}')">${colors.map(color => `<span style="--piece-color:${color}"></span>`).join('')}</button>`,
+                    preview: `<button type="button" class="lb-block-btn lb-palette-preview" aria-label="Preview ${palette.name} palette" onclick="window._openPaletteViewModal('${key}')">${_palettePiecePreviews(colors)}</button>`,
                     actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.onSettingChange('colorPalette','${key}')">Equip</button>` : '',
                     unlock: `window.playerUnlockItem('palette','${key}')` });
             }).join('');

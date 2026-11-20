@@ -1,0 +1,49 @@
+.lb-color-dialog .lb-color-piece {
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px !important;
+}
+.lb-color-dialog .lb-color-piece[aria-pressed="true"] {
+    --bb-button-edge: var(--accent);
+    --bb-button-face: color-mix(in srgb, var(--accent) 19%, var(--bb-face));
+}
+#custom-palette-modal .lb-color-content { gap: 6px; }
+#custom-palette-modal .lb-color-plane { width: min(100%, 184px, 19dvh); }
+
+#pal-edit-modal > .lb-block-dialog { width: min(100%, 460px); }
+#pal-edit-modal .lb-palette-header p { margin: 2px 0 0; }
+#pal-edit-modal .lb-palette-edit-row input[type="text"] {
+    min-width: 0;
+    width: 100%;
+    padding-inline: 10px;
+    font-size: var(--text-sm);
+    text-align: left;
+}
+.lb83-piece svg {
+    display: block;
+    width: 100%;
+    height: 24px;
+    fill: var(--piece-color);
+    stroke: #fff5;
+    stroke-width: .65;
+}
+#pe-preview-row .lb83-piece {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+}
+#pe-preview-row .lb83-piece svg { max-width: 40px; }
+
+[data-invtab-content="colors"] .lb-colors-theme-sample .lb-colors-chip {
+    flex: 1 1 auto;
+    height: 42px;
+    box-shadow: inset 0 2px #fff3, inset 0 -3px #0004;
+}
+[data-invtab-content="colors"] .lb-colors-theme-sample > span:last-child { padding-inline: 4px; }
+[data-invtab-content="colors"] .lb-palette-preview .lb83-piece {
+    height: auto;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+[data-invtab-content="colors"] .lb-palette-preview .lb83-piece svg { height: 38px; }
