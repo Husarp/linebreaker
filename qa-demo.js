@@ -128,7 +128,7 @@
         add('universal-parts', window.openUseUniversalPart, () => remove('uni-modal-overlay'));
         add('universal-exchange', window.openExchangeUniversalParts, () => remove('uni-xch-overlay'));
         add('booster-exchange', () => window._openExchangeModal('1.25x_game', '1.5x_game', 'booster'), () => remove('exc-modal-overlay'));
-        screen('inventory-sfx', 'inventory-overlay', () => { inventory('other'); click('[data-item-key="sfxRetro"]'); }, () => {
+        screen('inventory-sfx', 'inventory-overlay', () => { inventory('other'); click('[data-sfx-preview="retro"]'); }, () => {
             remove('sfx-inv-preview');
             window.closeInventory();
         });

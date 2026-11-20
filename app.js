@@ -2731,7 +2731,7 @@
                 bar.style.width = actualPct + '%';
                 bar.style.removeProperty('--lb-exchange-owned-stop');
             }
-            if (lbl) lbl.textContent = pending > 0 ? `${parts}+${pending}/${cost}` : `${parts}/${cost}`;
+            if (lbl) lbl.textContent = pending > 0 ? `${parts}+${pending}/${cost} parts` : `${parts}/${cost} parts`;
         }
         function _updateApplyBtn() {
             const btn = document.getElementById('uni-apply-btn');
@@ -2769,11 +2769,11 @@
                         <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
                         <div class="lb-exchange-row-detail">
                             <strong>${name}</strong>
-                            <div class="lb-exchange-row-meta">
+                            <div class="lb-exchange-row-meta lb-inventory-parts-allocation">
                                 <div class="lb-exchange-meter" aria-hidden="true">
                                     <div id="uni-bar-${item.key}" style="width:${pct}%"></div>
                                 </div>
-                                <span class="lb-exchange-badge" aria-label="Owned and required parts"><span id="uni-lbl-${item.key}">${escapeHtml(parts)}/${cost}</span></span>
+                                <span id="uni-lbl-${item.key}">${escapeHtml(parts)}/${cost} parts</span>
                             </div>
                         </div>
                         ${parts < cost ? `<div class="lb-exchange-stepper">
@@ -2893,7 +2893,7 @@
                     setTimeout(() => { bar.style.width = newPct + '%'; }, 50);
                 }
                 const lbl = document.getElementById(`uni-lbl-${key}`);
-                if (lbl) lbl.textContent = `${saveData.parts?.[key] || 0}/${_getItemCost(key)}`;
+                if (lbl) lbl.textContent = `${saveData.parts?.[key] || 0}/${_getItemCost(key)} parts`;
             });
             setTimeout(() => _rebuildContent(), 700);
         };
@@ -2909,8 +2909,8 @@
 
     function _exchangeItemCard({ name, art, rarity, count, detail, amountId, amount }) {
         return `<div class="lb-block-reward lb-exchange-item" data-rarity="${rarity}">
-            ${count != null ? `<span class="lb-block-reward-amount">${escapeHtml(count)} owned</span>` : ''}
             <div class="lb-exchange-item-art">${art}</div>
+            <span class="lb-exchange-item-balance">${count != null ? `You have ${escapeHtml(count)}` : ''}</span>
             <strong>${name}</strong>
             <span class="lb-exchange-item-detail">${detail}</span>
             <strong class="lb-exchange-item-amount" id="${amountId}">${amount}</strong>
@@ -3798,53 +3798,61 @@
         }
         _updateMusicWidget();
     }
-    function _inventoryState(equipped) {
+    function _inventoryState(equipped, showLabel = false) {
         const label = equipped ? 'Equipped' : 'Locked';
         const path = equipped ? '<path d="m5 12 4 4L19 6"/>' : '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>';
-        return `<svg class="lb-inventory-state" role="img" aria-label="${label}" viewBox="0 0 24 24" width="${equipped ? 26 : 18}" height="${equipped ? 26 : 18}" fill="none" stroke="currentColor" stroke-width="${equipped ? 3 : 2}" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+        return `<svg class="lb-inventory-state" ${showLabel ? 'aria-hidden="true"' : `role="img" aria-label="${label}"`} viewBox="0 0 24 24" width="${equipped ? 26 : 18}" height="${equipped ? 26 : 18}" fill="none" stroke="currentColor" stroke-width="${equipped ? 3 : 2}" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
     }
 
-    function _makeInventoryRow(...args) { return _makeTrackRow(...args, false, true); }
+    function _inventoryEquipButton(label, [type, value]) {
+        return `<button type="button" class="lb-inventory-equip-target" aria-label="Equip ${escapeHtml(label)}" data-inventory-equip="${type}" data-equip-value="${value}"></button>`;
+    }
 
-    function _makeTrackRow(label, isActive, isOwned, partCount, onEquipJs, onUnlockJs, extraHtml, itemKey, configurable = false, blockBuilt = false) {
+    document.getElementById('inventory-overlay')?.addEventListener('click', event => {
+        const target = event.target.closest('[data-inventory-equip]');
+        if (!target) return;
+        const groupId = target.parentElement.parentElement.id;
+        const { inventoryEquip: type, equipValue: value } = target.dataset;
+        if (type === 'theme') applyTheme(value);
+        else if (type === 'skin') applyBlockSkin(value);
+        else if (type === 'gridStyle') applyGridStyle(value);
+        else if (type === 'btnStyle') applyBtnStyle(value);
+        else if (['ghostColor', 'colorPalette', 'sfxPack'].includes(type)) onSettingChange(type, value);
+        if (event.detail === 0) document.getElementById(groupId)?.querySelector(':scope > [data-equipped="true"]')?.focus();
+    });
+
+    function _makeInventoryRow(label, isActive, isOwned, partCount, equip, onUnlockJs, extraHtml, itemKey, previewPack = '') {
         const equipped = isOwned && isActive;
-        const status = equipped ? 'Equipped' : isOwned ? 'Owned' : 'Locked';
         const cost = !isOwned && itemKey ? _getItemCost(itemKey) : 0;
         const parts = Math.max(0, Number(partCount) || 0);
-        const ready = cost > 0 && parts >= cost;
-        const canEquip = isOwned && (!equipped || configurable) && onEquipJs;
         const safeLabel = escapeHtml(label);
-        const actionClass = 'lb-inventory-action lb-block-btn';
         const progress = cost > 0 ? `<div class="lb-inventory-progress">
-            <progress class="${blockBuilt ? 'lb-block-progress' : 'lb-progress lb-progress--pattern'}" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
+            <progress class="lb-block-progress" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
             <span>${Math.min(parts, cost)}/${cost} parts</span>
         </div>` : '';
-        const action = ready
-            ? `<button type="button" class="${actionClass} ${blockBuilt ? 'lb-block-btn--primary' : 'lb-inventory-action--unlock'}" onclick="${onUnlockJs}">Unlock</button>`
-            : canEquip ? `<button type="button" class="${actionClass}" onclick="event.stopPropagation();${onEquipJs}">${equipped ? 'Edit' : 'Equip'}</button>` : '';
-        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" class="inv-row lb-inventory-card${blockBuilt ? ' lb-inventory-item lb-block-card' : ready ? ' glow-notify' : ''}"${canEquip ? ` style="cursor:pointer;" onclick="${onEquipJs}"` : ''}>
+        const unlock = cost > 0 && parts >= cost ? `<div class="lb-inventory-controls"><button type="button" class="lb-inventory-action lb-block-btn lb-block-btn--primary" onclick="${onUnlockJs}">Unlock</button></div>` : '';
+        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" class="inv-row lb-inventory-card lb-inventory-item lb-block-card"${equipped ? ' tabindex="-1"' : ''}>
+            ${isOwned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
             <div class="lb-inventory-heading">
                 <div class="lb-inventory-name">${safeLabel}</div>
-                ${blockBuilt ? (equipped || !isOwned ? _inventoryState(equipped) : '') : `<div class="lb-item-state">${status}</div>`}
+                ${equipped || !isOwned ? _inventoryState(equipped) : ''}
             </div>
             ${extraHtml ? `<div class="lb-inventory-detail">${extraHtml}</div>` : ''}
-            ${progress || action ? `<div class="lb-inventory-controls">${progress}${action}</div>` : ''}
+            ${progress}${unlock}
+            ${previewPack ? `<button type="button" class="lb-block-btn lb82-sfx-preview" data-sfx-preview="${previewPack}" aria-label="Preview ${safeLabel}">Preview</button>` : ''}
         </div>`;
     }
 
-    function _colorInventoryStatus(equipped) {
-        return `<span class="lb-colors-state">${_inventoryState(equipped)}</span>`;
-    }
-
-    function _colorInventoryCard({ key, label, owned, equipped = false, preview = '', detail = '', actions = '', unlock = '' }) {
+    function _colorInventoryCard({ key, label, owned, equipped = false, preview = '', detail = '', equip = '', unlock = '' }) {
         const cost = !owned && unlock ? _getItemCost(key) : 0;
         const parts = Math.max(0, Math.min(cost, Number(saveData.parts?.[key]) || 0));
-        if (cost && parts === cost) actions += `<button type="button" class="lb-block-btn lb-block-btn--primary" onclick="${unlock}">Unlock</button>`;
-        return `<article class="lb-block-card lb-colors-card"${key ? ` data-item-key="${key}"` : ''} data-owned="${owned}" data-equipped="${equipped}">
-            <header><h3>${label}</h3>${equipped || !owned ? _colorInventoryStatus(equipped) : ''}</header>
+        return `<article class="lb-block-card lb-colors-card"${key ? ` data-item-key="${key}"` : ''} data-owned="${owned}" data-equipped="${equipped}"${equipped ? ' tabindex="-1"' : ''}>
+            ${owned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
+            <header><h3>${label}</h3>${!owned ? `<span class="lb-colors-state">${_inventoryState(false)}</span>` : ''}</header>
             ${preview}${detail ? `<p>${detail}</p>` : ''}
             ${cost ? `<div class="lb-colors-parts"><progress class="lb-block-progress" aria-label="${label} parts" value="${parts}" max="${cost}"></progress><span>${parts}/${cost} parts</span></div>` : ''}
-            ${actions ? `<div class="lb-colors-actions">${actions}</div>` : ''}
+            ${equipped ? `<div class="lb-colors-state lb-inventory-equipped-label">${_inventoryState(true, true)} Equipped</div>` : ''}
+            ${cost && parts === cost ? `<div class="lb-colors-actions"><button type="button" class="lb-block-btn lb-block-btn--primary" onclick="${unlock}">Unlock</button></div>` : ''}
         </article>`;
     }
 
@@ -3878,9 +3886,9 @@
             } else {
                 const gc = settings.ghostColor || 'white';
                 const parts = saveData.parts?.['ghostColor'] || 0;
-                const whiteRow = _makeInventoryRow('White Ghost', gc === 'white', true, 0, "window.onSettingChange('ghostColor','white')", '', '', '');
+                const whiteRow = _makeInventoryRow('White Ghost', gc === 'white', true, 0, ['ghostColor', 'white'], '', '', '');
                 const coloredOwned = saveData.ghostColorUnlocked;
-                const coloredRow = _makeInventoryRow('Colored Ghost', gc === 'colored', Boolean(coloredOwned), parts, "window.onSettingChange('ghostColor','colored')", "window.playerUnlockItem('ghostColor','ghostColor')", 'Ghost matches piece color', 'ghostColor');
+                const coloredRow = _makeInventoryRow('Colored Ghost', gc === 'colored', Boolean(coloredOwned), parts, ['ghostColor', 'colored'], "window.playerUnlockItem('ghostColor','ghostColor')", 'Ghost matches piece color', 'ghostColor');
                 ghostWrap.innerHTML = `<h3 class="lb-inventory-subtitle">Ghost Piece</h3>${whiteRow}${coloredRow}`;
             }
         }
@@ -3903,7 +3911,7 @@
                 return _makeInventoryRow(
                     skinNames[s],
                     isActive, isOwned, parts,
-                    `window.applyBlockSkin('${s}')`,
+                    ['skin', s],
                     `window.playerUnlockItem('skin','${s}')`,
                     escapeHtml(LBLineClear.description(s)), s
                 );
@@ -3931,9 +3939,8 @@
                 const equipped = settings.theme === key;
                 const color = THEMES[key].primary;
                 return _colorInventoryCard({ key, label, owned, equipped,
-                    preview: `<button type="button" class="lb-block-btn lb-colors-theme-sample" aria-label="Copy ${label} colour" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)">
-                        <span class="lb-colors-chip" aria-hidden="true" style="--swatch:${color}"></span><span aria-hidden="true">${_SVG_COPY}</span></button>`,
-                    actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.applyTheme('${key}')">Equip</button>` : '',
+                    preview: `<div class="lb-inventory-theme-swatch"><span class="lb-colors-chip" aria-hidden="true" style="--swatch:${color}"></span>${owned ? `<button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Copy ${label} colour" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)"><span aria-hidden="true">${_SVG_COPY}</span></button>` : ''}</div>`,
+                    equip: ['theme', key],
                     unlock: `window.playerUnlockItem('theme','${key}')` });
             }).join('');
             ownedThemeContainer.innerHTML = rows + (_allThemesOwned()
@@ -3953,7 +3960,7 @@
                 const colors = paletteColors(saveData.customPaletteOverrides?.[key], palette.colors);
                 return _colorInventoryCard({ key, label: palette.name, owned: !!owned, equipped,
                     preview: `<button type="button" class="lb-block-btn lb-palette-preview" aria-label="Preview ${palette.name} palette" onclick="window._openPaletteViewModal('${key}')">${_palettePiecePreviews(colors)}</button>`,
-                    actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.onSettingChange('colorPalette','${key}')">Equip</button>` : '',
+                    equip: ['colorPalette', key],
                     unlock: `window.playerUnlockItem('palette','${key}')` });
             }).join('');
             const shuffle = `<div class="lb-colors-shuffle">
@@ -3963,7 +3970,7 @@
             const randomEquipped = allPalettesOwned && !!settings.randomBlockColors;
             const random = _colorInventoryCard({ key: '_randomColors', label: 'Random Colors', owned: allPalettesOwned, equipped: randomEquipped,
                 detail: allPalettesOwned ? 'Every block is a different random color' : 'Own all palettes to unlock',
-                actions: allPalettesOwned && !randomEquipped ? `<button type="button" class="lb-block-btn" onclick="window.onSettingChange('randomBlockColors',true);window.onSettingChange('colorPalette','_random')">Equip</button>` : '' });
+                equip: ['colorPalette', '_random'] });
             const custom = allPalettesOwned
                 ? _colorPickerButton('custom-palette-picker-button', 'Custom Palette', `conic-gradient(${_customPaletteColors().join(', ')})`, settings.colorPalette === '_custom_picker', '_openCustomPaletteModal')
                 : _colorInventoryCard({ label: 'Custom Palette', owned: false, detail: 'Own all palettes to unlock' });
@@ -3978,8 +3985,8 @@
                 .map(([k, bs]) => {
                     const isOwned = bs.free || owned.includes(k);
                     const parts = saveData.parts?.[k] || 0;
-                    return _makeTrackRow(bs.name, settings.btnStyle === k, isOwned, parts,
-                        `window.applyBtnStyle('${k}')`,
+                    return _makeInventoryRow(bs.name, settings.btnStyle === k, isOwned, parts,
+                        ['btnStyle', k],
                         isOwned ? '' : `window.playerUnlockItem('btnStyle','${k}')`,
                         '', k);
                 }).join('');
@@ -3996,7 +4003,7 @@
                 const isActive = (GRID_STYLES[_curGrid] ? _curGrid : 'lines') === k;
                 const parts = saveData.parts?.[k] || 0;
                 return _makeInventoryRow(gs.name, isActive, isOwned, parts,
-                    `window.applyGridStyle('${k}')`,
+                    ['gridStyle', k],
                     `window.playerUnlockItem('gridStyle','${k}')`,
                     '', k
                 );
@@ -4106,7 +4113,10 @@
             <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
             <div class="lb-exchange-row-detail">
                 <strong class="lb-help-label">Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" title="About universal parts"></button></strong>
-                <div class="lb-exchange-row-meta"><span class="lb-exchange-badge">${Number(_uniVal.toFixed(1))} owned</span><span>${_exchangePartsIcon()} 1 part minimum</span></div>
+                <div class="lb-inventory-progress lb-inventory-universal-progress">
+                    <progress class="lb-block-progress" aria-label="Progress toward one usable universal part" max="1" value="${Math.min(1, _uniVal)}"></progress>
+                    <span>${Number(_uniVal.toFixed(1))} owned</span>
+                </div>
             </div>
             <button type="button" class="lb-block-btn lb-block-btn--primary" data-use-parts ${_uniVal < 1 ? 'disabled' : ''}>${exchangeForXP ? 'Exchange' : 'Use'}</button>
         </div>`;
@@ -4116,18 +4126,17 @@
             const meta = BOOSTER_META[key];
             const count = boosters[key] || 0;
             const nextKey = BOOSTER_KEYS[i + 1];
-            return `<div class="lb-block-card lb-exchange-row" data-rarity="${meta.rarity}">
-                <div class="lb-exchange-row-art">${LBArtPack.boosterIcon(key)}</div>
-                <div class="lb-exchange-row-detail">
-                    <strong>${meta.label}</strong>
-                    <div class="lb-exchange-row-meta"><span class="lb-exchange-badge">${escapeHtml(count)} owned</span><span class="lb-exchange-rarity">${meta.rarity}</span>${nextKey ? '<span>Cost: 3 boosters</span>' : ''}</div>
-                </div>
+            return `<div class="lb-block-card lb-inventory-booster" data-rarity="${meta.rarity}">
+                <strong>${meta.label}</strong>
+                <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(key)} <span>x${escapeHtml(count)}</span></div>
+                <span class="lb-exchange-rarity">${meta.rarity}</span>
                 ${nextKey ? `<button type="button" class="lb-block-btn lb-block-btn--primary" aria-label="Exchange ${meta.label}" data-exchange-booster="${i}" ${count < 3 ? 'disabled' : ''}>Exchange</button>` : ''}
             </div>`;
         }).join('');
 
         // SFX Packs section
         const _sfxPackDefs = [
+            { key: '', label: 'Default SFX', packId: 'default' },
             { key: 'sfxRetro', label: 'Retro SFX', packId: 'retro' },
             { key: 'sfxArcade', label: 'Arcade SFX', packId: 'arcade' },
             { key: 'sfxCyber', label: 'Cyber SFX', packId: 'cyber' },
@@ -4135,18 +4144,15 @@
         ];
         const _ownedSfx = saveData.ownedSfxPacks || ['default'];
         const _activeSfxPack = settings.sfxPack || 'default';
-        let sfxPacksHtml = '';
-        // Default pack row (always owned)
-        sfxPacksHtml += _makeInventoryRow('Default SFX', _activeSfxPack === 'default', true, 0, "window.onSettingChange('sfxPack','default')", '', 'The original sound effects', '');
-        _sfxPackDefs.forEach(p => {
-            const owned = _ownedSfx.includes(p.packId);
+        const sfxPacksHtml = _sfxPackDefs.map(p => {
+            const owned = p.packId === 'default' || _ownedSfx.includes(p.packId);
             const active = _activeSfxPack === p.packId;
             const parts = saveData.parts?.[p.key] || 0;
-            sfxPacksHtml += _makeInventoryRow(p.label, active, owned, parts,
-                `window.onSettingChange('sfxPack','${p.packId}')`,
+            return _makeInventoryRow(p.label, active, owned, parts,
+                ['sfxPack', p.packId],
                 `window.playerUnlockItem('sfxPack','${p.key}')`,
-                '', p.key);
-        });
+                '', p.key, p.packId);
+        }).join('');
 
         container.innerHTML = `
             ${uniRow}
@@ -4154,7 +4160,7 @@
                 <h2 class="lb-block-section-title lb-help-label">Boosters <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" title="About boosters"></button></h2>
                 ${boosterHtml}
             </section>
-            <section class="lb-block-card lb-inventory-section lb82-sfx-packs">
+            <section id="inventory-sfx-packs" class="lb-block-card lb-inventory-section lb82-sfx-packs">
                 <h2 class="lb-block-section-title">SFX Packs</h2>
                 ${sfxPacksHtml}
             </section>`;
@@ -4164,30 +4170,8 @@
             exchangeBoosters(BOOSTER_KEYS[index], BOOSTER_KEYS[index + 1]);
         }));
 
-        // SFX pack rows — click to open preview (not on buttons)
-        const packIds = new Map(_sfxPackDefs.map(pack => [pack.key, pack.packId]));
-        container.querySelectorAll('.lb-inventory-item').forEach(row => {
-            const packId = packIds.get(row.dataset.itemKey) || 'default';
-            if (row.dataset.equipped === 'true') {
-                const state = document.createElement('span');
-                state.className = 'lb82-sfx-state';
-                state.textContent = 'Equipped';
-                row.querySelector('.lb-inventory-state').replaceWith(state);
-            }
-            const content = document.createElement('div');
-            content.className = 'lb82-sfx-content';
-            content.append(...row.children);
-            const preview = document.createElement('button');
-            preview.type = 'button';
-            preview.className = 'lb-block-btn lb82-sfx-preview';
-            preview.textContent = 'Preview';
-            preview.setAttribute('aria-label', `Preview ${content.querySelector('.lb-inventory-name').textContent}`);
-            preview.addEventListener('click', () => _openSfxPreviewPopup(packId, preview));
-            row.append(content, preview);
-            row.style.cursor = 'pointer';
-            row.onclick = (e) => {
-                if (!e.target.closest('button')) _openSfxPreviewPopup(packId, preview);
-            };
+        container.querySelectorAll('[data-sfx-preview]').forEach(preview => {
+            preview.addEventListener('click', () => _openSfxPreviewPopup(preview.dataset.sfxPreview, preview));
         });
     }
 
