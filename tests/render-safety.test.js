@@ -164,6 +164,13 @@ it('only renders valid hex colors in palette inputs, previews and copy handlers'
   expect(copy[1].getAttribute('onclick')).toContain("writeText('#A1b2C3')");
   window._openPaletteEditor('classic');
   expect(document.getElementById('pe-c0-hex').value).toBe('#00ffff');
+  const editorPieces = [...document.querySelectorAll('#pe-preview-row .lb83-piece')];
+  expect(editorPieces.map(piece => piece.textContent)).toEqual(['I', 'J', 'L', 'O', 'S', 'T', 'Z']);
+  expect(editorPieces.map(piece => piece.querySelectorAll('rect').length)).toEqual(Array(7).fill(4));
+  expect(editorPieces[1].querySelector('svg').outerHTML).toBe(preview.children[1].querySelector('svg').outerHTML);
+  window._palEditChange(1, '#123abc');
+  expect(document.getElementById('pe-c1-hex').value).toBe('#123abc');
+  expect(document.querySelectorAll('#pe-preview-row .lb83-piece')[1].style.getPropertyValue('--piece-color')).toBe('#123abc');
   const paletteButton = document.getElementById('custom-palette-picker-button');
   expect(paletteButton.querySelector('.lb-color-launch-mark').style.getPropertyValue('--swatch')).toContain('conic-gradient(#00ffff, #a1b2c3,');
   paletteButton.click();
@@ -222,6 +229,10 @@ it('shows distinct inventory colour states and keeps palette preview separate fr
   expect(card('forest').querySelector('.lb-colors-state').textContent).toBe('Locked');
   expect(card('forest').querySelector('progress').value).toBe(1);
   expect(document.getElementById('theme-owned-count').textContent).toBe('2/10');
+  const themeSample = card('ocean').querySelector('.lb-colors-theme-sample');
+  expect(themeSample.getAttribute('aria-label')).toBe('Copy Ocean colour');
+  expect(themeSample.textContent.trim()).toBe('');
+  expect(themeSample.querySelector('.lb-colors-chip').style.getPropertyValue('--swatch')).toBe('#0099ff');
 
   const preview = card('ice').querySelector('.lb-palette-preview');
   expect(preview.children).toHaveLength(7);
