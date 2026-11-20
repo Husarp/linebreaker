@@ -61,7 +61,7 @@
         const items = pickParts(plan.parts);
         const cards = items.map(item => {
             addPart(item.key, 1);
-            return { type: 'parts', label: `${partName(item.key)} Part`, amount: 1, rarity: item.cat === 'ghostColor' ? 'epic' : 'common' };
+            return { type: 'parts', key: item.key, label: `${partName(item.key)} Part`, amount: 1, rarity: item.cat === 'ghostColor' ? 'epic' : 'common' };
         });
         const universal = plan.universal + plan.parts - items.length;
         addUniversal(universal);
@@ -104,12 +104,26 @@
             card.dataset.rarity = reward.rarity;
             const image = element('img');
             image.alt = '';
-            image.src = reward.type === 'booster' && window.LBArtPack.boosterToken(reward.key)
-                || (reward.type === 'universal_parts' ? 'assets/ui/parts/universal-part-128.png' : 'assets/ui/64-item-part.svg');
+            const isPart = reward.type === 'parts' || reward.type === 'universal_parts';
+            image.src = isPart ? window.LBArtPack.universalPart
+                : (reward.type === 'booster' && window.LBArtPack.boosterToken(reward.key)) || 'assets/ui/64-item-part.svg';
+            let art = image;
+            if (reward.type === 'parts') {
+                art = element('span', 'lb124-part-art');
+                art.dataset.partKey = reward.key ?? '';
+                art.setAttribute('aria-hidden', 'true');
+                art.append(image);
+                const skin = window.LBImageSkins?.find(({ key }) => key === reward.key);
+                if (skin) {
+                    const mark = element('span', 'lb124-part-mark');
+                    mark.style.backgroundImage = `url("assets/skins/${skin.file}")`;
+                    art.append(mark);
+                }
+            }
             const quantity = Number(reward.amount.toFixed(1));
             const amount = element('span', 'lb-block-reward-amount', `×${quantity}`);
             amount.setAttribute('aria-label', `Quantity: ${quantity}`);
-            card.append(image, element('strong', 'lb64-reward-name', reward.label), amount);
+            card.append(art, element('strong', 'lb64-reward-name', reward.label), amount);
             if (reward.tag) card.append(element('span', 'lb64-reward-tag', reward.tag));
             if (reward.desc) {
                 const description = element('small', 'lb64-reward-desc', reward.desc);

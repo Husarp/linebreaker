@@ -1085,8 +1085,8 @@
                     <div style="background:${c}" aria-hidden="true"></div>
                 </div>
                 <input type="text" id="pe-c${i}-hex" aria-label="${lbl} piece hex color" value="${c}" maxlength="7" autocomplete="off" spellcheck="false" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
-                <button class="lb-block-btn lb-block-btn--icon" onclick="window._palEditEyedrop(${i})" aria-label="Eyedropper for ${lbl}" title="Eyedropper">${_SVG_EYEDROPPER}</button>
-                <button class="lb-block-btn lb-block-btn--icon" onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb-palette-tool" onclick="window._palEditEyedrop(${i})" aria-label="Eyedropper for ${lbl}" title="Eyedropper">${_SVG_EYEDROPPER}</button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb-palette-tool" onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
             </div>`;
         });
 
@@ -1164,7 +1164,7 @@
 
     // --- SVG ICON CONSTANTS ---
     const _SVG_COPY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
-    const _SVG_EYEDROPPER = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.7 4.7a2.4 2.4 0 00-3.4 0L14 8l2 2 3.3-3.3a2.4 2.4 0 000-3.4z"/><path d="M14 8l-8.6 8.6a2 2 0 00-.5 1V20h2.4c.4 0 .7-.2 1-.5L17 11"/></svg>';
+    const _SVG_EYEDROPPER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 8 4 4m-3-3 5-5a2.1 2.1 0 0 1 3 3l-5 5m-3-3-8 8v2h2l8-8M5 19l-2 2"/></svg>';
 
     // --- PALETTE VIEW MODAL (read-only color info with copy) ---
     function _openPaletteViewModal(paletteKey) {
@@ -2573,7 +2573,7 @@
         _checkGlowNotifications();
     }
     function _exchangePartsIcon() {
-        return '<img class="lb-exchange-parts-icon" src="assets/ui/parts/universal-part-128.png" width="28" height="28" alt="">';
+        return `<img class="lb-exchange-parts-icon" src="${window.LBArtPack.universalPart}" width="28" height="28" alt="">`;
     }
     function openUseUniversalPart() {
         if ((saveData.universalParts || 0) < 1) return;
@@ -4238,7 +4238,8 @@
         }
     }
 
-    function openSettings() {
+    let settingsFromPause = false;
+    function openSettings(fromPause = false) {
         controlsEditor.render();
         _reminders?.render();
         _musicFollowsSpeedToggle.checked = settings.musicFollowsSpeed !== false;
@@ -4325,15 +4326,15 @@
         _themeBackgroundSelect.value = LBArtPack.backgroundMode(settings.themeBackground);
         _bgBlockMotionSelect.value = settings.bgBlockMotion === 'falling' ? 'falling' : 'spinning';
         _runMissionsSelect.value = settings.showRunMissions === true ? 'on' : 'off';
-        const _pauseVisible = !document.getElementById('pause-overlay').classList.contains('hidden');
-        window._settingsFromPause = _pauseVisible;
-        if (!_pauseVisible) document.getElementById('menu-overlay').classList.add('hidden');
+        settingsFromPause = fromPause;
+        document.getElementById(fromPause ? 'pause-overlay' : 'menu-overlay').classList.add('hidden');
         const _settEl = document.getElementById('settings-overlay');
         const settingsBack = document.getElementById('settings-back');
-        settingsBack.querySelector('use').setAttribute('href', _pauseVisible ? '#lb-topbar-parent' : '#lb-topbar-home');
-        settingsBack.querySelector('span').textContent = _pauseVisible ? 'Back' : 'Menu';
+        settingsBack.querySelector('use').setAttribute('href', fromPause ? '#lb-topbar-parent' : '#lb-topbar-home');
+        settingsBack.querySelector('span').textContent = fromPause ? 'Back' : 'Menu';
         _settEl.classList.remove('hidden');
         _animateIn(_settEl, 'anim-in-right');
+        settingsBack.focus({ preventScroll: true });
     }
     async function resetAllProgress() {
         const phrase = 'RESET MY PROGRESS';
@@ -4394,10 +4395,15 @@
     function closeSettings() {
         controlsEditor.cancel();
         if (_settingsTrackPollId) { clearInterval(_settingsTrackPollId); _settingsTrackPollId = null; }
-        const _fromPause = window._settingsFromPause;
-        window._settingsFromPause = false;
-        _animateOut(document.getElementById('settings-overlay'), 'anim-out-right', function() {
-            if (!_fromPause) {
+        const overlay = document.getElementById('settings-overlay');
+        if (overlay.classList.contains('hidden') || overlay.classList.contains('anim-out-right')) return;
+        const fromPause = settingsFromPause;
+        _animateOut(overlay, 'anim-out-right', function() {
+            settingsFromPause = false;
+            if (fromPause) {
+                document.getElementById('pause-overlay').classList.remove('hidden');
+                document.getElementById('pause-settings').focus({ preventScroll: true });
+            } else {
                 const _mEl = document.getElementById('menu-overlay');
                 _mEl.classList.remove('hidden');
                 _animateIn(_mEl, 'anim-in-left');
@@ -4756,7 +4762,6 @@
         container.innerHTML = '';
         // Sort descending by score
         all.sort((a, b) => b.score - a.score);
-        container.appendChild(_statsPodium(all));
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
         all.forEach((e, i) => {
@@ -7585,9 +7590,9 @@
         const effectDt = Math.min(100, elapsed);
         _effectTime = now;
         lineClear.advance(elapsed);
+        ctx.clearRect(0,0,canvas._logicalWidth,canvas._logicalHeight);
         ctx.save();
         if(shakeIntensity>0){ctx.translate((Math.random()-.5)*shakeIntensity,(Math.random()-.5)*shakeIntensity);shakeIntensity*=Math.pow(.9,effectDt*60/1000);if(shakeIntensity<.5)shakeIntensity=0;}
-        ctx.fillStyle='#000';ctx.fillRect(-10,-10,canvas._logicalWidth+20,canvas._logicalHeight+20);
         ctx.translate(0, -SPAWN_ROWS * BLOCK);
         const gridKey = [COLS,ROWS,BLOCK,settings.gridOpacity,settings.gridStyle,window.devicePixelRatio].join('|');
         if (!_gridCache || _gridCache.key !== gridKey) {
@@ -7710,7 +7715,11 @@
             if (holdPiece) drawCenteredPiece(c, holdPiece);
         });
         const panel = document.getElementById('hold-panel');
-        if (panel) panel.style.opacity = holdUsed ? '0.4' : '1';
+        if (panel) {
+            panel.toggleAttribute('data-empty', !holdPiece);
+            panel.toggleAttribute('data-used', holdUsed);
+            document.getElementById('pc-hold-canvas').setAttribute('aria-label', !holdPiece ? 'Hold is empty' : holdUsed ? 'Held piece (unavailable until next piece)' : 'Held piece');
+        }
     }
     function collide(b,p){const[m,o]=[p.matrix,p.pos];for(let y=0;y<m.length;++y)for(let x=0;x<m[y].length;++x)if(m[y][x]!==0&&(b[y+o.y]&&b[y+o.y][x+o.x])!==0)return true;return false}
     function rotate(m,d){for(let y=0;y<m.length;++y)for(let x=0;x<y;++x)[m[x][y],m[y][x]]=[m[y][x],m[x][y]];if(d>0)m.forEach(r=>r.reverse());else m.reverse()}
@@ -8056,38 +8065,33 @@
         }
         drawGame(); requestAnimationFrame(update);
     }
-    function _buildSpeedTapes() {
-        const C = ['#4488ff','#3399ff','#22aaff','#33bbff','#44ccff','#44dd77','#88dd44','#ccdd22','#ffcc00','#ffaa00','#ff8800','#ff5500','#ff3300','#ff1100','#ff0000'];
-        const SPEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-        const W = 14, H = 22;
-        let h = `<div style="width:${W}px;height:${H}px;flex-shrink:0;"></div><div style="width:${W}px;height:${H}px;flex-shrink:0;"></div>`;
-        SPEEDS.forEach((spd, ci) => {
-            h += `<div data-spd="${spd}" style="width:${W}px;height:${H}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;color:${C[ci]};transition:font-size 0.2s ease,opacity 0.2s ease;">${spd}</div>`;
-        });
-        h += `<div style="width:${W}px;height:${H}px;flex-shrink:0;"></div><div style="width:${W}px;height:${H}px;flex-shrink:0;"></div>`;
-        ['m-speed-inner','pc-speed-inner'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = h; });
-    }
-    function _updateSpeedTape(speed) {
-        const W = 14;
-        const SPEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-        const idx = SPEEDS.indexOf(speed);
-        const tx = 35 - (idx + 2.5) * W;
-        ['m-speed-inner','pc-speed-inner'].forEach(id => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            if (!el.querySelector('[data-spd]')) _buildSpeedTapes();
-            el.style.transform = `translateX(${tx}px)`;
-            el.querySelectorAll('[data-spd]').forEach(cell => {
-                const s = parseFloat(cell.dataset.spd);
-                const d = Math.abs(SPEEDS.indexOf(s) - idx);
-                if (s === speed) { cell.style.opacity = '1'; cell.style.fontSize = '0.72rem'; cell.style.fontWeight = 'bold'; }
-                else if (d <= 2) { cell.style.opacity = d === 1 ? '0.5' : '0.25'; cell.style.fontSize = '0.55rem'; cell.style.fontWeight = 'normal'; }
-                else { cell.style.opacity = '0'; cell.style.fontSize = '0.5rem'; cell.style.fontWeight = 'normal'; }
-            });
-        });
+    function _renderHudSpeed() {
+        const meter = document.getElementById('lb-hud-speed-meter');
+        const maximum = SPEED_MULTIPLIERS.length;
+        if (meter.hasAttribute('aria-valuemax') && meter.getAttribute('aria-valuenow') === String(speedLevel)) return;
+        meter.setAttribute('aria-valuemax', maximum);
+        meter.setAttribute('aria-valuenow', speedLevel);
+        meter.style.setProperty('--hud-speed-max', maximum);
+        meter.style.setProperty('--hud-speed-level', speedLevel);
+        document.getElementById('lb-hud-speed-value').textContent = speedLevel;
     }
     function _fmtScoreHTML(v){const i=Math.floor(v);const d=Math.round((v-i)*10);return i.toLocaleString()+(d>0?`<span style="font-size:0.6em;opacity:0.7;">.${d}</span>`:'');}
-    function updateUI(){const m=Math.floor(gameTime/60),s=gameTime%60;const tS=(m<10?"0"+m:m)+":"+(s<10?"0"+s:s);document.getElementById('pc-score').innerHTML=_fmtScoreHTML(score);document.getElementById('pc-time').innerText=tS;_updateSpeedTape(speedLevel);document.getElementById('pc-lines').innerText=linesClearedThisGame;const _isFunHud=currentGameMode==='fun';const _hudRec=_isFunHud?(saveData.stats?.bestFunScore||0):_prevHighscore;const _hudRecLabel=_isFunHud?'Fun Record':'Personal Record';if(_hudRec>0){const diff=score-_hudRec;['m-pb-hint','pc-pb-hint'].forEach(id=>{const el=document.getElementById(id);if(!el)return;if(diff>=0){el.innerHTML=`<span style="font-size:0.6rem;color:#44ff88;font-weight:bold;display:block;letter-spacing:1px;text-transform:uppercase;">New record!</span><span style="font-size:1rem;color:#44ff88;font-weight:bold;display:block;line-height:1.1;">+${diff.toLocaleString()}</span>`;}else{el.innerHTML=`<span style="font-size:0.48rem;color:rgba(255,255,255,0.38);display:block;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:1px;">${_hudRecLabel}</span><span style="font-size:0.9rem;color:#ddd;font-weight:bold;display:block;line-height:1.1;">${_hudRec.toLocaleString()}</span><span style="font-size:0.6rem;color:#ffaa44;display:block;margin-top:2px;">${(-diff).toLocaleString()} to beat</span>`;}});}else{['m-pb-hint','pc-pb-hint'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=`<span style="font-size:0.48rem;color:rgba(255,255,255,0.2);display:block;letter-spacing:1.5px;text-transform:uppercase;">No records yet</span>`;});}}
+    function updateUI() {
+        const minutes = String(Math.floor(gameTime / 60)).padStart(2, '0');
+        const seconds = String(gameTime % 60).padStart(2, '0');
+        document.getElementById('pc-score').innerHTML = _fmtScoreHTML(score);
+        document.getElementById('pc-time').textContent = `${minutes}:${seconds}`;
+        document.getElementById('pc-lines').textContent = linesClearedThisGame;
+        _renderHudSpeed();
+        const fun = currentGameMode === 'fun';
+        const record = fun ? (saveData.stats?.bestFunScore || 0) : _prevHighscore;
+        const difference = score - record;
+        const hint = document.getElementById('pc-pb-hint');
+        hint.toggleAttribute('data-beaten', record > 0 && difference >= 0);
+        if (record <= 0) hint.innerHTML = '<span class="label">No records yet</span>';
+        else if (difference >= 0) hint.innerHTML = `<span class="label">New record!</span><span class="value">+${difference.toLocaleString()}</span>`;
+        else hint.innerHTML = `<span class="label">${fun ? 'Fun record' : 'Personal record'}</span><span class="value">${record.toLocaleString()}</span><small>${(-difference).toLocaleString()} to beat</small>`;
+    }
     const _scoreFlyRects = new Map();
     function _refreshScoreFlyRects() {
         ['pc-score','m-score'].forEach(id => {
@@ -8435,6 +8439,7 @@
             _sizeGameCanvas(canvas,COLS_NORMAL*BLOCK,VISIBLE_ROWS*BLOCK);
             if (_gcFun) _gcFun.style.aspectRatio = '1 / 2';
         }
+        canvas.closest('#app').style.setProperty('--hud-board-ratio', COLS / (ROWS - SPAWN_ROWS));
         // Show/hide hold panel
         const holdPanel = document.getElementById('hold-panel');
         if (holdPanel) holdPanel.style.display = settings.optHold ? '' : 'none';
@@ -8448,9 +8453,10 @@
         }
         const is3Next = settings.opt3Next;
         const isNoNext = settings.optNoNext;
-        ['pc-next2-canvas','pc-next3-canvas','m-next2-canvas','m-next3-canvas','pc-next2-wrap','m-next2-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = (is3Next && !isNoNext) ? '' : 'none'; });
+        ['pc-next2-canvas','pc-next3-canvas','m-next2-canvas','m-next3-canvas','m-next2-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = (is3Next && !isNoNext) ? '' : 'none'; });
+        document.getElementById('pc-next-wrap').toggleAttribute('data-expanded', is3Next && !isNoNext);
         // Hide entire next piece section when optNoNext is enabled
-        ['pc-next-wrap','pc-next2-wrap','pc-next3-wrap','m-next-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = isNoNext ? 'none' : ''; });
+        ['pc-next-wrap','m-next-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = isNoNext ? 'none' : ''; });
         if (audioCtx && masterGain && musicPlaying) {
             masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
             masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime);
@@ -8493,9 +8499,6 @@
         // skin_loyal tracking
         { const curSkin = _renderSkin(); if (curSkin === (saveData.stats._lastSkin || curSkin)) { saveData.stats.sameSkinStreak = (saveData.stats.sameSkinStreak || 0) + 1; } else { saveData.stats.sameSkinStreak = 1; } saveData.stats._lastSkin = curSkin; if ((saveData.stats.sameSkinStreak || 0) >= 50 && !saveData.achievements?.['skin_loyal']?.unlocked) unlockAchievement('skin_loyal'); }
         if (currentGameMode === 'fun') { speedLevel = Math.max(1, funModeConfig.startSpeed); dropInterval = 1000 / speedLevel; }
-        // Rebuild speed tape for current mode
-        ['m-speed-inner','pc-speed-inner'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
-        _buildSpeedTapes();
         resetPlayer();updateUI(); startAnimation(typeof onStarted === 'function' ? onStarted : undefined);
         if (settings.optHold) drawHold();
     }
@@ -9670,11 +9673,11 @@
         const miniWellHtml = hasProgress ? _miniWell(q.progress, q.target, tc) : '';
         // Progress row: continuous HUD-style bar (Section D) + progress/target on right
         const progressRowHtml = hasProgress ? `
-            <div style="display:flex;align-items:center;gap:10px;margin-top:12px;margin-bottom:8px;">
-                <div style="flex:1;height:11px;background:rgba(255,255,255,0.04);border:1px solid ${tc}44;padding:2px;overflow:hidden;">
+            <div class="mq-card-progress">
+                <div class="mq-card-meter" style="border-color:${tc}44;">
                     <div style="height:100%;width:${pct}%;background:${tc};box-shadow:0 0 6px ${tc};background-image:linear-gradient(90deg,${tc}cc 0%,${tc} 100%);"></div>
                 </div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;min-width:52px;text-align:center;white-space:nowrap;">${_progFmt}</div>
+                <div class="mq-card-progress-value">${_progFmt}</div>
             </div>` : '';
         // Action row (bottom of card)
         let actionHtml = '';
@@ -9696,7 +9699,7 @@
         return `<div class="mq-card-wrap">
             <div class="mq-card${isSecret?' mq-card--secret':''}${changeModeCls}" style="${cardStyle}">
                 <div class="mq-card-hdr">
-                    <span class="mq-tier-badge" style="color:${tc};border-color:${tc}44">${escapeHtml(tierLabel)}</span>
+                    <span class="mq-tier-badge" style="--mq-tier:${tc}">${escapeHtml(tierLabel)}</span>
                     <span class="mq-pts" style="color:${tc}">+${escapeHtml(q.pts)} pts</span>
                 </div>
                 <div class="mq-card-body${miniWellHtml ? '' : ' mq-card-body--nowell'}">
@@ -9706,7 +9709,7 @@
                         <div class="mq-card-desc">${desc}</div>
                     </div>
                 </div>
-                ${progressRowHtml}${actionHtml}
+                ${progressRowHtml}${actionHtml ? `<div class="mq-card-action">${actionHtml}</div>` : ''}
             </div>
             ${changeOverlay}
         </div>`;
@@ -9783,17 +9786,16 @@
                     </div>
                 </div>`;
             }
-            const starCol = isGolden ? '#ffcc44' : '#2a2a3a';
+            const starCol = isGolden ? '#ffcc44' : 'var(--bb-edge)';
             const starFilter = isGolden ? 'filter:drop-shadow(0 0 6px rgba(255,204,68,0.55));' : '';
             const starSvg = `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="${starCol}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
             return `<div class="mq-pb-icon-wrap" style="left:${gPct}%;top:10px;"><span class="mq-star-tip" data-mqctip="${MQ_WEEKLY_GOLDEN_THRESHOLD}+ pts: earn +1 Universal Part per extra point" style="${starFilter}cursor:help;display:block;">${starSvg}</span></div>`;
         })() : '';
         const ptsColor = isGolden ? '#ffcc44' : (isWeekly ? '#ffcc44' : '#4499ff');
-        const ptsDimColor = isWeekly ? '#664400' : '#223355';
         return `<div class="mq-pb-wrap" style="position:relative;">
             <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;">
                 <span style="font-family:var(--ui-font);font-size:1.4rem;font-weight:900;color:${ptsColor};letter-spacing:1px;line-height:1;${isGolden?'text-shadow:0 0 12px rgba(255,204,68,0.45);':''}">${escapeHtml(points)}</span>
-                <span style="font-family:var(--ui-font);font-size:0.52rem;color:${ptsDimColor};letter-spacing:2px;padding-bottom:1px;">PTS</span>
+                <span style="font-family:var(--ui-font);font-size:0.52rem;color:var(--bb-muted);letter-spacing:2px;padding-bottom:1px;">PTS</span>
             </div>
             <div class="mq-pb-labels">${labels}${goldenLabelHtml}</div>
             <div style="position:relative;">
@@ -9955,9 +9957,9 @@
         const streakPanelHtml = `
             <div style="border:1px solid rgba(255,204,68,0.25);border-radius:10px;overflow:hidden;">
             <div class="mq-streak-half" style="padding:14px 16px;background:rgba(255,204,68,0.05);border:none;border-radius:0;position:relative;overflow:hidden;">
-                <div style="position:absolute;right:-12px;top:-12px;font-size:4rem;opacity:0.08;line-height:1;pointer-events:none;">🔥</div>
+                <div class="mq-streak-flame mq-streak-flame--watermark" aria-hidden="true">🔥</div>
                 <div style="display:flex;align-items:center;gap:8px;position:relative;">
-                    <span style="font-size:1.4rem;">🔥</span>
+                    <span class="mq-streak-flame" aria-hidden="true">🔥</span>
                     <span style="font-family:var(--ui-font);font-size:1.8rem;font-weight:900;color:#ffcc44;line-height:1;">${escapeHtml(dStreak)}</span>
                     <span style="font-size:0.55rem;color:#aa8800;font-family:monospace;align-self:flex-end;margin-bottom:3px;">${dStreak === 1 ? 'day' : 'days'}</span>
                 </div>
@@ -9992,7 +9994,7 @@
         const streakPanelEl = document.getElementById('mq-streak-panel');
         if (streakPanelEl) streakPanelEl.innerHTML = streakPanelHtml;
 
-        const bonusBoxHtml = `            <div id="mq-bonus-box" style="padding:14px 16px;background:rgba(255,204,68,0.04);border:1px solid rgba(255,204,68,0.2);border-radius:10px;transition:box-shadow 0.3s,border-color 0.3s;">
+        const bonusBoxHtml = `            <div id="mq-bonus-box" style="padding:14px 16px;background:rgba(255,204,68,0.04);border:1px solid rgba(255,204,68,0.2);transition:box-shadow 0.3s,border-color 0.3s;">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                     <span style="line-height:0;flex-shrink:0;"><svg viewBox="0 0 24 24" width="22" height="22" fill="white" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 3.66333L20.25 7.7398V17.01L12 21.0865L3.75 17.01V7.7398L12 3.66333ZM5.25 9.41292V16.078L11.25 19.0427V12.3776L5.25 9.41292ZM12.75 12.3776V19.0427L18.75 16.078V9.41292L16.5 10.5247V13.4999L15 14.2499V11.2659L12.75 12.3776ZM17.807 8.20577L15.8527 9.17139C15.8099 9.13606 15.7624 9.10498 15.7106 9.07908L10.1015 6.27454L12 5.33645L17.807 8.20577ZM8.41452 7.1081L14.1871 9.9944L12 11.0751L6.19304 8.20577L8.41452 7.1081Z"/></svg></span>
                     <div style="flex:1;">
@@ -10129,7 +10131,10 @@
         const s = totalSec % 60;
         const hms = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         const timeStr = d > 0 ? `${d}d ${hms}` : hms;
-        el.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;font-family:var(--ui-font);font-size:0.52rem;color:${accentColor};letter-spacing:0.1em;background:${accentColor}10;border:1px solid ${accentColor}33;padding:5px 11px;"><span style="width:6px;height:6px;background:${accentColor};border-radius:50%;box-shadow:0 0 6px ${accentColor};display:inline-block;flex-shrink:0;"></span>RESET IN ${timeStr}</span>`;
+        el.style.setProperty('--mq-reset-color', accentColor);
+        const timer = el.querySelector('time');
+        timer.dateTime = `P${d}DT${h}H${m}M${s}S`;
+        timer.textContent = timeStr;
     }
 
     window._mqChangeMode = false;
@@ -10310,7 +10315,7 @@
                 if (_grantRewardPart(item.key)) {
                     rewards.push(_partConversion(item.key, 1));
                 } else {
-                    rewards.push({ icon:'🧩', label:`+1 Part: ${_partItemName(item.key)}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
+                    rewards.push({ type: 'parts', key: item.key, label:`+1 Part: ${_partItemName(item.key)}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
                 }
             }
         }
@@ -11169,7 +11174,7 @@
         const sections = [
             ['basics', 'Basics & controls', `
                 ${block('Stack & clear', `<p>Fill horizontal rows to clear them and make room. If a new piece can’t enter the board, the run ends.</p><ul class="lb-help-pieces" aria-label="The seven pieces">${pieces}</ul>`)}
-                ${block('Keyboard bindings', `${definitions(controls)}${bullets('Change either slot in <strong>Settings → Controls</strong>. Select a slot and press a key to bind it.', `Press ${keycap('Backspace')} to clear a selected slot, or choose <strong>Reset to defaults</strong> to restore the layout.`)}`)}
+                ${block('Keyboard bindings', `${definitions(controls)}${bullets('Change either slot in <strong>Settings → Controls</strong>. Select a slot and press a key to bind it.', `Press ${keycap('Backspace')} to clear a selected slot, or use the arrow button beside Primary to restore both keys for that action.`)}`)}
                 ${block('Touch', `<p>Use the on-screen buttons or gesture on the board.</p>${definitions([
                     ['Drag sideways', 'Move'], ['Drag down slowly', 'Soft drop'], ['Flick down', 'Hard drop'],
                     ['Swipe up', 'Hold'], ['Tap', 'Rotate'], ['Left-side or two-finger tap', 'Rotate counter-clockwise']

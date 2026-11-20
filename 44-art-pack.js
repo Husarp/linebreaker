@@ -1,4 +1,5 @@
 window.LBArtPack = (() => {
+    const universalPart = 'assets/ui/parts/universal-part-128.png';
     const boosterTokens = {
         '1.25x_game': 'common-1.25x',
         '1.5x_game': 'rare-1.5x',
@@ -36,5 +37,5 @@ window.LBArtPack = (() => {
         }
     }
 
-    return { boosterToken, boosterIcon, backgroundMode, themeBackground, applyThemeBackground };
+    return { universalPart, boosterToken, boosterIcon, backgroundMode, themeBackground, applyThemeBackground };
 })();

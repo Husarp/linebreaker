@@ -135,12 +135,42 @@ it('shows the level and rank division in level rewards and crates', async () => 
   expect(popup.querySelector('.lb105-level-rank').textContent).toBe('Gold IX');
   expect(popup.querySelector('[aria-label="Level 30"]').textContent).toBe('30');
   expect(popup.querySelector('.lb105-level-emblem polygon').getAttribute('points').split(' ')).toHaveLength(5);
-  const universal = popup.querySelector('img[src$="universal-part-128.png"]').closest('.lb-block-reward');
+  const universal = popup.querySelector('.lb-block-reward > img[src$="universal-part-128.png"]').closest('.lb-block-reward');
   expect(universal.querySelector('.lb-block-reward-amount').textContent).toBe('×2');
   popup.querySelector('button').click();
   expect(popup.isConnected).toBe(false);
   await w.__LB_QA.open('level-crate');
   expect(w.document.querySelector('#level-box-overlay h2').textContent).toBe('Gold IX milestone reward');
+});
+
+it('updates the open season countdown at precision boundaries and rollover', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
+  const { w } = game;
+  const { DAY, DAYS, seasonWindow } = w.LBSeason;
+  const period = seasonWindow(w.Date.now());
+  const end = period.start + DAYS * DAY;
+  const hour = DAY / 24;
+  const minute = hour / 60;
+  let now = end - 3 * DAY;
+  w.Date.now = () => now;
+  await w.__LB_QA.open('season-pass');
+  const countdown = w.document.querySelector('#sp-days');
+  expect(countdown.textContent).toBe('3 days left');
+  for (const [remaining, label] of [
+    [3 * DAY - 1, '2 d 23 h left'],
+    [2 * DAY + 14 * hour, '2 d 14 h left'],
+    [DAY, '1 d 0 h left'],
+    [DAY - 1, '23 h 59 m left'],
+    [2 * hour + 14 * minute, '2 h 14 m left'],
+    [2 * hour + 14 * minute - 1, '2 h 13 m left'],
+    [minute - 1, '<1 m left'],
+    [0, '30 days left'],
+  ]) {
+    now = end - remaining;
+    w.dispatchEvent(new w.Event('focus'));
+    expect(countdown.textContent).toBe(label);
+  }
+  expect(w.document.querySelector('#sp-season').textContent).toBe(`Season ${period.id + 1} · Day 1 / 30`);
 });
 
 it('equips owned inventory cards without separate Equip buttons', async () => {

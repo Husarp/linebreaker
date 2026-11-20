@@ -45,13 +45,33 @@
         const grid = root.querySelector('.lb-controls-grid');
         const status = root.querySelector('.lb-controls-status');
         const buttons = [];
+        const restoreButtons = new Map();
         let editing = null;
 
         for (const action of actionNames) {
             const row = document.createElement('div');
             row.className = 'lb-controls-row';
-            row.innerHTML = `<span>${actions[action]}</span><button type="button" class="lb-btn lb-btn--ghost"></button><button type="button" class="lb-btn lb-btn--ghost"></button>`;
-            row.querySelectorAll('button').forEach((button, slot) => {
+            row.innerHTML = `<span>${actions[action]}</span>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb-controls-restore" aria-label="Restore default keys for ${actions[action]}" title="Restore default keys" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg></button>
+                <button type="button" class="lb-btn lb-btn--ghost"></button><button type="button" class="lb-btn lb-btn--ghost"></button>`;
+            const [restore, ...slots] = row.querySelectorAll('button');
+            restoreButtons.set(action, restore);
+            restore.addEventListener('click', () => {
+                editing = null;
+                const bindings = { ...read(), [action]: [...defaults[action]] };
+                const cleared = [];
+                for (const other of actionNames) {
+                    if (other === action || !bindings[other].some(key => key && defaults[action].includes(key))) continue;
+                    bindings[other] = bindings[other].map(key => defaults[action].includes(key) ? null : key);
+                    cleared.push(actions[other]);
+                }
+                write(bindings);
+                const note = cleared.length ? ` Reassigned keys cleared from: ${cleared.join(', ')}.` : '';
+                showStatus(`${actions[action]}: default keys restored.${note}`);
+                render();
+                slots[0].focus();
+            });
+            slots.forEach((button, slot) => {
                 const entry = { button, action, slot };
                 buttons.push(entry);
                 button.addEventListener('click', () => {
@@ -71,6 +91,9 @@
 
         function render() {
             const bindings = read();
+            for (const [action, button] of restoreButtons) {
+                button.hidden = bindings[action].every((key, slot) => key === defaults[action][slot]);
+            }
             for (const entry of buttons) {
                 const { button, action, slot } = entry;
                 const label = editing === entry ? 'Press a key…' : keyLabel(bindings[action][slot]);
@@ -111,12 +134,6 @@
 
         document.addEventListener('pointerdown', event => {
             if (editing && !editing.button.contains(event.target)) cancel();
-        });
-        root.querySelector('.lb-controls-reset').addEventListener('click', () => {
-            editing = null;
-            write(normalizeBindings());
-            showStatus('Default controls restored.');
-            render();
         });
         render();
         return { capture, cancel, render };

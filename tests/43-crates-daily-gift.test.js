@@ -119,6 +119,23 @@ it('shows the full streak count and a new week of dots, with a separate bonus ca
   expect(api.save.universalParts).toBe(4);
 });
 
+it('uses the approved jigsaw for universal parts and marks it for the awarded skin', async () => {
+  game = await loadGame();
+  const { w } = game;
+  const grid = w.LBCrates.rewardGrid([
+    { type: 'universal_parts', label: 'Universal Part', rarity: 'rare' },
+    { type: 'parts', key: 'aztec-gold', label: 'Aztec Gold Part', rarity: 'common' },
+    { type: 'parts', key: 'bubble', label: 'Bubble Part', rarity: 'common' },
+  ]);
+  expect([...grid.querySelectorAll('img')].map(image => image.getAttribute('src')))
+    .toEqual(Array(3).fill('assets/ui/parts/universal-part-128.png'));
+  const [universal, aztec, bubble] = grid.children;
+  expect(universal.querySelector('.lb124-part-art')).toBeNull();
+  expect(aztec.querySelector('[data-part-key="aztec-gold"] .lb124-part-mark').style.backgroundImage)
+    .toContain('assets/skins/aztec-gold.png');
+  expect(bubble.querySelector('[data-part-key="bubble"] > img')).not.toBeNull();
+});
+
 it('persists the high-water timestamp even if the clock rolls back before the first checkpoint', async () => {
   const writes = [];
   game = await loadGame(true, async (command, payload) => {
@@ -172,5 +189,7 @@ it('uses the matching rarity art for rank, level, and mission milestone boxes', 
   window._claimMissionMilestone(120, true);
   expect(rarity()).toBe('legendary');
   document.querySelector('#ms-open-btn').click();
-  expect(document.querySelector('.lb64-mission-crate .lb-block-reward img').getAttribute('src')).toMatch(/^assets\/ui\/64-.*-part\.svg$/);
+  const missionParts = [...document.querySelectorAll('.lb64-mission-crate .lb-block-reward img')];
+  expect(missionParts.length).toBeGreaterThan(0);
+  expect(missionParts.every(image => image.getAttribute('src') === 'assets/ui/parts/universal-part-128.png')).toBe(true);
 });

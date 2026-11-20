@@ -1,9 +1,19 @@
 (() => {
-    const { observe, claimStage, storeState, stageStatus, prepareConfig, exclusiveSkin } = window.LBSeason;
+    const { DAY, DAYS, observe, claimStage, storeState, stageStatus, prepareConfig, exclusiveSkin } = window.LBSeason;
     const title = value => value[0].toUpperCase() + value.slice(1);
     const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
     const clockDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
     const points = new Intl.NumberFormat();
+    const hour = DAY / 24;
+    const minute = hour / 60;
+
+    function timeLeft(period, now) {
+        const remaining = period.start + DAYS * DAY - now;
+        if (!period.id || remaining >= 3 * DAY) return `${period.daysLeft} days left`;
+        if (remaining >= DAY) return `${Math.floor(remaining / DAY)} d ${Math.floor(remaining % DAY / hour)} h left`;
+        if (remaining < minute) return '<1 m left';
+        return `${Math.floor(remaining / hour)} h ${Math.floor(remaining % hour / minute)} m left`;
+    }
 
     function mount({ getSave, save, partName, boosterName, inventory, grant }) {
         const screen = document.getElementById('season-pass-overlay');
@@ -70,14 +80,15 @@
             if (focus) card.focus({ preventScroll: true });
         }
 
-        function render(state) {
+        function render(state, now) {
             const { period, blocked, season, seasonBlockedUntil } = state;
+            const label = timeLeft(period, now);
+            if (countdown.textContent !== label) countdown.textContent = label;
             if (previous && previous.period.day === period.day && previous.period.id === period.id
                 && previous.season === season && previous.points === season.points && previous.config === config
                 && previous.blocked === blocked && previous.seasonBlockedUntil === seasonBlockedUntil) return;
             previous = { ...state, points: season.points, config };
             find('#sp-season').textContent = period.id ? `Season ${period.id} · Day ${period.day} / 30` : '30-day season';
-            countdown.textContent = `${period.daysLeft} ${period.daysLeft === 1 ? 'day' : 'days'} left`;
             find('#sp-dates').textContent = period.id ? `Started ${date.format(period.start)} (UTC)` : '';
             notice.hidden = !blocked;
             notice.textContent = blocked ? `Season claims are paused. Check your device date and time. Claims resume at ${clockDate.format(seasonBlockedUntil || period.start)} or later.` : '';
@@ -156,12 +167,13 @@
             const currentSave = getSave();
             const before = currentSave.seasonBlockedUntil;
             const oldSeason = currentSave.season;
-            const state = observe(currentSave);
+            const now = Date.now();
+            const state = observe(currentSave, now);
             if (persist || state.seasonBlockedUntil !== before || state.season !== oldSeason || state.lastSeenTime - saveCheckpoint >= 60_000) {
                 saveCheckpoint = state.lastSeenTime;
                 save();
             }
-            render(state);
+            render(state, now);
         }
 
         async function loadConfig() {

@@ -10,8 +10,11 @@ it('labels the Settings breadcrumb for its actual return destination', async () 
     expect(back.textContent.trim()).toBe('Menu');
     expect(back.querySelector('use').getAttribute('href')).toBe('#lb-topbar-home');
 
+    w.closeSettings();
+    w.document.getElementById('settings-overlay').dispatchEvent(new w.Event('animationend'));
     w.document.getElementById('pause-overlay').classList.remove('hidden');
-    w.openSettings();
+    const fromPause = w.document.getElementById('pause-settings');
+    w.Function(fromPause.getAttribute('onclick'))();
     expect(back.textContent.trim()).toBe('Back');
     expect(back.querySelector('use').getAttribute('href')).toBe('#lb-topbar-parent');
   } finally {
