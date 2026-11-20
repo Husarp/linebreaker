@@ -32,6 +32,8 @@ it('opens on general stats and switches exactly four panels by click or keyboard
   expect(game.w.document.activeElement).toBe(tabs[3]);
   tabs[2].click();
   checkSelection(tabs[2]);
+  expect(game.w.document.activeElement).toBe(tabs[2]);
+  expect(byId('cal-instructions')).toBeNull();
 });
 
 it('shows best counts alongside percentages of unrounded, comparable averages', () => {
@@ -98,16 +100,14 @@ it('keeps raw records visible when legacy saves lack a positive average', () => 
   expect(byId('stat-best-xp-pct').hidden).toBe(true);
 });
 
-it('shows one best score per known speed in numeric order without rewriting history', () => {
+it('shows only highscore history without rewriting saved scores', () => {
   const save = game.api.save;
   save.highscoreHistory = [score(500, 2), score(850), score(720, 4)];
   save.leaderboard = [score(900, 10), score(799, 2), score(715, 4), score(600, 2), score(22, 1), score(5, 0), score(0, 3)];
   game.api.setSave(save);
   game.w.openStats();
   byId('stats-tab-hs').click();
-  expect(all('#highscores-by-speed tbody tr').map(row => [...row.cells].map(cell => cell.textContent))).toEqual([
-    ['1', '22'], ['2', '799'], ['4', '720'], ['10', '900'],
-  ]);
+  expect(byId('highscores-container').textContent).not.toContain('Records by speed level');
   expect(all('#highscores-list .lb-score').map(element => element.textContent)).toEqual(['900 pts', '850 pts', '720 pts', '500 pts']);
   expect(all('#highscores-list .lb-stats-podium-place').map(place => [place.dataset.place, place.querySelector('.lb-stats-podium-score').textContent])).toEqual([
     ['2', '850 pts'], ['1', '900 pts'], ['3', '720 pts'],
@@ -124,12 +124,11 @@ it('preserves leaderboard pagination, pin and unpin actions, and the Fun mode bo
   game.api.setSave(save);
   game.w.openStats();
   byId('stats-tab-lb').click();
-  expect(all('#lb-list .lb-stats-podium-place')).toHaveLength(3);
+  expect(all('#lb-list .lb-stats-podium-place').map(place => place.dataset.place)).toEqual(['2', '1', '3']);
   const winner = query('#lb-list button[data-place="1"]');
   expect(winner.getAttribute('aria-label')).toBe('Rank 1, Gold: 100 points');
-  expect(all('#lb-list .lb-stats-podium-place img').map(image => image.getAttribute('src'))).toEqual([
-    'assets/ui/medals/silver-64.png', 'assets/ui/medals/gold-64.png', 'assets/ui/medals/bronze-64.png',
-  ]);
+  expect(all('#lb-list .lb-stats-podium-medal').map(medal => medal.textContent)).toEqual(['🥈', '🥇', '🥉']);
+  expect(all('#stats-overlay .lb-stats-podium-place img')).toHaveLength(0);
   winner.click();
   byId('score-pin-popup').click();
   expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([100]);
@@ -143,6 +142,12 @@ it('preserves leaderboard pagination, pin and unpin actions, and the Fun mode bo
   expect(byId('lb-list').hidden).toBe(true);
   expect(byId('fun-list').textContent).toContain('12×22');
   byId('stats-tab-pin').click();
+  expect(query('#pinned-list .lb-pin-icon svg').getAttribute('width')).toBe('20');
+  for (const icon of ['lines', 'speed']) {
+    const reference = query(`#go-overlay .lb-run-icon--${icon} use`).getAttribute('href');
+    expect(query(`#pinned-list .lb-run-icon--${icon} use`).getAttribute('href')).toBe(reference);
+    expect(byId(reference.slice(1))).not.toBeNull();
+  }
   query('#pinned-list .lb-row').click();
   byId('score-pin-popup').click();
   expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([100]);
