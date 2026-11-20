@@ -45,7 +45,6 @@
     <link rel="stylesheet" href="87-stats.css">
     <link rel="stylesheet" href="89-missions.css">
     <link rel="stylesheet" href="90-play-music.css">
-    <link rel="stylesheet" href="91-hud.css">
     <link rel="stylesheet" href="88-inventory.css">
     <link rel="stylesheet" href="105-levelup.css">
     <link rel="stylesheet" href="100-play-start.css">
@@ -56,6 +55,7 @@
     <link rel="stylesheet" href="110-menu.css">
     <link rel="stylesheet" href="111-topbar.css">
     <link rel="stylesheet" href="112-stats-crowns.css">
+    <link rel="stylesheet" href="120-hud.css">
 </head>
 <body>
 
@@ -950,35 +950,44 @@
 <div id="app">
     <div id="booster-hud" style="display:none; position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.8); border:1px solid var(--primary); border-radius:8px; padding:4px 10px; font-size:0.65rem; color:var(--primary); z-index:10; font-family:'Orbitron'; letter-spacing:1px;"></div>
     <div id="mode-badge" style="display:none; position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:10; background:rgba(0,0,0,0.75); border:1px solid #cc44ff; border-radius:6px; padding:3px 10px; font-size:0.55rem; letter-spacing:2px; pointer-events:none;"></div>
-<div class="pc-panel portrait-left">
-        <div class="glass-box" id="hold-panel" style="display:none;">
-            <div class="label">HOLD <span style="font-size:0.5rem; color:#888;">(H)</span></div>
-            <canvas id="pc-hold-canvas" width="150" height="150"></canvas>
+    <div class="pc-panel lb-hud-left">
+        <div class="glass-box lb-hud-tile" id="hold-panel" style="display:none;" data-empty>
+            <div class="label">Hold <kbd class="lb-hud-key">H</kbd></div>
+            <div class="lb-hud-hold-slot">
+                <canvas id="pc-hold-canvas" width="150" height="150" role="img" aria-label="Hold is empty"></canvas>
+                <svg class="lb-hud-hold-ghost" viewBox="0 0 46 30" aria-hidden="true" fill="none" stroke="currentColor" stroke-dasharray="2 2">
+                    <rect x="1" y="1" width="13" height="13"/><rect x="16" y="1" width="13" height="13"/>
+                    <rect x="16" y="16" width="13" height="13"/><rect x="31" y="16" width="13" height="13"/>
+                </svg>
+            </div>
         </div>
-        <div class="glass-box"><div class="label">SPEED</div><div class="lb-hud-speed-tape" style="position:relative;width:70px;"><div class="lb-hud-speed-marker" style="text-align:center;color:rgba(255,255,255,0.35);line-height:1;">▼</div><div style="width:70px;height:22px;overflow:hidden;position:relative;"><div id="pc-speed-inner" style="display:flex;position:absolute;top:0;left:0;height:100%;transition:transform 0.25s ease;"></div></div></div></div>
-        <div class="glass-box"><div class="label">SCORE</div><div class="value" id="pc-score">0</div></div>
-        <div class="glass-box"><div id="pc-pb-hint" style="line-height:1.4;text-align:center;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;"></div></div>
-        <div class="glass-box"><div class="label">LINES</div><div class="value" id="pc-lines">0</div></div>
+        <div class="glass-box lb-hud-tile" id="pc-next-wrap">
+            <div class="label">Next</div>
+            <div class="lb-hud-queue">
+                <canvas id="pc-next-canvas" width="150" height="150"></canvas>
+                <canvas id="pc-next2-canvas" width="150" height="150" style="display:none;"></canvas>
+                <canvas id="pc-next3-canvas" width="150" height="150" style="display:none;"></canvas>
+            </div>
+        </div>
+        <div class="glass-box lb-hud-tile lb-hud-speed">
+            <div class="label" id="lb-hud-speed-label">Speed</div>
+            <div id="lb-hud-speed-meter" role="meter" aria-labelledby="lb-hud-speed-label" aria-valuemin="1" aria-valuenow="1">
+                <span id="lb-hud-speed-value">1</span><span class="lb-hud-speed-track" aria-hidden="true"></span>
+            </div>
+        </div>
+        <div class="glass-box lb-hud-tile lb-hud-lines"><div class="label">Lines</div><div class="value" id="pc-lines">0</div></div>
     </div>
     
     <div id="game-wrapper"><div id="game-container"><canvas id="tetris" width="300" height="600"></canvas></div></div>
     
     <div class="pc-panel portrait-right">
-        <div class="glass-box" id="pc-next-wrap">
-            <div class="label">NEXT</div>
-            <canvas id="pc-next-canvas" width="150" height="150"></canvas>
-            <div id="pc-next2-wrap" style="display:none;margin-top:2px;">
-                <canvas id="pc-next2-canvas" width="150" height="150"></canvas>
-            </div>
-            <div id="pc-next3-wrap" style="display:none;margin-top:2px;">
-                <canvas id="pc-next3-canvas" width="150" height="150"></canvas>
-            </div>
-        </div>
-        <div class="glass-box"><div class="label">TIME</div><div class="value" id="pc-time">00:00</div></div>
-        <div class="glass-box btn-pause-pc" role="button" tabindex="0" aria-label="Pause game" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.togglePause()}" onclick="window.togglePause()">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--primary)" stroke-width="2" fill="none" style="margin-bottom: 5px;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-            <div class="label" style="margin:0; color:var(--primary);">PAUSE (ESC)</div>
-        </div>
+        <div class="glass-box lb-hud-tile lb-hud-score"><div class="label">Score</div><div class="value" id="pc-score">0</div></div>
+        <div class="glass-box lb-hud-tile lb-hud-record" id="pc-pb-hint"></div>
+        <div class="glass-box lb-hud-tile lb-hud-time"><div class="label">Time</div><div class="value" id="pc-time">00:00</div></div>
+        <button type="button" class="btn-pause-pc lb-block-btn" aria-label="Pause game" onclick="window.togglePause()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
+            <span>Pause</span><kbd class="lb-hud-key">Esc</kbd>
+        </button>
         <div id="game-ach-feed" style="display:flex;flex-direction:column;gap:0;margin-top:4px;"></div>
     </div>
     <aside id="run-missions" class="lb-run-missions" aria-label="Daily missions" hidden>

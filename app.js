@@ -7738,9 +7738,9 @@
         const effectDt = Math.min(100, elapsed);
         _effectTime = now;
         lineClear.advance(elapsed);
+        ctx.clearRect(0,0,canvas._logicalWidth,canvas._logicalHeight);
         ctx.save();
         if(shakeIntensity>0){ctx.translate((Math.random()-.5)*shakeIntensity,(Math.random()-.5)*shakeIntensity);shakeIntensity*=Math.pow(.9,effectDt*60/1000);if(shakeIntensity<.5)shakeIntensity=0;}
-        ctx.fillStyle='#000';ctx.fillRect(-10,-10,canvas._logicalWidth+20,canvas._logicalHeight+20);
         ctx.translate(0, -SPAWN_ROWS * BLOCK);
         const gridKey = [COLS,ROWS,BLOCK,settings.gridOpacity,settings.gridStyle,window.devicePixelRatio].join('|');
         if (!_gridCache || _gridCache.key !== gridKey) {
@@ -7863,7 +7863,11 @@
             if (holdPiece) drawCenteredPiece(c, holdPiece);
         });
         const panel = document.getElementById('hold-panel');
-        if (panel) panel.style.opacity = holdUsed ? '0.4' : '1';
+        if (panel) {
+            panel.toggleAttribute('data-empty', !holdPiece);
+            panel.toggleAttribute('data-used', holdUsed);
+            document.getElementById('pc-hold-canvas').setAttribute('aria-label', !holdPiece ? 'Hold is empty' : holdUsed ? 'Held piece (unavailable until next piece)' : 'Held piece');
+        }
     }
     function collide(b,p){const[m,o]=[p.matrix,p.pos];for(let y=0;y<m.length;++y)for(let x=0;x<m[y].length;++x)if(m[y][x]!==0&&(b[y+o.y]&&b[y+o.y][x+o.x])!==0)return true;return false}
     function rotate(m,d){for(let y=0;y<m.length;++y)for(let x=0;x<y;++x)[m[x][y],m[y][x]]=[m[y][x],m[x][y]];if(d>0)m.forEach(r=>r.reverse());else m.reverse()}
@@ -8209,38 +8213,33 @@
         }
         drawGame(); requestAnimationFrame(update);
     }
-    function _buildSpeedTapes() {
-        const C = ['#4488ff','#3399ff','#22aaff','#33bbff','#44ccff','#44dd77','#88dd44','#ccdd22','#ffcc00','#ffaa00','#ff8800','#ff5500','#ff3300','#ff1100','#ff0000'];
-        const SPEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-        const W = 14, H = 22;
-        let h = `<div style="width:${W}px;height:${H}px;flex-shrink:0;"></div><div style="width:${W}px;height:${H}px;flex-shrink:0;"></div>`;
-        SPEEDS.forEach((spd, ci) => {
-            h += `<div data-spd="${spd}" style="width:${W}px;height:${H}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;color:${C[ci]};transition:font-size 0.2s ease,opacity 0.2s ease;">${spd}</div>`;
-        });
-        h += `<div style="width:${W}px;height:${H}px;flex-shrink:0;"></div><div style="width:${W}px;height:${H}px;flex-shrink:0;"></div>`;
-        ['m-speed-inner','pc-speed-inner'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = h; });
-    }
-    function _updateSpeedTape(speed) {
-        const W = 14;
-        const SPEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-        const idx = SPEEDS.indexOf(speed);
-        const tx = 35 - (idx + 2.5) * W;
-        ['m-speed-inner','pc-speed-inner'].forEach(id => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            if (!el.querySelector('[data-spd]')) _buildSpeedTapes();
-            el.style.transform = `translateX(${tx}px)`;
-            el.querySelectorAll('[data-spd]').forEach(cell => {
-                const s = parseFloat(cell.dataset.spd);
-                const d = Math.abs(SPEEDS.indexOf(s) - idx);
-                if (s === speed) { cell.style.opacity = '1'; cell.style.fontSize = '0.72rem'; cell.style.fontWeight = 'bold'; }
-                else if (d <= 2) { cell.style.opacity = d === 1 ? '0.5' : '0.25'; cell.style.fontSize = '0.55rem'; cell.style.fontWeight = 'normal'; }
-                else { cell.style.opacity = '0'; cell.style.fontSize = '0.5rem'; cell.style.fontWeight = 'normal'; }
-            });
-        });
+    function _renderHudSpeed() {
+        const meter = document.getElementById('lb-hud-speed-meter');
+        const maximum = SPEED_MULTIPLIERS.length;
+        if (meter.hasAttribute('aria-valuemax') && meter.getAttribute('aria-valuenow') === String(speedLevel)) return;
+        meter.setAttribute('aria-valuemax', maximum);
+        meter.setAttribute('aria-valuenow', speedLevel);
+        meter.style.setProperty('--hud-speed-max', maximum);
+        meter.style.setProperty('--hud-speed-level', speedLevel);
+        document.getElementById('lb-hud-speed-value').textContent = speedLevel;
     }
     function _fmtScoreHTML(v){const i=Math.floor(v);const d=Math.round((v-i)*10);return i.toLocaleString()+(d>0?`<span style="font-size:0.6em;opacity:0.7;">.${d}</span>`:'');}
-    function updateUI(){const m=Math.floor(gameTime/60),s=gameTime%60;const tS=(m<10?"0"+m:m)+":"+(s<10?"0"+s:s);document.getElementById('pc-score').innerHTML=_fmtScoreHTML(score);document.getElementById('pc-time').innerText=tS;_updateSpeedTape(speedLevel);document.getElementById('pc-lines').innerText=linesClearedThisGame;const _isFunHud=currentGameMode==='fun';const _hudRec=_isFunHud?(saveData.stats?.bestFunScore||0):_prevHighscore;const _hudRecLabel=_isFunHud?'Fun Record':'Personal Record';if(_hudRec>0){const diff=score-_hudRec;['m-pb-hint','pc-pb-hint'].forEach(id=>{const el=document.getElementById(id);if(!el)return;if(diff>=0){el.innerHTML=`<span style="font-size:0.6rem;color:#44ff88;font-weight:bold;display:block;letter-spacing:1px;text-transform:uppercase;">New record!</span><span style="font-size:1rem;color:#44ff88;font-weight:bold;display:block;line-height:1.1;">+${diff.toLocaleString()}</span>`;}else{el.innerHTML=`<span style="font-size:0.48rem;color:rgba(255,255,255,0.38);display:block;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:1px;">${_hudRecLabel}</span><span style="font-size:0.9rem;color:#ddd;font-weight:bold;display:block;line-height:1.1;">${_hudRec.toLocaleString()}</span><span style="font-size:0.6rem;color:#ffaa44;display:block;margin-top:2px;">${(-diff).toLocaleString()} to beat</span>`;}});}else{['m-pb-hint','pc-pb-hint'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=`<span style="font-size:0.48rem;color:rgba(255,255,255,0.2);display:block;letter-spacing:1.5px;text-transform:uppercase;">No records yet</span>`;});}}
+    function updateUI() {
+        const minutes = String(Math.floor(gameTime / 60)).padStart(2, '0');
+        const seconds = String(gameTime % 60).padStart(2, '0');
+        document.getElementById('pc-score').innerHTML = _fmtScoreHTML(score);
+        document.getElementById('pc-time').textContent = `${minutes}:${seconds}`;
+        document.getElementById('pc-lines').textContent = linesClearedThisGame;
+        _renderHudSpeed();
+        const fun = currentGameMode === 'fun';
+        const record = fun ? (saveData.stats?.bestFunScore || 0) : _prevHighscore;
+        const difference = score - record;
+        const hint = document.getElementById('pc-pb-hint');
+        hint.toggleAttribute('data-beaten', record > 0 && difference >= 0);
+        if (record <= 0) hint.innerHTML = '<span class="label">No records yet</span>';
+        else if (difference >= 0) hint.innerHTML = `<span class="label">New record!</span><span class="value">+${difference.toLocaleString()}</span>`;
+        else hint.innerHTML = `<span class="label">${fun ? 'Fun record' : 'Personal record'}</span><span class="value">${record.toLocaleString()}</span><small>${(-difference).toLocaleString()} to beat</small>`;
+    }
     const _scoreFlyRects = new Map();
     function _refreshScoreFlyRects() {
         ['pc-score','m-score'].forEach(id => {
@@ -8622,6 +8621,7 @@
             _sizeGameCanvas(canvas,COLS_NORMAL*BLOCK,VISIBLE_ROWS*BLOCK);
             if (_gcFun) _gcFun.style.aspectRatio = '1 / 2';
         }
+        canvas.closest('#app').style.setProperty('--hud-board-ratio', COLS / (ROWS - SPAWN_ROWS));
         // Show/hide hold panel
         const holdPanel = document.getElementById('hold-panel');
         if (holdPanel) holdPanel.style.display = settings.optHold ? '' : 'none';
@@ -8635,9 +8635,10 @@
         }
         const is3Next = settings.opt3Next;
         const isNoNext = settings.optNoNext;
-        ['pc-next2-canvas','pc-next3-canvas','m-next2-canvas','m-next3-canvas','pc-next2-wrap','m-next2-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = (is3Next && !isNoNext) ? '' : 'none'; });
+        ['pc-next2-canvas','pc-next3-canvas','m-next2-canvas','m-next3-canvas','m-next2-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = (is3Next && !isNoNext) ? '' : 'none'; });
+        document.getElementById('pc-next-wrap').toggleAttribute('data-expanded', is3Next && !isNoNext);
         // Hide entire next piece section when optNoNext is enabled
-        ['pc-next-wrap','pc-next2-wrap','pc-next3-wrap','m-next-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = isNoNext ? 'none' : ''; });
+        ['pc-next-wrap','m-next-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = isNoNext ? 'none' : ''; });
         // Fade out menu music over 1.2s (duration of start animation)
         if (audioCtx && masterGain && musicPlaying) {
             masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
@@ -8681,9 +8682,6 @@
         // skin_loyal tracking
         { const curSkin = _renderSkin(); if (curSkin === (saveData.stats._lastSkin || curSkin)) { saveData.stats.sameSkinStreak = (saveData.stats.sameSkinStreak || 0) + 1; } else { saveData.stats.sameSkinStreak = 1; } saveData.stats._lastSkin = curSkin; if ((saveData.stats.sameSkinStreak || 0) >= 50 && !saveData.achievements?.['skin_loyal']?.unlocked) unlockAchievement('skin_loyal'); }
         if (currentGameMode === 'fun') { speedLevel = Math.max(1, funModeConfig.startSpeed); dropInterval = 1000 / speedLevel; }
-        // Rebuild speed tape for current mode
-        ['m-speed-inner','pc-speed-inner'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
-        _buildSpeedTapes();
         resetPlayer();updateUI(); startAnimation(typeof onStarted === 'function' ? onStarted : undefined);
         if (settings.optHold) drawHold();
     }

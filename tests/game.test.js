@@ -39,10 +39,30 @@ it('no-clear placement resets combo', () => {
   a.hardDrop();game.advance(100);expect(a.state.combo).toBe(0);
 });
 it('holds once until a placement', () => {
+  const panel = game.w.document.getElementById('hold-panel');
+  const preview = game.w.document.getElementById('pc-hold-canvas');
+  expect(panel.hasAttribute('data-empty')).toBe(true);
   const first=a.state.player.matrix;a.hold();expect(a.state.holdPiece).toEqual(first);
+  expect(panel.hasAttribute('data-empty')).toBe(false);
+  expect(panel.hasAttribute('data-used')).toBe(true);
+  expect(preview.getAttribute('aria-label')).toContain('unavailable');
   const held=a.state;a.hold();expect(a.state).toEqual(held);
   a.hardDrop();game.advance(100);expect(a.state.holdUsed).toBe(false);
+  expect(panel.hasAttribute('data-used')).toBe(false);
+  expect(preview.getAttribute('aria-label')).toBe('Held piece');
   a.hold();expect(a.state.player.matrix).toEqual(first);
+});
+it('renders the HUD speed meter from level 1 through level 15', () => {
+  const meter = game.w.document.getElementById('lb-hud-speed-meter');
+  for (const speed of [1, 15, 1]) {
+    a.setup({speed});
+    a.hardDrop();
+    game.advance(100);
+    expect(meter.getAttribute('aria-valuemax')).toBe('15');
+    expect(meter.getAttribute('aria-valuenow')).toBe(String(speed));
+    expect(meter.textContent.trim()).toBe(String(speed));
+    expect(meter.style.getPropertyValue('--hud-speed-level')).toBe(String(speed));
+  }
 });
 it('each seven-piece bag contains every tetromino', () => {
   for(let bag=0;bag<10;bag++) {const types=Array.from({length:7},()=>a.nextPiece().flat().find(Boolean));expect(types.sort()).toEqual([1,2,3,4,5,6,7]);}
