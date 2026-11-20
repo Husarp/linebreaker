@@ -8,7 +8,7 @@ const names = await page.evaluate(() => window.__LB_QA.list());
 await page.evaluate(() => window.__LB_QA.open('settings'));
 ```
 
-`open(name)` closes the previous QA target and prepares the next. Run targets wait for the real intro to finish before returning, except `start-animation`, which opens the timed intro itself. Allow any screen entrance animation and image loading to settle before capturing. Reload to restore the initial fixture after claiming rewards or resetting progress.
+`open(name)` closes the previous QA target and prepares the next. Run targets wait for the half-second logo flash to finish, except `start-animation`, which returns while the flash is playing. Capture that target immediately. For other screens, allow entrance animations and images to settle. Reload to restore the initial fixture after claiming rewards or resetting progress.
 
 | Area | Screen names |
 | --- | --- |

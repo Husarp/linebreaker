@@ -56,6 +56,7 @@
     <link rel="stylesheet" href="110-menu.css">
     <link rel="stylesheet" href="111-topbar.css">
     <link rel="stylesheet" href="112-stats-crowns.css">
+    <link rel="stylesheet" href="122-menu-play.css">
 </head>
 <body>
 
@@ -129,8 +130,8 @@
 <div id="menu-overlay" class="overlay">
     <!-- Kontener grupujący dla skalowania na PC -->
     <div class="menu-scale-wrapper">
-        <div style="position:relative;display:inline-block;">
-            <h1 id="main-title">LINEBREAKER</h1>
+        <div class="lb122-menu-heading">
+            <h1 id="main-title"><button type="button" id="lb122-logo-button"><img class="lb122-logo" src="assets/ui/logo-concept.png" srcset="assets/ui/logo-concept@2x.png 2x" width="640" height="184" alt="Linebreaker" draggable="false"></button></h1>
             <div id="splash-quote"></div>
         </div>
         <div id="level-badge-container">
@@ -142,8 +143,7 @@
             </div>
         </div>
         <div id="menu-xp-detail" style="visibility:hidden;font-family:'Orbitron',sans-serif;font-size:0.6rem;letter-spacing:0.5px;text-align:center;margin:2px auto 4px;width:80%;max-width:200px;white-space:nowrap;">&nbsp;</div>
-        <div class="lb-help-xp-anchor"><button type="button" class="lb-info-btn" data-help-section="ranks" aria-label="About ranks and XP" title="About ranks and XP"></button></div>
-        <div id="menu-xp-bar-wrap" style="width:80%;max-width:200px;margin:0 auto 12px;position:relative;cursor:default;">
+        <div id="menu-xp-bar-wrap">
             <div style="position:relative;height:13px;">
                 <div style="position:absolute;top:0;left:25%;transform:translateX(-50%);font-size:0.44rem;color:rgba(255,255,255,0.55);letter-spacing:0.3px;line-height:1;">25%</div>
                 <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:0.44rem;color:rgba(255,255,255,0.55);letter-spacing:0.3px;line-height:1;">50%</div>
@@ -155,6 +155,11 @@
                 <div style="position:absolute;top:-2px;left:25%;transform:translateX(-50%);width:2px;height:calc(100% + 4px);background:rgba(255,255,255,0.4);border-radius:1px;pointer-events:none;z-index:2;"></div>
                 <div style="position:absolute;top:-2px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% + 4px);background:rgba(255,255,255,0.4);border-radius:1px;pointer-events:none;z-index:2;"></div>
                 <div style="position:absolute;top:-2px;left:75%;transform:translateX(-50%);width:2px;height:calc(100% + 4px);background:rgba(255,255,255,0.4);border-radius:1px;pointer-events:none;z-index:2;"></div>
+            </div>
+            <button type="button" id="lb122-xp-trigger" aria-label="About ranks and XP" aria-describedby="lb122-xp-tooltip"></button>
+            <div id="lb122-xp-tooltip" class="lb-block-panel" role="tooltip" hidden>
+                <strong id="lb122-xp-progress"></strong>
+                <span>Earn XP by playing or completing missions. Each level brings you closer to the next rank.</span>
             </div>
         </div>
         <div class="xp-percent" id="menu-percent" style="display:none;">0%</div>
@@ -212,7 +217,7 @@
                 <span id="mw-total">0:00</span>
             </div>
         </div>
-        <button id="lb43-daily-gift" class="lb43-gift-button" type="button" aria-disabled="true" aria-haspopup="dialog">
+        <button id="lb43-daily-gift" class="lb43-gift-button lb-block-btn" type="button" aria-disabled="true" aria-haspopup="dialog">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h16v10H4zM3 7h18v4H3zM12 7v14M12 7H8.5A2.5 2.5 0 1 1 11 4.5L12 7Zm0 0h3.5A2.5 2.5 0 1 0 13 4.5L12 7Z"/></svg>
             <span>Daily Gift <small class="lb43-gift-status">Checking save…</small></span>
         </button>
@@ -938,12 +943,8 @@
 </div>
 
 <!-- START ANIMATION -->
-<div id="start-animation-overlay" class="overlay hidden" role="dialog" aria-label="Get ready to play" aria-modal="true">
-    <div id="start-text-container" aria-hidden="true">
-        <div id="start-wordmark"></div>
-        <span id="start-countdown" hidden></span>
-    </div>
-    <button type="button" id="start-skip" class="lb-block-btn">Skip intro</button>
+<div id="start-animation-overlay" class="overlay hidden" aria-hidden="true">
+    <img id="start-wordmark" class="lb122-logo" src="assets/ui/logo-concept.png" srcset="assets/ui/logo-concept@2x.png 2x" width="640" height="184" alt="">
 </div>
 
 <!-- GRA -->

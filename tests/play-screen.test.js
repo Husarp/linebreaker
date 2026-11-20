@@ -144,7 +144,7 @@ it('plays a custom Fun board with functional modifiers but no score modifier', a
     expect(game.api.state.level).toBe(6);
     expect(get('game-container').style.transform).toBe('scaleY(-1)');
     expect(get('pc-next-wrap').style.display).toBe('none');
-    get('start-skip').click();
+    game.advance(500);
     const startX = game.api.state.player.pos.x;
     game.api.move(1);
     expect(game.api.state.player.pos.x).toBe(startX - 1);
@@ -159,35 +159,28 @@ it('plays a custom Fun board with functional modifiers but no score modifier', a
     expect(game.api.state.score - scoreBeforeClear).toBe(20);
 });
 
-it('builds the themed wordmark, counts down, and cancels pending ticks when skipped', async () => {
+it('flashes the approved wordmark for half a second on start and restart', async () => {
     game = await loadGame(true, null, null, { theme: 'sakura' });
-    const intro = get('start-animation-overlay');
+    const flash = get('start-animation-overlay');
     const wordmark = get('start-wordmark');
-    const countdown = get('start-countdown');
-    game.w.startGame();
-    expect(intro.style.getPropertyValue('--lb-theme-art-portrait')).toContain('sakura-portrait.jpg');
-    expect(wordmark.children).toHaveLength(22);
-    expect(wordmark.firstElementChild.textContent).toBe('LINEBREAKER');
-    expect(countdown.hidden).toBe(true);
+    expect(wordmark.getAttribute('src')).toBe(get('main-title').querySelector('img').getAttribute('src'));
+    expect(flash.querySelector('button, #start-countdown')).toBeNull();
 
-    game.advance(1600);
-    expect(wordmark.hidden).toBe(true);
-    expect(countdown.hidden).toBe(false);
-    expect(countdown.textContent).toBe('3');
-    game.advance(450);
-    expect(countdown.textContent).toBe('2');
-    game.advance(450);
-    expect(countdown.textContent).toBe('1');
-    expect(get('app').classList.contains('active-game')).toBe(false);
-    game.advance(450);
-    expect(intro.classList.contains('hidden')).toBe(true);
-    expect(get('app').classList.contains('active-game')).toBe(true);
-
-    game.w.startGame();
-    get('start-skip').click();
-    game.advance(3000);
-    expect(intro.classList.contains('hidden')).toBe(true);
-    expect(countdown.hidden).toBe(true);
+    const started = [];
+    for (const attempt of ['start', 'restart']) {
+        game.w.startGame(() => started.push(attempt));
+        expect(flash.classList.contains('hidden')).toBe(false);
+        expect(flash.style.getPropertyValue('--lb-theme-art-portrait')).toContain('sakura-portrait.jpg');
+        game.advance(499);
+        game.w.startGame(() => started.push('duplicate'));
+        expect(started).not.toContain(attempt);
+        expect(flash.classList.contains('hidden')).toBe(false);
+        game.advance(1);
+        expect(started).toContain(attempt);
+        expect(flash.classList.contains('hidden')).toBe(true);
+        expect(get('app').classList.contains('active-game')).toBe(true);
+    }
+    expect(started).toEqual(['start', 'restart']);
 });
 
 it('preserves the existing Fun selection fallback until Gold I and closes with Escape', async () => {

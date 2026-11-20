@@ -1,0 +1,123 @@
+:is(.lb-block-btn, #settings-overlay button:not(.btn-back, .lb-info-btn), #pl-mini-widget button,
+    #pause-overlay button, #stats-overlay button.lb-row) {
+    --bb-cap-shadow: var(--lb122-cap-highlight, inset 0 2px #ffffff1e), 0 2px #0e100e;
+    border-bottom-width: calc(var(--bb-stroke) + var(--lb122-cap-lip, 4px)) !important;
+    border-bottom-color: color-mix(in srgb, var(--bb-button-edge, var(--bb-edge)) 55%, #000) !important;
+}
+.lb-block-btn--locked { --lb122-cap-lip: 0px; }
+.lb-help-nav [aria-current="location"] { --lb122-cap-highlight: inset 3px 0 var(--accent); }
+#pause-overlay button:not(:active) { box-shadow: var(--bb-cap-shadow) !important; }
+
+#menu-overlay .lb110-key {
+    padding-block: 5px calc(5px + var(--lb110-lip));
+}
+
+@media (orientation: landscape), (width > 600px) {
+    #menu-overlay .menu-scale-wrapper {
+        transform: scale(min(var(--menu-scale, 1), var(--menu-fit-scale, 1)));
+    }
+}
+
+.lb122-menu-heading { position: relative; }
+#main-title { margin: 0 0 5px; }
+#lb122-logo-button {
+    display: block;
+    padding: 0;
+    border: 0;
+    border-radius: var(--bb-cap);
+    background: none;
+    cursor: pointer;
+}
+.lb122-logo { display: block; height: auto; }
+#main-title .lb122-logo { width: clamp(230px, 66vw, 282px); }
+.lb122-menu-heading #splash-quote {
+    inset: calc(100% + 3px) 0 auto auto;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#menu-xp-bar-wrap {
+    position: relative;
+    width: 80%;
+    max-width: 200px;
+    margin: 0 auto 12px;
+}
+#lb122-xp-trigger {
+    position: absolute;
+    inset: -12px 0;
+    z-index: 4;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: var(--bb-cap);
+    background: none;
+    cursor: help;
+}
+:is(#lb122-xp-trigger, #lb122-logo-button):focus-visible {
+    outline: 2px solid var(--accent-bright);
+    outline-offset: 3px;
+}
+#lb122-xp-tooltip {
+    position: absolute;
+    z-index: 6;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: grid;
+    gap: 4px;
+    width: min(250px, 80vw);
+    padding: 9px 12px;
+    color: var(--bb-muted);
+    text-align: start;
+    font: 500 13px/1.4 var(--font-body);
+}
+#lb122-xp-tooltip[hidden] { display: none; }
+#lb122-xp-progress { color: var(--accent-bright); }
+
+#lb43-daily-gift {
+    --bb-button-face: var(--bb-panel);
+    gap: 10px;
+    min-width: 164px;
+    text-align: start;
+}
+#lb43-daily-gift[data-status="available"] {
+    --bb-button-edge: var(--accent);
+    --bb-button-face: color-mix(in srgb, var(--accent) 14%, var(--bb-face));
+    --bb-button-hover: color-mix(in srgb, var(--accent) 20%, var(--bb-hover));
+}
+#lb43-daily-gift .lb43-gift-status { color: var(--bb-muted); }
+#lb43-daily-gift[data-status="available"] .lb43-gift-status { color: var(--accent-bright); }
+#lb43-daily-gift[data-status="claimed"] svg { color: var(--success); }
+#lb43-daily-gift[data-status="clock-blocked"] .lb43-gift-status { color: var(--warning); }
+
+#mode-select-overlay { scrollbar-gutter: stable both-edges; }
+#mode-select-overlay .lb69-panel {
+    background: var(--bb-panel) !important;
+    opacity: 1;
+}
+@media (min-width: 800px) and (orientation: landscape) {
+    #mode-select-overlay .lb69-layout {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 380px) minmax(0, 1fr);
+    }
+    .lb69-layout > .lb69-panel { grid-column: 2; }
+    #play-score-panel { grid-column: 3; justify-self: start; width: 174px; }
+}
+@media (max-width: 799px), (orientation: portrait) {
+    #mode-select-overlay .lb69-layout { grid-template-columns: minmax(0, 380px); }
+    #play-score-panel { justify-self: center; width: 174px; }
+}
+
+#start-wordmark.lb122-logo {
+    display: block;
+    width: min(78vw, 640px);
+    animation: lb122-start-flash 500ms ease-out both;
+}
+@keyframes lb122-start-flash {
+    0% { opacity: .8; transform: scale(.94); }
+    24%, 72% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.035); }
+}
+@media (prefers-reduced-motion: reduce) {
+    #start-wordmark.lb122-logo { animation: none; }
+}

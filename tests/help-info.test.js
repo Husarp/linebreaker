@@ -73,16 +73,30 @@ it('organizes each chapter into headed blocks and illustrates pieces and scores'
   ]);
 });
 
-it('uses the existing XP tooltip and opens the rank topic from the menu info control', () => {
+it('uses the XP bar itself for hover, keyboard dismissal and touch toggling', () => {
   const { document } = game.w;
   game.api.drawRankBadge();
-  const trigger = document.querySelector('#menu-overlay [data-help-section="ranks"]');
-  const detail = document.getElementById('menu-xp-detail');
+  const bar = document.getElementById('menu-xp-bar-wrap');
+  const trigger = bar.querySelector('button');
+  const detail = document.getElementById(trigger.getAttribute('aria-describedby'));
+  expect(document.querySelector('#menu-overlay [data-help-section="ranks"]')).toBeNull();
+  expect(detail.hidden).toBe(true);
+  bar.dispatchEvent(new game.w.Event('pointerenter'));
+  expect(detail.hidden).toBe(false);
+  expect(detail.textContent).toContain('Earn XP by playing or completing missions');
+  bar.dispatchEvent(new game.w.Event('pointerleave'));
+  expect(detail.hidden).toBe(true);
   trigger.focus();
-  expect(detail.style.visibility).toBe('visible');
+  expect(detail.hidden).toBe(false);
+  trigger.dispatchEvent(new game.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  expect(detail.hidden).toBe(true);
   trigger.click();
-  expect(document.activeElement.id).toBe('help-ranks');
-  expect(detail.style.visibility).toBe('hidden');
+  expect(detail.hidden).toBe(false);
+  trigger.click();
+  expect(detail.hidden).toBe(true);
+  trigger.click();
+  document.body.dispatchEvent(new game.w.Event('pointerdown', { bubbles: true }));
+  expect(detail.hidden).toBe(true);
 });
 
 it('keeps the daily streak multiplier at each documented boundary', () => {

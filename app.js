@@ -427,204 +427,77 @@
     const _SPLASH_COLORS = ['#ffff55', '#55ffff', '#ff77ff', '#88ff88', '#ffaa44', '#aaaaff'];
     { const _sq = document.getElementById('splash-quote'); if (_sq) { const _d = new Date(); const _daySeed = _d.getFullYear() * 10000 + (_d.getMonth()+1) * 100 + _d.getDate(); const _qi = _daySeed % _SPLASH_QUOTES.length; const _ci = _daySeed % _SPLASH_COLORS.length; _sq.textContent = _SPLASH_QUOTES[_qi]; _sq.style.color = _SPLASH_COLORS[_ci]; if (_SPLASH_QUOTES[_qi] === 'Lucky day!') { setTimeout(() => { if (!saveData.achievements?.['lucky_day']?.unlocked) { unlockAchievement('lucky_day'); saveDataToFile(); } }, 500); } } }
 
-    const titleEl = document.getElementById('main-title');
-    const titleText = titleEl.innerText;
-    titleEl.innerHTML = '';
-    const titleSpans =[];
-    for (let char of titleText) {
-        if (char === ' ') { titleEl.appendChild(document.createTextNode(' ')); } 
-        else {
-            const span = document.createElement('span'); span.innerText = char;
-            span.style.color = 'var(--primary)'; span.style.textShadow = '0 0 15px var(--primary)';
-            titleEl.appendChild(span); titleSpans.push(span);
-        }
-    }
-    setInterval(() => {
-        titleSpans.forEach(span => {
-            if (Math.random() > 0.8) {
-                const colorId = Math.floor(Math.random() * 7) + 1;
-                const col = COLORS[colorId];
-                span.style.color = col; span.style.textShadow = `0 0 15px ${col}`;
-            }
-        });
-    }, 3000);
-    // logo_click achievement + visual effects
-    let _logoClickCooldown = 0;
-    let _logoAnimIdx = 0;
-    const _logoFonts = ["'Orbitron'","'Press Start 2P'","'Audiowide'","'Russo One'","'VT323'","'Teko'","Impact","'Bebas Neue'","'Chakra Petch'"];
-    function _logoReset() {
-        titleSpans.forEach(s => {
-            s.style.transition = '';
-            s.style.transform = '';
-            s.style.fontFamily = '';
-            s.style.fontSize = '';
-            s.style.display = '';
-            s.style.opacity = '';
-            // Don't reset color — let the ambient color interval handle it
-        });
-    }
-    titleEl.addEventListener('click', () => {
-        const _now = Date.now();
-        if (_now - _logoClickCooldown < 2000) return;
-        _logoClickCooldown = _now;
-        _logoAnimIdx = (_logoAnimIdx + 1) % 6;
-        // Track seen animations for Curious badge
-        if (!saveData.stats.seenTitleAnims) saveData.stats.seenTitleAnims = [];
-        if (!saveData.stats.seenTitleAnims.includes(_logoAnimIdx)) {
-            saveData.stats.seenTitleAnims.push(_logoAnimIdx);
+    const logoButton = document.getElementById('lb122-logo-button');
+    const logo = logoButton.querySelector('img');
+    const logoEffects = [
+        { transform: 'scale(1.11)' },
+        { transform: 'scale(.9)', filter: 'brightness(1.6)' },
+        { filter: 'hue-rotate(100deg)' },
+        { transform: 'translateY(5px) scale(1.04)' },
+        { transform: 'rotate(-4deg)' },
+        { filter: 'drop-shadow(4px 0 #ff3fb5) drop-shadow(-4px 0 #00eaff)' },
+    ];
+    let logoClickTime = -Infinity;
+    let logoEffectIndex = 0;
+    logoButton.addEventListener('click', () => {
+        const now = Date.now();
+        if (now - logoClickTime < 2000) return;
+        logoClickTime = now;
+        logoEffectIndex = (logoEffectIndex + 1) % logoEffects.length;
+        const seenEffects = saveData.stats.seenTitleAnims ??= [];
+        if (!seenEffects.includes(logoEffectIndex)) {
+            seenEffects.push(logoEffectIndex);
             saveDataToFile();
         }
-        if (!saveData.achievements?.['logo_click']?.unlocked && saveData.stats.seenTitleAnims.length >= 6) {
-            unlockAchievement('logo_click'); saveDataToFile();
+        if (!saveData.achievements?.logo_click?.unlocked && seenEffects.length >= logoEffects.length) {
+            unlockAchievement('logo_click');
+            saveDataToFile();
         }
-
-        if (_logoAnimIdx === 0) {
-            // 1: Rainbow wave pop — letters jump up one by one, each with different color + scale
-            titleSpans.forEach((s, i) => {
-                const c = COLORS[(i % 7) + 1];
-                setTimeout(() => {
-                    s.style.transition = 'transform 0.2s cubic-bezier(.34,1.56,.64,1), color 0.1s, text-shadow 0.1s';
-                    s.style.color = c;
-                    s.style.textShadow = `0 0 20px ${c}, 0 0 40px ${c}`;
-                    s.style.transform = 'translateY(-16px) scale(1.35)';
-                    setTimeout(() => {
-                        s.style.transition = 'transform 0.35s cubic-bezier(.34,1.56,.64,1)';
-                        s.style.transform = 'translateY(0) scale(1)';
-                    }, 200);
-                }, i * 65);
-            });
-            setTimeout(_logoReset, titleSpans.length * 65 + 600);
-
-        } else if (_logoAnimIdx === 1) {
-            // 2: Explosion — letters fly outward in random directions, shrink to 0, then snap back
-            titleSpans.forEach((s, i) => {
-                const c = COLORS[(i % 7) + 1];
-                const rx = (Math.random() - 0.5) * 120;
-                const ry = (Math.random() - 0.5) * 80;
-                const rr = (Math.random() - 0.5) * 360;
-                s.style.transition = 'transform 0.4s cubic-bezier(.25,.8,.25,1), color 0.1s, text-shadow 0.1s, opacity 0.3s';
-                s.style.color = c;
-                s.style.textShadow = `0 0 25px ${c}`;
-                s.style.transform = `translate(${rx}px,${ry}px) rotate(${rr}deg) scale(0)`;
-                s.style.opacity = '0';
-            });
-            setTimeout(() => {
-                titleSpans.forEach(s => {
-                    s.style.transition = 'transform 0.5s cubic-bezier(.34,1.56,.64,1), opacity 0.2s';
-                    s.style.transform = 'translate(0,0) rotate(0) scale(1)';
-                    s.style.opacity = '1';
-                });
-            }, 450);
-            setTimeout(_logoReset, 1100);
-
-        } else if (_logoAnimIdx === 2) {
-            // 3: Font roulette — letters rapidly cycle through random fonts, colors, sizes
-            const _dur = 600, _interval = 50;
-            let _frame = 0;
-            const _timer = setInterval(() => {
-                _frame++;
-                titleSpans.forEach((s, i) => {
-                    const f = _logoFonts[Math.floor(Math.random() * _logoFonts.length)];
-                    const c = COLORS[Math.floor(Math.random() * 7) + 1];
-                    const sc = 0.8 + Math.random() * 0.5;
-                    const oy = (Math.random() - 0.5) * 10;
-                    s.style.transition = 'none';
-                    s.style.fontFamily = f;
-                    s.style.color = c;
-                    s.style.textShadow = `0 0 12px ${c}`;
-                    s.style.transform = `translateY(${oy}px) scale(${sc})`;
-                });
-                if (_frame * _interval >= _dur) {
-                    clearInterval(_timer);
-                    titleSpans.forEach(s => {
-                        s.style.transition = 'transform 0.3s ease';
-                        s.style.transform = 'translateY(0) scale(1)';
-                        s.style.fontFamily = '';
-                    });
-                    setTimeout(_logoReset, 400);
-                }
-            }, _interval);
-
-        } else if (_logoAnimIdx === 3) {
-            // 4: Slam down — letters grow huge, slam down, bounce, shake the whole title
-            titleSpans.forEach((s, i) => {
-                s.style.transition = 'none';
-                s.style.transform = 'translateY(-40px) scale(2)';
-                s.style.opacity = '0';
-            });
-            setTimeout(() => {
-                titleSpans.forEach((s, i) => {
-                    const c = COLORS[(i % 7) + 1];
-                    setTimeout(() => {
-                        s.style.transition = 'transform 0.15s ease-in, opacity 0.1s, color 0.1s, text-shadow 0.1s';
-                        s.style.color = c;
-                        s.style.textShadow = `0 0 20px ${c}`;
-                        s.style.transform = 'translateY(6px) scale(1.1)';
-                        s.style.opacity = '1';
-                        setTimeout(() => {
-                            s.style.transition = 'transform 0.3s cubic-bezier(.34,1.56,.64,1)';
-                            s.style.transform = 'translateY(0) scale(1)';
-                        }, 100);
-                    }, i * 40);
-                });
-            }, 50);
-            setTimeout(() => {
-                titleEl.style.animation = 'none'; void titleEl.offsetWidth;
-                titleEl.style.animation = 'titleShake 0.4s ease';
-                setTimeout(() => { titleEl.style.animation = ''; }, 400);
-            }, titleSpans.length * 40 + 100);
-            setTimeout(_logoReset, titleSpans.length * 40 + 700);
-
-        } else if (_logoAnimIdx === 4) {
-            // 5: Spin scatter — letters rotate out, spread apart, snap back
-            const _midIdx = (titleSpans.length - 1) / 2;
-            titleSpans.forEach((s, i) => {
-                s.style.transition = 'transform 0.35s cubic-bezier(.25,.8,.25,1), color 0.15s, text-shadow 0.15s';
-                const spread = (i - _midIdx) * 14;
-                const rot = (i - _midIdx) * 25;
-                const c = COLORS[(i % 7) + 1];
-                s.style.color = c;
-                s.style.textShadow = `0 0 18px ${c}`;
-                s.style.transform = `translateX(${spread}px) rotate(${rot}deg) scale(1.2)`;
-            });
-            setTimeout(() => {
-                titleSpans.forEach(s => {
-                    s.style.transition = 'transform 0.45s cubic-bezier(.34,1.56,.64,1)';
-                    s.style.transform = 'translateX(0) rotate(0) scale(1)';
-                });
-            }, 400);
-            setTimeout(_logoReset, 1000);
-
-        } else {
-            // 6: Glitch — letters jitter with random offsets, colors, sizes rapidly, then snap back
-            const _dur = 500, _interval = 40;
-            let _frame = 0;
-            const _timer = setInterval(() => {
-                _frame++;
-                titleSpans.forEach((s, i) => {
-                    const ox = (Math.random() - 0.5) * 16;
-                    const oy = (Math.random() - 0.5) * 16;
-                    const rot = (Math.random() - 0.5) * 20;
-                    const sc = 0.7 + Math.random() * 0.7;
-                    const c = COLORS[Math.floor(Math.random() * 7) + 1];
-                    s.style.transition = 'none';
-                    s.style.transform = `translate(${ox}px,${oy}px) rotate(${rot}deg) scale(${sc})`;
-                    s.style.color = c;
-                    s.style.textShadow = `${(Math.random()-0.5)*6}px ${(Math.random()-0.5)*4}px 0 #ff0055, ${(Math.random()-0.5)*6}px ${(Math.random()-0.5)*4}px 0 #00ffff`;
-                });
-                if (_frame * _interval >= _dur) {
-                    clearInterval(_timer);
-                    titleSpans.forEach(s => {
-                        s.style.transition = 'transform 0.25s cubic-bezier(.34,1.56,.64,1), text-shadow 0.3s';
-                        s.style.transform = '';
-                        // Remove the glitchy cyan/magenta offset shadow, restore normal glow
-                        const c = s.style.color || 'var(--primary)';
-                        s.style.textShadow = `0 0 15px ${c}`;
-                    });
-                    setTimeout(_logoReset, 350);
-                }
-            }, _interval);
+        if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            logo.animate?.([{}, logoEffects[logoEffectIndex], {}], { duration: 480, easing: 'ease-in-out' });
         }
+    });
+
+    const xpTrigger = document.getElementById('lb122-xp-trigger');
+    const xpTooltip = document.getElementById('lb122-xp-tooltip');
+    const xpProgress = document.getElementById('lb122-xp-progress');
+    const xpBar = document.getElementById('menu-xp-bar-wrap');
+    let xpTooltipPinned = false;
+    function showXpTooltip() {
+        const info = getLevelInfo(saveData.totalXP);
+        xpProgress.textContent = info.isCelestite
+            ? `${(saveData.totalXP || 0).toLocaleString()} total XP`
+            : `${Math.floor(info.currentXP).toLocaleString()} / ${info.neededXP.toLocaleString()} XP`;
+        xpTooltip.hidden = false;
+    }
+    function hideXpTooltip() {
+        xpTooltipPinned = false;
+        xpTooltip.hidden = true;
+    }
+    xpBar.addEventListener('pointerenter', event => {
+        if (event.pointerType !== 'touch') showXpTooltip();
+    });
+    xpBar.addEventListener('pointerleave', () => {
+        if (!xpTooltipPinned && !xpTrigger.matches(':focus-visible')) hideXpTooltip();
+    });
+    xpTrigger.addEventListener('focus', () => {
+        if (xpTrigger.matches(':focus-visible')) showXpTooltip();
+    });
+    xpTrigger.addEventListener('blur', hideXpTooltip);
+    xpTrigger.addEventListener('click', () => {
+        if (xpTooltipPinned) hideXpTooltip();
+        else {
+            xpTooltipPinned = true;
+            showXpTooltip();
+        }
+    });
+    xpTrigger.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || xpTooltip.hidden) return;
+        event.stopPropagation();
+        hideXpTooltip();
+    });
+    document.addEventListener('pointerdown', event => {
+        if (!xpBar.contains(event.target)) hideXpTooltip();
     });
     // afk achievement setup is deferred (see after variable declarations)
 
@@ -952,16 +825,19 @@
         const map = { '1':0.78,'2':0.91,'3':1.04,'4':1.17,'5':1.30,'6':1.43,'7':1.56,'8':1.76,'9':1.95,'10':2.15 };
         document.documentElement.style.setProperty('--font-scale', map[size] || 1.30);
     }
+    const menuScaleWrapper = document.querySelector('.menu-scale-wrapper');
+    function fitMenuToViewport() {
+        const menuHeight = menuScaleWrapper.offsetHeight;
+        const maxScale = menuHeight ? Math.max(0.1, (window.innerHeight - 32) / menuHeight) : 1;
+        menuScaleWrapper.style.setProperty('--menu-fit-scale', maxScale);
+    }
+    if (window.ResizeObserver) new ResizeObserver(fitMenuToViewport).observe(menuScaleWrapper);
     function applyGameScale(size) {
         const map = { '1':0.42,'2':0.49,'3':0.56,'4':0.63,'5':0.70,'6':0.77,'7':0.84,'8':0.94,'9':1.05,'10':1.15 };
         const baseScale = map[size] || 1.0;
         document.documentElement.style.setProperty('--game-scale', baseScale);
-        // Cap menu scale so badge doesn't go above viewport top
-        const vh = window.innerHeight || 900;
-        const desired = 1.3 * baseScale;
-        // 550 = approx half-distance from wrapper center to badge canvas top * 2
-        const maxScale = Math.max(0.8, (vh - 40) / 550);
-        document.documentElement.style.setProperty('--menu-scale', Math.min(desired, maxScale));
+        document.documentElement.style.setProperty('--menu-scale', 1.3 * baseScale);
+        fitMenuToViewport();
     }
     function applyBtnStyle(key) {
         const s = BTN_STYLES[key] || BTN_STYLES.square;
@@ -7271,36 +7147,6 @@
             _setXpBarFill(displayPercent * 100);
         }
 
-        // Hover: show XP detail inline (no popup box — text appears/disappears)
-        if (_xpBarWrap && !_xpBarWrap._xpHoverSetup) {
-            _xpBarWrap._xpHoverSetup = true;
-            const showXpDetail = () => {
-                const _i = getLevelInfo(saveData.totalXP);
-                if (_i.level === 0 && !_i.currentXP) return;
-                const _exact = (_i.percent * 100).toFixed(1);
-                const det = document.getElementById('menu-xp-detail');
-                if (det) {
-                    det.innerHTML =
-                        `<span style="font-weight:bold;color:#fff;">${Math.floor(_i.currentXP).toLocaleString()}</span>`
-                        + `<span style="color:rgba(255,255,255,0.3);margin:0 3px;">/</span>`
-                        + `<span style="color:rgba(255,255,255,0.5);">${_i.neededXP.toLocaleString()}</span>`
-                        + `<span style="color:var(--primary);margin-left:8px;font-weight:bold;text-shadow:0 0 8px var(--primary);">${_exact}%</span>`;
-                    det.style.visibility = 'visible';
-                }
-            };
-            const hideXpDetail = () => {
-                const det = document.getElementById('menu-xp-detail');
-                if (det) det.style.visibility = 'hidden';
-            };
-            const xpInfo = document.querySelector('.lb-help-xp-anchor .lb-info-btn');
-            _xpBarWrap.addEventListener('mouseenter', showXpDetail);
-            _xpBarWrap.addEventListener('mouseleave', hideXpDetail);
-            xpInfo.addEventListener('mouseenter', showXpDetail);
-            xpInfo.addEventListener('mouseleave', hideXpDetail);
-            xpInfo.addEventListener('focus', showXpDetail);
-            xpInfo.addEventListener('blur', hideXpDetail);
-        }
-
         if (!badgeMenu.classList.contains('hidden')) renderBadgeFrame();
         // Show pending level box if any
         if (saveData.pendingLevelBox && !_levelBoxShowing && !document.getElementById('level-box-overlay')) {
@@ -7445,7 +7291,8 @@
     let _mq_minimalistFailed = false, _mq_minimalistLines = 0, _mq_minimalist = false;
     let _achsThisGame = 0;
     let _mq_quadStreak = false, _mq_flatEarth = false, _mq_flatEarthStart = -1;
-    let _startIntroTimers = [], _skipStartIntro;
+    const START_FLASH_MS = 500;
+    let startFlashTimer = null;
     let currentGameMode = 'normal'; // 'normal', 'fun'
     let holdPiece = null, holdUsed = false;
     let funModeConfig = { cols: 10, rows: 20, startSpeed: 1 };
@@ -8532,42 +8379,18 @@
             }).join('')}</ul>`;
     }
 
-    function clearStartIntro() {
-        _startIntroTimers.forEach(timer => clearTimeout(timer));
-        _startIntroTimers = [];
-        _skipStartIntro = null;
+    function clearStartFlash() {
+        clearTimeout(startFlashTimer);
+        startFlashTimer = null;
         document.getElementById('start-animation-overlay').classList.add('hidden');
     }
 
     function startAnimation(onStarted) {
         const overlay = document.getElementById('start-animation-overlay');
-        const wordmark = document.getElementById('start-wordmark');
-        const countdown = document.getElementById('start-countdown');
-        const skip = document.getElementById('start-skip');
-        const title = 'LINEBREAKER';
-        const tiles = [];
-        for (let row = 0; row < 2; row++) {
-            for (let column = 0; column < title.length; column++) {
-                const tile = document.createElement('span');
-                const lettering = document.createElement('span');
-                lettering.textContent = title;
-                tile.style.setProperty('--intro-col', column);
-                tile.style.setProperty('--intro-row', row);
-                tile.style.setProperty('--intro-x', `${(column - 5) * 5}px`);
-                tile.style.setProperty('--intro-y', `${(row ? 1 : -1) * (24 + column % 4 * 11)}px`);
-                tile.style.setProperty('--intro-turn', `${(row ? 1 : -1) * (28 + column % 5 * 9)}deg`);
-                tile.append(lettering);
-                tiles.push(tile);
-            }
-        }
         LBArtPack.applyThemeBackground(overlay, settings.theme, settings.themeBackground);
-        wordmark.replaceChildren(...tiles);
-        wordmark.hidden = false;
-        countdown.hidden = true;
         overlay.classList.remove('hidden');
-        skip.focus({ preventScroll: true });
-        _skipStartIntro = () => {
-            clearStartIntro();
+        startFlashTimer = setTimeout(() => {
+            clearStartFlash();
             if (isGameOver) return;
             document.getElementById('app').classList.add('active-game');
             _syncRunMissions(true);
@@ -8578,21 +8401,11 @@
             lastTime=performance.now(); update(lastTime);
             switchMusicMode('game');
             onStarted?.();
-        };
-        const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-        const introDuration = reducedMotion ? 500 : 1600;
-        const beat = 450;
-        _startIntroTimers = [3, 2, 1, 0].map(remaining => setTimeout(() => {
-            if (remaining === 0) return _skipStartIntro?.();
-            wordmark.hidden = true;
-            countdown.hidden = false;
-            countdown.textContent = remaining;
-        }, introDuration + (3 - remaining) * beat));
+        }, START_FLASH_MS);
     }
-    document.getElementById('start-skip').addEventListener('click', () => _skipStartIntro?.());
 
     function startGame(onStarted){
-        if (_gameOverProtect || _skipStartIntro) return;
+        if (_gameOverProtect || startFlashTimer !== null) return;
         // Show rules on first fun/master play
         if (currentGameMode === 'fun' && !saveData.seenFunRules) {
             saveData.seenFunRules = true;
@@ -8638,11 +8451,10 @@
         ['pc-next2-canvas','pc-next3-canvas','m-next2-canvas','m-next3-canvas','pc-next2-wrap','m-next2-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = (is3Next && !isNoNext) ? '' : 'none'; });
         // Hide entire next piece section when optNoNext is enabled
         ['pc-next-wrap','pc-next2-wrap','pc-next3-wrap','m-next-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = isNoNext ? 'none' : ''; });
-        // Fade out menu music over 1.2s (duration of start animation)
         if (audioCtx && masterGain && musicPlaying) {
             masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
             masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime);
-            masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.2);
+            masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + START_FLASH_MS / 1000);
         }
         document.getElementById('menu-overlay').classList.add('hidden');
         const _goEl = document.getElementById('go-overlay');
@@ -8697,7 +8509,7 @@
         }));
     }
     function resetQARun() {
-        clearStartIntro();
+        clearStartFlash();
         _gameOverProtect = false;
         _gameInProgress = false;
         clearInterval(timeInterval);
@@ -8742,7 +8554,7 @@
     function backFromOverlay(overlay) {
         if (controlsEditor.cancel()) return;
         switch (overlay.id) {
-            case 'start-animation-overlay': _skipStartIntro?.(); return;
+            case 'start-animation-overlay': return;
             case 'pause-overlay': pauseFromInput(overlay); return;
             case 'mode-select-overlay': closeModeSelect(); return;
             case 'go-overlay': resetGameToMenu(); return;
@@ -8860,9 +8672,8 @@
             overlays.sort((a, b) => (parseInt(getComputedStyle(b).zIndex) || 0)
                 - (parseInt(getComputedStyle(a).zIndex) || 0));
             const top = overlays[0];
-            if (top?.id === 'start-animation-overlay') {
-                _skipStartIntro?.();
-            } else if (top?.id === 'custom-confirm') {
+            if (top?.id === 'start-animation-overlay') return;
+            if (top?.id === 'custom-confirm') {
                 document.getElementById('confirm-no').click();
             } else if (top?.id === 'custom-alert') {
                 closeAlert();

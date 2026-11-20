@@ -30,6 +30,7 @@ Use the shared classes in `60-foundation.css`. Apply them explicitly on each new
 - Use a small, square-ish radius (`--bb-badge-radius`) for counts, owned labels, quantities and tags. Never use pills for these.
 - Place sprites and icons directly on the card surface with a transparent backing. This applies to parts, boosters, crates, rewards, skins and previews.
 - Use shared theme button classes for all actions, including Apply colour, custom palettes, Transfer and Credits. Standard buttons are rounded rectangles with 44px targets and visible focus; use the shared borderless Back variant in top bars.
+- Centre labels and icons on the visible button face, excluding the lower 3D lip.
 - Selected tabs use a distinct border and face, never an underline. Pair colour with text, an icon or a state mark.
 - Theme every scrollable area, using both `scrollbar-color` and WebKit scrollbar styles. Keep the thumb distinct from the track.
 - Put `.lb-scroll-fade` on an inner vertical scroll container, not on the frame or header. The mask fades only edges with more content beyond them; browsers without scroll timelines keep normal scrolling.
