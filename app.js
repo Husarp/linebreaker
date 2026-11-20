@@ -8940,10 +8940,16 @@
         const dur = _trackDuration || 0;
         const elEl = document.getElementById('mw-elapsed');
         const totEl = document.getElementById('mw-total');
-        const fillEl = document.getElementById('mw-progress-fill');
+        const progressEl = document.getElementById('mw-progress');
         if (elEl) elEl.textContent = _fmtTime(elapsed);
         if (totEl) totEl.textContent = dur > 0 ? _fmtTime(dur) : '0:00';
-        if (fillEl) fillEl.style.width = (dur > 0 ? Math.min(100, elapsed / dur * 100) : 0) + '%';
+        if (progressEl) {
+            progressEl.disabled = dur <= 0;
+            if (!progressEl.matches(':active')) {
+                progressEl.value = dur > 0 ? Math.max(0, Math.min(100, elapsed / dur * 100)) : 0;
+                progressEl.style.setProperty('--track-progress', progressEl.value + '%');
+            }
+        }
         // Sync playlist mini widget
         const plTitle = document.getElementById('pl-mw-title');
         const plEl = document.getElementById('pl-mw-elapsed');
@@ -9005,6 +9011,10 @@
     };
     window.musicWidgetSeek = function(e, el) {
         if (!audioCtx || !_trackDuration || _currentMode !== 'menu') return;
+        if (el.id === 'mw-progress') {
+            _playMenuTrack(_nowPlayingName, el.valueAsNumber / 100 * _trackDuration);
+            return;
+        }
         const rect = el.getBoundingClientRect();
         if (!rect.width) return;
         const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
