@@ -19,7 +19,7 @@
         screen.innerHTML = `
             <div class="sp-shell">
                 <header class="sp-header">
-                    <button type="button" class="sp-button sp-back btn-back" aria-label="Back to missions" title="Back to missions">
+                    <button type="button" class="sp-button sp-back btn-back lb-block-back" aria-label="Back to missions" title="Back to missions">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
                     </button>
                     <div><span id="sp-season"></span><h1 id="sp-title">Season Pass</h1></div>
@@ -32,15 +32,15 @@
                 <p id="sp-notice" class="sp-notice" role="status" hidden></p>
                 <div class="sp-track-header">
                     <div><h2>Free reward track</h2><p>Each claim rolls a reward from the stage’s tier.</p></div>
-                    <button type="button" class="sp-button sp-today" hidden></button>
+                    <button type="button" class="sp-button sp-today lb-block-btn" hidden></button>
                 </div>
                 <div id="sp-loading" role="status"></div>
-                <button type="button" class="sp-button sp-retry" hidden>Retry</button>
+                <button type="button" class="sp-button sp-retry lb-block-btn" hidden>Retry</button>
                 <div class="sp-track" role="region" aria-label="Season reward stages" tabindex="0" hidden><ol></ol></div>
                 <aside class="sp-highlight">
                     <img src="assets/ui/41-season-pass-exclusive.webp" alt="" width="144" height="106">
                     <div><h2>Season reward highlight</h2><p>Day 30 features the exclusive Season Prism block skin.</p></div>
-                    <button type="button" class="sp-button sp-missions">Back to missions</button>
+                    <button type="button" class="sp-button sp-missions lb-block-btn">Back to missions</button>
                 </aside>
                 <p id="sp-announcement" class="sp-sr-only" role="status"></p>
             </div>`;
@@ -129,7 +129,7 @@
                 } else if (status === 'claimable') {
                     const button = document.createElement('button');
                     button.type = 'button';
-                    button.className = 'sp-button sp-claim';
+                    button.className = 'sp-button sp-claim lb-block-btn lb-block-btn--primary';
                     button.dataset.spDay = stage.day;
                     button.setAttribute('aria-label', `Claim day ${stage.day} ${stage.tier} reward`);
                     button.textContent = 'Claim reward';

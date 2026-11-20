@@ -38,20 +38,29 @@ it('keeps spinning by default and advances falling pieces by elapsed time and di
   expect(api.makeBgBlock(true).turnInterval).toBe(0);
 });
 
-it('stops drawing the background during an active game', async () => {
-  game.calls.length = 0;
-  game.advance(16);
-  expect(game.calls.some(([method]) => method === 'rotate')).toBe(true);
+it('animates ambient blocks only with the Plain background outside an active game', async () => {
+  const drawsAmbientBlocks = () => {
+    game.calls.length = 0;
+    game.advance(16);
+    return game.calls.some(([method]) => method === 'rotate');
+  };
+  const select = document.getElementById('setting-theme-background');
+  const setBackground = value => {
+    select.value = value;
+    select.dispatchEvent(new window.Event('change'));
+  };
+  expect(drawsAmbientBlocks()).toBe(false);
+  setBackground('plain');
+  expect(drawsAmbientBlocks()).toBe(true);
   const app = document.getElementById('app');
   app.classList.add('active-game');
   await Promise.resolve();
-  game.calls.length = 0;
-  game.advance(100);
-  expect(game.calls.some(([method]) => method === 'rotate')).toBe(false);
+  expect(drawsAmbientBlocks()).toBe(false);
   app.classList.remove('active-game');
   await Promise.resolve();
-  game.advance(16);
-  expect(game.calls.some(([method]) => method === 'rotate')).toBe(true);
+  expect(drawsAmbientBlocks()).toBe(true);
+  setBackground('image');
+  expect(drawsAmbientBlocks()).toBe(false);
 });
 
 it('converts owned parts and formats both singular and grouped conversions', () => {

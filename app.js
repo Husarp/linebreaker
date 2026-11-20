@@ -318,7 +318,9 @@
         const dt = _bgTime === null ? 0 : Math.min(100, now - _bgTime);
         _bgTime = now;
         bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
-        bgBlocks.forEach(b => { b.update(dt); b.draw(); });
+        if (LBArtPack.backgroundMode(settings.themeBackground) === 'plain') {
+            bgBlocks.forEach(b => { b.update(dt); b.draw(); });
+        }
         _updateSpecialBlock(dt);
         _drawSpecialBlock();
         _bgFrame = requestAnimationFrame(bgLoop);
@@ -2978,7 +2980,7 @@
             const universal = /^\+(\d+) Universal Parts?$/.exec(reward.label);
             if (universal) return { ...reward, type: 'universal_parts', label: 'Universal Part', amount: reward.amount ?? Number(universal[1]), desc: undefined };
             return { ...reward, amount: reward.amount ?? 1 };
-        }));
+        }), rankUnlockText);
     }
     function _checkMilestoneBoxes() {
         if ((!saveData.pendingMilestoneReward && !saveData.pendingMilestoneBoxes?.length) || _levelBoxShowing) return;
@@ -3785,7 +3787,7 @@
         const ready = cost > 0 && parts >= cost;
         const canEquip = isOwned && (!equipped || configurable) && onEquipJs;
         const safeLabel = escapeHtml(label);
-        const actionClass = `lb-inventory-action${blockBuilt ? ' lb-block-btn' : ''}`;
+        const actionClass = 'lb-inventory-action lb-block-btn';
         const progress = cost > 0 ? `<div class="lb-inventory-progress">
             <progress class="${blockBuilt ? 'lb-block-progress' : 'lb-progress lb-progress--pattern'}" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
             <span>${Math.min(parts, cost)}/${cost} parts</span>
@@ -3846,7 +3848,7 @@
         if (ghostWrap) {
             const _ghostLevel = getLevelInfo(saveData.totalXP).level;
             if (_ghostLevel < 11) {
-                ghostWrap.innerHTML = _makeInventoryRow('Ghost Piece', false, false, 0, '', '', 'Unlocks at Silver I', '');
+                ghostWrap.innerHTML = _makeInventoryRow('Ghost Piece', false, false, 0, '', '', rankUnlockText('Unlocks at Silver I'), '');
             } else {
                 const gc = settings.ghostColor || 'white';
                 const parts = saveData.parts?.['ghostColor'] || 0;
@@ -3903,7 +3905,7 @@
                 const equipped = settings.theme === key;
                 const color = THEMES[key].primary;
                 return _colorInventoryCard({ key, label, owned, equipped,
-                    preview: `<button type="button" class="lb-colors-theme-sample" aria-label="Copy ${label} hex ${color}" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)">
+                    preview: `<button type="button" class="lb-block-btn lb-colors-theme-sample" aria-label="Copy ${label} hex ${color}" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)">
                         <span class="lb-colors-chip" style="--swatch:${color}"></span><code>${color}</code><span aria-hidden="true">${_SVG_COPY}</span></button>`,
                     actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.applyTheme('${key}')">Equip</button>` : '',
                     unlock: `window.playerUnlockItem('theme','${key}')` });
@@ -3924,7 +3926,7 @@
                 const equipped = (settings.colorPalette || 'classic') === key;
                 const colors = paletteColors(saveData.customPaletteOverrides?.[key], palette.colors);
                 return _colorInventoryCard({ key, label: palette.name, owned: !!owned, equipped,
-                    preview: `<button type="button" class="lb-palette-preview" aria-label="Preview ${palette.name} palette" onclick="window._openPaletteViewModal('${key}')">${colors.map(color => `<span style="--piece-color:${color}"></span>`).join('')}</button>`,
+                    preview: `<button type="button" class="lb-block-btn lb-palette-preview" aria-label="Preview ${palette.name} palette" onclick="window._openPaletteViewModal('${key}')">${colors.map(color => `<span style="--piece-color:${color}"></span>`).join('')}</button>`,
                     actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.onSettingChange('colorPalette','${key}')">Equip</button>` : '',
                     unlock: `window.playerUnlockItem('palette','${key}')` });
             }).join('');
@@ -4954,6 +4956,15 @@
         { maxLvl: 80,  name: "DIAMOND",  c: "#94ffff", shape: {sides:10, star:true, innerRatio:0.74} },
     ];
     const CELESTITE_RANK = { name: "CELESTITE", c: "#7ec8e3" };
+
+    function rankUnlockText(text) {
+        const match = /^(Unlock(?:s|ed) at )([A-Z]+)( [IVXLCDM]+)?(!?)$/i.exec(text);
+        if (!match) return escapeHtml(text);
+        const [, prefix, name, division = '', suffix] = match;
+        const rank = [...RANKS, CELESTITE_RANK].find(entry => entry.name === name.toUpperCase());
+        if (!rank) return escapeHtml(text);
+        return `${prefix}<span class="lb-rank-unlock-name" style="--rank-unlock-color:${rank.c}">${escapeHtml(name + division)}</span>${suffix}`;
+    }
 
     function getShapePoints(cx, cy, r, shape) {
         if (!shape || shape.sides === 0) return null;
@@ -8963,14 +8974,14 @@
             const col = hexColor(RARITY_COLORS[r.rarity], '#cccccc');
             return `<div style="border:1px solid ${col};border-radius:10px;padding:8px 12px;margin-bottom:7px;box-shadow:0 0 10px ${col}30;display:flex;align-items:center;gap:8px;">
                 <span style="font-size:1.4rem;">${escapeHtml(r.icon)}</span>
-                <div><div style="font-size:0.85rem;font-weight:bold;color:${col};">${escapeHtml(r.label)}</div><div style="font-size:0.62rem;color:#aaa;">${escapeHtml(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div></div>
+                <div><div style="font-size:0.85rem;font-weight:bold;color:${col};">${escapeHtml(r.label)}</div><div style="font-size:0.62rem;color:#aaa;">${rankUnlockText(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div></div>
             </div>`;
         }).join('');
         overlay.innerHTML = `<div style="background:rgba(6,6,20,0.98);border:1px solid var(--primary);border-radius:16px;padding:24px 22px;max-width:340px;width:90%;text-align:center;box-shadow:0 0 40px var(--primary)30;">
             <div style="font-size:0.55rem;letter-spacing:3px;color:var(--primary);margin-bottom:6px;">LEVEL UP!</div>
             <div class="lb-rank-identity" style="font-size:1.1rem;font-weight:bold;color:#fff;margin-bottom:16px;">${escapeHtml(rankName)}${levelStr}</div>
             <div style="text-align:left;max-height:280px;overflow-y:auto;">${rewardsHtml}</div>
-            <button onclick="document.getElementById('level-up-popup-overlay').remove()" style="margin-top:16px;padding:10px 24px;background:linear-gradient(45deg,var(--primary)33,var(--primary)18);border:1px solid var(--primary);border-radius:10px;color:var(--primary);cursor:pointer;font-family:inherit;font-weight:bold;font-size:0.8rem;box-shadow:0 0 10px var(--primary)30;">AWESOME!</button>
+            <button type="button" class="lb-block-btn lb-block-btn--primary lb80-level-dismiss" onclick="document.getElementById('level-up-popup-overlay').remove()">AWESOME!</button>
         </div>`;
         overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
         document.body.appendChild(overlay);
@@ -9010,12 +9021,10 @@
             const playMark = isPlaying ? `<span style="color:var(--primary);margin-right:2px;">▶</span>` : '';
             const col = isPlaying ? 'var(--primary)' : '#ccc';
             const mOn = menuOn; const gOn = gameOn;
-            const mBtnS = `font-size:0.58rem;padding:3px 8px;border-radius:5px;border:1px solid ${mOn?'#4488ff':'#333'};background:${mOn?'rgba(68,136,255,0.15)':'rgba(255,255,255,0.03)'};color:${mOn?'#7aadff':'#555'};cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;min-width:52px;justify-content:center;`;
-            const gBtnS = `font-size:0.58rem;padding:3px 8px;border-radius:5px;border:1px solid ${gOn?'#44aa55':'#333'};background:${gOn?'rgba(68,170,85,0.15)':'rgba(255,255,255,0.03)'};color:${gOn?'#7acc88':'#555'};cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;min-width:52px;justify-content:center;`;
             return `<div style="display:flex;align-items:center;gap:6px;padding:5px 2px;">
                 <span style="flex:1;font-size:0.62rem;color:${col};line-height:1.3;">${playMark}${escapeHtml(name)}${artistSpan}</span>
-                <button type="button" style="${mBtnS}" onclick="window.moveTrack('menu',${escapeHtml(JSON.stringify(name))},${!mOn})">${mOn?svgCheck:''}Menu</button>
-                <button type="button" style="${gBtnS}" onclick="window.moveTrack('${gameCtx}',${escapeHtml(JSON.stringify(name))},${!gOn})">${gOn?svgCheck:''}Game</button>
+                <button type="button" class="lb-block-btn lb-block-tab" aria-pressed="${mOn}" onclick="window.moveTrack('menu',${escapeHtml(JSON.stringify(name))},${!mOn})">${mOn?svgCheck:''}Menu</button>
+                <button type="button" class="lb-block-btn lb-block-tab" aria-pressed="${gOn}" onclick="window.moveTrack('${gameCtx}',${escapeHtml(JSON.stringify(name))},${!gOn})">${gOn?svgCheck:''}Game</button>
             </div>`;
         }).join('');
         el.innerHTML = rows || `<div style="font-size:0.58rem;color:#555;padding:6px 2px;font-style:italic;">No tracks found</div>`;
@@ -10637,7 +10646,7 @@
                 return `<span class="lb-playlist-tag" style="--tag-tone:${tc}">${escapeHtml(t)}</span>`;
             }).join('');
             return `<div class="lb-playlist-grid lb-playlist-row">
-                <button type="button" class="lb-playlist-track" aria-label="Play ${escapeHtml(name)}" ${isPlaying ? 'aria-current="true"' : ''} onclick="window.playTrackInPlaylist(${escapeHtml(JSON.stringify(name))})">
+                <button type="button" class="lb-block-btn lb-playlist-track" aria-label="Play ${escapeHtml(name)}" ${isPlaying ? 'aria-current="true"' : ''} onclick="window.playTrackInPlaylist(${escapeHtml(JSON.stringify(name))})">
                     <span>${playMark}${escapeHtml(name)}</span>
                     ${artist ? `<small>by ${escapeHtml(artist)}</small>` : ''}
                 </button>
@@ -10706,6 +10715,7 @@
         funCard.disabled = playerLevel < 11;
         funCard.classList.toggle('lb-block-btn--locked', funCard.disabled);
         document.getElementById('play-fun-lock').hidden = !funCard.disabled;
+        document.getElementById('play-fun-rank').innerHTML = rankUnlockText('Unlocks at Silver I');
         document.getElementById('play-fun-desc').hidden = funCard.disabled;
         funCard.setAttribute('aria-describedby', funCard.disabled ? 'play-fun-lock' : 'play-fun-desc');
 
@@ -10810,7 +10820,7 @@
                 row.disabled = true;
                 row.className = 'lb69-modifier lb69-locked-row lb-block-btn lb-block-btn--locked';
                 row.dataset.playModifier = key;
-                row.innerHTML = `${playIcon('lock')}<strong>${name}</strong><span class="lb69-lock">Unlocks at ${rank}</span>`;
+                row.innerHTML = `${playIcon('lock')}<strong>${name}</strong><span class="lb69-lock">${rankUnlockText(`Unlocks at ${rank}`)}</span>`;
                 return row;
             }
             const row = document.createElement('label');
@@ -10949,15 +10959,15 @@
         ov.id = 'sfx-panel-modal';
         ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;';
         ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,50,50,0.3);border-radius:14px;padding:20px;width:min(380px,90vw);max-height:80vh;overflow-y:auto;position:relative;">
-            <button id="sfx-panel-close" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;">✕</button>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <button type="button" id="sfx-panel-close" class="lb-block-btn lb-block-btn--icon lb80-sfx-close" aria-label="Close sounds">✕</button>
+            <div class="lb80-sfx-head">
                 <div style="font-size:0.6rem;letter-spacing:2px;color:#ff6666;">🔊 SFX PREVIEW</div>
-                <div style="display:flex;gap:4px;">
-                    <button class="sfx-pack-tab active" data-pack="a" style="font-size:0.5rem;padding:3px 7px;border-radius:4px;border:1px solid #ff6666;background:rgba(255,100,100,0.15);color:#ff9999;cursor:pointer;font-family:inherit;font-weight:bold;">DEFAULT</button>
-                    <button class="sfx-pack-tab" data-pack="b" style="font-size:0.5rem;padding:3px 7px;border-radius:4px;border:1px solid #555;background:rgba(255,255,255,0.05);color:#888;cursor:pointer;font-family:inherit;">CYBER</button>
-                    <button class="sfx-pack-tab" data-pack="c" style="font-size:0.5rem;padding:3px 7px;border-radius:4px;border:1px solid #555;background:rgba(255,255,255,0.05);color:#888;cursor:pointer;font-family:inherit;">RETRO</button>
-                    <button class="sfx-pack-tab" data-pack="d" style="font-size:0.5rem;padding:3px 7px;border-radius:4px;border:1px solid #555;background:rgba(255,255,255,0.05);color:#888;cursor:pointer;font-family:inherit;">ZEN</button>
-                    <button class="sfx-pack-tab" data-pack="e" style="font-size:0.5rem;padding:3px 7px;border-radius:4px;border:1px solid #555;background:rgba(255,255,255,0.05);color:#888;cursor:pointer;font-family:inherit;">ARCADE</button>
+                <div class="lb-block-tabs">
+                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab active" data-pack="a" aria-pressed="true">DEFAULT</button>
+                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="b" aria-pressed="false">CYBER</button>
+                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="c" aria-pressed="false">RETRO</button>
+                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="d" aria-pressed="false">ZEN</button>
+                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="e" aria-pressed="false">ARCADE</button>
                 </div>
             </div>
             ${sfxList.map(s => `<div class="sfx-row" data-sfx="${s.name}" style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;">
@@ -10979,10 +10989,7 @@
                 _devSfxPack = tab.dataset.pack;
                 ov.querySelectorAll('.sfx-pack-tab').forEach(t => {
                     const active = t.dataset.pack === _devSfxPack;
-                    t.style.borderColor = active ? '#ff6666' : '#555';
-                    t.style.background = active ? 'rgba(255,100,100,0.15)' : 'rgba(255,255,255,0.05)';
-                    t.style.color = active ? '#ff9999' : '#888';
-                    t.style.fontWeight = active ? 'bold' : 'normal';
+                    t.setAttribute('aria-pressed', active);
                     t.classList.toggle('active', active);
                 });
             });
@@ -11029,11 +11036,11 @@
         ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;';
         let _activePack = packDefs[0];
         ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(0,255,255,0.2);border-radius:14px;padding:20px;width:min(380px,90vw);max-height:80vh;overflow-y:auto;position:relative;">
-            <button id="sfx-prev-close" style="position:absolute;top:10px;right:14px;background:none;border:none;color:#555;font-size:1.1rem;cursor:pointer;">✕</button>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <button type="button" id="sfx-prev-close" class="lb-block-btn lb-block-btn--icon lb80-sfx-close" aria-label="Close sounds">✕</button>
+            <div class="lb80-sfx-head">
                 <div style="font-size:0.6rem;letter-spacing:2px;color:var(--primary);">SFX PACK PREVIEW</div>
-                <div id="sfx-prev-tabs" style="display:flex;gap:4px;">
-                    ${packDefs.map((p, i) => `<button class="sfx-prev-tab${i===0?' active':''}" data-pack="${p.id}" style="font-size:0.5rem;padding:3px 7px;border-radius:4px;border:1px solid ${i===0?'var(--primary)':'#555'};background:${i===0?'rgba(0,255,255,0.12)':'rgba(255,255,255,0.05)'};color:${i===0?'var(--primary)':'#888'};cursor:pointer;font-family:inherit;${i===0?'font-weight:bold;':''}">${p.label}</button>`).join('')}
+                <div id="sfx-prev-tabs" class="lb-block-tabs">
+                    ${packDefs.map((p, i) => `<button type="button" class="sfx-prev-tab lb-block-btn lb-block-tab${i===0?' active':''}" data-pack="${p.id}" aria-pressed="${i===0}">${p.label}</button>`).join('')}
                 </div>
             </div>
             ${sfxList.map(s => `<div class="sfx-prev-row" data-sfx="${s.name}" style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;border-radius:6px;transition:background 0.15s;">
@@ -11056,10 +11063,7 @@
                 _activePack = packDefs.find(p => p.id === pid) || packDefs[0];
                 ov.querySelectorAll('.sfx-prev-tab').forEach(t => {
                     const act = t.dataset.pack === pid;
-                    t.style.borderColor = act ? 'var(--primary)' : '#555';
-                    t.style.background = act ? 'rgba(0,255,255,0.12)' : 'rgba(255,255,255,0.05)';
-                    t.style.color = act ? 'var(--primary)' : '#888';
-                    t.style.fontWeight = act ? 'bold' : 'normal';
+                    t.setAttribute('aria-pressed', act);
                     t.classList.toggle('active', act);
                 });
             });
@@ -11123,9 +11127,9 @@
         _sel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,5,5,0.97);border:1px solid rgba(255,50,50,0.5);border-radius:10px;padding:14px;z-index:99999;display:flex;flex-direction:column;gap:6px;min-width:180px;';
         _sel.innerHTML = '<div style="font-size:0.55rem;color:#ff6666;font-weight:bold;letter-spacing:1px;margin-bottom:4px;">CHOOSE MILESTONE</div>' +
             Object.entries(_MS).map(([lv, m]) =>
-                `<button data-ms-lv="${lv}" style="font-size:0.6rem;padding:5px 10px;background:rgba(255,0,0,0.08);border:1px solid ${m.rankColor}55;border-radius:4px;color:${m.rankColor};cursor:pointer;font-family:inherit;text-align:left;">Lv ${lv} — ${m.rankName}</button>`
+                `<button type="button" class="lb-block-btn" data-ms-lv="${lv}" style="--bb-button-ink:${m.rankColor}">Lv ${lv} — ${m.rankName}</button>`
             ).join('') +
-            '<button data-ms-cancel style="font-size:0.55rem;padding:4px;background:none;border:none;color:#666;cursor:pointer;margin-top:4px;">Cancel</button>';
+            '<button type="button" class="lb-block-btn" data-ms-cancel>Cancel</button>';
         _sel.addEventListener('click', e => {
             const btn = e.target.closest('[data-ms-lv],[data-ms-cancel]');
             if (!btn) return;

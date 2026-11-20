@@ -24,8 +24,16 @@ Use the shared classes in `60-foundation.css`. Apply them explicitly on each new
 | Information | Align the small `.lb-block-info-icon` with the heading; use a labelled `summary` inside `.lb-block-info` for brief text in `.lb-block-tooltip`, or the existing `.lb-info-btn` for a link into Help. Keep advice accessible by keyboard and touch, not just hover. |
 | Dialogs | `.lb-block-dialog` and `.lb-block-dialog-actions`, with `--warning` for destructive confirmation. Keep clear Cancel/Proceed actions and plain-language consequences. Preserve the rounded notice silhouette and use Inter for its message. |
 
-## Review Rules
+## Binding Global Rules
 
 - Keep main-menu buttons, rank badges, XP/level display, missions and the in-game HUD intact. Preserve Credits content and layout.
-- Buttons are rounded rectangles with 44px targets and visible focus; pills are only for tags, chips and badges. Pair colour with text, an icon or a state mark.
-- Keep edges consistent, align labels and controls, and avoid needless motion. Check the real screen at 1280×800 and 390×844 in `?dev&demo` (see `docs/QA-SCREENS.md`) and verify accents and legibility across themes.
+- Use a small, square-ish radius (`--bb-badge-radius`) for counts, owned labels, quantities and tags. Never use pills for these.
+- Place sprites and icons directly on the card surface with a transparent backing. This applies to parts, boosters, crates, rewards, skins and previews.
+- Use shared theme button classes for all actions, including Apply colour, custom palettes, Transfer and Credits. Standard buttons are rounded rectangles with 44px targets and visible focus; use the shared borderless Back variant in top bars.
+- Selected tabs use a distinct border and face, never an underline. Pair colour with text, an icon or a state mark.
+- Theme every scrollable area, using both `scrollbar-color` and WebKit scrollbar styles. Keep the thumb distinct from the track.
+- In unlock requirements, use `rankUnlockText` and the canonical rank colour for the rank name and division. Leave the surrounding text neutral.
+- Use complementary and semantic colours instead of repeating the accent on every item. For example, use warm orange and red for streak days.
+- Use consistent borders and give text and numbers breathing room inside cards and rows. Align actions with the card content edges.
+- On the main menu, draw ambient falling/spinning blocks only with the Plain background. Theme image wallpaper has no ambient block layer.
+- Check the real screen at 1280×800 and 390×844 in `?dev&demo` (see `docs/QA-SCREENS.md`) and verify accents and legibility across themes.

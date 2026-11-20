@@ -82,7 +82,7 @@
         dialog.innerHTML = `<div class="lb-color-content">
             <header class="lb-color-header">
                 <h2 id="${id}-title">${title}</h2>
-                <button type="button" class="lb-btn lb-btn--ghost lb-btn--icon" aria-label="Close">×</button>
+                <button type="button" class="lb-btn--icon lb-block-btn lb-block-btn--icon" aria-label="Close">×</button>
             </header>
             ${pieces ? `<div class="lb-color-piece-header">
                 <span class="lb-color-label"></span>
@@ -106,8 +106,8 @@
                 <p id="${id}-hex-error" class="lb-color-error" role="status" hidden>Enter a colour as #rrggbb.</p>
             </div>
             ${pieces ? `<div class="lb-color-actions">
-                <button type="button" class="lb-btn lb-btn--ghost lb-color-random">Random</button>
-                <button type="button" class="lb-btn lb-btn--ghost lb-color-all">Apply to all pieces</button>
+                <button type="button" class="lb-block-btn lb-color-random">Random</button>
+                <button type="button" class="lb-block-btn lb-color-all">Apply to all pieces</button>
             </div>` : ''}
             <div class="lb-color-presets">
                 <p id="${id}-recent" class="lb-color-label">Recent colours</p>
@@ -115,7 +115,7 @@
                 <p id="${id}-presets" class="lb-color-label">Curated colours</p>
                 <div class="lb-color-swatches" role="group" aria-labelledby="${id}-presets">${swatches(presets)}</div>
             </div>
-            <button type="button" class="lb-btn lb-btn--primary lb-color-apply">${pieces ? 'Apply palette' : 'Apply colour'}</button>
+            <button type="button" class="lb-block-btn lb-block-btn--primary lb-color-apply">${pieces ? 'Apply palette' : 'Apply colour'}</button>
         </div>`;
 
         const find = selector => dialog.querySelector(selector);

@@ -19,18 +19,19 @@ it('keeps locked modifiers off and unlocks each at its previous rank', async () 
     setXP(9_999);
     game.w.openModeSelect();
     expect(mode('fun').disabled).toBe(true);
-    expect(mode('fun').textContent).toContain('Silver I');
+    expect(mode('fun').querySelector('.lb-rank-unlock-name').textContent).toBe('Silver I');
     mode('fun').click();
     expect(mode('normal').getAttribute('aria-pressed')).toBe('true');
 
     const locks = [
-        ['optMirror', 'Silver I'], ['optGhost', 'Silver I'], ['optHold', 'Gold I'],
-        ['optNoNext', 'Emerald I'], ['opt3Next', 'Emerald I']
+        ['optMirror', 'Silver I', '#c8d8e8'], ['optGhost', 'Silver I', '#c8d8e8'],
+        ['optHold', 'Gold I', '#ffd700'], ['optNoNext', 'Emerald I', '#50c878'], ['opt3Next', 'Emerald I', '#50c878']
     ];
-    for (const [key, rank] of locks) {
+    for (const [key, rank, colour] of locks) {
         const row = modifier(key);
         expect(row.disabled).toBe(true);
         expect(row.textContent).toContain(`Unlocks at ${rank}`);
+        expect(row.querySelector('.lb-rank-unlock-name').style.getPropertyValue('--rank-unlock-color')).toBe(colour);
         expect(row.querySelector('use').getAttribute('href')).toBe('#play-icon-lock');
         row.click();
         expect(savedSettings()[key]).toBe(false);

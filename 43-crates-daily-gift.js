@@ -89,7 +89,7 @@
         return button;
     }
 
-    function rewardGrid(rewards) {
+    function rewardGrid(rewards, formatDescription) {
         const grid = element('div', 'lb-reward-grid lb64-rewards');
         const groups = new Map();
         for (const reward of rewards) {
@@ -111,7 +111,11 @@
             amount.setAttribute('aria-label', `Quantity: ${quantity}`);
             card.append(image, element('strong', 'lb64-reward-name', reward.label), amount);
             if (reward.tag) card.append(element('span', 'lb64-reward-tag', reward.tag));
-            if (reward.desc) card.append(element('small', 'lb64-reward-desc', reward.desc));
+            if (reward.desc) {
+                const description = element('small', 'lb64-reward-desc', reward.desc);
+                if (formatDescription) description.innerHTML = formatDescription(reward.desc);
+                card.append(description);
+            }
             card.append(element('span', 'lb-reward-rarity', reward.rarity));
             grid.append(card);
         }

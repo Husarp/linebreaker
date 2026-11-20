@@ -35,6 +35,7 @@
     <link rel="stylesheet" href="69-play.css">
     <link rel="stylesheet" href="68-inventory.css">
     <link rel="stylesheet" href="73-qa-fixes.css">
+    <link rel="stylesheet" href="80-global.css">
 </head>
 <body>
 
@@ -74,8 +75,8 @@
     <div class="modal-box" style="max-width: 420px;">
         <div class="modal-title" id="file-setup-title">SAVE FILE</div>
         <div class="modal-text" id="file-setup-text"></div>
-        <button class="btn-secondary" id="btn-open-save" style="width:100%; margin-bottom:10px;"></button>
-        <button class="btn-secondary" id="btn-new-save" style="width:100%;"></button>
+        <button class="lb-block-btn lb-block-btn--primary" id="btn-open-save" style="width:100%; margin-bottom:10px;"></button>
+        <button class="lb-block-btn" id="btn-new-save" style="width:100%;"></button>
     </div>
 </div>
 
@@ -386,7 +387,7 @@
             <div id="mq-countdown"></div>
         </div>
     </div>
-    <div class="sp-entry-bar"><button type="button" id="sp-entry" class="sp-button" aria-haspopup="dialog" aria-controls="season-pass-overlay">Season Pass</button></div>
+    <div class="sp-entry-bar"><button type="button" id="sp-entry" class="sp-button lb-block-btn" aria-haspopup="dialog" aria-controls="season-pass-overlay">Season Pass</button></div>
     <!-- Body: full-width missions + right sidebar -->
     <div style="display:flex;flex:1;overflow:hidden;min-height:0;">
         <div style="flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:14px 18px 20px;">
@@ -702,16 +703,21 @@
 </div>
 
 <!-- TRANSFER SAVE MENU -->
-<div id="transfer-overlay" class="lb-r3 overlay hidden" style="z-index: 1020;">
-    <div class="transfer-box">
-        <h2 style="color: var(--primary); margin-bottom: 15px; font-family: 'Press Start 2P'; font-size:0.72rem;">SAVE TRANSFER</h2>
-        <p style="font-size: 0.75rem; color: #ccc; margin-bottom: 14px; line-height: 1.5;">Export your progress to a <b>.lbsave</b> file and keep it as a backup. Import it on any device — your progress will <b style="color:var(--primary);">not</b> be wiped on export.</p>
-        <button class="btn-secondary" style="width: 100%; margin-bottom:8px;" onclick="window.startExportProcess()">⬇ EXPORT SAVE FILE</button>
-        <div class="transfer-divider"></div>
-        <p style="font-size: 0.75rem; color: #ccc; margin-bottom: 10px;">To IMPORT, select a <b>.lbsave</b> or legacy save file. This will overwrite current progress.</p>
-        <input type="file" id="file-import-input" accept=".lbsave,.tetris" style="display: none;" onchange="window.handleFileImport(event)">
-        <button class="btn-secondary" style="background: rgba(0, 255, 255, 0.1); width: 100%; border-color: rgba(0,255,255,0.3);" onclick="document.getElementById('file-import-input').click()">📁 IMPORT SAVE FILE</button>
-        <button class="btn-secondary" style="margin-top: 25px; border: none; font-size:0.9rem;" onclick="window.closeTransferMenu()">BACK TO MENU</button>
+<div id="transfer-overlay" class="overlay hidden">
+    <div class="lb-block-dialog lb80-transfer" role="dialog" aria-modal="true" aria-labelledby="transfer-title">
+        <header class="lb-block-panel-head"><h2 id="transfer-title">Save Transfer</h2></header>
+        <section class="lb-block-card lb80-transfer-action" aria-labelledby="transfer-export-title">
+            <h3 id="transfer-export-title" class="lb-block-section-title">Export a backup</h3>
+            <p>Keep a <strong>.lbsave</strong> backup or move it to another device. Exporting keeps your progress intact.</p>
+            <button type="button" class="lb-block-btn lb-block-btn--primary" onclick="window.startExportProcess()"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5"/></svg>Export save file</button>
+        </section>
+        <section class="lb-block-card lb80-transfer-action" aria-labelledby="transfer-import-title">
+            <h3 id="transfer-import-title" class="lb-block-section-title">Restore from a file</h3>
+            <p>Select a <strong>.lbsave</strong> or legacy <strong>.tetris</strong> file. <strong class="lb80-transfer-warning">Importing replaces your current progress.</strong></p>
+            <input type="file" id="file-import-input" accept=".lbsave,.tetris" hidden onchange="window.handleFileImport(event)">
+            <button type="button" class="lb-block-btn" onclick="document.getElementById('file-import-input').click()"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4m-4 4 4-4 4 4M5 16v5h14v-5"/></svg>Import save file</button>
+        </section>
+        <button type="button" class="lb-block-btn" onclick="window.closeTransferMenu()">Back to menu</button>
     </div>
 </div>
 
@@ -745,7 +751,7 @@
                     <svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-fun"/></svg>
                     <strong id="play-fun-name">Fun</strong>
                     <span id="play-fun-desc" class="lb69-mode-detail" hidden>Sandbox: custom board and speed. No ranking, XP, or achievements.</span>
-                    <span id="play-fun-lock" class="lb69-mode-detail lb69-lock"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-lock"/></svg> Locked · Silver I</span>
+                    <span id="play-fun-lock" class="lb69-mode-detail lb69-lock"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-lock"/></svg> <span id="play-fun-rank"></span></span>
                 </button>
             </div>
             <div class="lb69-actions">
@@ -960,64 +966,36 @@
 </div>
 
 <!-- CREDITS OVERLAY -->
-<div id="credits-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index:1010; align-items:flex-start;">
-    <div style="max-width:520px;width:100%;margin:0 auto;padding:24px 16px 48px;box-sizing:border-box;">
-        <!-- Header -->
-        <div class="lb-block-topbar" style="display:flex;align-items:center;gap:10px;margin-bottom:28px;position:sticky;top:0;padding:12px 0;z-index:1;">
-            <button class="btn-back" onclick="window.closeCredits()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
-            <span style="font-size:0.85rem;font-weight:700;letter-spacing:2px;color:#00ffff;">CREDITS &amp; ABOUT</span>
+<div id="credits-overlay" class="overlay hidden lb-fullscreen" aria-labelledby="credits-title">
+    <div class="lb80-credits">
+        <header class="lb-block-topbar">
+            <button type="button" class="btn-back lb-block-back" onclick="window.closeCredits()"><svg aria-hidden="true" viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>Back</button>
+            <h1 id="credits-title">Credits &amp; About</h1>
+        </header>
+        <div class="lb-block-panel lb80-credits-edition">
+            <strong>LINEBREAKER</strong>
+            <span>RPG Edition</span>
+            <span class="lb80-credits-version">Version 1.26.0</span>
         </div>
-
-        <!-- Game title block -->
-        <div style="text-align:center;margin-bottom:32px;">
-            <div style="font-size:2rem;font-weight:900;letter-spacing:6px;color:#00ffff;text-shadow:0 0 24px rgba(0,255,255,0.5);">LINEBREAKER</div>
-            <div style="font-size:0.65rem;letter-spacing:3px;color:#aaa;margin-top:4px;">RPG EDITION</div>
-            <div style="font-size:0.7rem;color:#555;margin-top:8px;letter-spacing:1px;">VERSION 1.26.0</div>
-        </div>
-
-        <!-- Created by -->
-        <div style="background:rgba(0,255,255,0.04);border:1px solid rgba(0,255,255,0.12);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
-            <div style="font-size:0.6rem;letter-spacing:2px;color:#00ffff;margin-bottom:10px;opacity:0.8;">CREATED BY</div>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="width:6px;height:6px;border-radius:50%;background:#00ffff;flex-shrink:0;"></div>
-                    <span style="font-size:0.85rem;font-weight:700;color:#fff;">BobroMajster</span>
-                    <span style="font-size:0.65rem;color:#888;margin-left:auto;">Lead Developer</span>
-                </div>
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="width:6px;height:6px;border-radius:50%;background:#88aaff;flex-shrink:0;"></div>
-                    <span style="font-size:0.85rem;font-weight:700;color:#ccc;">Punciak</span>
-                    <span style="font-size:0.65rem;color:#888;margin-left:auto;">Playtester</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- AI Assistance -->
-        <div style="background:rgba(0,255,255,0.04);border:1px solid rgba(0,255,255,0.12);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
-            <div style="font-size:0.6rem;letter-spacing:2px;color:#00ffff;margin-bottom:10px;opacity:0.8;">AI ASSISTANCE</div>
-            <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;text-align:left;">
-                <div style="display:flex;align-items:flex-start;gap:10px;">
-                    <div style="width:6px;height:6px;border-radius:50%;background:#aaffaa;flex-shrink:0;margin-top:6px;"></div>
-                    <div style="text-align:left;"><div style="font-size:0.8rem;color:#ddd;">Gemini</div><div style="font-size:0.65rem;color:#666;margin-top:2px;">Basic code and structure (early stage)</div></div>
-                </div>
-                <div style="display:flex;align-items:flex-start;gap:10px;">
-                    <div style="width:6px;height:6px;border-radius:50%;background:#ffcc88;flex-shrink:0;margin-top:6px;"></div>
-                    <div style="text-align:left;"><div style="font-size:0.8rem;color:#ddd;">Claude</div><div style="font-size:0.65rem;color:#666;margin-top:2px;">All development after initial setup</div></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Dev commentary -->
-        <div style="background:rgba(255,200,0,0.04);border:1px solid rgba(255,200,0,0.12);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
-            <div style="font-size:0.6rem;letter-spacing:2px;color:#ffcc00;margin-bottom:8px;opacity:0.8;">DEV COMMENTARY</div>
-            <div style="font-size:0.78rem;color:#aaa;font-style:italic;line-height:1.6;">Dev commentary will be here in the future</div>
-        </div>
-
-        <!-- Disclaimer -->
-        <div style="text-align:center;font-size:0.62rem;color:#444;line-height:1.6;margin-top:24px;">
-            This is a fan-made project created for fun.<br>
-            All music belongs to their respective artists.
-        </div>
+        <section class="lb-block-card lb80-credits-card" aria-labelledby="credits-team">
+            <h2 class="lb-block-section-title" id="credits-team">Created by</h2>
+            <dl>
+                <div><dt>BobroMajster</dt><dd>Lead Developer</dd></div>
+                <div><dt>Punciak</dt><dd>Playtester</dd></div>
+            </dl>
+        </section>
+        <section class="lb-block-card lb80-credits-card" aria-labelledby="credits-ai">
+            <h2 class="lb-block-section-title" id="credits-ai">AI Assistance</h2>
+            <dl>
+                <div><dt>Gemini</dt><dd>Basic code and structure (early stage)</dd></div>
+                <div><dt>Claude</dt><dd>All development after initial setup</dd></div>
+            </dl>
+        </section>
+        <section class="lb-block-card lb80-credits-card lb80-credits-commentary" aria-labelledby="credits-commentary">
+            <h2 class="lb-block-section-title" id="credits-commentary">Dev Commentary</h2>
+            <p>Dev commentary will be here in the future.</p>
+        </section>
+        <footer>This is a fan-made project created for fun.<br>All music belongs to their respective artists.</footer>
     </div>
 </div>
 
