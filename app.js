@@ -4453,6 +4453,9 @@
         window._settingsFromPause = _pauseVisible;
         if (!_pauseVisible) document.getElementById('menu-overlay').classList.add('hidden');
         const _settEl = document.getElementById('settings-overlay');
+        const settingsBack = document.getElementById('settings-back');
+        settingsBack.querySelector('use').setAttribute('href', _pauseVisible ? '#lb-topbar-parent' : '#lb-topbar-home');
+        settingsBack.querySelector('span').textContent = _pauseVisible ? 'Back' : 'Menu';
         _settEl.classList.remove('hidden');
         _animateIn(_settEl, 'anim-in-right');
     }

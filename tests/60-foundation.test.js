@@ -1,6 +1,24 @@
 import { afterEach, expect, it } from 'vitest';
 import { loadGame } from './loader.js';
 
+it('labels the Settings breadcrumb for its actual return destination', async () => {
+  const game = await loadGame();
+  try {
+    const { w } = game;
+    const back = w.document.getElementById('settings-back');
+    w.openSettings();
+    expect(back.textContent.trim()).toBe('Menu');
+    expect(back.querySelector('use').getAttribute('href')).toBe('#lb-topbar-home');
+
+    w.document.getElementById('pause-overlay').classList.remove('hidden');
+    w.openSettings();
+    expect(back.textContent.trim()).toBe('Back');
+    expect(back.querySelector('use').getAttribute('href')).toBe('#lb-topbar-parent');
+  } finally {
+    game.close();
+  }
+});
+
 let game;
 afterEach(() => game?.close());
 
