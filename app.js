@@ -4813,6 +4813,11 @@
             cal:   `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px;opacity:0.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
         };
     }
+    function _statsCrown(rank, describePlace = false) {
+        if (!Number.isInteger(rank) || rank < 1 || rank > 3) return '';
+        return `<img class="lb-place-crown" src="assets/ui/crowns/${rank}.png" alt="${describePlace ? `#${rank}` : ''}">`;
+    }
+
     function drawPinnedScores() {
         const container = document.getElementById('pinned-list');
         if (!container) return;
@@ -4828,7 +4833,11 @@
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
             const noteHtml = e.note ? `<span class="lb-stats-meta">${escapeHtml(e.note)}</span>` : '';
-            div.innerHTML = `<span class="lb-pin-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock, true))}</span>`;
+            const matchesPin = entry => ['score', 'lines', 'blocks', 'time', 'maxSpeed', 'xp'].every(key => (entry[key] ?? null) === (e[key] ?? null));
+            const rankIndex = saveData.leaderboard.slice(0, 3).findIndex(matchesPin);
+            const crown = rankIndex !== -1 && saveData.leaderboard.findLastIndex(matchesPin) === rankIndex ? _statsCrown(rankIndex + 1, true) : '';
+            const pinIcon = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>';
+            div.innerHTML = `<span class="lb-pin-icon">${crown || pinIcon}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock, true))}</span>`;
             div.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 _showScorePinPopup(ev, '📌 Unpin', () => unpinScore(realIdx));
@@ -4840,7 +4849,6 @@
         const podium = document.createElement('div');
         podium.className = 'lb-stats-podium';
         const medals = ['Gold', 'Silver', 'Bronze'];
-        const originalMedals = ['🥇', '🥈', '🥉'];
         for (const rank of [2, 1, 3]) {
             const entry = entries[rank - 1];
             if (!entry) continue;
@@ -4849,8 +4857,7 @@
             const place = document.createElement(onPlace ? 'button' : 'div');
             place.className = 'lb-stats-podium-place';
             place.dataset.place = rank;
-            const rankLabel = onPlace ? `<span class="lb-stats-podium-medal" aria-hidden="true">${originalMedals[rank - 1]}</span>` : `<span class="lb-stats-place-rank">#${rank} ${medal}</span>`;
-            place.innerHTML = `<span class="lb-stats-podium-score">${escapeHtml(score)} <span class="lb-pts">pts</span></span><span class="lb-stats-podium-step">${rankLabel}</span>`;
+            place.innerHTML = `<span class="lb-stats-podium-score">${escapeHtml(score)} <span class="lb-pts">pts</span></span><span class="lb-stats-podium-step">${_statsCrown(rank, !onPlace)}</span>`;
             if (onPlace) {
                 place.type = 'button';
                 place.classList.add('lb-block-btn');
@@ -4883,7 +4890,8 @@
             const details = e.lines != null
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}spd ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
-            div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(isCur ? '⭐ CURRENT' : LBSave.displayDate(e.date))}</span>`;
+            const rank = i + 1;
+            div.innerHTML = `<span class="lb-rank">${_statsCrown(rank, true) || `#${rank}`}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(isCur ? '⭐ CURRENT' : LBSave.displayDate(e.date))}</span>`;
             container.appendChild(div);
         });
     }
