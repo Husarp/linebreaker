@@ -120,6 +120,9 @@ it('opens the documented screenshot targets through real UI handlers', async () 
     const element = w.document.querySelector(selector);
     expect(element, name).not.toBeNull();
     expect(element.closest('.hidden, [hidden]'), name).toBeNull();
+    if (name === 'season-pass') {
+      expect(element.closest('#missions-overlay')?.querySelector('[data-tab="season"]').getAttribute('aria-pressed')).toBe('true');
+    }
   }
   await expect(w.__LB_QA.open('typo')).rejects.toThrow('Unknown QA screen');
 }, 15_000);

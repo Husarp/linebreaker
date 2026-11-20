@@ -1,0 +1,61 @@
+.mq89-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 20;
+    padding: 12px max(18px, env(safe-area-inset-right)) 12px max(18px, env(safe-area-inset-left));
+}
+
+.mq89-header > .btn-back { justify-self: start; }
+.mq89-header #mq-countdown { justify-self: end; }
+.mq89-tabs { display: flex; gap: 6px; align-items: center; }
+.mq89-tabs [data-tab] {
+    min-width: 0;
+    padding-inline: clamp(8px, 2vw, 18px) !important;
+    font-family: var(--ui-font) !important;
+    font-size: .65rem !important;
+}
+.mq89-tabs [aria-pressed="true"] {
+    --bb-button-edge: var(--accent);
+    --bb-button-face: color-mix(in srgb, var(--accent) 19%, var(--bb-face));
+    --bb-button-hover: color-mix(in srgb, var(--accent) 24%, var(--bb-hover));
+    --bb-button-ink: var(--accent-bright);
+}
+.mq89-tabs .mq-v4-rules {
+    position: static;
+    transform: none;
+    width: var(--target);
+    height: var(--target);
+    flex: none;
+    box-shadow: none;
+}
+
+#missions-overlay :is(#mq-mission-view, #season-pass-overlay)[hidden] { display: none; }
+#season-pass-overlay {
+    flex: 1;
+    min-height: 0;
+    background: var(--bb-page);
+}
+#season-pass-overlay :is(.sp-header, .sp-points, .sp-highlight, .sp-card) {
+    border-color: var(--bb-edge);
+    background-color: var(--bb-panel);
+    box-shadow: inset 0 2px #ffffff14;
+}
+#season-pass-overlay .sp-card {
+    border-top-color: var(--sp-tier);
+    border-bottom-width: var(--bb-stroke);
+}
+#season-pass-overlay .sp-card[data-state="future"] { background-color: var(--bb-well); }
+
+@media (max-width: 699px) {
+    .mq89-header { grid-template-columns: auto 1fr; }
+    .mq89-header #mq-countdown { grid-area: 1 / 2; }
+    .mq89-tabs {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    }
+}

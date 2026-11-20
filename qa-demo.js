@@ -70,7 +70,7 @@
         Object.assign(stats, { totalCompleted: 13, weeklyCompleted: 3, totalPts: 84 });
     }
 
-    function mount({ run, resetRun, season, tracksReady, alert, confirm, levelUp, levelCrate, closeLevelCrate, dailyGift }) {
+    function mount({ run, resetRun, tracksReady, alert, confirm, levelUp, levelCrate, closeLevelCrate, dailyGift }) {
         const byId = id => document.getElementById(id);
         const click = selector => document.querySelector(selector).click();
         const screens = new Map();
@@ -88,7 +88,7 @@
         const settings = window.openSettings;
         const inventory = tab => { window.openInventory(); window.inventoryTab(tab); };
         const stats = tab => { window.openStats(); click(`[data-stats-tab="${tab}"]`); };
-        const missions = tab => { window.openMissions(); window.renderMissionsOverlay(tab); };
+        const missions = tab => { window.openMissions(); return window.renderMissionsOverlay(tab); };
         const closeMissions = () => { window._mqChangeMode = false; window.closeMissions(); };
         const play = mode => { window.openModeSelect(); click(`#mode-select-overlay [data-mode="${mode}"]`); };
 
@@ -103,7 +103,7 @@
             byId('mq-confirm-overlay').firstElementChild.dispatchEvent(new Event('animationend'));
             closeMissions();
         });
-        screen('season-pass', 'missions-overlay', () => { missions('daily'); return season.open(); }, () => { season.close(); closeMissions(); });
+        screen('season-pass', 'missions-overlay', () => missions('season'), closeMissions);
         screen('achievements', 'achievements-overlay', window.openAchievements, window.closeAchievements);
         screen('playlist', 'playlist-overlay', async () => { await tracksReady(); window.openPlaylistPanel(); }, window.closePlaylistPanel);
         screen('help', 'rules-overlay', window.openHelp, window.closeHelp);

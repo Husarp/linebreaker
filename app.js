@@ -2290,7 +2290,7 @@
             _qaDemo.seedMissions(saveData.missions);
             _qaDemo.mount({
                 run: startQARun, resetRun: resetQARun, alert: customAlert, confirm: customConfirm,
-                season: _seasonScreen, tracksReady: _initTrackCatalog,
+                tracksReady: _initTrackCatalog,
                 levelUp: () => _showLevelUpRewardPopup(getLevelInfo(saveData.totalXP).level, _generateLevelBoxRewards()),
                 levelCrate() {
                     const { level, rank } = getLevelInfo(saveData.totalXP);
@@ -10044,6 +10044,17 @@
         el._mTab = tab;
         const _isTabSwitch = !!_prevTab && _prevTab !== tab;
 
+        const isSeason = tab === 'season';
+        el.querySelector('#mq-mission-view').hidden = isSeason;
+        el.querySelector('#mq-countdown').hidden = isSeason;
+        el.querySelectorAll('[data-tab]').forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.tab === tab));
+            button.disabled = !!window._mqChangeMode;
+        });
+        if (_isTabSwitch && (isSeason || _prevTab === 'season')) el.scrollTop = 0;
+        if (isSeason) return _seasonScreen.open();
+        _seasonScreen.close();
+
         // Streak panel (below tabs)
         const dStreak = m.streaks?.daily || 0;
         const bestD = m.streaks?.bestDaily || dStreak;
@@ -10196,17 +10207,8 @@
             });
         }
         _renderMissionStatsSection();
-        el.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('mq-tab-active', b.dataset.tab === tab));
-        // Clear newVisit for current tab and update dot indicators
         if (tab === 'daily' && m.daily.newVisit) { m.daily.newVisit = false; saveDataToFile(); }
         if (tab === 'weekly' && m.weekly.newVisit) { m.weekly.newVisit = false; saveDataToFile(); }
-        el.querySelectorAll('[data-tab]').forEach(b => {
-            const isNew = b.dataset.tab === 'daily' ? !!m.daily.newVisit : !!m.weekly.newVisit;
-            b.classList.toggle('mq-tab-new', isNew);
-            // Dim tab buttons in swap mode so user knows they're locked
-            b.classList.toggle('mq-swap-disabled', !!window._mqChangeMode);
-            b.style.pointerEvents = window._mqChangeMode ? 'none' : '';
-        });
         // Dim BACK button in swap mode
         const backBtn = el.querySelector('.btn-back');
         if (backBtn) {
@@ -10227,6 +10229,7 @@
         const el = document.getElementById('mq-countdown');
         if (!el) return;
         const tab = document.getElementById('missions-overlay')?._mTab || 'daily';
+        if (tab === 'season') return;
         const now = new Date();
         const ms = window.LBNotifications.nextReset(now, tab !== 'daily') - now;
         if (ms <= 0) {
@@ -10279,11 +10282,15 @@
         if (window._mqChangeMode) return;
         const _mEl = document.getElementById('menu-overlay');
         _animateOut(document.getElementById('missions-overlay'), 'anim-out-right', function() {
+            _seasonScreen.close();
             if (_missionCountdownInterval) { clearInterval(_missionCountdownInterval); _missionCountdownInterval = null; }
         });
         if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
     };
     window.renderMissionsOverlay = renderMissionsOverlay;
+    document.querySelectorAll('#missions-overlay [data-tab]').forEach(button => {
+        button.addEventListener('click', () => renderMissionsOverlay(button.dataset.tab));
+    });
 
     const _seasonScreen = window.LBSeasonUI.mount({
         getSave: () => saveData,
