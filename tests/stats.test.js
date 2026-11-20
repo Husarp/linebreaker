@@ -36,6 +36,20 @@ it('opens on general stats and switches exactly four panels by click or keyboard
   expect(byId('cal-instructions')).toBeNull();
 });
 
+it('gives each raw-stat tile a decorative SVG and shares the cleared-line icon with game over', () => {
+  const icons = all('.lb-metric-grid dt svg');
+  expect(icons).toHaveLength(12);
+  const symbols = icons.map(icon => {
+    expect(icon.getAttribute('aria-hidden')).toBe('true');
+    const reference = icon.querySelector('use').getAttribute('href');
+    expect(byId(reference.slice(1))).not.toBeNull();
+    return reference;
+  });
+  expect(new Set(symbols).size).toBe(12);
+  expect(query('#stat-lines').previousElementSibling.querySelector('use').getAttribute('href'))
+    .toBe(query('#go-overlay .lb-run-icon--lines use').getAttribute('href'));
+});
+
 it('shows best counts alongside percentages of unrounded, comparable averages', () => {
   const save = game.api.save;
   Object.assign(save.stats, { gamesPlayed: 120, totalScore: 12000, maxCombo: 6 });
@@ -112,6 +126,8 @@ it('shows only highscore history without rewriting saved scores', () => {
   expect(all('#highscores-list .lb-stats-podium-place').map(place => [place.dataset.place, place.querySelector('.lb-stats-podium-score').textContent])).toEqual([
     ['2', '850 pts'], ['1', '900 pts'], ['3', '720 pts'],
   ]);
+  expect(all('#highscores-list .lb-stats-podium-step img').map(crown => crown.alt)).toEqual(['#2', '#1', '#3']);
+  expect(all('#highscores-list .lb-rank').map(rank => rank.querySelector('img')?.alt ?? rank.textContent)).toEqual(['#1', '#2', '#3', '#4']);
   expect(query('#highscores-list .lb-stats-current .lb-date').textContent).toContain('CURRENT');
   expect(game.api.save.highscoreHistory).toEqual(JSON.parse(JSON.stringify(save.highscoreHistory)));
   expect(game.api.save.leaderboard).toEqual(JSON.parse(JSON.stringify(save.leaderboard)));
@@ -127,8 +143,10 @@ it('preserves leaderboard pagination, pin and unpin actions, and the Fun mode bo
   expect(all('#lb-list .lb-stats-podium-place').map(place => place.dataset.place)).toEqual(['2', '1', '3']);
   const winner = query('#lb-list button[data-place="1"]');
   expect(winner.getAttribute('aria-label')).toBe('Rank 1, Gold: 100 points');
-  expect(all('#lb-list .lb-stats-podium-medal').map(medal => medal.textContent)).toEqual(['🥈', '🥇', '🥉']);
-  expect(all('#stats-overlay .lb-stats-podium-place img')).toHaveLength(0);
+  expect(all('#lb-list .lb-stats-podium-step img').map(crown => crown.getAttribute('src'))).toEqual([
+    'assets/ui/crowns/2.png', 'assets/ui/crowns/1.png', 'assets/ui/crowns/3.png',
+  ]);
+  expect(winner.querySelector('img').alt).toBe('');
   winner.click();
   byId('score-pin-popup').click();
   expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([100]);
@@ -143,6 +161,7 @@ it('preserves leaderboard pagination, pin and unpin actions, and the Fun mode bo
   expect(byId('fun-list').textContent).toContain('12×22');
   byId('stats-tab-pin').click();
   expect(query('#pinned-list .lb-pin-icon svg').getAttribute('width')).toBe('20');
+  expect(query('#pinned-list .lb-pin-icon img').alt).toBe('#1');
   for (const icon of ['lines', 'speed']) {
     const reference = query(`#go-overlay .lb-run-icon--${icon} use`).getAttribute('href');
     expect(query(`#pinned-list .lb-run-icon--${icon} use`).getAttribute('href')).toBe(reference);
@@ -151,4 +170,16 @@ it('preserves leaderboard pagination, pin and unpin actions, and the Fun mode bo
   query('#pinned-list .lb-row').click();
   byId('score-pin-popup').click();
   expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([100]);
+});
+
+it('keeps the neutral pin icon for tied or unmatched runs instead of guessing a place', () => {
+  const save = game.api.save;
+  const first = score(900, 5, 800);
+  const second = score(800, 4, 600);
+  save.leaderboard = [first, second, { ...second }];
+  save.pinnedScores = [first, second, { ...first, time: first.time + 1 }];
+  game.api.setSave(save);
+  game.w.openStats();
+  byId('stats-tab-pin').click();
+  expect(all('#pinned-list .lb-pin-icon').map(pin => pin.querySelector('img')?.alt ?? 'pin')).toEqual(['pin', 'pin', '#1']);
 });

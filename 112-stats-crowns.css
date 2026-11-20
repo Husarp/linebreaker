@@ -1,0 +1,97 @@
+#go-overlay .go-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.24fr;
+    gap: 5px;
+}
+
+#go-overlay .go-actions:has(.result-pin[hidden]) { grid-template-columns: repeat(2, 1fr); }
+#go-overlay .result-retry { --action-tint: var(--accent); }
+#go-overlay .result-menu { --action-tint: var(--bb-rarity-epic); }
+#go-overlay .result-pin { --action-tint: var(--bb-rarity-legendary); }
+
+#go-overlay .go-actions > .lb-block-btn {
+    min-width: 0;
+    white-space: nowrap;
+    --bb-button-face: color-mix(in srgb, var(--action-tint) 30%, var(--bb-face));
+    --bb-button-edge: color-mix(in srgb, var(--action-tint) 65%, var(--bb-edge));
+    --bb-button-hover: color-mix(in srgb, var(--action-tint) 38%, var(--bb-hover));
+    --bb-button-pressed: color-mix(in srgb, var(--action-tint) 23%, var(--bb-pressed));
+}
+
+#go-overlay .go-actions .go-icon {
+    width: 15px;
+    height: 15px;
+    color: color-mix(in srgb, var(--action-tint) 78%, white);
+}
+
+#stats-overlay .lb-metric-grid { gap: 6px; }
+#stats-overlay .lb-metric-grid > div {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 73px;
+    padding: 8px 9px;
+    border-color: var(--bb-edge);
+    border-radius: 4px;
+    background: var(--bb-well);
+}
+
+#stats-overlay .lb-metric-grid dt {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 20px;
+    font: 600 .75rem/1.2 var(--font-body);
+}
+
+#stats-overlay .lb-metric-grid dd:not(.lb-stats-comparison) {
+    margin-top: 4px;
+    font: 650 1rem/1.2 var(--font-display);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+#stats-overlay .lb-metric-grid .lb-stats-comparison { font: 550 .67rem/1.2 var(--font-body); }
+
+#stats-overlay .lb-metric-icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+#stats-overlay .lb-metric-score .lb-metric-icon { color: var(--accent-bright); }
+#stats-overlay .lb-metric-progress .lb-metric-icon { color: var(--bb-rarity-legendary); }
+#stats-overlay .lb-metric-activity .lb-metric-icon { color: var(--bb-rarity-epic); }
+#stats-overlay .lb-metric-field .lb-metric-icon { color: #91e5a9; }
+#stats-overlay .lb-metric-streak .lb-metric-icon { color: #ffa369; }
+
+.lb-place-crown {
+    display: block;
+    inline-size: 24px;
+    block-size: 20px;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+
+#stats-overlay .lb-stats-podium-step .lb-place-crown {
+    inline-size: 36px;
+    block-size: 28px;
+}
+
+#stats-overlay #highscores-list .lb-rank:has(.lb-place-crown) {
+    justify-content: center;
+    background: transparent;
+}
+
+@media (max-width: 790px) {
+    #go-overlay .go-actions > .lb-block-btn { gap: 4px; padding-inline: 6px !important; }
+}
+
+@media (max-width: 599px) {
+    #stats-overlay .lb-metric-grid > div { padding-inline: 8px; }
+    #stats-overlay .lb-metric-grid dt { gap: 5px; font-size: .68rem; }
+}
