@@ -1,0 +1,29 @@
+.lb-help-topic > .lb-block-panel-head {
+    padding-inline: var(--space-3);
+    box-shadow: inset 0 1px #ffffff20;
+    font: 650 var(--text-body)/1.4 var(--font-body);
+}
+
+.lb-help-content .lb-help-topic > .lb-block-panel-head:focus-visible {
+    outline-offset: -3px;
+    outline-width: 1px;
+    outline-color: var(--bb-muted);
+}
+
+.lb-help-content .lb-help-pieces li {
+    gap: var(--space-1);
+    border: 0;
+    background: transparent;
+    color: var(--bb-ink);
+    font-weight: 650;
+}
+
+.lb-help-pieces svg { height: auto; }
+
+.lb-help-pieces path {
+    fill: none;
+    stroke-width: 1;
+}
+
+.lb-help-piece-highlight { stroke: #ffffff70; }
+.lb-help-piece-shadow { stroke: #0005; }

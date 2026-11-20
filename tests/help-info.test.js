@@ -60,6 +60,8 @@ it('organizes each chapter into headed blocks and illustrates pieces and scores'
 
   expect(help.querySelector('#help-title svg[aria-hidden="true"]')).not.toBeNull();
   for (const topic of help.querySelectorAll('[data-help-topic]')) {
+    expect(topic.querySelector(':scope > h2.lb-block-panel-head.lb-block-section-title')?.id)
+      .toBe(topic.getAttribute('aria-labelledby'));
     expect(topic.querySelectorAll('.lb-help-block > h3').length).toBeGreaterThanOrEqual(2);
   }
   const pieces = Array.from(help.querySelectorAll('.lb-help-pieces li'));
