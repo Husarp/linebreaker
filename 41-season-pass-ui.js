@@ -7,21 +7,10 @@
     const points = new Intl.NumberFormat();
 
     function mount({ getSave, save, partName, boosterName, inventory, grant }) {
-        const entry = document.getElementById('sp-entry');
-        const missions = document.getElementById('missions-overlay');
-        const menu = document.getElementById('menu-overlay');
-        const screen = document.createElement('section');
-        screen.id = 'season-pass-overlay';
-        screen.className = 'sp-pass hidden';
-        screen.setAttribute('role', 'dialog');
-        screen.setAttribute('aria-modal', 'true');
-        screen.setAttribute('aria-labelledby', 'sp-title');
+        const screen = document.getElementById('season-pass-overlay');
         screen.innerHTML = `
             <div class="sp-shell">
                 <header class="sp-header">
-                    <button type="button" class="sp-button sp-back btn-back lb-block-back" aria-label="Back to missions" title="Back to missions">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
-                    </button>
                     <div><span id="sp-season"></span><h1 id="sp-title">Season Pass</h1></div>
                     <div class="sp-days"><strong id="sp-days"></strong><span id="sp-dates"></span></div>
                 </header>
@@ -40,24 +29,21 @@
                 <aside class="sp-highlight">
                     <img src="assets/ui/41-season-pass-exclusive.webp" alt="" width="144" height="106">
                     <div><h2>Season reward highlight</h2><p>Day 30 features the exclusive Season Prism block skin.</p></div>
-                    <button type="button" class="sp-button sp-missions lb-block-btn">Back to missions</button>
                 </aside>
                 <p id="sp-announcement" class="sp-sr-only" role="status"></p>
             </div>`;
-        document.body.appendChild(screen);
         const find = selector => screen.querySelector(selector);
         const track = find('.sp-track');
         const cards = find('ol');
         const today = find('.sp-today');
-        const back = find('.sp-back');
         const retry = find('.sp-retry');
         const countdown = find('#sp-days');
         const notice = find('#sp-notice');
         const loading = find('#sp-loading');
         const announcement = find('#sp-announcement');
         let config, configRequest, timer, previous, centerOnRender, saveCheckpoint;
-        let inertTargets = [];
-        const isOpen = () => !screen.classList.contains('hidden');
+        const isOpen = () => !screen.hidden;
+        const verticalTrack = () => window.matchMedia?.('(orientation: portrait)')?.matches;
 
         function rewardLabel(reward) {
             const { type, key, amount, tier, contents } = reward;
@@ -72,8 +58,8 @@
             const card = cards.querySelector('[aria-current="date"]');
             if (!card) return;
             const rect = card.getBoundingClientRect();
-            if (window.matchMedia?.('(orientation: portrait)')?.matches) {
-                screen.scrollTop += rect.top + (rect.height - screen.clientHeight) / 2;
+            if (verticalTrack()) {
+                screen.scrollTop += rect.top - screen.getBoundingClientRect().top + (rect.height - screen.clientHeight) / 2;
             } else {
                 const area = track.getBoundingClientRect();
                 track.scrollLeft += rect.left - area.left + (rect.width - area.width) / 2;
@@ -140,7 +126,7 @@
             if (focused) (find(`[data-sp-day="${focused}"]`) || track).focus({ preventScroll: true });
             if (centerOnRender) {
                 centerOnRender = false;
-                centerToday();
+                if (!verticalTrack()) centerToday();
             }
         }
 
@@ -178,45 +164,29 @@
         }
 
         function close() {
+            if (!isOpen()) return;
             clearInterval(timer);
             refresh(true);
-            screen.classList.add('hidden');
-            inertTargets.forEach(element => element.removeAttribute('inert'));
-            entry.focus({ preventScroll: true });
+            screen.hidden = true;
         }
 
         function open() {
             if (isOpen()) return;
-            inertTargets = [missions, menu].filter(element => !element.hasAttribute('inert'));
-            inertTargets.forEach(element => element.setAttribute('inert', ''));
-            screen.classList.remove('hidden');
+            screen.hidden = false;
             screen.scrollTop = 0;
             centerOnRender = true;
             previous = null;
             announcement.textContent = '';
-            back.focus({ preventScroll: true });
             refresh(true);
             timer = setInterval(refresh, 1000);
             return loadConfig();
         }
-        entry.addEventListener('click', open);
-        back.addEventListener('click', close);
-        find('.sp-missions').addEventListener('click', close);
         retry.addEventListener('click', loadConfig);
         today.addEventListener('click', () => {
             refresh();
             centerToday();
         });
         window.addEventListener('focus', () => { if (isOpen()) refresh(); });
-        screen.addEventListener('keydown', event => {
-            if (event.key !== 'Tab') return;
-            const focusable = [...screen.querySelectorAll('button:not([hidden]), .sp-track:not([hidden])')];
-            const end = focusable.at(event.shiftKey ? 0 : -1);
-            if (document.activeElement === end) {
-                event.preventDefault();
-                focusable.at(event.shiftKey ? -1 : 0).focus();
-            }
-        });
         track.addEventListener('click', event => {
             const button = event.target.closest('[data-sp-day]');
             if (!button || !isOpen() || !config) return;

@@ -105,8 +105,8 @@ it('shows the full streak count and a new week of dots, with a separate bonus ca
   const dialog = document.querySelector('#daily-gift-overlay');
   const streak = dialog.querySelector('.lb64-streak');
   expect(streak.getAttribute('aria-label')).toBe('8-day gift streak, day 1 of 7 this cycle');
-  expect(streak.textContent).toBe('8');
-  expect(streak.querySelector('svg')).not.toBeNull();
+  expect(streak.querySelector('.lb64-streak-count').textContent).toBe('🔥8');
+  expect(streak.querySelector('.lb84-streak-flame').getAttribute('aria-hidden')).toBe('true');
   expect(streak.querySelectorAll('.lb64-streak-dots > span')).toHaveLength(7);
   expect(streak.querySelector('.lb64-streak-dots > :first-child').className).toBe('lb64-streak-today');
   dialog.querySelector('button').click();

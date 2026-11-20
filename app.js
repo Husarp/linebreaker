@@ -1107,12 +1107,16 @@
 
     function _colorPickerButton(id, label, swatch, active, handler) {
         return _colorInventoryCard({ label, owned: true, equipped: active,
-            preview: `<button type="button" id="${id}" class="lb-block-btn lb-colors-launch" aria-label="Edit ${label}" onclick="window.${handler}()">
+            preview: `<button type="button" id="${id}" class="lb-block-btn lb-block-btn--primary lb-colors-launch" aria-label="Edit ${label}" onclick="window.${handler}()">
                 <span class="lb-color-launch-mark" aria-hidden="true" style="--swatch:${swatch}"></span><span>Edit</span>
             </button>` });
     }
 
-    const _PIECE_LABELS = ['I','O','T','S','Z','J','L'];
+    const _PIECE_LABELS = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
+
+    function _palettePiecePreviews(colors, showLabels = false) {
+        return colors.map((color, index) => `<span class="lb83-piece" style="--piece-color:${color}">${LBColorPicker.pieceSvg(BASE_PIECES[index + 1])}${showLabels ? _PIECE_LABELS[index] : ''}</span>`).join('');
+    }
 
     // --- Render piece to image using current skin via drawGameBlock ---
     function _renderPieceToImg(pieceMatrix, colorId, cellSize) {
@@ -1204,7 +1208,7 @@
                     <input type="color" id="pe-c${i}-native" aria-label="Piece ${i + 1} native color" value="${c}" oninput="window._palEditChange(${i},this.value)">
                     <div style="background:${c}" aria-hidden="true"></div>
                 </div>
-                <input type="text" id="pe-c${i}-hex" aria-label="Piece ${i + 1} hex color" value="${c}" maxlength="7" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
+                <input type="text" id="pe-c${i}-hex" aria-label="${lbl} piece hex color" value="${c}" maxlength="7" autocomplete="off" spellcheck="false" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
                 <button class="lb-block-btn lb-block-btn--icon" onclick="window._palEditEyedrop(${i})" aria-label="Eyedropper for ${lbl}" title="Eyedropper">${_SVG_EYEDROPPER}</button>
                 <button class="lb-block-btn lb-block-btn--icon" onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
             </div>`;
@@ -1251,7 +1255,7 @@
     window._palEditRefreshPreview = function() {
         const row = document.getElementById('pe-preview-row');
         if (!row || !_palEditState) return;
-        row.innerHTML = _palEditState.colors.map((c, i) => `<span><i style="--swatch:${c}"></i>${_PIECE_LABELS[i]}</span>`).join('');
+        row.innerHTML = _palettePiecePreviews(_palEditState.colors, true);
     };
 
     window._palEditApply = function() {
@@ -1326,9 +1330,8 @@
 
     function _openCustomPaletteModal() {
         if (!_allPalettesOwned()) return;
-        const names = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
         const pieces = _customPaletteColors().map((color, index) => ({
-            name: names[index], matrix: BASE_PIECES[index + 1], color,
+            name: _PIECE_LABELS[index], matrix: BASE_PIECES[index + 1], color,
         }));
         LBColorPicker.open({
             id: 'custom-palette-modal',
@@ -2287,7 +2290,7 @@
             _qaDemo.seedMissions(saveData.missions);
             _qaDemo.mount({
                 run: startQARun, resetRun: resetQARun, alert: customAlert, confirm: customConfirm,
-                season: _seasonScreen, tracksReady: _initTrackCatalog,
+                tracksReady: _initTrackCatalog,
                 levelUp: () => _showLevelUpRewardPopup(getLevelInfo(saveData.totalXP).level, _generateLevelBoxRewards()),
                 levelCrate() {
                     const { level, rank } = getLevelInfo(saveData.totalXP);
@@ -2694,7 +2697,7 @@
         _checkGlowNotifications();
     }
     function _exchangePartsIcon() {
-        return '<img class="lb-exchange-parts-icon" src="assets/ui/62-parts.svg" alt="">';
+        return '<img class="lb-exchange-parts-icon" src="assets/ui/parts/universal-part-128.png" width="28" height="28" alt="">';
     }
     function openUseUniversalPart() {
         if ((saveData.universalParts || 0) < 1) return;
@@ -2913,6 +2916,38 @@
             <strong class="lb-exchange-item-amount" id="${amountId}">${amount}</strong>
         </div>`;
     }
+    function _exchangeQuantity(id, label, max, initial) {
+        return `<div class="lb-exchange-quantity">
+            <label for="${id}">${label}</label>
+            <div class="lb-exchange-quantity-controls">
+                <button type="button" class="lb-block-btn lb-block-btn--icon" data-quantity-step="-1" aria-label="Decrease quantity">−</button>
+                <input type="number" id="${id}" min="1" max="${max}" value="${initial}" step="1" inputmode="numeric">
+                <button type="button" class="lb-block-btn lb-block-btn--icon" data-quantity-step="1" aria-label="Increase quantity">+</button>
+            </div>
+        </div>`;
+    }
+    function _bindExchangeQuantity(dialog, updatePreview) {
+        const input = dialog.querySelector('.lb-exchange-quantity input');
+        const [decrease, increase] = dialog.querySelectorAll('[data-quantity-step]');
+        const max = Number(input.max);
+        function setQuantity(value, keepEmpty = false) {
+            const quantity = Math.max(1, Math.min(max, Math.trunc(value) || 1));
+            if (!keepEmpty || input.value !== '') {
+                if (input.valueAsNumber !== quantity) input.value = quantity;
+            }
+            decrease.disabled = quantity === 1;
+            increase.disabled = quantity === max;
+            updatePreview(quantity);
+            return quantity;
+        }
+        input.addEventListener('input', () => setQuantity(input.valueAsNumber, true));
+        input.addEventListener('blur', () => setQuantity(input.valueAsNumber));
+        [decrease, increase].forEach(button => button.addEventListener('click', () => {
+            setQuantity((input.valueAsNumber || 1) + Number(button.dataset.quantityStep));
+        }));
+        setQuantity(input.valueAsNumber);
+        return () => setQuantity(input.valueAsNumber);
+    }
     function openExchangeUniversalParts() {
         const avail = Math.floor(saveData.universalParts || 0);
         if (avail < 1) return;
@@ -2930,29 +2965,19 @@
                     <span class="lb-exchange-arrow" aria-hidden="true">→</span>
                     ${_exchangeItemCard({ name: 'Experience', art: '<img src="assets/ui/boosters/common-xp.png" alt="">', rarity: 'common', detail: 'You receive', amountId: 'uni-xch-xp', amount: `+${(avail * XP_PER_PART).toLocaleString()} XP` })}
                 </div>
-                <div class="lb-exchange-quantity">
-                    <label for="uni-xch-slider">Parts to exchange</label>
-                    <output id="uni-xch-lbl" class="lb-exchange-badge" for="uni-xch-slider">${avail}</output>
-                    <input class="lb-block-range" type="range" id="uni-xch-slider" min="1" max="${avail}" value="${avail}" step="1" ${avail === 1 ? 'disabled' : ''}>
-                </div>
+                ${_exchangeQuantity('uni-xch-quantity', 'Parts to exchange', avail, avail)}
                 <div class="lb-block-dialog-actions">
                     <button type="button" class="lb-block-btn" onclick="document.getElementById('uni-xch-overlay').remove()">Cancel</button>
                     <button type="button" class="lb-block-btn lb-block-btn--primary" id="uni-xch-confirm">Exchange</button>
                 </div>
             </div>`;
-        const slider = ov.querySelector('#uni-xch-slider');
-        slider.addEventListener('input', () => {
-            const v = parseInt(slider.value);
-            const lbl = document.getElementById('uni-xch-lbl');
-            const cnt = document.getElementById('uni-xch-count');
-            const xpEl = document.getElementById('uni-xch-xp');
-            if (lbl) lbl.textContent = v;
-            if (cnt) cnt.textContent = v + (v !== 1 ? ' parts' : ' part');
-            if (xpEl) xpEl.textContent = '+' + (v * XP_PER_PART).toLocaleString() + ' XP';
+        const getQuantity = _bindExchangeQuantity(ov, quantity => {
+            ov.querySelector('#uni-xch-count').textContent = `${quantity} ${quantity === 1 ? 'part' : 'parts'}`;
+            ov.querySelector('#uni-xch-xp').textContent = `+${(quantity * XP_PER_PART).toLocaleString()} XP`;
         });
         ov.querySelector('#uni-xch-confirm').addEventListener('click', () => {
-            const v = parseInt(slider.value);
-            if (v < 1) return;
+            const v = getQuantity();
+            if (v > Math.floor(saveData.universalParts || 0)) return;
             const xpGain = v * XP_PER_PART;
             saveData.universalParts = Math.max(0, (saveData.universalParts || 0) - v);
             _grantXP(xpGain);
@@ -3904,8 +3929,8 @@
                 const equipped = settings.theme === key;
                 const color = THEMES[key].primary;
                 return _colorInventoryCard({ key, label, owned, equipped,
-                    preview: `<button type="button" class="lb-block-btn lb-colors-theme-sample" aria-label="Copy ${label} hex ${color}" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)">
-                        <span class="lb-colors-chip" style="--swatch:${color}"></span><span aria-hidden="true">${_SVG_COPY}</span></button>`,
+                    preview: `<button type="button" class="lb-block-btn lb-colors-theme-sample" aria-label="Copy ${label} colour" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)">
+                        <span class="lb-colors-chip" aria-hidden="true" style="--swatch:${color}"></span><span aria-hidden="true">${_SVG_COPY}</span></button>`,
                     actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.applyTheme('${key}')">Equip</button>` : '',
                     unlock: `window.playerUnlockItem('theme','${key}')` });
             }).join('');
@@ -3925,7 +3950,7 @@
                 const equipped = (settings.colorPalette || 'classic') === key;
                 const colors = paletteColors(saveData.customPaletteOverrides?.[key], palette.colors);
                 return _colorInventoryCard({ key, label: palette.name, owned: !!owned, equipped,
-                    preview: `<button type="button" class="lb-block-btn lb-palette-preview" aria-label="Preview ${palette.name} palette" onclick="window._openPaletteViewModal('${key}')">${colors.map(color => `<span style="--piece-color:${color}"></span>`).join('')}</button>`,
+                    preview: `<button type="button" class="lb-block-btn lb-palette-preview" aria-label="Preview ${palette.name} palette" onclick="window._openPaletteViewModal('${key}')">${_palettePiecePreviews(colors)}</button>`,
                     actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.onSettingChange('colorPalette','${key}')">Equip</button>` : '',
                     unlock: `window.playerUnlockItem('palette','${key}')` });
             }).join('');
@@ -4051,24 +4076,17 @@
                             amountId: index === 0 ? 'exc-spend' : 'exc-receive', amount: index === 0 ? '3' : '+1' });
                     }).join('<span class="lb-exchange-arrow" aria-hidden="true">→</span>')}
                 </div>
-                <div class="lb-exchange-quantity">
-                    <label for="exc-slider">Sets to exchange</label>
-                    <output id="exc-label" class="lb-exchange-badge" for="exc-slider">1</output>
-                    <input class="lb-block-range" type="range" id="exc-slider" min="1" max="${maxSets}" value="1" step="1" ${maxSets === 1 ? 'disabled' : ''}>
-                </div>
+                ${_exchangeQuantity('exc-quantity', 'Sets to exchange', maxSets, 1)}
                 <div class="lb-block-dialog-actions">
                     <button type="button" class="lb-block-btn" onclick="window._closeModal('exc-modal-overlay')">Cancel</button>
                     <button type="button" class="lb-block-btn lb-block-btn--primary" id="exc-confirm">Exchange</button>
                 </div>
             </div>`;
-        const slider = overlay.querySelector('#exc-slider');
-        slider.addEventListener('input', () => {
-            const sets = slider.valueAsNumber;
-            overlay.querySelector('#exc-label').textContent = sets;
+        const getQuantity = _bindExchangeQuantity(overlay, sets => {
             overlay.querySelector('#exc-spend').textContent = sets * 3;
             overlay.querySelector('#exc-receive').textContent = `+${sets}`;
         });
-        overlay.querySelector('#exc-confirm').addEventListener('click', () => window._doExchange(fromKey, toKey, type));
+        overlay.querySelector('#exc-confirm').addEventListener('click', () => window._doExchange(fromKey, toKey, type, getQuantity()));
         overlay.addEventListener('click', e => { if (e.target === overlay) window._closeModal('exc-modal-overlay'); });
         document.body.appendChild(overlay);
         _animateIn(overlay.querySelector('div'), 'anim-in-down');
@@ -4134,7 +4152,7 @@
                 <h2 class="lb-block-section-title lb-help-label">Boosters <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" title="About boosters"></button></h2>
                 ${boosterHtml}
             </section>
-            <section class="lb-block-card lb-inventory-section lb-inventory-sfx">
+            <section class="lb-block-card lb-inventory-section lb82-sfx-packs">
                 <h2 class="lb-block-section-title">SFX Packs</h2>
                 ${sfxPacksHtml}
             </section>`;
@@ -4148,20 +4166,22 @@
         const packIds = new Map(_sfxPackDefs.map(pack => [pack.key, pack.packId]));
         container.querySelectorAll('.lb-inventory-item').forEach(row => {
             const packId = packIds.get(row.dataset.itemKey) || 'default';
+            if (row.dataset.equipped === 'true') {
+                const state = document.createElement('span');
+                state.className = 'lb82-sfx-state';
+                state.textContent = 'Equipped';
+                row.querySelector('.lb-inventory-state').replaceWith(state);
+            }
+            const content = document.createElement('div');
+            content.className = 'lb82-sfx-content';
+            content.append(...row.children);
             const preview = document.createElement('button');
             preview.type = 'button';
-            preview.className = 'lb-block-btn lb-inventory-sfx-preview';
+            preview.className = 'lb-block-btn lb82-sfx-preview';
             preview.textContent = 'Preview';
-            preview.setAttribute('aria-label', `Preview ${row.querySelector('.lb-inventory-name').textContent}`);
+            preview.setAttribute('aria-label', `Preview ${content.querySelector('.lb-inventory-name').textContent}`);
             preview.addEventListener('click', () => _openSfxPreviewPopup(packId, preview));
-            row.querySelector('.lb-inventory-heading').after(preview);
-            if (row.dataset.equipped === 'true') {
-                const state = row.querySelector('.lb-inventory-state');
-                const status = document.createElement('span');
-                status.className = 'lb-inventory-state';
-                status.textContent = 'Equipped';
-                state.replaceWith(status);
-            }
+            row.append(content, preview);
             row.style.cursor = 'pointer';
             row.onclick = (e) => {
                 if (!e.target.closest('button')) _openSfxPreviewPopup(packId, preview);
@@ -4829,6 +4849,31 @@
         return [...bestBySpeed].sort(([left], [right]) => left - right);
     }
 
+    function _statsPodium(entries, onPlace) {
+        const podium = document.createElement('div');
+        podium.className = 'lb-stats-podium';
+        const medals = ['Gold', 'Silver', 'Bronze'];
+        for (const rank of [2, 1, 3]) {
+            const entry = entries[rank - 1];
+            if (!entry) continue;
+            const medal = medals[rank - 1];
+            const asset = `assets/ui/medals/${medal.toLowerCase()}-64.png`;
+            const score = entry.score.toLocaleString();
+            const place = document.createElement(onPlace ? 'button' : 'div');
+            place.className = 'lb-stats-podium-place';
+            place.dataset.place = rank;
+            place.innerHTML = `<span class="lb-stats-podium-score">${escapeHtml(score)} <span class="lb-pts">pts</span></span><span class="lb-stats-podium-step"><img src="${asset}" width="32" height="32" alt=""><span class="lb-stats-place-rank">#${rank} ${medal}</span></span>`;
+            if (onPlace) {
+                place.type = 'button';
+                place.classList.add('lb-block-btn');
+                place.setAttribute('aria-label', `Rank ${rank}, ${medal}: ${score} points`);
+                onPlace(place, entry, rank, medal);
+            }
+            podium.appendChild(place);
+        }
+        return podium;
+    }
+
     function _drawHighscoreHistory() {
         const container = document.getElementById('highscores-list');
         if (!container) return;
@@ -4844,6 +4889,7 @@
         container.innerHTML = '';
         // Sort descending by score
         all.sort((a, b) => b.score - a.score);
+        container.appendChild(_statsPodium(all));
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
         all.forEach((e, i) => {
@@ -4865,33 +4911,17 @@
         const ico = _lbIcons();
         const tipEl = document.getElementById('lb-tooltip-global');
 
-        // --- PODIUM (top 3) ---
-        const podiumOrder = [
-            lb[1] ? { e: lb[1], rank: 2, medal: '🥈', color: '#c0c0c0', h: 58, lbIdx: 1 } : null,
-            lb[0] ? { e: lb[0], rank: 1, medal: '🥇', color: '#ffd700', h: 88, lbIdx: 0 } : null,
-            lb[2] ? { e: lb[2], rank: 3, medal: '🥉', color: '#e8922a', h: 40, lbIdx: 2 } : null,
-        ].filter(Boolean);
         const podiumPanel = document.createElement('section');
         podiumPanel.className = 'lb-block-panel lb-stats-podium-panel';
         podiumPanel.innerHTML = '<div class="lb-block-panel-head"><h2>Best scores</h2></div>';
-        const podiumWrap = document.createElement('div');
-        podiumWrap.className = 'lb-stats-podium';
-        podiumOrder.forEach(p => {
-            const block = document.createElement('button');
-            block.className = 'lb-block-btn lb-stats-podium-place';
-            block.style.setProperty('--tone', p.color);
-            block.style.minHeight = `${p.h + 68}px`;
-            block.style.gridColumn = p.rank === 1 ? 2 : p.rank === 2 ? 1 : 3;
-            block.setAttribute('aria-label', `Rank ${p.rank}: ${p.e.score.toLocaleString()} points`);
-            block.innerHTML = `<span class="lb-score">${escapeHtml(p.e.score.toLocaleString())}</span><span aria-hidden="true">${p.medal}</span><span class="lb-stats-place-rank" aria-hidden="true">#${p.rank}</span>`;
+        const podium = _statsPodium(lb, (block, e, rank, medal) => {
             block.addEventListener('click', (ev) => {
                 ev.stopPropagation();
-                _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(p.lbIdx));
+                _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(rank - 1));
             });
             block.addEventListener('mouseenter', (ev) => {
                 if (!tipEl) return;
-                const e = p.e;
-                let tipHtml = `<div style="font-size:0.7rem;font-weight:bold;color:${p.color};margin-bottom:5px;">${p.medal} #${p.rank} — ${escapeHtml(e.score.toLocaleString())} pts</div>`;
+                let tipHtml = `<div class="lb-stats-podium-tip" data-place="${rank}">#${rank} ${medal} — ${escapeHtml(e.score.toLocaleString())} pts</div>`;
                 if (e.lines != null) {
                     tipHtml += `<div style="display:flex;flex-direction:column;gap:2px;">`;
                     tipHtml += `<span>${ico.time} ${lbFmt(e.time||0)}</span>`;
@@ -4912,9 +4942,8 @@
                 tipEl.style.left = tx + 'px'; tipEl.style.top = (ev.clientY - 10) + 'px';
             });
             block.addEventListener('mouseleave', () => { if (tipEl) tipEl.style.display = 'none'; });
-            podiumWrap.appendChild(block);
         });
-        podiumPanel.appendChild(podiumWrap);
+        podiumPanel.appendChild(podium);
         container.appendChild(podiumPanel);
 
         // --- Regular rows (4th+) with Load More ---
@@ -6294,7 +6323,6 @@
                 card.className = 'ach-pending-row';
                 card.dataset.rarity = rarity;
                 const nameHtml = `<span class="ach-pending-rarity">${rc.label}</span><span class="ach-pending-name">${escapeHtml(claim.name)}</span>`;
-                const xpHtml = `<span class="ach-pending-xp">+${escapeHtml(claim.xp.toLocaleString())} XP</span>`;
                 const claimBtn = document.createElement('button');
                 claimBtn.className = 'lb-block-btn';
                 claimBtn.textContent = 'CLAIM';
@@ -6310,7 +6338,7 @@
                     drawRankBadge();
                     renderAchievementsOverlay(tab);
                 });
-                card.innerHTML = nameHtml + xpHtml;
+                card.innerHTML = nameHtml;
                 card.appendChild(claimBtn);
                 pendingGrid.appendChild(card);
             });
@@ -8252,19 +8280,48 @@
     }
     
     function _renderGoStats(best, isRecord, funMode, xp, recordBonus = 0) {
-        const overlay = document.getElementById('go-overlay');
-        overlay.classList.toggle('go-fun', funMode);
         document.getElementById('go-score').textContent = Math.round(score).toLocaleString();
         document.getElementById('go-best-score').textContent = Math.round(best).toLocaleString();
         document.getElementById('go-best-label').textContent = isRecord ? 'New best' : 'Best';
         document.getElementById('go-lines-cnt').textContent = linesClearedThisGame;
         document.getElementById('go-max-speed').textContent = speedLevel;
         document.getElementById('go-total-xp').textContent = xp.toLocaleString();
-        document.getElementById('go-xp-tile').hidden = funMode;
+        document.getElementById('go-xp-row').hidden = funMode;
         document.getElementById('go-pin-btn').hidden = funMode;
         const bonus = document.getElementById('go-record-bonus');
         bonus.hidden = recordBonus <= 0;
         bonus.textContent = `Record bonus · +${recordBonus.toLocaleString()} XP`;
+    }
+
+    const _goMissionProgress = new Map();
+
+    function _renderGoMissionProgress(update) {
+        const sections = () => {
+            const { daily, weekly } = saveData.missions || {};
+            return [
+                ['Daily', daily?.quests || []],
+                ['Secret', daily?.secret ? [daily.secret] : []],
+                ['Weekly', weekly?.missions || []],
+            ];
+        };
+        const before = new Map(sections().flatMap(([, quests]) => quests.map(quest => [quest, quest.progress || 0])));
+        update();
+        for (const [period, quests] of sections()) {
+            for (const quest of quests) {
+                const previous = before.get(quest) || 0;
+                if (!(quest.progress > previous)) continue;
+                const title = period === 'Secret' && !quest.completed ? 'Secret mission' : quest.title || quest.id;
+                _goMissionProgress.set(quest, { title, period, progress: quest.progress, target: quest.target,
+                    completed: quest.completed, points: quest.completed ? quest.pts || 0 : 0 });
+            }
+        }
+        const disclosure = document.getElementById('go-mission-progress');
+        disclosure.hidden = !_goMissionProgress.size;
+        const points = [..._goMissionProgress.values()].reduce((total, row) => total + row.points, 0);
+        document.getElementById('go-mission-points').textContent = points ? `+${points} pts to claim` : '0 pts earned';
+        document.getElementById('go-mission-list').innerHTML = [..._goMissionProgress.values()].map(row => `
+            <li><span><strong>${escapeHtml(row.title)}</strong><small>${row.period}</small></span>
+                <span>${row.completed ? 'Completed' : `${row.progress.toLocaleString()} / ${row.target.toLocaleString()}`}</span></li>`).join('');
     }
 
     function gameOver(){
@@ -8274,7 +8331,10 @@
         isAnimating=false; _hardDropAnimating=false; // safety: clear all animation locks
         lineClear.reset();
         _boosterUsedThisRound = false;
-        document.getElementById('go-mission-row').hidden = true;
+        _goMissionProgress.clear();
+        const missionDisclosure = document.getElementById('go-mission-progress');
+        missionDisclosure.hidden = true;
+        missionDisclosure.open = false;
         try {
         const _gcGO = document.getElementById('game-container');
         if (_gcGO) _gcGO.style.transform = '';
@@ -8328,35 +8388,7 @@
         const best = _bestScore();
         _renderGoStats(best, best > previousBest, false, finalXP, pbBonus);
         gainedXPThisRound = finalXP;
-        // Snapshot completed state before update so we can detect newly-completed quests this game
-        const _preCompD = saveData.missions ? new Set(
-            [...(saveData.missions.daily.quests || []).filter(q => q.completed).map(q => q.id),
-             ...(saveData.missions.daily.secret?.completed ? ['__secret__'] : [])]
-        ) : null;
-        const _preCompW = saveData.missions ? new Set(
-            (saveData.missions.weekly.missions || []).filter(wm => wm.completed).map(wm => wm.id)
-        ) : null;
-        // Update mission progress at game end
-        _updateGameMissionProgress(finalXP);
-        // Show mission summary on game-over screen
-        { const _goMR = document.getElementById('go-mission-row');
-          if (_goMR && saveData.missions && _preCompD !== null) {
-              const _mq = saveData.missions;
-              const _newD = (_mq.daily.quests || []).filter(q => q.completed && !_preCompD.has(q.id)).length
-                          + (_mq.daily.secret?.completed && !_preCompD.has('__secret__') ? 1 : 0);
-              const _newW = (_mq.weekly.missions || []).filter(wm => wm.completed && !_preCompW.has(wm.id)).length;
-              const _ptsEarned = _mq.daily.pointsToday || 0;
-              if (_newD > 0 || _newW > 0) {
-                  const _parts = [];
-                  if (_newD > 0) _parts.push(`${_newD} daily quest${_newD !== 1 ? 's' : ''}`);
-                  if (_newW > 0) _parts.push(`${_newW} weekly mission${_newW !== 1 ? 's' : ''}`);
-                  _goMR.textContent = `Missions · ${_parts.join(' + ')} completed`;
-                  _goMR.hidden = false;
-              } else if (_ptsEarned > 0) {
-                  _goMR.textContent = `Missions · ${_ptsEarned} daily points`;
-                  _goMR.hidden = false;
-              }
-          } }
+        _renderGoMissionProgress(() => _updateGameMissionProgress(finalXP));
         const _lvlBefore = getLevelInfo(saveData.totalXP).level;
         saveData.totalXP += finalXP;
         const _lvlAfter = getLevelInfo(saveData.totalXP).level;
@@ -8481,7 +8513,7 @@
         const bonus = Math.round(originalXP * (mult - 1));
         gainedXPThisRound += bonus;
         _grantXP(bonus);
-        if (bonus > 0) _updateMissionProgress({ totalXP: bonus });
+        if (bonus > 0) _renderGoMissionProgress(() => _updateMissionProgress({ totalXP: bonus }));
         document.getElementById('go-total-xp').textContent = gainedXPThisRound.toLocaleString();
         _renderGoBoostRow(gainedXPThisRound);
         animateXPGain();
@@ -8979,7 +9011,7 @@
         const rewardsHtml = rewards.map(r => {
             const col = hexColor(RARITY_COLORS[r.rarity], '#cccccc');
             return `<div style="border:1px solid ${col};border-radius:10px;padding:8px 12px;margin-bottom:7px;box-shadow:0 0 10px ${col}30;display:flex;align-items:center;gap:8px;">
-                <span style="font-size:1.4rem;">${escapeHtml(r.icon)}</span>
+                ${r.type === 'universal_parts' ? _exchangePartsIcon() : `<span style="font-size:1.4rem;">${escapeHtml(r.icon)}</span>`}
                 <div><div style="font-size:0.85rem;font-weight:bold;color:${col};">${escapeHtml(r.label)}</div><div style="font-size:0.62rem;color:#aaa;">${rankUnlockText(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div></div>
             </div>`;
         }).join('');
@@ -10011,6 +10043,17 @@
         el._mTab = tab;
         const _isTabSwitch = !!_prevTab && _prevTab !== tab;
 
+        const isSeason = tab === 'season';
+        el.querySelector('#mq-mission-view').hidden = isSeason;
+        el.querySelector('#mq-countdown').hidden = isSeason;
+        el.querySelectorAll('[data-tab]').forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.tab === tab));
+            button.disabled = !!window._mqChangeMode;
+        });
+        if (_isTabSwitch && (isSeason || _prevTab === 'season')) el.scrollTop = 0;
+        if (isSeason) return _seasonScreen.open();
+        _seasonScreen.close();
+
         // Streak panel (below tabs)
         const dStreak = m.streaks?.daily || 0;
         const bestD = m.streaks?.bestDaily || dStreak;
@@ -10163,17 +10206,8 @@
             });
         }
         _renderMissionStatsSection();
-        el.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('mq-tab-active', b.dataset.tab === tab));
-        // Clear newVisit for current tab and update dot indicators
         if (tab === 'daily' && m.daily.newVisit) { m.daily.newVisit = false; saveDataToFile(); }
         if (tab === 'weekly' && m.weekly.newVisit) { m.weekly.newVisit = false; saveDataToFile(); }
-        el.querySelectorAll('[data-tab]').forEach(b => {
-            const isNew = b.dataset.tab === 'daily' ? !!m.daily.newVisit : !!m.weekly.newVisit;
-            b.classList.toggle('mq-tab-new', isNew);
-            // Dim tab buttons in swap mode so user knows they're locked
-            b.classList.toggle('mq-swap-disabled', !!window._mqChangeMode);
-            b.style.pointerEvents = window._mqChangeMode ? 'none' : '';
-        });
         // Dim BACK button in swap mode
         const backBtn = el.querySelector('.btn-back');
         if (backBtn) {
@@ -10194,6 +10228,7 @@
         const el = document.getElementById('mq-countdown');
         if (!el) return;
         const tab = document.getElementById('missions-overlay')?._mTab || 'daily';
+        if (tab === 'season') return;
         const now = new Date();
         const ms = window.LBNotifications.nextReset(now, tab !== 'daily') - now;
         if (ms <= 0) {
@@ -10246,11 +10281,15 @@
         if (window._mqChangeMode) return;
         const _mEl = document.getElementById('menu-overlay');
         _animateOut(document.getElementById('missions-overlay'), 'anim-out-right', function() {
+            _seasonScreen.close();
             if (_missionCountdownInterval) { clearInterval(_missionCountdownInterval); _missionCountdownInterval = null; }
         });
         if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
     };
     window.renderMissionsOverlay = renderMissionsOverlay;
+    document.querySelectorAll('#missions-overlay [data-tab]').forEach(button => {
+        button.addEventListener('click', () => renderMissionsOverlay(button.dataset.tab));
+    });
 
     const _seasonScreen = window.LBSeasonUI.mount({
         getSave: () => saveData,
@@ -11086,9 +11125,9 @@
     window.applyTheme = applyTheme;
     window.applyBlockSkin = applyBlockSkin;
     window.applyFont = applyFont;
-    window._doExchange = function(fromKey, toKey, type) {
-        const slider = document.getElementById('exc-slider');
-        const sets = parseInt(slider?.value || 1);
+    window._doExchange = function(fromKey, toKey, type, sets) {
+        const source = type === 'booster' ? saveData.boosters : saveData.boxes;
+        if (!Number.isInteger(sets) || sets < 1 || sets * 3 > (source?.[fromKey] || 0)) return;
         document.getElementById('exc-modal-overlay')?.remove();
         if (type === 'booster') {
             if (!saveData.boosters) saveData.boosters = {};
@@ -11247,7 +11286,8 @@
             const rows = cells.map(([, row]) => row);
             const left = (3 - Math.max(...columns) - Math.min(...columns)) * 5;
             const top = (1 - Math.max(...rows) - Math.min(...rows)) * 5;
-            return `<li><svg viewBox="0 0 40 20" width="40" height="20" color="${COLORS[index + 1]}" aria-hidden="true">${cells.map(([column, row]) => `<rect x="${column * 10 + left + 1}" y="${row * 10 + top + 1}" width="8" height="8" rx="1"/>`).join('')}</svg><span>${'IJLOSTZ'[index]}</span></li>`;
+            const blocks = cells.map(([column, row]) => `<g transform="translate(${column * 10 + left} ${row * 10 + top})"><rect width="9" height="9" rx="1"/><path class="lb-help-piece-highlight" d="M1 7V1H8"/><path class="lb-help-piece-shadow" d="M1 8H8V2"/></g>`).join('');
+            return `<li><svg viewBox="-0.5 -0.5 40 20" width="40" height="20" color="${COLORS[index + 1]}" aria-hidden="true">${blocks}</svg><span>${'IJLOSTZ'[index]}</span></li>`;
         }).join('');
         const rankRows = RANKS.map(({ name, maxLvl }, index) => [
             name, `${(RANKS[index - 1]?.maxLvl || 0) + 1}–${maxLvl}`, number(_RANK_XP_PER_LEVEL[index])
@@ -11323,7 +11363,7 @@
                 <button type="button" class="lb-block-btn" id="help-tutorial">Open tutorials</button>`]
         ];
         helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-block-btn" data-help-jump="${id}">${title}</button>`).join('');
-        helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-help-topic lb-block-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" class="lb-help-chapter-title" tabindex="-1">${title}</h2>${body}</section>`).join('');
+        helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-help-topic lb-block-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" class="lb-block-panel-head lb-block-section-title" tabindex="-1">${title}</h2>${body}</section>`).join('');
         document.getElementById('help-tutorial').addEventListener('click', () => {
             window.openTutorial();
             document.querySelector('#tutorial-overlay .btn-back').focus();

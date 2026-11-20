@@ -105,7 +105,7 @@
             const image = element('img');
             image.alt = '';
             image.src = reward.type === 'booster' && window.LBArtPack.boosterToken(reward.key)
-                || (reward.type === 'universal_parts' ? 'assets/ui/64-universal-part.svg' : 'assets/ui/64-item-part.svg');
+                || (reward.type === 'universal_parts' ? 'assets/ui/parts/universal-part-128.png' : 'assets/ui/64-item-part.svg');
             const quantity = Number(reward.amount.toFixed(1));
             const amount = element('span', 'lb-block-reward-amount', `×${quantity}`);
             amount.setAttribute('aria-label', `Quantity: ${quantity}`);
@@ -129,8 +129,9 @@
         meter.setAttribute('role', 'img');
         meter.setAttribute('aria-label', `${streak}-day gift streak, day ${completed} of ${weekDays} this cycle`);
         const count = element('span', 'lb64-streak-count');
-        count.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a8 8 0 0 1-8-8c0-3 2-6 4-8 0 3 2 5 3 5-1-3 1-6 3-9 0 4 6 6 6 12a8 8 0 0 1-8 8Z M12 22a3 3 0 0 1-3-3c0-2 2-3 3-5 1 2 3 3 3 5a3 3 0 0 1-3 3Z"/></svg>';
-        count.append(element('span', '', streak));
+        const flame = element('span', 'lb84-streak-flame', '🔥');
+        flame.setAttribute('aria-hidden', 'true');
+        count.append(flame, element('span', '', streak));
         const dots = element('span', 'lb64-streak-dots');
         for (let day = 1; day <= weekDays; day++) {
             dots.append(element('span', day === completed ? 'lb64-streak-today' : day < completed ? 'lb64-streak-filled' : ''));

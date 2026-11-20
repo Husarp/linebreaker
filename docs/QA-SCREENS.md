@@ -22,4 +22,4 @@ await page.evaluate(() => window.__LB_QA.open('settings'));
 | Music and help | `playlist`, `help`, `tutorial`, `credits` |
 | Generic dialogs | `alert`, `confirm` |
 
-The fixture uses late Gold (level 30), one level below the final modifier unlocks, so Play shows both locked and unlocked options. Music uses the game’s enabled playlists; there is no separate track purchase system. The season follows the real calendar, so on its first day there is only one unlocked stage and no prior claim. Save setup and platform update dialogs are not screenshot targets.
+The fixture uses late Gold (level 30), one level below the final modifier unlocks, so Play shows both locked and unlocked options. Music uses the game’s enabled playlists; there is no separate track purchase system. `season-pass` opens Missions on the Season tab. The season follows the real calendar, so on its first day there is only one unlocked stage and no prior claim. Save setup and platform update dialogs are not screenshot targets.

@@ -8,7 +8,7 @@
     padding: 10px;
 }
 
-#inventory-overlay :is(#owned-skin-btns, #owned-grid-style-btns, #owned-theme-btns, #owned-palette-btns, .lb-inventory-sfx) {
+#inventory-overlay :is(#owned-skin-btns, #owned-grid-style-btns, #owned-theme-btns, #owned-palette-btns, .lb82-sfx-packs) {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 146px), 1fr));
     grid-auto-rows: auto;
@@ -16,7 +16,7 @@
 }
 
 @media (min-width: 650px) {
-    #inventory-overlay :is(#owned-skin-btns, #owned-grid-style-btns, #owned-theme-btns, #owned-palette-btns, .lb-inventory-sfx) {
+    #inventory-overlay :is(#owned-skin-btns, #owned-grid-style-btns, #owned-theme-btns, #owned-palette-btns, .lb82-sfx-packs) {
         grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
     }
 }
@@ -24,7 +24,7 @@
 #inventory-overlay #ghost-section-wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 #inventory-overlay .lb-inventory-boosters { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
 #inventory-overlay .lb-inventory-boosters > .lb-exchange-row { margin-bottom: 0; }
-#inventory-overlay :is(#ghost-section-wrap > h3, #ghost-section-wrap > :only-child, .lb-inventory-boosters > h2, .lb-inventory-sfx > h2, #owned-palette-btns > .lb-colors-shuffle) { grid-column: 1 / -1; }
+#inventory-overlay :is(#ghost-section-wrap > h3, #ghost-section-wrap > :only-child, .lb-inventory-boosters > h2, .lb82-sfx-packs > h2, #owned-palette-btns > .lb-colors-shuffle) { grid-column: 1 / -1; }
 #inventory-overlay #owned-palette-btns > .lb-colors-card { grid-column: auto; }
 #inventory-overlay :is(#owned-theme-btns, #owned-palette-btns) { padding: 8px; }
 
@@ -91,9 +91,7 @@
 #inventory-overlay :is(.lb-inventory-progress, .lb-colors-parts) progress { flex: 1; min-width: 0; }
 #inventory-overlay .lb-colors-parts + .lb-colors-actions { margin-top: 0; }
 #inventory-overlay :is(.lb-inventory-action, .lb-colors-actions > button) { width: 100%; }
-#inventory-overlay .lb-inventory-sfx-preview { align-self: center; margin-block: auto; }
-#inventory-overlay .lb-inventory-sfx .lb-inventory-heading .lb-inventory-name { margin-right: 0; }
-#inventory-overlay .lb-inventory-sfx span.lb-inventory-state { flex: none; font-size: .65rem; }
+#inventory-overlay .lb82-sfx-preview { align-self: center; width: 100%; margin-block: auto; }
 
 #inventory-overlay :is(.lb-colors-theme-sample, .lb-palette-preview, .lb-colors-launch) {
     display: flex;
@@ -105,8 +103,5 @@
     padding-inline: 6px !important;
 }
 
-#inventory-overlay .lb-colors-theme-sample { position: relative; }
-#inventory-overlay .lb-colors-theme-sample > span:last-child { position: absolute; right: 6px; margin: 0; }
-#inventory-overlay .lb-colors-chip { flex: 0 0 56px; height: 26px; }
 #inventory-overlay .lb-colors-launch .lb-color-launch-mark { flex: 0 0 38px; height: 26px; }
 #inventory-overlay .lb-palette-preview span { max-width: 20px; }

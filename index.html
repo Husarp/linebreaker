@@ -36,6 +36,16 @@
     <link rel="stylesheet" href="68-inventory.css">
     <link rel="stylesheet" href="73-qa-fixes.css">
     <link rel="stylesheet" href="80-global.css">
+    <link rel="stylesheet" href="81-achievements.css">
+    <link rel="stylesheet" href="82-exchange.css">
+    <link rel="stylesheet" href="83-colors.css">
+    <link rel="stylesheet" href="84-daily-gift.css">
+    <link rel="stylesheet" href="85-game-over.css">
+    <link rel="stylesheet" href="86-help.css">
+    <link rel="stylesheet" href="87-stats.css">
+    <link rel="stylesheet" href="89-missions.css">
+    <link rel="stylesheet" href="90-play-music.css">
+    <link rel="stylesheet" href="91-hud.css">
     <link rel="stylesheet" href="88-inventory.css">
 </head>
 <body>
@@ -373,24 +383,18 @@
 
 <!-- MISSIONS SCREEN -->
 <div id="missions-overlay" class="overlay hidden" onclick="window._mqOverlayClick(event)" style="z-index:1004;background:#050510;backdrop-filter:none;justify-content:flex-start;align-items:stretch;padding:0;overflow:hidden;flex-direction:column;text-align:left;">
-    <div style="display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;background:rgba(5,5,16,0.97);z-index:20;position:relative;">
-        <button class="btn-back" onclick="window.closeMissions()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
-        <!-- V4 Pill+Disk tabs -->
-        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);">
-            <div class="mq-v4-wrap">
-                <button class="mq-v4-tab mq-v4-left mq-tab-active" data-tab="daily" onclick="window.renderMissionsOverlay('daily')">DAILY</button>
-                <button class="mq-v4-tab mq-v4-right" data-tab="weekly" onclick="window.renderMissionsOverlay('weekly')">WEEKLY</button>
-                <button type="button" class="mq-v4-rules lb-info-btn" data-help-section="missions" aria-label="About missions" title="About missions"></button>
-            </div>
+    <div class="mq89-header lb-block-topbar">
+        <button class="btn-back lb-block-back" onclick="window.closeMissions()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
+        <div class="mq89-tabs" role="group" aria-label="Mission views">
+            <button type="button" class="lb-block-btn" data-tab="daily" aria-pressed="true" aria-controls="mq-mission-view">DAILY</button>
+            <button type="button" class="lb-block-btn" data-tab="weekly" aria-pressed="false" aria-controls="mq-mission-view">WEEKLY</button>
+            <button type="button" class="lb-block-btn" data-tab="season" aria-pressed="false" aria-controls="season-pass-overlay">SEASON</button>
+            <button type="button" class="mq-v4-rules lb-info-btn" data-help-section="missions" aria-label="About missions" title="About missions"></button>
         </div>
-        <!-- Countdown in top-right of header -->
-        <div style="margin-left:auto;">
-            <div id="mq-countdown"></div>
-        </div>
+        <div id="mq-countdown"></div>
     </div>
-    <div class="sp-entry-bar"><button type="button" id="sp-entry" class="sp-button lb-block-btn" aria-haspopup="dialog" aria-controls="season-pass-overlay">Season Pass</button></div>
     <!-- Body: full-width missions + right sidebar -->
-    <div style="display:flex;flex:1;overflow:hidden;min-height:0;">
+    <div id="mq-mission-view" style="display:flex;flex:1;overflow:hidden;min-height:0;">
         <div style="flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:14px 18px 20px;">
             <div id="missions-body" style="max-width:950px;margin:0 auto;"></div>
         </div>
@@ -399,6 +403,7 @@
             <div id="mq-stats-section"></div>
         </div>
     </div>
+    <section id="season-pass-overlay" class="sp-pass" aria-labelledby="sp-title" hidden></section>
 </div>
 
 <!-- MISSIONS CONFIRM DIALOG -->
@@ -814,7 +819,7 @@
                     <span id="pl-mw-total" style="font-size:0.4rem;color:#555;white-space:nowrap;min-width:1.9em;text-align:right;">0:00</span>
                 </div>
             </div>
-            <div style="display:flex;gap:4px;flex-shrink:0;align-items:center;">
+            <div class="lb90-playlist-controls">
                 <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Previous track" onclick="window.musicWidgetPrev()"><svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><rect x="2" y="3" width="2" height="10"/><polygon points="13,3 6,8 13,13"/></svg></button>
                 <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Play or pause music" id="pl-mw-pause" onclick="window.musicWidgetPause()"><svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/></svg></button>
                 <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Next track" onclick="window.musicWidgetNext()"><svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><rect x="12" y="3" width="2" height="10"/><polygon points="3,3 10,8 3,13"/></svg></button>
@@ -854,24 +859,29 @@
 <div id="go-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="go-title">
     <h1 id="go-title">GAME OVER</h1>
     <div class="go-panel lb-block-panel">
-        <dl class="go-stats" aria-label="Run results">
-            <div class="go-tile go-tile--score"><dt>Score</dt><dd id="go-score">0</dd></div>
-            <div class="go-tile go-tile--best"><dt id="go-best-label">Best</dt><dd id="go-best-score">0</dd></div>
-            <div class="go-tile"><dt>Lines</dt><dd id="go-lines-cnt">0</dd></div>
-            <div class="go-tile"><dt>Speed level</dt><dd id="go-max-speed">1</dd></div>
-            <div class="go-tile" id="go-xp-tile"><dt>XP gained</dt><dd id="go-total-xp" aria-live="polite">0</dd></div>
+        <dl class="go-scoreline" aria-label="Scores">
+            <div><dt>Score</dt><dd id="go-score">0</dd></div>
+            <div><dt id="go-best-label">Best</dt><dd id="go-best-score">0</dd></div>
+        </dl>
+        <dl class="go-stat-rows" aria-label="Run stats">
+            <div><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h5m8 0h5m-8-7-3 5 4 2-3 7"/></svg>Lines broken</dt><dd id="go-lines-cnt">0</dd></div>
+            <div><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18a9 9 0 1 1 16 0M12 14l4-5M7 14H5m7-6V6m7 8h-2"/></svg>Speed level</dt><dd id="go-max-speed">1</dd></div>
+            <div id="go-xp-row"><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/></svg>XP gained</dt><dd id="go-total-xp" aria-live="polite">0</dd></div>
         </dl>
         <p id="go-record-bonus" hidden></p>
-        <button type="button" id="go-mission-row" class="lb-block-btn" onclick="openMissions()" hidden></button>
+        <details class="go-mission-progress lb-block-expand" id="go-mission-progress" hidden>
+            <summary><span class="go-mission-summary"><strong>Mission progress</strong><span id="go-mission-points"></span><svg class="go-icon go-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
+            <ul class="lb-block-expand-body" id="go-mission-list"></ul>
+        </details>
     </div>
 
     <section id="go-boost-row" class="go-panel lb-block-panel" aria-labelledby="go-boost-title" hidden></section>
     <section id="go-achievements-new" class="go-panel lb-block-panel" aria-labelledby="go-ach-title" hidden></section>
 
     <div class="go-actions">
-        <button type="button" class="lb-block-btn lb-block-btn--primary" onclick="window.startGame()">Again</button>
-        <button type="button" class="lb-block-btn" onclick="window.resetGameToMenu()">Menu</button>
-        <button type="button" class="lb-block-btn" onclick="window.pinCurrentScore()" id="go-pin-btn">Pin score</button>
+        <button type="button" class="lb-block-btn lb-block-btn--primary" onclick="window.startGame()"><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 2 8M4 4v6h6"/></svg>Retry</button>
+        <button type="button" class="lb-block-btn" onclick="window.resetGameToMenu()"><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-7 9 7M5 10v10h14V10M10 20v-6h4v6"/></svg>Menu</button>
+        <button type="button" class="lb-block-btn" onclick="window.pinCurrentScore()" id="go-pin-btn"><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m14 3 7 7-3 1-3 3v4l-9-9h4l3-3zM10.5 13.5 4 20"/></svg>Pin score</button>
     </div>
 </div>
 
@@ -889,7 +899,7 @@
             <div class="label">HOLD <span style="font-size:0.5rem; color:#888;">(H)</span></div>
             <canvas id="pc-hold-canvas" width="150" height="150"></canvas>
         </div>
-        <div class="glass-box"><div class="label">SPEED</div><div style="position:relative;width:70px;margin:4px auto 0;"><div style="text-align:center;font-size:0.45rem;color:rgba(255,255,255,0.35);line-height:1;margin-bottom:2px;">▼</div><div style="width:70px;height:22px;overflow:hidden;position:relative;"><div id="pc-speed-inner" style="display:flex;position:absolute;top:0;left:0;height:100%;transition:transform 0.25s ease;"></div></div></div></div>
+        <div class="glass-box"><div class="label">SPEED</div><div class="lb-hud-speed-tape" style="position:relative;width:70px;"><div class="lb-hud-speed-marker" style="text-align:center;color:rgba(255,255,255,0.35);line-height:1;">▼</div><div style="width:70px;height:22px;overflow:hidden;position:relative;"><div id="pc-speed-inner" style="display:flex;position:absolute;top:0;left:0;height:100%;transition:transform 0.25s ease;"></div></div></div></div>
         <div class="glass-box"><div class="label">SCORE</div><div class="value" id="pc-score">0</div></div>
         <div class="glass-box"><div id="pc-pb-hint" style="line-height:1.4;text-align:center;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;"></div></div>
         <div class="glass-box"><div class="label">LINES</div><div class="value" id="pc-lines">0</div></div>

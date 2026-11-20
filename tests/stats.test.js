@@ -109,6 +109,9 @@ it('shows one best score per known speed in numeric order without rewriting hist
     ['1', '22'], ['2', '799'], ['4', '720'], ['10', '900'],
   ]);
   expect(all('#highscores-list .lb-score').map(element => element.textContent)).toEqual(['900 pts', '850 pts', '720 pts', '500 pts']);
+  expect(all('#highscores-list .lb-stats-podium-place').map(place => [place.dataset.place, place.querySelector('.lb-stats-podium-score').textContent])).toEqual([
+    ['2', '850 pts'], ['1', '900 pts'], ['3', '720 pts'],
+  ]);
   expect(query('#highscores-list .lb-stats-current .lb-date').textContent).toContain('CURRENT');
   expect(game.api.save.highscoreHistory).toEqual(JSON.parse(JSON.stringify(save.highscoreHistory)));
   expect(game.api.save.leaderboard).toEqual(JSON.parse(JSON.stringify(save.leaderboard)));
@@ -122,17 +125,25 @@ it('preserves leaderboard pagination, pin and unpin actions, and the Fun mode bo
   game.w.openStats();
   byId('stats-tab-lb').click();
   expect(all('#lb-list .lb-stats-podium-place')).toHaveLength(3);
+  const winner = query('#lb-list button[data-place="1"]');
+  expect(winner.getAttribute('aria-label')).toBe('Rank 1, Gold: 100 points');
+  expect(all('#lb-list .lb-stats-podium-place img').map(image => image.getAttribute('src'))).toEqual([
+    'assets/ui/medals/silver-64.png', 'assets/ui/medals/gold-64.png', 'assets/ui/medals/bronze-64.png',
+  ]);
+  winner.click();
+  byId('score-pin-popup').click();
+  expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([100]);
   expect(all('#lb-list .lb-row')).toHaveLength(47);
   query('#lb-list .lb-load-more').click();
   expect(all('#lb-list .lb-row')).toHaveLength(48);
   all('#lb-list .lb-row').at(-1).click();
   byId('score-pin-popup').click();
-  expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([50]);
+  expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([100, 50]);
   query('[data-stats-board="fun"]').click();
   expect(byId('lb-list').hidden).toBe(true);
   expect(byId('fun-list').textContent).toContain('12×22');
   byId('stats-tab-pin').click();
   query('#pinned-list .lb-row').click();
   byId('score-pin-popup').click();
-  expect(game.api.save.pinnedScores).toHaveLength(0);
+  expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([100]);
 });

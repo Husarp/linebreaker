@@ -52,6 +52,13 @@
         return hues.map((offset, index) => hsvToHex({ hue: base + offset, saturation: saturations[index], value: values[index] }));
     }
 
+    function pieceSvg(matrix) {
+        const rows = matrix.filter(row => row.some(Boolean));
+        const cells = rows.flatMap((row, rowIndex) => row.map((cell, column) => cell
+            ? `<rect x="${column * 10 + .5}" y="${rowIndex * 10 + .5}" width="9" height="9" rx="1"/>` : ''));
+        return `<svg viewBox="0 0 ${rows[0].length * 10} ${rows.length * 10}" aria-hidden="true">${cells.join('')}</svg>`;
+    }
+
     function open({ id, title, color, history, pieces, onApply }) {
         const previousFocus = document.activeElement;
         document.getElementById(id)?.remove();
@@ -66,11 +73,8 @@
         let activePointer;
 
         function drawPiece({ name, matrix }) {
-            const rows = matrix.filter(row => row.some(Boolean));
-            const cells = rows.flatMap((row, rowIndex) => row.map((cell, column) => cell
-                ? `<rect x="${column * 10 + .5}" y="${rowIndex * 10 + .5}" width="9" height="9" rx="1"/>` : ''));
-            return `<button type="button" class="lb-btn lb-btn--ghost lb-color-piece" aria-label="${name} piece" aria-pressed="false">
-                <svg viewBox="0 0 ${rows[0].length * 10} ${rows.length * 10}" aria-hidden="true">${cells.join('')}</svg>
+            return `<button type="button" class="lb-block-btn lb-color-piece" aria-label="${name} piece" aria-pressed="false">
+                ${pieceSvg(matrix)}
                 <span aria-hidden="true">${name}</span>
             </button>`;
         }
@@ -260,5 +264,5 @@
         (pieceButtons[0] || plane).focus({ preventScroll: true });
     }
 
-    root.LBColorPicker = { normalizeHex, hexToHsv, hsvToHex, colorHistory, harmoniousPalette, open };
+    root.LBColorPicker = { normalizeHex, hexToHsv, hsvToHex, colorHistory, harmoniousPalette, pieceSvg, open };
 })(globalThis);
