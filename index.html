@@ -48,6 +48,11 @@
     <link rel="stylesheet" href="91-hud.css">
     <link rel="stylesheet" href="88-inventory.css">
     <link rel="stylesheet" href="105-levelup.css">
+    <link rel="stylesheet" href="100-play-start.css">
+    <link rel="stylesheet" href="101-stats.css">
+    <link rel="stylesheet" href="102-settings.css">
+    <link rel="stylesheet" href="103-inventory.css">
+    <link rel="stylesheet" href="104-season.css">
 </head>
 <body>
 
@@ -263,6 +268,14 @@
 </div>
 
 <!-- STATS & LEADERBOARD SCREEN -->
+<svg width="0" height="0" class="lb-run-icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="lb-run-icon-lines" viewBox="0 0 24 24">
+        <path d="M1 8h4v8H1zm6 0h4l-1 3 2 2-2 3H7zm7 0h3v8h-4l2-3-2-2zm5 0h4v8h-4z" fill="currentColor" stroke="none"/>
+    </symbol>
+    <symbol id="lb-run-icon-speed" viewBox="0 0 24 24">
+        <path d="M4 18a9 9 0 1 1 16 0m-8-3 4-5" stroke-linecap="round"/>
+    </symbol>
+</svg>
 <div id="stats-overlay" class="overlay hidden lb-fullscreen" role="region" aria-labelledby="stats-title">
     <div class="lb-stats-shell">
         <header class="lb-header lb-block-topbar">
@@ -307,13 +320,6 @@
             <div id="pinned-list"></div>
         </section>
         <section id="highscores-container" role="tabpanel" aria-labelledby="stats-tab-hs" tabindex="0" hidden>
-            <section class="lb-block-panel">
-                <div class="lb-block-panel-head"><h2>Records by speed level</h2></div>
-                <div class="lb-stats-panel-body">
-                    <p class="lb-stats-meta">Best score for each maximum speed reached.</p>
-                    <div id="highscores-by-speed"></div>
-                </div>
-            </section>
             <section class="lb-block-panel">
                 <div class="lb-block-panel-head"><h2>Highscore history</h2></div>
                 <div id="highscores-list" class="lb-stats-panel-body"></div>
@@ -395,7 +401,7 @@
         <div id="mq-countdown"></div>
     </div>
     <!-- Body: full-width missions + right sidebar -->
-    <div id="mq-mission-view" style="display:flex;flex:1;overflow:hidden;min-height:0;">
+    <div id="mq-mission-view" style="flex:1;overflow:hidden;min-height:0;">
         <div style="flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:14px 18px 20px;">
             <div id="missions-body" style="max-width:950px;margin:0 auto;"></div>
         </div>
@@ -422,16 +428,17 @@
 
 <!-- SETTINGS SCREEN -->
 <div id="settings-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1004;">
-    <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding:14px 20px; flex-shrink:0; position:sticky; top:0; z-index:20;">
-        <button class="btn-back" onclick="window.closeSettings()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
-        <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary);">SETTINGS</span>
-    </div>
-    <div style="width:100%; max-width:560px; margin:0 auto; padding:16px 20px;">
+    <header class="lb-header lb-block-topbar lb102-topbar">
+        <button type="button" class="btn-back lb-block-back" onclick="window.closeSettings()"><svg aria-hidden="true" viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>Back</button>
+        <h1>Settings</h1>
+    </header>
+    <section class="lb-scroll-fade lb102-settings-scroll" aria-label="Settings options" tabindex="0">
+    <div class="lb102-settings-content">
 
         <section class="lb-card lb-stack lb-controls" id="controls-settings" aria-labelledby="controls-title">
             <h2 class="lb-eyebrow lb-help-label" id="controls-title">Controls <button type="button" class="lb-info-btn" data-help-section="basics" aria-label="About controls" title="About controls"></button></h2>
             <div class="lb-controls-grid">
-                <div class="lb-controls-row lb-muted" aria-hidden="true"><span>Action</span><span>Primary</span><span>Secondary</span></div>
+                <div class="lb-controls-row lb102-controls-head" aria-hidden="true"><span>Action</span><span>Primary</span><span>Secondary</span></div>
             </div>
             <p class="lb-controls-status lb-muted" role="status"></p>
             <div class="lb-actions"><button type="button" class="lb-btn lb-btn--ghost lb-controls-reset">Reset to defaults</button></div>
@@ -707,6 +714,7 @@
             </div>
 
     </div>
+    </section>
 </div>
 
 <!-- TRANSFER SAVE MENU -->
@@ -729,7 +737,7 @@
 </div>
 
 <!-- MODE SELECT -->
-<div id="mode-select-overlay" class="overlay hidden" role="dialog" aria-labelledby="play-title">
+<div id="mode-select-overlay" class="overlay hidden" role="dialog" aria-labelledby="play-title" tabindex="-1">
     <svg class="lb69-icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
         <symbol id="play-icon-normal" viewBox="0 0 24 24"><path d="M3 3h6v6h12v6H3zM3 9h6v6m6-6v6"/></symbol>
         <symbol id="play-icon-fun" viewBox="0 0 24 24"><path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.4-5.7-3-5.7 3 1.1-6.4-4.6-4.5 6.4-.9z"/></symbol>
@@ -771,7 +779,7 @@
             </section>
             <section id="fun-mode-config" class="lb69-config" aria-labelledby="play-board-title" hidden>
                 <h2 id="play-board-title">Fun setup</h2>
-                <p>Modifiers don’t affect score in Fun.</p>
+                <p>Modifiers still work in Fun, without score bonuses or penalties.</p>
                 <div class="lb69-range">
                     <label for="fun-cols">Columns</label>
                     <output id="fun-cols-val" for="fun-cols">10</output>
@@ -793,7 +801,7 @@
                 </figure>
             </section>
         </div>
-        <section class="lb69-score lb-block-panel" aria-labelledby="play-score-title" aria-live="polite" aria-atomic="true">
+        <section id="play-score-panel" class="lb69-score lb-block-panel" aria-labelledby="play-score-title" aria-live="polite" aria-atomic="true">
             <h2 id="play-score-title">Score multiplier</h2>
             <strong id="mode-xp-mult-val">100%</strong>
             <p id="play-no-modifiers">No active modifiers</p>
@@ -865,8 +873,8 @@
             <div><dt id="go-best-label">Best</dt><dd id="go-best-score">0</dd></div>
         </dl>
         <dl class="go-stat-rows" aria-label="Run stats">
-            <div><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h5m8 0h5m-8-7-3 5 4 2-3 7"/></svg>Lines broken</dt><dd id="go-lines-cnt">0</dd></div>
-            <div><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18a9 9 0 1 1 16 0M12 14l4-5M7 14H5m7-6V6m7 8h-2"/></svg>Speed level</dt><dd id="go-max-speed">1</dd></div>
+            <div><dt><svg class="go-icon lb-run-icon--lines" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-lines"/></svg>Lines broken</dt><dd id="go-lines-cnt">0</dd></div>
+            <div><dt><svg class="go-icon lb-run-icon--speed" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-speed"/></svg>Speed level</dt><dd id="go-max-speed">1</dd></div>
             <div id="go-xp-row"><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/></svg>XP gained</dt><dd id="go-total-xp" aria-live="polite">0</dd></div>
         </dl>
         <p id="go-record-bonus" hidden></p>
@@ -887,8 +895,12 @@
 </div>
 
 <!-- START ANIMATION -->
-<div id="start-animation-overlay" class="overlay hidden">
-    <div id="start-text-container" role="status" aria-label="Get ready to play"></div>
+<div id="start-animation-overlay" class="overlay hidden" role="dialog" aria-label="Get ready to play" aria-modal="true">
+    <div id="start-text-container" aria-hidden="true">
+        <div id="start-wordmark"></div>
+        <span id="start-countdown" hidden></span>
+    </div>
+    <button type="button" id="start-skip" class="lb-block-btn">Skip intro</button>
 </div>
 
 <!-- GRA -->
@@ -963,18 +975,18 @@
 </div>
 
 <!-- TUTORIAL OVERLAY -->
-<div id="tutorial-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1008;">
-    <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding:14px 20px; flex-shrink:0; position:sticky; top:0; z-index:1;">
-        <button class="btn-back" onclick="window.closeTutorial()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
-        <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary); display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polygon points="10 8 16 11 10 14 10 8" fill="currentColor" opacity="0.7"/></svg>TUTORIALS</span>
-    </div>
-    <div style="width:100%; max-width:580px; margin:0 auto; padding:20px;">
-        <div style="text-align:center; padding:40px 20px; color:#666;">
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:#444;margin-bottom:16px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            <div style="font-size:0.85rem; font-weight:bold; color:#888; margin-bottom:8px;">Coming Soon</div>
-            <div style="font-size:0.72rem; line-height:1.6;">Tutorial videos and helpful links will appear here.</div>
-        </div>
-    </div>
+<div id="tutorial-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1008;" aria-labelledby="tutorial-title">
+    <header class="lb-header lb-block-topbar lb102-topbar">
+        <button type="button" class="btn-back lb-block-back" onclick="window.closeTutorial()"><svg aria-hidden="true" viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>Back</button>
+        <h1 id="tutorial-title"><svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polygon points="10 8 16 11 10 14 10 8" fill="currentColor" opacity="0.7"/></svg>Tutorials</h1>
+    </header>
+    <section class="lb-scroll-fade lb102-tutorial-scroll" aria-label="Tutorial content">
+        <article class="lb-block-panel lb102-tutorial-card">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <h2>Coming Soon</h2>
+            <p>Tutorial videos and helpful links will appear here.</p>
+        </article>
+    </section>
 </div>
 
 <!-- CREDITS OVERLAY -->

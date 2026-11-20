@@ -1,0 +1,117 @@
+#mq-mission-view:not([hidden]) { display: flex; }
+#missions-overlay:has(> .sp-pass:not([hidden])) { overflow: hidden !important; }
+
+#season-pass-overlay {
+    --sp-fade: 10px;
+    mask-image: linear-gradient(to bottom, transparent, #000 var(--sp-fade), #000 calc(100% - var(--sp-fade)), transparent);
+}
+
+#season-pass-overlay [hidden] { display: none !important; }
+#season-pass-overlay .sp-header h1 { font-family: var(--bb-font-pixel); }
+#season-pass-overlay #sp-days { color: var(--text); }
+#season-pass-overlay .sp-points p { font-size: var(--text-sm); }
+#season-pass-overlay .sp-meter { gap: 4px; }
+#season-pass-overlay .sp-meter progress { border-color: var(--bb-edge); background: var(--bb-well); }
+#season-pass-overlay .sp-meter progress::-webkit-progress-bar { background: var(--bb-well); }
+#season-pass-overlay #sp-next { color: var(--accent-bright); }
+#season-pass-overlay .sp-notice { top: var(--sp-fade); }
+
+#season-pass-overlay .sp-track {
+    --sp-card-width: 192px;
+    --sp-track-gap: 22px;
+    --sp-track-edge: color-mix(in srgb, var(--bb-edge) 65%, var(--bb-page));
+    mask-image: linear-gradient(to right, transparent, #000 9px, #000 calc(100% - 9px), transparent);
+}
+
+#season-pass-overlay .sp-track ol { gap: var(--sp-track-gap); padding: 22px 12px 12px; }
+#season-pass-overlay .sp-card {
+    position: relative;
+    gap: 6px;
+    min-height: 235px;
+    border-top-width: 2px;
+    padding: 12px;
+}
+
+#season-pass-overlay .sp-card .sp-step {
+    position: absolute;
+    z-index: 1;
+    width: 12px;
+    height: 12px;
+    inset-block-start: -19px;
+    border: 2px solid var(--sp-track-edge);
+    border-radius: 2px;
+    background: var(--bb-well);
+}
+
+#season-pass-overlay .sp-card:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    width: calc(100% + var(--sp-track-gap) + 2px);
+    height: 2px;
+    inset: -14px auto auto 50%;
+    background: var(--sp-track-edge);
+}
+
+#season-pass-overlay .sp-card[data-state="claimed"] { --sp-tier: var(--success); }
+#season-pass-overlay .sp-card[data-state="claimed"] .sp-step { background: var(--success); border-color: var(--success); }
+#season-pass-overlay .sp-card[data-state="claimable"] .sp-step,
+#season-pass-overlay .sp-card[data-next] .sp-step { border-color: var(--accent); }
+#season-pass-overlay .sp-card[data-next] { outline: 1px solid var(--accent); }
+#season-pass-overlay .sp-card h3 { font-size: 1rem; }
+#season-pass-overlay .sp-threshold { color: var(--text); font-weight: 700; }
+#season-pass-overlay .sp-claim { width: 100%; margin-top: auto; }
+#season-pass-overlay .sp-receipt { font-size: var(--text-xs); }
+
+#season-pass-overlay .sp-card:is([data-state="locked"], [data-state="future"]) {
+    --sp-tier: var(--text-muted);
+    background: var(--bb-well);
+    border-top-color: var(--bb-edge);
+    box-shadow: none;
+    color: var(--text-muted);
+}
+
+#season-pass-overlay .sp-card:is([data-state="locked"], [data-state="future"]) :is(.sp-reward-icon, .sp-threshold) {
+    color: var(--text-muted);
+    filter: grayscale(1);
+}
+
+@media (orientation: portrait), (max-width: 699px) {
+    #season-pass-overlay .sp-shell { gap: 12px; }
+    #season-pass-overlay :is(.sp-header, .sp-points, .sp-highlight) { padding: 12px; gap: 8px; }
+    #season-pass-overlay .sp-header h1 { font-size: 21px; }
+    #season-pass-overlay .sp-days { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+    #season-pass-overlay h2 { font-size: 19px; }
+    #season-pass-overlay :is(#sp-season, #sp-dates, p) { font-size: 14px; }
+    #season-pass-overlay :is(#sp-days, #sp-progress-text, .sp-card h3) { font-size: 16px; }
+    #season-pass-overlay .sp-track { overflow: visible; mask-image: none; touch-action: pan-y; }
+    #season-pass-overlay .sp-track ol { flex-direction: column; width: auto; padding: 4px 2px 4px 24px; }
+    #season-pass-overlay .sp-card {
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr) auto;
+        grid-template-areas: 'art title points' 'art tier points' 'art state state' 'action action action';
+        width: 100%;
+        min-height: 0;
+        text-align: start;
+    }
+    #season-pass-overlay .sp-card .sp-step { inset: calc(50% - 6px) auto auto -22px; }
+    #season-pass-overlay .sp-card:not(:last-child)::before {
+        width: 2px;
+        height: calc(50% + var(--sp-track-gap));
+        inset: 50% auto auto -17px;
+    }
+    #season-pass-overlay .sp-card:not(:first-child)::after {
+        content: '';
+        position: absolute;
+        width: 2px;
+        height: 50%;
+        inset: 0 auto auto -17px;
+        background: var(--sp-track-edge);
+    }
+    #season-pass-overlay .sp-card h3 { grid-area: title; }
+    #season-pass-overlay .sp-reward-icon { grid-area: art; max-width: 100%; object-fit: contain; }
+    #season-pass-overlay .sp-tier { grid-area: tier; }
+    #season-pass-overlay .sp-threshold { grid-area: points; align-self: start; }
+    #season-pass-overlay .sp-state { grid-area: state; }
+    #season-pass-overlay :is(.sp-claim, .sp-receipt) { grid-area: action; }
+    #season-pass-overlay .sp-claim { max-width: none; }
+}

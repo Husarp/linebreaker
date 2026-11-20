@@ -1,0 +1,102 @@
+#mode-select-overlay:focus { outline: none; }
+
+#mode-select-overlay .lb69-mode[aria-pressed="true"] {
+    --bb-button-edge: var(--accent);
+    --bb-button-face: color-mix(in srgb, var(--accent) 14%, var(--bb-face));
+}
+
+#mode-select-overlay .lb69-mode[aria-pressed="false"]:is(:focus-visible, .lb-gamepad-focus:focus) {
+    outline: 2px dashed var(--bb-muted) !important;
+    outline-offset: -5px;
+}
+
+#mode-select-overlay[data-mode="fun"] label.lb69-modifier {
+    grid-template-columns: auto minmax(0, 1fr) 76px;
+}
+
+@supports (animation-timeline: scroll()) {
+    #mode-select-overlay:not(.anim-in-up, .anim-out-down) {
+        animation: lb100-play-scroll-fade linear both;
+        animation-timeline: scroll(self block);
+    }
+}
+
+@keyframes lb100-play-scroll-fade {
+    0% { mask-image: linear-gradient(#000 calc(100% - 12px), transparent); }
+    1%, 99% { mask-image: linear-gradient(transparent, #000 12px calc(100% - 12px), transparent); }
+    100% { mask-image: linear-gradient(transparent, #000 12px); }
+}
+
+#start-animation-overlay {
+    --intro-wallpaper: var(--lb-theme-art-landscape, none);
+    z-index: 9991;
+    pointer-events: auto;
+    overflow: hidden;
+    background: radial-gradient(ellipse at center, #080a1080, #080a10db),
+        var(--intro-wallpaper) center / cover no-repeat, var(--bb-page);
+}
+
+@media (orientation: portrait) {
+    #start-animation-overlay { --intro-wallpaper: var(--lb-theme-art-portrait, none); }
+}
+
+#start-text-container {
+    color: color-mix(in srgb, var(--accent-bright) 65%, white);
+    font: clamp(22px, 7.4vw, 56px)/2 var(--bb-font-pixel);
+    white-space: nowrap;
+    animation: none;
+}
+
+#start-wordmark {
+    display: grid;
+    grid-template-columns: repeat(11, 1em);
+    grid-template-rows: repeat(2, 1em);
+}
+
+#start-animation-overlay [hidden] { display: none; }
+
+#start-wordmark > span {
+    position: relative;
+    overflow: hidden;
+    animation: lb100-wordmark-tile 1.6s both;
+}
+
+#start-wordmark > span > span {
+    position: absolute;
+    top: calc(-1em * var(--intro-row));
+    left: calc(-1em * var(--intro-col));
+    text-shadow: 0 2px #000b;
+}
+
+#start-wordmark > span::after {
+    content: "";
+    position: absolute;
+    inset: 16%;
+    background: color-mix(in srgb, var(--accent) 60%, var(--bb-panel));
+    box-shadow: inset 0 .06em #fffa, inset 0 -.09em #0008, inset 0 0 0 1px currentColor;
+    opacity: 0;
+    animation: lb100-tile-face 1.6s both;
+}
+
+@keyframes lb100-wordmark-tile {
+    0% { opacity: 0; transform: translate(var(--intro-x), var(--intro-y)) rotate(var(--intro-turn)) scale(.65); }
+    32%, 66% { opacity: 1; transform: none; }
+    85% { opacity: .85; }
+    100% { opacity: 0; transform: translate(calc(2.5 * var(--intro-x)), calc(2 * var(--intro-y))) rotate(var(--intro-turn)) scale(.55); }
+}
+
+@keyframes lb100-tile-face {
+    0%, 100% { opacity: 1; }
+    32%, 66% { opacity: 0; }
+}
+
+#start-countdown { font-size: 1.4em; text-shadow: 0 3px #000b; }
+
+#start-skip {
+    position: absolute;
+    bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #start-wordmark > span, #start-wordmark > span::after { animation: none; }
+}

@@ -63,7 +63,7 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
   for (const [name, id] of [['pause', 'pause-overlay'], ['game-over', 'go-overlay']]) {
     const opened = qa.open(name);
     await Promise.resolve();
-    advance(1700);
+    advance(3000);
     await opened;
     visible(id);
   }
@@ -114,7 +114,7 @@ it('opens the documented screenshot targets through real UI handlers', async () 
     const opened = w.__LB_QA.open(name);
     if (['game', 'pause', 'game-over'].includes(name)) {
       await Promise.resolve();
-      advance(1700);
+      advance(3000);
     }
     await opened;
     const element = w.document.querySelector(selector);
@@ -143,7 +143,7 @@ it('shows the level and rank division in level rewards and crates', async () => 
   expect(w.document.querySelector('#level-box-overlay h2').textContent).toBe('Gold IX milestone reward');
 });
 
-it('shows the equipped inventory items and moves the active block skin to the first card', async () => {
+it('equips owned inventory cards without separate Equip buttons', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w } = game;
   const query = selector => w.document.querySelector(selector);
@@ -154,35 +154,70 @@ it('shows the equipped inventory items and moves the active block skin to the fi
   expect(query('#owned-skin-btns [data-item-key="outline"][data-owned="false"] [aria-label="Locked"]')).not.toBeNull();
   expect(query('#ghost-section-wrap [data-equipped="true"]').textContent).toContain('White Ghost');
 
-  expect(query('#owned-skin-btns [data-item-key="retro"] button').textContent).toBe('Equip');
-  w.applyBlockSkin('retro');
+  const retro = query('#owned-skin-btns [aria-label="Equip Retro"]');
+  expect(retro.textContent).toBe('');
+  retro.click();
   expect(activeSkin()?.dataset.itemKey).toBe('retro');
+  expect(w.document.activeElement).toBe(activeSkin());
   expect(query('#owned-skin-btns [data-item-key="aztec"]').dataset.equipped).toBe('false');
 
   await w.__LB_QA.open('inventory-colors');
   expect(query('#owned-theme-btns [data-equipped="true"]').dataset.itemKey).toBe('default');
+  query('#owned-theme-btns [aria-label="Equip Ocean"]').click();
+  const ocean = query('#owned-theme-btns [data-equipped="true"]');
+  expect(ocean.dataset.itemKey).toBe('ocean');
+  expect(ocean.querySelector('.lb-inventory-equipped-label').textContent.trim()).toBe('Equipped');
   expect(query('#owned-palette-btns [data-equipped="true"]').dataset.itemKey).toBe('classic');
-  await w.__LB_QA.open('inventory-other');
-  expect(query('#owned-grid-style-btns [data-equipped="true"]').dataset.itemKey).toBe('lines');
-  const sfx = query('#inventory-other-content .lb82-sfx-packs [data-equipped="true"]');
-  expect(sfx.textContent).toContain('Default SFX');
-  expect(sfx.querySelector('.lb82-sfx-state')?.textContent).toBe('Equipped');
-  expect(sfx.querySelector('.lb-inventory-state')).toBeNull();
-  expect(sfx.querySelector(':scope > [aria-label="Preview Default SFX"]')).not.toBeNull();
-  expect(query('.lb82-sfx-packs [data-owned="false"] [aria-label="Locked"]')).not.toBeNull();
+
+  w.__lb.setSave({ ...w.__lb.save, ownedThemes: ['ocean'], parts: { ...w.__lb.save.parts, fire: 2 } });
+  w.openInventory();
+  const fire = query('#owned-theme-btns [data-item-key="fire"]');
+  expect(fire.querySelector('[aria-label="Locked"]')).not.toBeNull();
+  expect(fire.querySelector('progress').value).toBe(2);
+  expect(fire.querySelector('.lb-inventory-equip-target')).toBeNull();
 });
 
-it('shows booster costs and disables exchanges the player cannot afford', async () => {
+it('keeps SFX Preview independent of equipping an owned pack', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
+  const { w } = game;
+  w.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  w.HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+    this.dispatchEvent(new w.Event('close'));
+  };
+  const query = selector => w.document.querySelector(selector);
+  await w.__LB_QA.open('inventory-other');
+  expect(query('#owned-grid-style-btns [data-equipped="true"]').dataset.itemKey).toBe('lines');
+  const active = () => query('#inventory-sfx-packs [data-equipped="true"]');
+  expect(active().textContent).toContain('Default SFX');
+  expect(active().querySelector('[aria-label="Equipped"]')).not.toBeNull();
+  expect(query('.lb82-sfx-packs [data-owned="false"] progress')).not.toBeNull();
+  query('[aria-label="Preview Retro SFX"]').click();
+  expect(query('#sfx-inv-preview').textContent).toContain('Retro SFX');
+  expect(active().textContent).toContain('Default SFX');
+  query('#sfx-inv-preview').close();
+  query('[aria-label="Equip Retro SFX"]').click();
+  expect(active().dataset.itemKey).toBe('sfxRetro');
+  expect(w.document.activeElement).toBe(active());
+  expect(query('#sfx-inv-preview')).toBeNull();
+});
+
+it('shows plain booster balances and puts the cost inside the exchange dialog', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w, api } = game;
   api.setSave({ ...api.save, boosters: { ...api.save.boosters, '1.25x_game': 7 } });
   await w.__LB_QA.open('inventory-other');
   const inventory = w.document.getElementById('inventory-other-content');
   const common = inventory.querySelector('[aria-label="Exchange 1.25× Booster"]');
+  expect(common.closest('.lb-inventory-booster').querySelector('.lb-inventory-booster-stock').textContent.trim()).toBe('x7');
+  expect(inventory.textContent).not.toContain('Cost: 3 boosters');
   expect(common.disabled).toBe(false);
   expect(inventory.querySelector('[aria-label="Exchange 1.5× Booster"]').disabled).toBe(true);
   common.click();
   const dialog = w.document.getElementById('exc-modal-overlay');
+  expect(dialog.textContent).toContain('Trade three boosters for one of the next tier.');
+  expect(dialog.querySelector('.lb-exchange-item-balance').textContent).toBe('You have 7');
+  expect(dialog.querySelector('.lb-block-reward-amount')).toBeNull();
   expect([...dialog.querySelectorAll('img')].map(img => img.getAttribute('src'))).toEqual([
     'assets/ui/boosters/common-1.25x.png', 'assets/ui/boosters/rare-1.5x.png',
   ]);

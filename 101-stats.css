@@ -1,0 +1,101 @@
+.lb-run-icon-defs { position: absolute; }
+
+.lb-run-icon {
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    vertical-align: middle;
+}
+
+#go-overlay .lb-run-icon--lines, .lb-run-icon--lines { color: #5edbd1; }
+#go-overlay .lb-run-icon--speed, .lb-run-icon--speed { color: #ffab64; }
+
+:is([role="tab"][aria-selected="false"], .lb-block-tab[aria-pressed="false"], .lb-block-tabs button[aria-pressed="false"]):focus-visible {
+    outline: 1px dashed var(--bb-muted) !important;
+    outline-offset: -4px !important;
+}
+
+#stats-overlay .lb-stats-month-edges { opacity: .35; stroke-width: .6px; }
+
+#stats-overlay .lb-stats-pin { border-inline-start-color: var(--bb-edge); }
+#stats-overlay .lb-pin-icon { display: grid; justify-items: center; color: var(--bb-ink); }
+#stats-overlay .lb-stats-pin .lb-details-row { column-gap: clamp(12px, 4vw, 24px); }
+#stats-overlay .lb-detail { gap: 4px; }
+#stats-overlay .lb-detail svg { margin-right: 0 !important; }
+
+@media (max-width: 599px) {
+    #stats-overlay .lb-stats-pin { grid-template-columns: 24px repeat(2, minmax(0, 1fr)); }
+    #stats-overlay .lb-stats-pin .lb-detail { font-size: .875rem; }
+}
+
+#stats-overlay .lb-stats-podium-original {
+    padding: 10px 10px 24px;
+    background: #040406;
+    border: 1px solid #202024;
+    border-radius: 10px;
+}
+
+#stats-overlay .lb-stats-podium-original .lb-stats-podium {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 3px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+#stats-overlay .lb-stats-podium-original::after {
+    content: '';
+    display: block;
+    height: 3px;
+    margin-top: 4px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 12%), transparent);
+}
+
+#stats-overlay .lb-stats-podium-original .lb-stats-podium-place { flex: 1; max-width: 130px; }
+:is(#stats-overlay .lb-stats-podium-original .lb-stats-podium-place, #lb-tooltip-global .lb-stats-podium-tip)[data-place="1"] { --tone: #ffd700; }
+:is(#stats-overlay .lb-stats-podium-original .lb-stats-podium-place, #lb-tooltip-global .lb-stats-podium-tip)[data-place="2"] { --tone: #c0c0c0; }
+:is(#stats-overlay .lb-stats-podium-original .lb-stats-podium-place, #lb-tooltip-global .lb-stats-podium-tip)[data-place="3"] { --tone: #e8922a; }
+#stats-overlay .lb-stats-podium-original [data-place="2"] { --step-height: 58px; }
+#stats-overlay .lb-stats-podium-original [data-place="3"] { --step-height: 40px; }
+
+#stats-overlay .lb-stats-podium-original .lb-stats-podium-score {
+    font: 700 .7rem/1.3 'Orbitron', sans-serif;
+    letter-spacing: .5px;
+}
+
+#stats-overlay .lb-stats-podium-original .lb-pts { color: inherit; font: 400 .6rem 'Orbitron', sans-serif; opacity: .5; }
+#stats-overlay .lb-stats-podium-original .lb-stats-podium-step {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0;
+    background: linear-gradient(color-mix(in srgb, var(--tone) 16%, transparent), color-mix(in srgb, var(--tone) 5%, transparent));
+    border-color: color-mix(in srgb, var(--tone) 33%, transparent);
+    border-radius: 6px 6px 0 0;
+    box-shadow: none;
+}
+
+#stats-overlay .lb-stats-podium-original button.lb-stats-podium-place:is(:hover, :focus-visible) .lb-stats-podium-step { border-color: var(--tone); }
+#stats-overlay .lb-stats-podium-original .lb-stats-podium-medal { font-size: 1.5rem; }
+
+@property --lb101-fade-start { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --lb101-fade-end { syntax: '<length>'; inherits: false; initial-value: 0px; }
+
+@keyframes lb101-scroll-fade {
+    0% { --lb101-fade-start: 0px; --lb101-fade-end: 16px; }
+    12%, 88% { --lb101-fade-start: 16px; --lb101-fade-end: 16px; }
+    100% { --lb101-fade-start: 16px; --lb101-fade-end: 0px; }
+}
+
+@supports (animation-timeline: scroll(self)) {
+    #stats-overlay:not(.anim-in-right, .anim-out-right), #stats-overlay .lb-stats-calendar-scroll {
+        mask-image: linear-gradient(var(--lb101-fade-direction, to bottom), transparent, #000 var(--lb101-fade-start), #000 calc(100% - var(--lb101-fade-end)), transparent);
+        animation: lb101-scroll-fade linear both;
+        animation-timeline: scroll(self);
+    }
+
+    #stats-overlay .lb-stats-calendar-scroll { --lb101-fade-direction: to right; animation-timeline: scroll(self inline); }
+}

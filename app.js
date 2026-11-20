@@ -2731,7 +2731,7 @@
                 bar.style.width = actualPct + '%';
                 bar.style.removeProperty('--lb-exchange-owned-stop');
             }
-            if (lbl) lbl.textContent = pending > 0 ? `${parts}+${pending}/${cost}` : `${parts}/${cost}`;
+            if (lbl) lbl.textContent = pending > 0 ? `${parts}+${pending}/${cost} parts` : `${parts}/${cost} parts`;
         }
         function _updateApplyBtn() {
             const btn = document.getElementById('uni-apply-btn');
@@ -2769,11 +2769,11 @@
                         <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
                         <div class="lb-exchange-row-detail">
                             <strong>${name}</strong>
-                            <div class="lb-exchange-row-meta">
+                            <div class="lb-exchange-row-meta lb-inventory-parts-allocation">
                                 <div class="lb-exchange-meter" aria-hidden="true">
                                     <div id="uni-bar-${item.key}" style="width:${pct}%"></div>
                                 </div>
-                                <span class="lb-exchange-badge" aria-label="Owned and required parts"><span id="uni-lbl-${item.key}">${escapeHtml(parts)}/${cost}</span></span>
+                                <span id="uni-lbl-${item.key}">${escapeHtml(parts)}/${cost} parts</span>
                             </div>
                         </div>
                         ${parts < cost ? `<div class="lb-exchange-stepper">
@@ -2893,7 +2893,7 @@
                     setTimeout(() => { bar.style.width = newPct + '%'; }, 50);
                 }
                 const lbl = document.getElementById(`uni-lbl-${key}`);
-                if (lbl) lbl.textContent = `${saveData.parts?.[key] || 0}/${_getItemCost(key)}`;
+                if (lbl) lbl.textContent = `${saveData.parts?.[key] || 0}/${_getItemCost(key)} parts`;
             });
             setTimeout(() => _rebuildContent(), 700);
         };
@@ -2909,8 +2909,8 @@
 
     function _exchangeItemCard({ name, art, rarity, count, detail, amountId, amount }) {
         return `<div class="lb-block-reward lb-exchange-item" data-rarity="${rarity}">
-            ${count != null ? `<span class="lb-block-reward-amount">${escapeHtml(count)} owned</span>` : ''}
             <div class="lb-exchange-item-art">${art}</div>
+            <span class="lb-exchange-item-balance">${count != null ? `You have ${escapeHtml(count)}` : ''}</span>
             <strong>${name}</strong>
             <span class="lb-exchange-item-detail">${detail}</span>
             <strong class="lb-exchange-item-amount" id="${amountId}">${amount}</strong>
@@ -3519,14 +3519,13 @@
                 <div class="lb-actions lb-stats-years" role="group" aria-label="Activity year">
                     ${years.map(value => `<button class="lb-block-btn lb-block-tab" type="button" data-cal-year="${value}" aria-pressed="${value === year}">${value}</button>`).join('')}
                 </div>
-                <p id="cal-instructions" class="lb-stats-chart-hint">Select a day for game counts. Scroll for more months on small screens.</p>
             </div>
             <div class="lb-stats-chart">
                 <div id="cal-day-labels" aria-hidden="true">${dayLabels.map(label => `<span>${label}</span>`).join('')}</div>
                 <div class="lb-stats-calendar-scroll" role="region" aria-label="Activity calendar" tabindex="0">
                     <div class="lb-stats-calendar" style="--calendar-weeks:${weeks}">
                         <div id="cal-month-row" aria-hidden="true">${months.map(({ label, start, end }) => `<span style="grid-column:${start + 1}/${end + 2}">${label}</span>`).join('')}</div>
-                        <div id="cal-grid" role="group" aria-label="${year} daily activity" aria-describedby="cal-instructions">
+                        <div id="cal-grid" role="group" aria-label="${year} daily activity">
                             <svg class="lb-stats-month-edges" aria-hidden="true" viewBox="0 0 ${weeks * 7} 49" preserveAspectRatio="none"><path d="${separators.join(' ')}" vector-effect="non-scaling-stroke"/></svg>
                             ${cells.map(({ key, week, weekday, level, label }, index) => `<button type="button" class="lb-stats-day" style="grid-area:${weekday + 1}/${week + 1}" data-cal-day="${index}" data-level="${level}" tabindex="${index === selectedIndex ? 0 : -1}" aria-pressed="${index === selectedIndex}" ${key === todayKey ? 'aria-current="date"' : ''} aria-label="${escapeHtml(label)}"></button>`).join('')}
                         </div>
@@ -3609,13 +3608,16 @@
         });
     }
     function statsLbTab(tab) {
-        if (!statsTabs.some(button => button.dataset.statsTab === tab)) return;
+        const selected = statsTabs.find(button => button.dataset.statsTab === tab);
+        if (!selected) return;
+        const focusedTab = statsTabs.includes(document.activeElement);
         for (const button of statsTabs) {
-            const active = button.dataset.statsTab === tab;
+            const active = button === selected;
             button.setAttribute('aria-selected', active);
             button.tabIndex = active ? 0 : -1;
             document.getElementById(button.getAttribute('aria-controls')).hidden = !active;
         }
+        if (focusedTab && document.activeElement !== selected) selected.focus({ preventScroll: true });
         if (tab === 'general') drawGeneralStats();
         if (tab === 'leaderboard') statsLeaderboardMode('standard');
         if (tab === 'pinned') drawPinnedScores();
@@ -3640,8 +3642,8 @@
             const next = { ArrowLeft: index === 0 ? last : index - 1, ArrowRight: index === last ? 0 : index + 1, Home: 0, End: last }[event.key];
             if (!Number.isInteger(next)) return;
             event.preventDefault();
-            statsTabs[next].focus();
             statsLbTab(statsTabs[next].dataset.statsTab);
+            statsTabs[next].focus({ preventScroll: true });
         });
     });
     document.querySelectorAll('#leaderboard-container [data-stats-board]').forEach(button => {
@@ -3802,53 +3804,61 @@
         }
         _updateMusicWidget();
     }
-    function _inventoryState(equipped) {
+    function _inventoryState(equipped, showLabel = false) {
         const label = equipped ? 'Equipped' : 'Locked';
         const path = equipped ? '<path d="m5 12 4 4L19 6"/>' : '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>';
-        return `<svg class="lb-inventory-state" role="img" aria-label="${label}" viewBox="0 0 24 24" width="${equipped ? 26 : 18}" height="${equipped ? 26 : 18}" fill="none" stroke="currentColor" stroke-width="${equipped ? 3 : 2}" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+        return `<svg class="lb-inventory-state" ${showLabel ? 'aria-hidden="true"' : `role="img" aria-label="${label}"`} viewBox="0 0 24 24" width="${equipped ? 26 : 18}" height="${equipped ? 26 : 18}" fill="none" stroke="currentColor" stroke-width="${equipped ? 3 : 2}" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
     }
 
-    function _makeInventoryRow(...args) { return _makeTrackRow(...args, false, true); }
+    function _inventoryEquipButton(label, [type, value]) {
+        return `<button type="button" class="lb-inventory-equip-target" aria-label="Equip ${escapeHtml(label)}" data-inventory-equip="${type}" data-equip-value="${value}"></button>`;
+    }
 
-    function _makeTrackRow(label, isActive, isOwned, partCount, onEquipJs, onUnlockJs, extraHtml, itemKey, configurable = false, blockBuilt = false) {
+    document.getElementById('inventory-overlay')?.addEventListener('click', event => {
+        const target = event.target.closest('[data-inventory-equip]');
+        if (!target) return;
+        const groupId = target.parentElement.parentElement.id;
+        const { inventoryEquip: type, equipValue: value } = target.dataset;
+        if (type === 'theme') applyTheme(value);
+        else if (type === 'skin') applyBlockSkin(value);
+        else if (type === 'gridStyle') applyGridStyle(value);
+        else if (type === 'btnStyle') applyBtnStyle(value);
+        else if (['ghostColor', 'colorPalette', 'sfxPack'].includes(type)) onSettingChange(type, value);
+        if (event.detail === 0) document.getElementById(groupId)?.querySelector(':scope > [data-equipped="true"]')?.focus();
+    });
+
+    function _makeInventoryRow(label, isActive, isOwned, partCount, equip, onUnlockJs, extraHtml, itemKey, previewPack = '') {
         const equipped = isOwned && isActive;
-        const status = equipped ? 'Equipped' : isOwned ? 'Owned' : 'Locked';
         const cost = !isOwned && itemKey ? _getItemCost(itemKey) : 0;
         const parts = Math.max(0, Number(partCount) || 0);
-        const ready = cost > 0 && parts >= cost;
-        const canEquip = isOwned && (!equipped || configurable) && onEquipJs;
         const safeLabel = escapeHtml(label);
-        const actionClass = 'lb-inventory-action lb-block-btn';
         const progress = cost > 0 ? `<div class="lb-inventory-progress">
-            <progress class="${blockBuilt ? 'lb-block-progress' : 'lb-progress lb-progress--pattern'}" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
+            <progress class="lb-block-progress" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
             <span>${Math.min(parts, cost)}/${cost} parts</span>
         </div>` : '';
-        const action = ready
-            ? `<button type="button" class="${actionClass} ${blockBuilt ? 'lb-block-btn--primary' : 'lb-inventory-action--unlock'}" onclick="${onUnlockJs}">Unlock</button>`
-            : canEquip ? `<button type="button" class="${actionClass}" onclick="event.stopPropagation();${onEquipJs}">${equipped ? 'Edit' : 'Equip'}</button>` : '';
-        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" class="inv-row lb-inventory-card${blockBuilt ? ' lb-inventory-item lb-block-card' : ready ? ' glow-notify' : ''}"${canEquip ? ` style="cursor:pointer;" onclick="${onEquipJs}"` : ''}>
+        const unlock = cost > 0 && parts >= cost ? `<div class="lb-inventory-controls"><button type="button" class="lb-inventory-action lb-block-btn lb-block-btn--primary" onclick="${onUnlockJs}">Unlock</button></div>` : '';
+        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" class="inv-row lb-inventory-card lb-inventory-item lb-block-card"${equipped ? ' tabindex="-1"' : ''}>
+            ${isOwned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
             <div class="lb-inventory-heading">
                 <div class="lb-inventory-name">${safeLabel}</div>
-                ${blockBuilt ? (equipped || !isOwned ? _inventoryState(equipped) : '') : `<div class="lb-item-state">${status}</div>`}
+                ${equipped || !isOwned ? _inventoryState(equipped) : ''}
             </div>
             ${extraHtml ? `<div class="lb-inventory-detail">${extraHtml}</div>` : ''}
-            ${progress || action ? `<div class="lb-inventory-controls">${progress}${action}</div>` : ''}
+            ${progress}${unlock}
+            ${previewPack ? `<button type="button" class="lb-block-btn lb82-sfx-preview" data-sfx-preview="${previewPack}" aria-label="Preview ${safeLabel}">Preview</button>` : ''}
         </div>`;
     }
 
-    function _colorInventoryStatus(equipped) {
-        return `<span class="lb-colors-state">${_inventoryState(equipped)}</span>`;
-    }
-
-    function _colorInventoryCard({ key, label, owned, equipped = false, preview = '', detail = '', actions = '', unlock = '' }) {
+    function _colorInventoryCard({ key, label, owned, equipped = false, preview = '', detail = '', equip = '', unlock = '' }) {
         const cost = !owned && unlock ? _getItemCost(key) : 0;
         const parts = Math.max(0, Math.min(cost, Number(saveData.parts?.[key]) || 0));
-        if (cost && parts === cost) actions += `<button type="button" class="lb-block-btn lb-block-btn--primary" onclick="${unlock}">Unlock</button>`;
-        return `<article class="lb-block-card lb-colors-card"${key ? ` data-item-key="${key}"` : ''} data-owned="${owned}" data-equipped="${equipped}">
-            <header><h3>${label}</h3>${equipped || !owned ? _colorInventoryStatus(equipped) : ''}</header>
+        return `<article class="lb-block-card lb-colors-card"${key ? ` data-item-key="${key}"` : ''} data-owned="${owned}" data-equipped="${equipped}"${equipped ? ' tabindex="-1"' : ''}>
+            ${owned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
+            <header><h3>${label}</h3>${!owned ? `<span class="lb-colors-state">${_inventoryState(false)}</span>` : ''}</header>
             ${preview}${detail ? `<p>${detail}</p>` : ''}
             ${cost ? `<div class="lb-colors-parts"><progress class="lb-block-progress" aria-label="${label} parts" value="${parts}" max="${cost}"></progress><span>${parts}/${cost} parts</span></div>` : ''}
-            ${actions ? `<div class="lb-colors-actions">${actions}</div>` : ''}
+            ${equipped ? `<div class="lb-colors-state lb-inventory-equipped-label">${_inventoryState(true, true)} Equipped</div>` : ''}
+            ${cost && parts === cost ? `<div class="lb-colors-actions"><button type="button" class="lb-block-btn lb-block-btn--primary" onclick="${unlock}">Unlock</button></div>` : ''}
         </article>`;
     }
 
@@ -3882,9 +3892,9 @@
             } else {
                 const gc = settings.ghostColor || 'white';
                 const parts = saveData.parts?.['ghostColor'] || 0;
-                const whiteRow = _makeInventoryRow('White Ghost', gc === 'white', true, 0, "window.onSettingChange('ghostColor','white')", '', '', '');
+                const whiteRow = _makeInventoryRow('White Ghost', gc === 'white', true, 0, ['ghostColor', 'white'], '', '', '');
                 const coloredOwned = saveData.ghostColorUnlocked;
-                const coloredRow = _makeInventoryRow('Colored Ghost', gc === 'colored', Boolean(coloredOwned), parts, "window.onSettingChange('ghostColor','colored')", "window.playerUnlockItem('ghostColor','ghostColor')", 'Ghost matches piece color', 'ghostColor');
+                const coloredRow = _makeInventoryRow('Colored Ghost', gc === 'colored', Boolean(coloredOwned), parts, ['ghostColor', 'colored'], "window.playerUnlockItem('ghostColor','ghostColor')", 'Ghost matches piece color', 'ghostColor');
                 ghostWrap.innerHTML = `<h3 class="lb-inventory-subtitle">Ghost Piece</h3>${whiteRow}${coloredRow}`;
             }
         }
@@ -3907,7 +3917,7 @@
                 return _makeInventoryRow(
                     skinNames[s],
                     isActive, isOwned, parts,
-                    `window.applyBlockSkin('${s}')`,
+                    ['skin', s],
                     `window.playerUnlockItem('skin','${s}')`,
                     escapeHtml(LBLineClear.description(s)), s
                 );
@@ -3935,9 +3945,8 @@
                 const equipped = settings.theme === key;
                 const color = THEMES[key].primary;
                 return _colorInventoryCard({ key, label, owned, equipped,
-                    preview: `<button type="button" class="lb-block-btn lb-colors-theme-sample" aria-label="Copy ${label} colour" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)">
-                        <span class="lb-colors-chip" aria-hidden="true" style="--swatch:${color}"></span><span aria-hidden="true">${_SVG_COPY}</span></button>`,
-                    actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.applyTheme('${key}')">Equip</button>` : '',
+                    preview: `<div class="lb-inventory-theme-swatch"><span class="lb-colors-chip" aria-hidden="true" style="--swatch:${color}"></span>${owned ? `<button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Copy ${label} colour" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)"><span aria-hidden="true">${_SVG_COPY}</span></button>` : ''}</div>`,
+                    equip: ['theme', key],
                     unlock: `window.playerUnlockItem('theme','${key}')` });
             }).join('');
             ownedThemeContainer.innerHTML = rows + (_allThemesOwned()
@@ -3957,7 +3966,7 @@
                 const colors = paletteColors(saveData.customPaletteOverrides?.[key], palette.colors);
                 return _colorInventoryCard({ key, label: palette.name, owned: !!owned, equipped,
                     preview: `<button type="button" class="lb-block-btn lb-palette-preview" aria-label="Preview ${palette.name} palette" onclick="window._openPaletteViewModal('${key}')">${_palettePiecePreviews(colors)}</button>`,
-                    actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.onSettingChange('colorPalette','${key}')">Equip</button>` : '',
+                    equip: ['colorPalette', key],
                     unlock: `window.playerUnlockItem('palette','${key}')` });
             }).join('');
             const shuffle = `<div class="lb-colors-shuffle">
@@ -3967,7 +3976,7 @@
             const randomEquipped = allPalettesOwned && !!settings.randomBlockColors;
             const random = _colorInventoryCard({ key: '_randomColors', label: 'Random Colors', owned: allPalettesOwned, equipped: randomEquipped,
                 detail: allPalettesOwned ? 'Every block is a different random color' : 'Own all palettes to unlock',
-                actions: allPalettesOwned && !randomEquipped ? `<button type="button" class="lb-block-btn" onclick="window.onSettingChange('randomBlockColors',true);window.onSettingChange('colorPalette','_random')">Equip</button>` : '' });
+                equip: ['colorPalette', '_random'] });
             const custom = allPalettesOwned
                 ? _colorPickerButton('custom-palette-picker-button', 'Custom Palette', `conic-gradient(${_customPaletteColors().join(', ')})`, settings.colorPalette === '_custom_picker', '_openCustomPaletteModal')
                 : _colorInventoryCard({ label: 'Custom Palette', owned: false, detail: 'Own all palettes to unlock' });
@@ -3982,8 +3991,8 @@
                 .map(([k, bs]) => {
                     const isOwned = bs.free || owned.includes(k);
                     const parts = saveData.parts?.[k] || 0;
-                    return _makeTrackRow(bs.name, settings.btnStyle === k, isOwned, parts,
-                        `window.applyBtnStyle('${k}')`,
+                    return _makeInventoryRow(bs.name, settings.btnStyle === k, isOwned, parts,
+                        ['btnStyle', k],
                         isOwned ? '' : `window.playerUnlockItem('btnStyle','${k}')`,
                         '', k);
                 }).join('');
@@ -4000,7 +4009,7 @@
                 const isActive = (GRID_STYLES[_curGrid] ? _curGrid : 'lines') === k;
                 const parts = saveData.parts?.[k] || 0;
                 return _makeInventoryRow(gs.name, isActive, isOwned, parts,
-                    `window.applyGridStyle('${k}')`,
+                    ['gridStyle', k],
                     `window.playerUnlockItem('gridStyle','${k}')`,
                     '', k
                 );
@@ -4110,7 +4119,10 @@
             <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
             <div class="lb-exchange-row-detail">
                 <strong class="lb-help-label">Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" title="About universal parts"></button></strong>
-                <div class="lb-exchange-row-meta"><span class="lb-exchange-badge">${Number(_uniVal.toFixed(1))} owned</span><span>${_exchangePartsIcon()} 1 part minimum</span></div>
+                <div class="lb-inventory-progress lb-inventory-universal-progress">
+                    <progress class="lb-block-progress" aria-label="Progress toward one usable universal part" max="1" value="${Math.min(1, _uniVal)}"></progress>
+                    <span>${Number(_uniVal.toFixed(1))} owned</span>
+                </div>
             </div>
             <button type="button" class="lb-block-btn lb-block-btn--primary" data-use-parts ${_uniVal < 1 ? 'disabled' : ''}>${exchangeForXP ? 'Exchange' : 'Use'}</button>
         </div>`;
@@ -4120,18 +4132,17 @@
             const meta = BOOSTER_META[key];
             const count = boosters[key] || 0;
             const nextKey = BOOSTER_KEYS[i + 1];
-            return `<div class="lb-block-card lb-exchange-row" data-rarity="${meta.rarity}">
-                <div class="lb-exchange-row-art">${LBArtPack.boosterIcon(key)}</div>
-                <div class="lb-exchange-row-detail">
-                    <strong>${meta.label}</strong>
-                    <div class="lb-exchange-row-meta"><span class="lb-exchange-badge">${escapeHtml(count)} owned</span><span class="lb-exchange-rarity">${meta.rarity}</span>${nextKey ? '<span>Cost: 3 boosters</span>' : ''}</div>
-                </div>
+            return `<div class="lb-block-card lb-inventory-booster" data-rarity="${meta.rarity}">
+                <strong>${meta.label}</strong>
+                <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(key)} <span>x${escapeHtml(count)}</span></div>
+                <span class="lb-exchange-rarity">${meta.rarity}</span>
                 ${nextKey ? `<button type="button" class="lb-block-btn lb-block-btn--primary" aria-label="Exchange ${meta.label}" data-exchange-booster="${i}" ${count < 3 ? 'disabled' : ''}>Exchange</button>` : ''}
             </div>`;
         }).join('');
 
         // SFX Packs section
         const _sfxPackDefs = [
+            { key: '', label: 'Default SFX', packId: 'default' },
             { key: 'sfxRetro', label: 'Retro SFX', packId: 'retro' },
             { key: 'sfxArcade', label: 'Arcade SFX', packId: 'arcade' },
             { key: 'sfxCyber', label: 'Cyber SFX', packId: 'cyber' },
@@ -4139,18 +4150,15 @@
         ];
         const _ownedSfx = saveData.ownedSfxPacks || ['default'];
         const _activeSfxPack = settings.sfxPack || 'default';
-        let sfxPacksHtml = '';
-        // Default pack row (always owned)
-        sfxPacksHtml += _makeInventoryRow('Default SFX', _activeSfxPack === 'default', true, 0, "window.onSettingChange('sfxPack','default')", '', 'The original sound effects', '');
-        _sfxPackDefs.forEach(p => {
-            const owned = _ownedSfx.includes(p.packId);
+        const sfxPacksHtml = _sfxPackDefs.map(p => {
+            const owned = p.packId === 'default' || _ownedSfx.includes(p.packId);
             const active = _activeSfxPack === p.packId;
             const parts = saveData.parts?.[p.key] || 0;
-            sfxPacksHtml += _makeInventoryRow(p.label, active, owned, parts,
-                `window.onSettingChange('sfxPack','${p.packId}')`,
+            return _makeInventoryRow(p.label, active, owned, parts,
+                ['sfxPack', p.packId],
                 `window.playerUnlockItem('sfxPack','${p.key}')`,
-                '', p.key);
-        });
+                '', p.key, p.packId);
+        }).join('');
 
         container.innerHTML = `
             ${uniRow}
@@ -4158,7 +4166,7 @@
                 <h2 class="lb-block-section-title lb-help-label">Boosters <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" title="About boosters"></button></h2>
                 ${boosterHtml}
             </section>
-            <section class="lb-block-card lb-inventory-section lb82-sfx-packs">
+            <section id="inventory-sfx-packs" class="lb-block-card lb-inventory-section lb82-sfx-packs">
                 <h2 class="lb-block-section-title">SFX Packs</h2>
                 ${sfxPacksHtml}
             </section>`;
@@ -4168,30 +4176,8 @@
             exchangeBoosters(BOOSTER_KEYS[index], BOOSTER_KEYS[index + 1]);
         }));
 
-        // SFX pack rows — click to open preview (not on buttons)
-        const packIds = new Map(_sfxPackDefs.map(pack => [pack.key, pack.packId]));
-        container.querySelectorAll('.lb-inventory-item').forEach(row => {
-            const packId = packIds.get(row.dataset.itemKey) || 'default';
-            if (row.dataset.equipped === 'true') {
-                const state = document.createElement('span');
-                state.className = 'lb82-sfx-state';
-                state.textContent = 'Equipped';
-                row.querySelector('.lb-inventory-state').replaceWith(state);
-            }
-            const content = document.createElement('div');
-            content.className = 'lb82-sfx-content';
-            content.append(...row.children);
-            const preview = document.createElement('button');
-            preview.type = 'button';
-            preview.className = 'lb-block-btn lb82-sfx-preview';
-            preview.textContent = 'Preview';
-            preview.setAttribute('aria-label', `Preview ${content.querySelector('.lb-inventory-name').textContent}`);
-            preview.addEventListener('click', () => _openSfxPreviewPopup(packId, preview));
-            row.append(content, preview);
-            row.style.cursor = 'pointer';
-            row.onclick = (e) => {
-                if (!e.target.closest('button')) _openSfxPreviewPopup(packId, preview);
-            };
+        container.querySelectorAll('[data-sfx-preview]').forEach(preview => {
+            preview.addEventListener('click', () => _openSfxPreviewPopup(preview.dataset.sfxPreview, preview));
         });
     }
 
@@ -4816,10 +4802,11 @@
     }
     function _lbIcons() {
         const _ico = (p, w, h) => `<svg viewBox="0 0 16 16" width="${w||12}" height="${h||12}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;opacity:0.8">${p}</svg>`;
+        const runIcon = name => `<svg class="lb-run-icon lb-run-icon--${name}" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#lb-run-icon-${name}"/></svg>`;
         return {
             time:  _ico(`<circle cx="8" cy="9" r="5.5"/><polyline points="8 6 8 9 10 11"/><line x1="5.5" y1="1.5" x2="10.5" y2="1.5"/>`, 16, 16),
-            lines: _ico(`<rect x="1" y="6" width="14" height="4" rx="0.8" fill="currentColor" stroke="none"/><line x1="3" y1="3.5" x2="3" y2="6"/><line x1="6.5" y1="3" x2="6.5" y2="6"/><line x1="9.5" y1="3" x2="9.5" y2="6"/><line x1="13" y1="3.5" x2="13" y2="6"/><line x1="3" y1="10" x2="3" y2="12.5"/><line x1="6.5" y1="10" x2="6.5" y2="13"/><line x1="9.5" y1="10" x2="9.5" y2="13"/><line x1="13" y1="10" x2="13" y2="12.5"/>`, 16, 16),
-            speed: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;opacity:0.85"><path d="M3 16a9 9 0 1 1 18 0"/><line x1="12" y1="16" x2="8" y2="11"/><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/></svg>`,
+            lines: runIcon('lines'),
+            speed: runIcon('speed'),
             cal:   `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px;opacity:0.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
         };
     }
@@ -4838,7 +4825,7 @@
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
             const noteHtml = e.note ? `<span class="lb-stats-meta">${escapeHtml(e.note)}</span>` : '';
-            div.innerHTML = `<span class="lb-rank" style="color:#ffd700;min-width:24px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffd700" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock, true))}</span>`;
+            div.innerHTML = `<span class="lb-pin-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock, true))}</span>`;
             div.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 _showScorePinPopup(ev, '📌 Unpin', () => unpinScore(realIdx));
@@ -4846,29 +4833,21 @@
             container.appendChild(div);
         });
     }
-    function statsHighscoresBySpeed(entries) {
-        const bestBySpeed = new Map();
-        for (const { maxSpeed, score } of entries) {
-            if (!Number.isInteger(maxSpeed) || maxSpeed < 1 || !(score > 0)) continue;
-            if (score > (bestBySpeed.get(maxSpeed) || 0)) bestBySpeed.set(maxSpeed, score);
-        }
-        return [...bestBySpeed].sort(([left], [right]) => left - right);
-    }
-
     function _statsPodium(entries, onPlace) {
         const podium = document.createElement('div');
         podium.className = 'lb-stats-podium';
         const medals = ['Gold', 'Silver', 'Bronze'];
+        const originalMedals = ['🥇', '🥈', '🥉'];
         for (const rank of [2, 1, 3]) {
             const entry = entries[rank - 1];
             if (!entry) continue;
             const medal = medals[rank - 1];
-            const asset = `assets/ui/medals/${medal.toLowerCase()}-64.png`;
             const score = entry.score.toLocaleString();
             const place = document.createElement(onPlace ? 'button' : 'div');
             place.className = 'lb-stats-podium-place';
             place.dataset.place = rank;
-            place.innerHTML = `<span class="lb-stats-podium-score">${escapeHtml(score)} <span class="lb-pts">pts</span></span><span class="lb-stats-podium-step"><img src="${asset}" width="32" height="32" alt=""><span class="lb-stats-place-rank">#${rank} ${medal}</span></span>`;
+            const rankLabel = onPlace ? `<span class="lb-stats-podium-medal" aria-hidden="true">${originalMedals[rank - 1]}</span>` : `<span class="lb-stats-place-rank">#${rank} ${medal}</span>`;
+            place.innerHTML = `<span class="lb-stats-podium-score">${escapeHtml(score)} <span class="lb-pts">pts</span></span><span class="lb-stats-podium-step">${rankLabel}</span>`;
             if (onPlace) {
                 place.type = 'button';
                 place.classList.add('lb-block-btn');
@@ -4887,10 +4866,6 @@
         // Build full list: history + current highscore
         const all = [...history];
         if (_bestScore() > 0) all.push({ ...saveData.leaderboard[0], isCurrent: true });
-        const records = statsHighscoresBySpeed([...all, ...saveData.leaderboard]);
-        document.getElementById('highscores-by-speed').innerHTML = records.length
-            ? `<table class="lb-stats-table" aria-label="Records by speed level"><thead><tr><th scope="col">Speed level</th><th scope="col">Best score</th></tr></thead><tbody>${records.map(([speed, score]) => `<tr><th scope="row">${speed}</th><td>${score.toLocaleString()}</td></tr>`).join('')}</tbody></table>`
-            : '<p class="lb-empty">No scores with a recorded speed level yet.</p>';
         if (all.length === 0) { container.innerHTML = '<p class="lb-block-card lb-empty">No highscores yet. Play to set your first record!</p>'; return; }
         container.innerHTML = '';
         // Sort descending by score
@@ -4918,8 +4893,8 @@
         const tipEl = document.getElementById('lb-tooltip-global');
 
         const podiumPanel = document.createElement('section');
-        podiumPanel.className = 'lb-block-panel lb-stats-podium-panel';
-        podiumPanel.innerHTML = '<div class="lb-block-panel-head"><h2>Best scores</h2></div>';
+        podiumPanel.className = 'lb-stats-podium-panel lb-stats-podium-original';
+        podiumPanel.setAttribute('aria-label', 'Best scores');
         const podium = _statsPodium(lb, (block, e, rank, medal) => {
             block.addEventListener('click', (ev) => {
                 ev.stopPropagation();
@@ -7454,7 +7429,7 @@
     let _mq_minimalistFailed = false, _mq_minimalistLines = 0, _mq_minimalist = false;
     let _achsThisGame = 0;
     let _mq_quadStreak = false, _mq_flatEarth = false, _mq_flatEarthStart = -1;
-    let _animId = 0;
+    let _startIntroTimers = [], _skipStartIntro;
     let currentGameMode = 'normal'; // 'normal', 'fun'
     let holdPiece = null, holdUsed = false;
     let funModeConfig = { cols: 10, rows: 20, startSpeed: 1 };
@@ -8541,20 +8516,43 @@
             }).join('')}</ul>`;
     }
 
+    function clearStartIntro() {
+        _startIntroTimers.forEach(timer => clearTimeout(timer));
+        _startIntroTimers = [];
+        _skipStartIntro = null;
+        document.getElementById('start-animation-overlay').classList.add('hidden');
+    }
+
     function startAnimation(onStarted) {
-        const thisAnim = ++_animId;
         const overlay = document.getElementById('start-animation-overlay');
-        const container = document.getElementById('start-text-container');
-        overlay.classList.remove('hidden');
-        const letters = "LINEBREAKER".split(""); let html = ""; let lastColor = 0;
-        for (let l of letters) {
-            let c; do { c = Math.floor(Math.random() * 7) + 1; } while (c === lastColor);
-            lastColor = c; html += `<span style="color: ${COLORS[c]}">${l}</span>`;
+        const wordmark = document.getElementById('start-wordmark');
+        const countdown = document.getElementById('start-countdown');
+        const skip = document.getElementById('start-skip');
+        const title = 'LINEBREAKER';
+        const tiles = [];
+        for (let row = 0; row < 2; row++) {
+            for (let column = 0; column < title.length; column++) {
+                const tile = document.createElement('span');
+                const lettering = document.createElement('span');
+                lettering.textContent = title;
+                tile.style.setProperty('--intro-col', column);
+                tile.style.setProperty('--intro-row', row);
+                tile.style.setProperty('--intro-x', `${(column - 5) * 5}px`);
+                tile.style.setProperty('--intro-y', `${(row ? 1 : -1) * (24 + column % 4 * 11)}px`);
+                tile.style.setProperty('--intro-turn', `${(row ? 1 : -1) * (28 + column % 5 * 9)}deg`);
+                tile.append(lettering);
+                tiles.push(tile);
+            }
         }
-        container.innerHTML = html;
-        setTimeout(() => {
-            if (thisAnim !== _animId || isGameOver) return;
-            overlay.classList.add('hidden');
+        LBArtPack.applyThemeBackground(overlay, settings.theme, settings.themeBackground);
+        wordmark.replaceChildren(...tiles);
+        wordmark.hidden = false;
+        countdown.hidden = true;
+        overlay.classList.remove('hidden');
+        skip.focus({ preventScroll: true });
+        _skipStartIntro = () => {
+            clearStartIntro();
+            if (isGameOver) return;
             document.getElementById('app').classList.add('active-game');
             _syncRunMissions(true);
             _refreshGameDPR();
@@ -8564,11 +8562,21 @@
             lastTime=performance.now(); update(lastTime);
             switchMusicMode('game');
             onStarted?.();
-        }, 1600);
+        };
+        const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        const introDuration = reducedMotion ? 500 : 1600;
+        const beat = 450;
+        _startIntroTimers = [3, 2, 1, 0].map(remaining => setTimeout(() => {
+            if (remaining === 0) return _skipStartIntro?.();
+            wordmark.hidden = true;
+            countdown.hidden = false;
+            countdown.textContent = remaining;
+        }, introDuration + (3 - remaining) * beat));
     }
+    document.getElementById('start-skip').addEventListener('click', () => _skipStartIntro?.());
 
     function startGame(onStarted){
-        if (_gameOverProtect) return;
+        if (_gameOverProtect || _skipStartIntro) return;
         // Show rules on first fun/master play
         if (currentGameMode === 'fun' && !saveData.seenFunRules) {
             saveData.seenFunRules = true;
@@ -8673,11 +8681,11 @@
         }));
     }
     function resetQARun() {
-        ++_animId;
+        clearStartIntro();
         _gameOverProtect = false;
         _gameInProgress = false;
         clearInterval(timeInterval);
-        for (const id of ['start-animation-overlay', 'pause-overlay', 'go-overlay']) {
+        for (const id of ['pause-overlay', 'go-overlay']) {
             document.getElementById(id).classList.add('hidden');
         }
         resetGameToMenu();
@@ -8718,6 +8726,7 @@
     function backFromOverlay(overlay) {
         if (controlsEditor.cancel()) return;
         switch (overlay.id) {
+            case 'start-animation-overlay': _skipStartIntro?.(); return;
             case 'pause-overlay': pauseFromInput(overlay); return;
             case 'mode-select-overlay': closeModeSelect(); return;
             case 'go-overlay': resetGameToMenu(); return;
@@ -8831,11 +8840,13 @@
                 && getComputedStyle(el).display !== 'none';
             const overlays = [...document.querySelectorAll(
                 '[id$="-overlay"], [id$="-modal"], #custom-confirm, #custom-alert, #sfx-inv-preview'
-            )].filter(el => visible(el) && !['menu-overlay', 'start-animation-overlay'].includes(el.id));
+            )].filter(el => visible(el) && el.id !== 'menu-overlay');
             overlays.sort((a, b) => (parseInt(getComputedStyle(b).zIndex) || 0)
                 - (parseInt(getComputedStyle(a).zIndex) || 0));
             const top = overlays[0];
-            if (top?.id === 'custom-confirm') {
+            if (top?.id === 'start-animation-overlay') {
+                _skipStartIntro?.();
+            } else if (top?.id === 'custom-confirm') {
                 document.getElementById('confirm-no').click();
             } else if (top?.id === 'custom-alert') {
                 closeAlert();
@@ -10812,7 +10823,7 @@
         playOverlay.classList.remove('hidden');
         playOverlay.scrollTop = 0;
         _animateIn(playOverlay, 'anim-in-up');
-        playOverlay.querySelector('[data-mode][aria-pressed="true"]').focus({ preventScroll: true });
+        playOverlay.focus({ preventScroll: true });
     }
 
     function closeModeSelect() {
@@ -10856,7 +10867,11 @@
     }
 
     function updatePlaySummary() {
-        const multiplier = currentGameMode === 'fun' ? 1 : _calcModeXpMult();
+        const isFun = currentGameMode === 'fun';
+        document.getElementById('play-score-panel').hidden = isFun;
+        for (const percent of playOverlay.querySelectorAll('.lb69-modifier-score')) percent.hidden = isFun;
+        if (isFun) return;
+        const multiplier = _calcModeXpMult();
         const score = document.getElementById('mode-xp-mult-val');
         score.textContent = `${Math.round(multiplier * 100)}%`;
         score.dataset.effect = multiplier > 1 ? 'bonus' : multiplier < 1 ? 'penalty' : 'base';
@@ -11038,44 +11053,23 @@
         ];
         const ov = document.createElement('div');
         ov.id = 'sfx-panel-modal';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;';
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,50,50,0.3);border-radius:14px;padding:20px;width:min(380px,90vw);max-height:80vh;overflow-y:auto;position:relative;">
-            <button type="button" id="sfx-panel-close" class="lb-block-btn lb-block-btn--icon lb80-sfx-close" aria-label="Close sounds">✕</button>
-            <div class="lb80-sfx-head">
-                <div style="font-size:0.6rem;letter-spacing:2px;color:#ff6666;">🔊 SFX PREVIEW</div>
-                <div class="lb-block-tabs">
-                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab active" data-pack="a" aria-pressed="true">DEFAULT</button>
-                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="b" aria-pressed="false">CYBER</button>
-                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="c" aria-pressed="false">RETRO</button>
-                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="d" aria-pressed="false">ZEN</button>
-                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="e" aria-pressed="false">ARCADE</button>
-                </div>
-            </div>
-            ${sfxList.map(s => `<div class="sfx-row" data-sfx="${s.name}" style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;">
-                <div style="width:28px;height:28px;border-radius:6px;background:rgba(255,100,100,0.1);border:1px solid rgba(255,100,100,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="#ff9999"><polygon points="2,5 5,5 9,2 9,14 5,11 2,11"/><path d="M11 5.5a3 3 0 010 5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M13 3.5a5.5 5.5 0 010 9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
-                </div>
-                <div>
-                    <div style="font-size:0.75rem;color:#fff;font-weight:bold;">${s.name}</div>
-                    <div style="font-size:0.6rem;color:#666;">${s.desc}</div>
-                </div>
-            </div>`).join('')}
-        </div>`;
+        const packs = ['DEFAULT', 'CYBER', 'RETRO', 'ZEN', 'ARCADE'].map((label, index) => ({ label, id: 'abcde'[index] }));
+        renderSfxPreview(ov, 'SFX Preview', packs, sfxList);
         ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
         document.body.appendChild(ov);
-        ov.querySelector('#sfx-panel-close').addEventListener('click', () => ov.remove());
+        ov.querySelector('.lb102-sfx-close').addEventListener('click', () => ov.remove());
         let _devSfxPack = 'a';
-        ov.querySelectorAll('.sfx-pack-tab').forEach(tab => {
+        ov.querySelectorAll('[data-pack]').forEach(tab => {
             tab.addEventListener('click', () => {
                 _devSfxPack = tab.dataset.pack;
-                ov.querySelectorAll('.sfx-pack-tab').forEach(t => {
+                ov.querySelectorAll('[data-pack]').forEach(t => {
                     const active = t.dataset.pack === _devSfxPack;
                     t.setAttribute('aria-pressed', active);
                     t.classList.toggle('active', active);
                 });
             });
         });
-        ov.querySelectorAll('.sfx-row').forEach(row => {
+        ov.querySelectorAll('[data-sfx]').forEach(row => {
             row.addEventListener('click', () => {
                 initAudio(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
                 const n = row.dataset.sfx;
@@ -11087,6 +11081,25 @@
             });
         });
     };
+    }
+    function renderSfxPreview(overlay, title, packs, sounds) {
+        const titleId = `${overlay.id}-title`;
+        overlay.className = 'lb102-sfx-overlay';
+        overlay.innerHTML = `<div class="lb-block-panel lb102-sfx-window" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
+            <header class="lb-block-panel-head lb102-sfx-head">
+                <h2 class="lb-block-section-title" id="${titleId}">${title}</h2>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb102-sfx-close" aria-label="Close sounds"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+            </header>
+            <div class="lb-block-tabs lb102-sfx-tabs" role="group" aria-label="Sound packs">
+                ${packs.map((pack, index) => `<button type="button" class="lb-block-btn lb-block-tab${index === 0 ? ' active' : ''}" data-pack="${pack.id}" aria-pressed="${index === 0}">${pack.label}</button>`).join('')}
+            </div>
+            <div class="lb-scroll-fade lb102-sfx-list">
+                ${sounds.map(sound => `<button type="button" class="lb-block-btn lb102-sfx-row" data-sfx="${sound.name}" aria-label="Play ${sound.desc}">
+                    <span class="lb102-sfx-speaker" aria-hidden="true">${_SVG_VOL}</span>
+                    <span><strong>${sound.name}</strong><small>${sound.desc}</small></span>
+                </button>`).join('')}
+            </div>
+        </div>`;
     }
     window.openSfxPackPreview = function() {
         const existing = document.getElementById('sfx-preview-modal');
@@ -11114,44 +11127,24 @@
         ];
         const ov = document.createElement('div');
         ov.id = 'sfx-preview-modal';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;';
         let _activePack = packDefs[0];
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(0,255,255,0.2);border-radius:14px;padding:20px;width:min(380px,90vw);max-height:80vh;overflow-y:auto;position:relative;">
-            <button type="button" id="sfx-prev-close" class="lb-block-btn lb-block-btn--icon lb80-sfx-close" aria-label="Close sounds">✕</button>
-            <div class="lb80-sfx-head">
-                <div style="font-size:0.6rem;letter-spacing:2px;color:var(--primary);">SFX PACK PREVIEW</div>
-                <div id="sfx-prev-tabs" class="lb-block-tabs">
-                    ${packDefs.map((p, i) => `<button type="button" class="sfx-prev-tab lb-block-btn lb-block-tab${i===0?' active':''}" data-pack="${p.id}" aria-pressed="${i===0}">${p.label}</button>`).join('')}
-                </div>
-            </div>
-            ${sfxList.map(s => `<div class="sfx-prev-row" data-sfx="${s.name}" style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;border-radius:6px;transition:background 0.15s;">
-                <div style="width:28px;height:28px;border-radius:6px;background:rgba(0,255,255,0.08);border:1px solid rgba(0,255,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="var(--primary)"><polygon points="2,5 5,5 9,2 9,14 5,11 2,11"/><path d="M11 5.5a3 3 0 010 5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M13 3.5a5.5 5.5 0 010 9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
-                </div>
-                <div>
-                    <div style="font-size:0.75rem;color:#fff;font-weight:bold;">${s.name}</div>
-                    <div style="font-size:0.6rem;color:#666;">${s.desc}</div>
-                </div>
-            </div>`).join('')}
-        </div>`;
+        renderSfxPreview(ov, 'SFX Pack Preview', packDefs, sfxList);
         ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('sfx-preview-modal'); });
         document.body.appendChild(ov);
         _animateIn(ov.querySelector('div'), 'anim-in-down');
-        ov.querySelector('#sfx-prev-close').addEventListener('click', () => window._closeModal('sfx-preview-modal'));
-        ov.querySelectorAll('.sfx-prev-tab').forEach(tab => {
+        ov.querySelector('.lb102-sfx-close').addEventListener('click', () => window._closeModal('sfx-preview-modal'));
+        ov.querySelectorAll('[data-pack]').forEach(tab => {
             tab.addEventListener('click', () => {
                 const pid = tab.dataset.pack;
                 _activePack = packDefs.find(p => p.id === pid) || packDefs[0];
-                ov.querySelectorAll('.sfx-prev-tab').forEach(t => {
+                ov.querySelectorAll('[data-pack]').forEach(t => {
                     const act = t.dataset.pack === pid;
                     t.setAttribute('aria-pressed', act);
                     t.classList.toggle('active', act);
                 });
             });
         });
-        ov.querySelectorAll('.sfx-prev-row').forEach(row => {
-            row.addEventListener('mouseenter', () => { row.style.background = 'rgba(0,255,255,0.05)'; });
-            row.addEventListener('mouseleave', () => { row.style.background = ''; });
+        ov.querySelectorAll('[data-sfx]').forEach(row => {
             row.addEventListener('click', () => { _activePack.fn(row.dataset.sfx); });
         });
     };
