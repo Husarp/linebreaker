@@ -3513,14 +3513,13 @@
                 <div class="lb-actions lb-stats-years" role="group" aria-label="Activity year">
                     ${years.map(value => `<button class="lb-block-btn lb-block-tab" type="button" data-cal-year="${value}" aria-pressed="${value === year}">${value}</button>`).join('')}
                 </div>
-                <p id="cal-instructions" class="lb-stats-chart-hint">Select a day for game counts. Scroll for more months on small screens.</p>
             </div>
             <div class="lb-stats-chart">
                 <div id="cal-day-labels" aria-hidden="true">${dayLabels.map(label => `<span>${label}</span>`).join('')}</div>
                 <div class="lb-stats-calendar-scroll" role="region" aria-label="Activity calendar" tabindex="0">
                     <div class="lb-stats-calendar" style="--calendar-weeks:${weeks}">
                         <div id="cal-month-row" aria-hidden="true">${months.map(({ label, start, end }) => `<span style="grid-column:${start + 1}/${end + 2}">${label}</span>`).join('')}</div>
-                        <div id="cal-grid" role="group" aria-label="${year} daily activity" aria-describedby="cal-instructions">
+                        <div id="cal-grid" role="group" aria-label="${year} daily activity">
                             <svg class="lb-stats-month-edges" aria-hidden="true" viewBox="0 0 ${weeks * 7} 49" preserveAspectRatio="none"><path d="${separators.join(' ')}" vector-effect="non-scaling-stroke"/></svg>
                             ${cells.map(({ key, week, weekday, level, label }, index) => `<button type="button" class="lb-stats-day" style="grid-area:${weekday + 1}/${week + 1}" data-cal-day="${index}" data-level="${level}" tabindex="${index === selectedIndex ? 0 : -1}" aria-pressed="${index === selectedIndex}" ${key === todayKey ? 'aria-current="date"' : ''} aria-label="${escapeHtml(label)}"></button>`).join('')}
                         </div>
@@ -3603,13 +3602,16 @@
         });
     }
     function statsLbTab(tab) {
-        if (!statsTabs.some(button => button.dataset.statsTab === tab)) return;
+        const selected = statsTabs.find(button => button.dataset.statsTab === tab);
+        if (!selected) return;
+        const focusedTab = statsTabs.includes(document.activeElement);
         for (const button of statsTabs) {
-            const active = button.dataset.statsTab === tab;
+            const active = button === selected;
             button.setAttribute('aria-selected', active);
             button.tabIndex = active ? 0 : -1;
             document.getElementById(button.getAttribute('aria-controls')).hidden = !active;
         }
+        if (focusedTab && document.activeElement !== selected) selected.focus({ preventScroll: true });
         if (tab === 'general') drawGeneralStats();
         if (tab === 'leaderboard') statsLeaderboardMode('standard');
         if (tab === 'pinned') drawPinnedScores();
@@ -3634,8 +3636,8 @@
             const next = { ArrowLeft: index === 0 ? last : index - 1, ArrowRight: index === last ? 0 : index + 1, Home: 0, End: last }[event.key];
             if (!Number.isInteger(next)) return;
             event.preventDefault();
-            statsTabs[next].focus();
             statsLbTab(statsTabs[next].dataset.statsTab);
+            statsTabs[next].focus({ preventScroll: true });
         });
     });
     document.querySelectorAll('#leaderboard-container [data-stats-board]').forEach(button => {
@@ -4810,10 +4812,11 @@
     }
     function _lbIcons() {
         const _ico = (p, w, h) => `<svg viewBox="0 0 16 16" width="${w||12}" height="${h||12}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;opacity:0.8">${p}</svg>`;
+        const runIcon = name => `<svg class="lb-run-icon lb-run-icon--${name}" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#lb-run-icon-${name}"/></svg>`;
         return {
             time:  _ico(`<circle cx="8" cy="9" r="5.5"/><polyline points="8 6 8 9 10 11"/><line x1="5.5" y1="1.5" x2="10.5" y2="1.5"/>`, 16, 16),
-            lines: _ico(`<rect x="1" y="6" width="14" height="4" rx="0.8" fill="currentColor" stroke="none"/><line x1="3" y1="3.5" x2="3" y2="6"/><line x1="6.5" y1="3" x2="6.5" y2="6"/><line x1="9.5" y1="3" x2="9.5" y2="6"/><line x1="13" y1="3.5" x2="13" y2="6"/><line x1="3" y1="10" x2="3" y2="12.5"/><line x1="6.5" y1="10" x2="6.5" y2="13"/><line x1="9.5" y1="10" x2="9.5" y2="13"/><line x1="13" y1="10" x2="13" y2="12.5"/>`, 16, 16),
-            speed: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;opacity:0.85"><path d="M3 16a9 9 0 1 1 18 0"/><line x1="12" y1="16" x2="8" y2="11"/><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/></svg>`,
+            lines: runIcon('lines'),
+            speed: runIcon('speed'),
             cal:   `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px;opacity:0.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
         };
     }
@@ -4832,7 +4835,7 @@
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
             const noteHtml = e.note ? `<span class="lb-stats-meta">${escapeHtml(e.note)}</span>` : '';
-            div.innerHTML = `<span class="lb-rank" style="color:#ffd700;min-width:24px;"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffd700" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock, true))}</span>`;
+            div.innerHTML = `<span class="lb-pin-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg></span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock, true))}</span>`;
             div.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 _showScorePinPopup(ev, '📌 Unpin', () => unpinScore(realIdx));
@@ -4840,29 +4843,21 @@
             container.appendChild(div);
         });
     }
-    function statsHighscoresBySpeed(entries) {
-        const bestBySpeed = new Map();
-        for (const { maxSpeed, score } of entries) {
-            if (!Number.isInteger(maxSpeed) || maxSpeed < 1 || !(score > 0)) continue;
-            if (score > (bestBySpeed.get(maxSpeed) || 0)) bestBySpeed.set(maxSpeed, score);
-        }
-        return [...bestBySpeed].sort(([left], [right]) => left - right);
-    }
-
     function _statsPodium(entries, onPlace) {
         const podium = document.createElement('div');
         podium.className = 'lb-stats-podium';
         const medals = ['Gold', 'Silver', 'Bronze'];
+        const originalMedals = ['🥇', '🥈', '🥉'];
         for (const rank of [2, 1, 3]) {
             const entry = entries[rank - 1];
             if (!entry) continue;
             const medal = medals[rank - 1];
-            const asset = `assets/ui/medals/${medal.toLowerCase()}-64.png`;
             const score = entry.score.toLocaleString();
             const place = document.createElement(onPlace ? 'button' : 'div');
             place.className = 'lb-stats-podium-place';
             place.dataset.place = rank;
-            place.innerHTML = `<span class="lb-stats-podium-score">${escapeHtml(score)} <span class="lb-pts">pts</span></span><span class="lb-stats-podium-step"><img src="${asset}" width="32" height="32" alt=""><span class="lb-stats-place-rank">#${rank} ${medal}</span></span>`;
+            const rankLabel = onPlace ? `<span class="lb-stats-podium-medal" aria-hidden="true">${originalMedals[rank - 1]}</span>` : `<span class="lb-stats-place-rank">#${rank} ${medal}</span>`;
+            place.innerHTML = `<span class="lb-stats-podium-score">${escapeHtml(score)} <span class="lb-pts">pts</span></span><span class="lb-stats-podium-step">${rankLabel}</span>`;
             if (onPlace) {
                 place.type = 'button';
                 place.classList.add('lb-block-btn');
@@ -4881,10 +4876,6 @@
         // Build full list: history + current highscore
         const all = [...history];
         if (_bestScore() > 0) all.push({ ...saveData.leaderboard[0], isCurrent: true });
-        const records = statsHighscoresBySpeed([...all, ...saveData.leaderboard]);
-        document.getElementById('highscores-by-speed').innerHTML = records.length
-            ? `<table class="lb-stats-table" aria-label="Records by speed level"><thead><tr><th scope="col">Speed level</th><th scope="col">Best score</th></tr></thead><tbody>${records.map(([speed, score]) => `<tr><th scope="row">${speed}</th><td>${score.toLocaleString()}</td></tr>`).join('')}</tbody></table>`
-            : '<p class="lb-empty">No scores with a recorded speed level yet.</p>';
         if (all.length === 0) { container.innerHTML = '<p class="lb-block-card lb-empty">No highscores yet. Play to set your first record!</p>'; return; }
         container.innerHTML = '';
         // Sort descending by score
@@ -4912,8 +4903,8 @@
         const tipEl = document.getElementById('lb-tooltip-global');
 
         const podiumPanel = document.createElement('section');
-        podiumPanel.className = 'lb-block-panel lb-stats-podium-panel';
-        podiumPanel.innerHTML = '<div class="lb-block-panel-head"><h2>Best scores</h2></div>';
+        podiumPanel.className = 'lb-stats-podium-panel lb-stats-podium-original';
+        podiumPanel.setAttribute('aria-label', 'Best scores');
         const podium = _statsPodium(lb, (block, e, rank, medal) => {
             block.addEventListener('click', (ev) => {
                 ev.stopPropagation();
