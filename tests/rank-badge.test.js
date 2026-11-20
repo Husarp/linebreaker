@@ -17,6 +17,19 @@ it('renders a fresh save with no chosen file as Bronze level 1', () => {
   expect(game.w.document.getElementById('menu-xp-bar-fill').style.width).toBe('0%');
 });
 
+it('paints ten Gold badge shapes even when the menu first renders in a background tab', () => {
+  Object.defineProperty(game.w.document, 'hidden', {configurable: true, value: true});
+  game.api.setSave({...game.api.save, totalXP: 64000});
+  const firstCall = game.calls.length;
+  game.api.drawRankBadge();
+
+  expect(badgeText()).toEqual(['GOLD', 'IX']);
+  const shapeOrigins = game.calls.slice(firstCall)
+    .filter(([method]) => method === 'moveTo')
+    .map(([, x, y]) => `${x},${y}`);
+  expect(new Set(shapeOrigins).size).toBe(10);
+});
+
 it.each([
   [37000, 23, 'GOLD', 'II'],
   [473500, 72, 'DIAMOND', 'I'],

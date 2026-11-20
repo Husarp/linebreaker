@@ -7139,14 +7139,19 @@
 
     function drawRankBadge(overridePercent = null) {
         if (badgeAnimFrame) cancelAnimationFrame(badgeAnimFrame);
+        badgeAnimFrame = null;
 
         const info = getLevelInfo(saveData.totalXP);
         const displayPercent = overridePercent !== null ? overridePercent : info.percent;
 
         const badgeMenu = document.getElementById('menu-overlay');
+        const canAnimateBadge = () => !document.hidden && _rankBadgeVisible && !badgeMenu.classList.contains('hidden');
         function renderLoop() {
             badgeAnimFrame = null;
-            if (document.hidden || !_rankBadgeVisible || badgeMenu.classList.contains('hidden')) return;
+            if (canAnimateBadge()) renderBadgeFrame();
+        }
+
+        function renderBadgeFrame() {
             if (info.level === 0) {
                 rankCtx.clearRect(0, 0, 300, 300);
             } else {
@@ -7169,7 +7174,7 @@
                 if (le) le.style.color = col;
                 if (pe) pe.style.color = col;
             }
-            if (!document.hidden && !badgeMenu.classList.contains('hidden')) {
+            if (canAnimateBadge()) {
                 badgeAnimFrame = requestAnimationFrame(renderLoop);
             }
         }
@@ -7296,7 +7301,7 @@
             xpInfo.addEventListener('blur', hideXpDetail);
         }
 
-        renderLoop();
+        if (!badgeMenu.classList.contains('hidden')) renderBadgeFrame();
         // Show pending level box if any
         if (saveData.pendingLevelBox && !_levelBoxShowing && !document.getElementById('level-box-overlay')) {
             setTimeout(() => _showLevelBox(), 600);
