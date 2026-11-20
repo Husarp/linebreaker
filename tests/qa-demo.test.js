@@ -63,7 +63,7 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
   for (const [name, id] of [['pause', 'pause-overlay'], ['game-over', 'go-overlay']]) {
     const opened = qa.open(name);
     await Promise.resolve();
-    advance(1700);
+    advance(3000);
     await opened;
     visible(id);
   }
@@ -114,7 +114,7 @@ it('opens the documented screenshot targets through real UI handlers', async () 
     const opened = w.__LB_QA.open(name);
     if (['game', 'pause', 'game-over'].includes(name)) {
       await Promise.resolve();
-      advance(1700);
+      advance(3000);
     }
     await opened;
     const element = w.document.querySelector(selector);

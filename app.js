@@ -7448,7 +7448,7 @@
     let _mq_minimalistFailed = false, _mq_minimalistLines = 0, _mq_minimalist = false;
     let _achsThisGame = 0;
     let _mq_quadStreak = false, _mq_flatEarth = false, _mq_flatEarthStart = -1;
-    let _animId = 0;
+    let _startIntroTimers = [], _skipStartIntro;
     let currentGameMode = 'normal'; // 'normal', 'fun'
     let holdPiece = null, holdUsed = false;
     let funModeConfig = { cols: 10, rows: 20, startSpeed: 1 };
@@ -8535,20 +8535,43 @@
             }).join('')}</ul>`;
     }
 
+    function clearStartIntro() {
+        _startIntroTimers.forEach(timer => clearTimeout(timer));
+        _startIntroTimers = [];
+        _skipStartIntro = null;
+        document.getElementById('start-animation-overlay').classList.add('hidden');
+    }
+
     function startAnimation(onStarted) {
-        const thisAnim = ++_animId;
         const overlay = document.getElementById('start-animation-overlay');
-        const container = document.getElementById('start-text-container');
-        overlay.classList.remove('hidden');
-        const letters = "LINEBREAKER".split(""); let html = ""; let lastColor = 0;
-        for (let l of letters) {
-            let c; do { c = Math.floor(Math.random() * 7) + 1; } while (c === lastColor);
-            lastColor = c; html += `<span style="color: ${COLORS[c]}">${l}</span>`;
+        const wordmark = document.getElementById('start-wordmark');
+        const countdown = document.getElementById('start-countdown');
+        const skip = document.getElementById('start-skip');
+        const title = 'LINEBREAKER';
+        const tiles = [];
+        for (let row = 0; row < 2; row++) {
+            for (let column = 0; column < title.length; column++) {
+                const tile = document.createElement('span');
+                const lettering = document.createElement('span');
+                lettering.textContent = title;
+                tile.style.setProperty('--intro-col', column);
+                tile.style.setProperty('--intro-row', row);
+                tile.style.setProperty('--intro-x', `${(column - 5) * 5}px`);
+                tile.style.setProperty('--intro-y', `${(row ? 1 : -1) * (24 + column % 4 * 11)}px`);
+                tile.style.setProperty('--intro-turn', `${(row ? 1 : -1) * (28 + column % 5 * 9)}deg`);
+                tile.append(lettering);
+                tiles.push(tile);
+            }
         }
-        container.innerHTML = html;
-        setTimeout(() => {
-            if (thisAnim !== _animId || isGameOver) return;
-            overlay.classList.add('hidden');
+        LBArtPack.applyThemeBackground(overlay, settings.theme, settings.themeBackground);
+        wordmark.replaceChildren(...tiles);
+        wordmark.hidden = false;
+        countdown.hidden = true;
+        overlay.classList.remove('hidden');
+        skip.focus({ preventScroll: true });
+        _skipStartIntro = () => {
+            clearStartIntro();
+            if (isGameOver) return;
             document.getElementById('app').classList.add('active-game');
             _syncRunMissions(true);
             _refreshGameDPR();
@@ -8558,11 +8581,21 @@
             lastTime=performance.now(); update(lastTime);
             switchMusicMode('game');
             onStarted?.();
-        }, 1600);
+        };
+        const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        const introDuration = reducedMotion ? 500 : 1600;
+        const beat = 450;
+        _startIntroTimers = [3, 2, 1, 0].map(remaining => setTimeout(() => {
+            if (remaining === 0) return _skipStartIntro?.();
+            wordmark.hidden = true;
+            countdown.hidden = false;
+            countdown.textContent = remaining;
+        }, introDuration + (3 - remaining) * beat));
     }
+    document.getElementById('start-skip').addEventListener('click', () => _skipStartIntro?.());
 
     function startGame(onStarted){
-        if (_gameOverProtect) return;
+        if (_gameOverProtect || _skipStartIntro) return;
         // Show rules on first fun/master play
         if (currentGameMode === 'fun' && !saveData.seenFunRules) {
             saveData.seenFunRules = true;
@@ -8667,11 +8700,11 @@
         }));
     }
     function resetQARun() {
-        ++_animId;
+        clearStartIntro();
         _gameOverProtect = false;
         _gameInProgress = false;
         clearInterval(timeInterval);
-        for (const id of ['start-animation-overlay', 'pause-overlay', 'go-overlay']) {
+        for (const id of ['pause-overlay', 'go-overlay']) {
             document.getElementById(id).classList.add('hidden');
         }
         resetGameToMenu();
@@ -8712,6 +8745,7 @@
     function backFromOverlay(overlay) {
         if (controlsEditor.cancel()) return;
         switch (overlay.id) {
+            case 'start-animation-overlay': _skipStartIntro?.(); return;
             case 'pause-overlay': pauseFromInput(overlay); return;
             case 'mode-select-overlay': closeModeSelect(); return;
             case 'go-overlay': resetGameToMenu(); return;
@@ -8825,11 +8859,13 @@
                 && getComputedStyle(el).display !== 'none';
             const overlays = [...document.querySelectorAll(
                 '[id$="-overlay"], [id$="-modal"], #custom-confirm, #custom-alert, #sfx-inv-preview'
-            )].filter(el => visible(el) && !['menu-overlay', 'start-animation-overlay'].includes(el.id));
+            )].filter(el => visible(el) && el.id !== 'menu-overlay');
             overlays.sort((a, b) => (parseInt(getComputedStyle(b).zIndex) || 0)
                 - (parseInt(getComputedStyle(a).zIndex) || 0));
             const top = overlays[0];
-            if (top?.id === 'custom-confirm') {
+            if (top?.id === 'start-animation-overlay') {
+                _skipStartIntro?.();
+            } else if (top?.id === 'custom-confirm') {
                 document.getElementById('confirm-no').click();
             } else if (top?.id === 'custom-alert') {
                 closeAlert();
@@ -10776,7 +10812,7 @@
         playOverlay.classList.remove('hidden');
         playOverlay.scrollTop = 0;
         _animateIn(playOverlay, 'anim-in-up');
-        playOverlay.querySelector('[data-mode][aria-pressed="true"]').focus({ preventScroll: true });
+        playOverlay.focus({ preventScroll: true });
     }
 
     function closeModeSelect() {
@@ -10820,7 +10856,11 @@
     }
 
     function updatePlaySummary() {
-        const multiplier = currentGameMode === 'fun' ? 1 : _calcModeXpMult();
+        const isFun = currentGameMode === 'fun';
+        document.getElementById('play-score-panel').hidden = isFun;
+        for (const percent of playOverlay.querySelectorAll('.lb69-modifier-score')) percent.hidden = isFun;
+        if (isFun) return;
+        const multiplier = _calcModeXpMult();
         const score = document.getElementById('mode-xp-mult-val');
         score.textContent = `${Math.round(multiplier * 100)}%`;
         score.dataset.effect = multiplier > 1 ? 'bonus' : multiplier < 1 ? 'penalty' : 'base';
