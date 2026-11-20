@@ -4850,6 +4850,31 @@
         return [...bestBySpeed].sort(([left], [right]) => left - right);
     }
 
+    function _statsPodium(entries, onPlace) {
+        const podium = document.createElement('div');
+        podium.className = 'lb-stats-podium';
+        const medals = ['Gold', 'Silver', 'Bronze'];
+        for (const rank of [2, 1, 3]) {
+            const entry = entries[rank - 1];
+            if (!entry) continue;
+            const medal = medals[rank - 1];
+            const asset = `assets/ui/medals/${medal.toLowerCase()}-64.png`;
+            const score = entry.score.toLocaleString();
+            const place = document.createElement(onPlace ? 'button' : 'div');
+            place.className = 'lb-stats-podium-place';
+            place.dataset.place = rank;
+            place.innerHTML = `<span class="lb-stats-podium-score">${escapeHtml(score)} <span class="lb-pts">pts</span></span><span class="lb-stats-podium-step"><img src="${asset}" width="32" height="32" alt=""><span class="lb-stats-place-rank">#${rank} ${medal}</span></span>`;
+            if (onPlace) {
+                place.type = 'button';
+                place.classList.add('lb-block-btn');
+                place.setAttribute('aria-label', `Rank ${rank}, ${medal}: ${score} points`);
+                onPlace(place, entry, rank, medal);
+            }
+            podium.appendChild(place);
+        }
+        return podium;
+    }
+
     function _drawHighscoreHistory() {
         const container = document.getElementById('highscores-list');
         if (!container) return;
@@ -4865,6 +4890,7 @@
         container.innerHTML = '';
         // Sort descending by score
         all.sort((a, b) => b.score - a.score);
+        container.appendChild(_statsPodium(all));
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
         all.forEach((e, i) => {
@@ -4886,33 +4912,17 @@
         const ico = _lbIcons();
         const tipEl = document.getElementById('lb-tooltip-global');
 
-        // --- PODIUM (top 3) ---
-        const podiumOrder = [
-            lb[1] ? { e: lb[1], rank: 2, medal: '🥈', color: '#c0c0c0', h: 58, lbIdx: 1 } : null,
-            lb[0] ? { e: lb[0], rank: 1, medal: '🥇', color: '#ffd700', h: 88, lbIdx: 0 } : null,
-            lb[2] ? { e: lb[2], rank: 3, medal: '🥉', color: '#e8922a', h: 40, lbIdx: 2 } : null,
-        ].filter(Boolean);
         const podiumPanel = document.createElement('section');
         podiumPanel.className = 'lb-block-panel lb-stats-podium-panel';
         podiumPanel.innerHTML = '<div class="lb-block-panel-head"><h2>Best scores</h2></div>';
-        const podiumWrap = document.createElement('div');
-        podiumWrap.className = 'lb-stats-podium';
-        podiumOrder.forEach(p => {
-            const block = document.createElement('button');
-            block.className = 'lb-block-btn lb-stats-podium-place';
-            block.style.setProperty('--tone', p.color);
-            block.style.minHeight = `${p.h + 68}px`;
-            block.style.gridColumn = p.rank === 1 ? 2 : p.rank === 2 ? 1 : 3;
-            block.setAttribute('aria-label', `Rank ${p.rank}: ${p.e.score.toLocaleString()} points`);
-            block.innerHTML = `<span class="lb-score">${escapeHtml(p.e.score.toLocaleString())}</span><span aria-hidden="true">${p.medal}</span><span class="lb-stats-place-rank" aria-hidden="true">#${p.rank}</span>`;
+        const podium = _statsPodium(lb, (block, e, rank, medal) => {
             block.addEventListener('click', (ev) => {
                 ev.stopPropagation();
-                _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(p.lbIdx));
+                _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(rank - 1));
             });
             block.addEventListener('mouseenter', (ev) => {
                 if (!tipEl) return;
-                const e = p.e;
-                let tipHtml = `<div style="font-size:0.7rem;font-weight:bold;color:${p.color};margin-bottom:5px;">${p.medal} #${p.rank} — ${escapeHtml(e.score.toLocaleString())} pts</div>`;
+                let tipHtml = `<div class="lb-stats-podium-tip" data-place="${rank}">#${rank} ${medal} — ${escapeHtml(e.score.toLocaleString())} pts</div>`;
                 if (e.lines != null) {
                     tipHtml += `<div style="display:flex;flex-direction:column;gap:2px;">`;
                     tipHtml += `<span>${ico.time} ${lbFmt(e.time||0)}</span>`;
@@ -4933,9 +4943,8 @@
                 tipEl.style.left = tx + 'px'; tipEl.style.top = (ev.clientY - 10) + 'px';
             });
             block.addEventListener('mouseleave', () => { if (tipEl) tipEl.style.display = 'none'; });
-            podiumWrap.appendChild(block);
         });
-        podiumPanel.appendChild(podiumWrap);
+        podiumPanel.appendChild(podium);
         container.appendChild(podiumPanel);
 
         // --- Regular rows (4th+) with Load More ---
