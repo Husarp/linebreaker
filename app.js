@@ -2694,7 +2694,7 @@
         _checkGlowNotifications();
     }
     function _exchangePartsIcon() {
-        return '<img class="lb-exchange-parts-icon" src="assets/ui/62-parts.svg" alt="">';
+        return '<img class="lb-exchange-parts-icon" src="assets/ui/parts/universal-part-128.png" width="28" height="28" alt="">';
     }
     function openUseUniversalPart() {
         if ((saveData.universalParts || 0) < 1) return;
@@ -2913,6 +2913,38 @@
             <strong class="lb-exchange-item-amount" id="${amountId}">${amount}</strong>
         </div>`;
     }
+    function _exchangeQuantity(id, label, max, initial) {
+        return `<div class="lb-exchange-quantity">
+            <label for="${id}">${label}</label>
+            <div class="lb-exchange-quantity-controls">
+                <button type="button" class="lb-block-btn lb-block-btn--icon" data-quantity-step="-1" aria-label="Decrease quantity">−</button>
+                <input type="number" id="${id}" min="1" max="${max}" value="${initial}" step="1" inputmode="numeric">
+                <button type="button" class="lb-block-btn lb-block-btn--icon" data-quantity-step="1" aria-label="Increase quantity">+</button>
+            </div>
+        </div>`;
+    }
+    function _bindExchangeQuantity(dialog, updatePreview) {
+        const input = dialog.querySelector('.lb-exchange-quantity input');
+        const [decrease, increase] = dialog.querySelectorAll('[data-quantity-step]');
+        const max = Number(input.max);
+        function setQuantity(value, keepEmpty = false) {
+            const quantity = Math.max(1, Math.min(max, Math.trunc(value) || 1));
+            if (!keepEmpty || input.value !== '') {
+                if (input.valueAsNumber !== quantity) input.value = quantity;
+            }
+            decrease.disabled = quantity === 1;
+            increase.disabled = quantity === max;
+            updatePreview(quantity);
+            return quantity;
+        }
+        input.addEventListener('input', () => setQuantity(input.valueAsNumber, true));
+        input.addEventListener('blur', () => setQuantity(input.valueAsNumber));
+        [decrease, increase].forEach(button => button.addEventListener('click', () => {
+            setQuantity((input.valueAsNumber || 1) + Number(button.dataset.quantityStep));
+        }));
+        setQuantity(input.valueAsNumber);
+        return () => setQuantity(input.valueAsNumber);
+    }
     function openExchangeUniversalParts() {
         const avail = Math.floor(saveData.universalParts || 0);
         if (avail < 1) return;
@@ -2930,29 +2962,19 @@
                     <span class="lb-exchange-arrow" aria-hidden="true">→</span>
                     ${_exchangeItemCard({ name: 'Experience', art: '<img src="assets/ui/boosters/common-xp.png" alt="">', rarity: 'common', detail: 'You receive', amountId: 'uni-xch-xp', amount: `+${(avail * XP_PER_PART).toLocaleString()} XP` })}
                 </div>
-                <div class="lb-exchange-quantity">
-                    <label for="uni-xch-slider">Parts to exchange</label>
-                    <output id="uni-xch-lbl" class="lb-exchange-badge" for="uni-xch-slider">${avail}</output>
-                    <input class="lb-block-range" type="range" id="uni-xch-slider" min="1" max="${avail}" value="${avail}" step="1" ${avail === 1 ? 'disabled' : ''}>
-                </div>
+                ${_exchangeQuantity('uni-xch-quantity', 'Parts to exchange', avail, avail)}
                 <div class="lb-block-dialog-actions">
                     <button type="button" class="lb-block-btn" onclick="document.getElementById('uni-xch-overlay').remove()">Cancel</button>
                     <button type="button" class="lb-block-btn lb-block-btn--primary" id="uni-xch-confirm">Exchange</button>
                 </div>
             </div>`;
-        const slider = ov.querySelector('#uni-xch-slider');
-        slider.addEventListener('input', () => {
-            const v = parseInt(slider.value);
-            const lbl = document.getElementById('uni-xch-lbl');
-            const cnt = document.getElementById('uni-xch-count');
-            const xpEl = document.getElementById('uni-xch-xp');
-            if (lbl) lbl.textContent = v;
-            if (cnt) cnt.textContent = v + (v !== 1 ? ' parts' : ' part');
-            if (xpEl) xpEl.textContent = '+' + (v * XP_PER_PART).toLocaleString() + ' XP';
+        const getQuantity = _bindExchangeQuantity(ov, quantity => {
+            ov.querySelector('#uni-xch-count').textContent = `${quantity} ${quantity === 1 ? 'part' : 'parts'}`;
+            ov.querySelector('#uni-xch-xp').textContent = `+${(quantity * XP_PER_PART).toLocaleString()} XP`;
         });
         ov.querySelector('#uni-xch-confirm').addEventListener('click', () => {
-            const v = parseInt(slider.value);
-            if (v < 1) return;
+            const v = getQuantity();
+            if (v > Math.floor(saveData.universalParts || 0)) return;
             const xpGain = v * XP_PER_PART;
             saveData.universalParts = Math.max(0, (saveData.universalParts || 0) - v);
             _grantXP(xpGain);
@@ -4052,24 +4074,17 @@
                             amountId: index === 0 ? 'exc-spend' : 'exc-receive', amount: index === 0 ? '3' : '+1' });
                     }).join('<span class="lb-exchange-arrow" aria-hidden="true">→</span>')}
                 </div>
-                <div class="lb-exchange-quantity">
-                    <label for="exc-slider">Sets to exchange</label>
-                    <output id="exc-label" class="lb-exchange-badge" for="exc-slider">1</output>
-                    <input class="lb-block-range" type="range" id="exc-slider" min="1" max="${maxSets}" value="1" step="1" ${maxSets === 1 ? 'disabled' : ''}>
-                </div>
+                ${_exchangeQuantity('exc-quantity', 'Sets to exchange', maxSets, 1)}
                 <div class="lb-block-dialog-actions">
                     <button type="button" class="lb-block-btn" onclick="window._closeModal('exc-modal-overlay')">Cancel</button>
                     <button type="button" class="lb-block-btn lb-block-btn--primary" id="exc-confirm">Exchange</button>
                 </div>
             </div>`;
-        const slider = overlay.querySelector('#exc-slider');
-        slider.addEventListener('input', () => {
-            const sets = slider.valueAsNumber;
-            overlay.querySelector('#exc-label').textContent = sets;
+        const getQuantity = _bindExchangeQuantity(overlay, sets => {
             overlay.querySelector('#exc-spend').textContent = sets * 3;
             overlay.querySelector('#exc-receive').textContent = `+${sets}`;
         });
-        overlay.querySelector('#exc-confirm').addEventListener('click', () => window._doExchange(fromKey, toKey, type));
+        overlay.querySelector('#exc-confirm').addEventListener('click', () => window._doExchange(fromKey, toKey, type, getQuantity()));
         overlay.addEventListener('click', e => { if (e.target === overlay) window._closeModal('exc-modal-overlay'); });
         document.body.appendChild(overlay);
         _animateIn(overlay.querySelector('div'), 'anim-in-down');
@@ -4135,7 +4150,7 @@
                 <h2 class="lb-block-section-title lb-help-label">Boosters <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" title="About boosters"></button></h2>
                 ${boosterHtml}
             </section>
-            <section class="lb-block-card lb-inventory-section">
+            <section class="lb-block-card lb-inventory-section lb82-sfx-packs">
                 <h2 class="lb-block-section-title">SFX Packs</h2>
                 ${sfxPacksHtml}
             </section>`;
@@ -4149,13 +4164,22 @@
         const packIds = new Map(_sfxPackDefs.map(pack => [pack.key, pack.packId]));
         container.querySelectorAll('.lb-inventory-item').forEach(row => {
             const packId = packIds.get(row.dataset.itemKey) || 'default';
+            if (row.dataset.equipped === 'true') {
+                const state = document.createElement('span');
+                state.className = 'lb82-sfx-state';
+                state.textContent = 'Equipped';
+                row.querySelector('.lb-inventory-state').replaceWith(state);
+            }
+            const content = document.createElement('div');
+            content.className = 'lb82-sfx-content';
+            content.append(...row.children);
             const preview = document.createElement('button');
             preview.type = 'button';
-            preview.className = 'lb-block-btn';
+            preview.className = 'lb-block-btn lb82-sfx-preview';
             preview.textContent = 'Preview';
-            preview.setAttribute('aria-label', `Preview ${row.querySelector('.lb-inventory-name').textContent}`);
+            preview.setAttribute('aria-label', `Preview ${content.querySelector('.lb-inventory-name').textContent}`);
             preview.addEventListener('click', () => _openSfxPreviewPopup(packId, preview));
-            row.querySelector('.lb-inventory-heading').appendChild(preview);
+            row.append(content, preview);
             row.style.cursor = 'pointer';
             row.onclick = (e) => {
                 if (!e.target.closest('button')) _openSfxPreviewPopup(packId, preview);
@@ -8972,7 +8996,7 @@
         const rewardsHtml = rewards.map(r => {
             const col = hexColor(RARITY_COLORS[r.rarity], '#cccccc');
             return `<div style="border:1px solid ${col};border-radius:10px;padding:8px 12px;margin-bottom:7px;box-shadow:0 0 10px ${col}30;display:flex;align-items:center;gap:8px;">
-                <span style="font-size:1.4rem;">${escapeHtml(r.icon)}</span>
+                ${r.type === 'universal_parts' ? _exchangePartsIcon() : `<span style="font-size:1.4rem;">${escapeHtml(r.icon)}</span>`}
                 <div><div style="font-size:0.85rem;font-weight:bold;color:${col};">${escapeHtml(r.label)}</div><div style="font-size:0.62rem;color:#aaa;">${rankUnlockText(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div></div>
             </div>`;
         }).join('');
@@ -11079,9 +11103,9 @@
     window.applyTheme = applyTheme;
     window.applyBlockSkin = applyBlockSkin;
     window.applyFont = applyFont;
-    window._doExchange = function(fromKey, toKey, type) {
-        const slider = document.getElementById('exc-slider');
-        const sets = parseInt(slider?.value || 1);
+    window._doExchange = function(fromKey, toKey, type, sets) {
+        const source = type === 'booster' ? saveData.boosters : saveData.boxes;
+        if (!Number.isInteger(sets) || sets < 1 || sets * 3 > (source?.[fromKey] || 0)) return;
         document.getElementById('exc-modal-overlay')?.remove();
         if (type === 'booster') {
             if (!saveData.boosters) saveData.boosters = {};

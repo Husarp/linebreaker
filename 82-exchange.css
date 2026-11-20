@@ -1,0 +1,66 @@
+.lb-exchange-dialog .lb-block-reward-amount,
+.lb-exchange-badge {
+    border-radius: var(--bb-badge-radius);
+}
+
+.lb-exchange-item-art,
+.lb-exchange-row-art {
+    background: transparent;
+}
+
+.lb-exchange-parts-icon { object-fit: contain; }
+
+.lb-exchange-quantity {
+    gap: 8px 12px;
+    padding: 8px 10px;
+    font-size: var(--text-sm);
+}
+
+.lb-exchange-quantity-controls {
+    display: grid;
+    grid-template-columns: auto minmax(0, 7ch) auto;
+    gap: 4px;
+}
+
+.lb-exchange-quantity .lb-exchange-quantity-controls input {
+    grid-column: auto;
+    appearance: textfield;
+    width: 100%;
+    min-width: 0;
+    padding: 4px;
+    border: var(--bb-stroke) solid var(--bb-edge);
+    border-radius: var(--bb-cap);
+    background: var(--bb-panel);
+    color: var(--bb-ink);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.lb-exchange-quantity input::-webkit-inner-spin-button,
+.lb-exchange-quantity input::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+}
+
+.lb-exchange-quantity input:focus-visible {
+    outline: 2px solid var(--accent-bright);
+    outline-offset: -2px;
+}
+
+.lb82-sfx-packs .lb-inventory-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+}
+
+.lb82-sfx-content { display: grid; gap: 6px; }
+.lb82-sfx-preview { justify-self: end; }
+
+.lb82-sfx-state {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
