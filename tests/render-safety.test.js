@@ -224,13 +224,13 @@ it('shows distinct inventory colour states and keeps palette preview separate fr
   expect(panel.getAttribute('aria-labelledby')).toBe(tab.id);
   expect(panel.classList.contains('hidden')).toBe(false);
   const card = key => document.querySelector(`[data-invtab-content="colors"] [data-item-key="${key}"]`);
-  expect(card('default').querySelector('.lb-colors-state svg').getAttribute('aria-label')).toBe('Equipped');
+  expect(card('default').querySelector('.lb-colors-state').textContent.trim()).toBe('Equipped');
   expect(card('ocean').querySelector('.lb-colors-state')).toBeNull();
   expect(card('forest').querySelector('.lb-colors-state svg').getAttribute('aria-label')).toBe('Locked');
   expect(card('forest').querySelector('progress').value).toBe(1);
   expect(document.getElementById('theme-owned-count').textContent).toBe('2/10');
-  const themeSample = card('ocean').querySelector('.lb-colors-theme-sample');
-  expect(themeSample.getAttribute('aria-label')).toBe('Copy Ocean colour');
+  const themeSample = card('ocean').querySelector('.lb-inventory-theme-swatch');
+  expect(themeSample.querySelector('button').getAttribute('aria-label')).toBe('Copy Ocean colour');
   expect(themeSample.textContent.trim()).toBe('');
   expect(themeSample.querySelector('.lb-colors-chip').style.getPropertyValue('--swatch')).toBe('#0099ff');
 
@@ -242,7 +242,7 @@ it('shows distinct inventory colour states and keeps palette preview separate fr
   dialog.querySelector('[aria-label="Close"]').click();
   expect(dialog.isConnected).toBe(false);
   expect(card('classic').dataset.equipped).toBe('true');
-  card('ice').querySelector('.lb-colors-actions button').click();
+  card('ice').querySelector('.lb-inventory-equip-target').click();
   expect(card('ice').dataset.equipped).toBe('true');
 });
 
@@ -264,7 +264,7 @@ it('marks equipped and locked inventory cards without adding owned tags', () => 
     expect(card.querySelector('canvas[role="img"]').width).toBe(144);
   }
   expect(equipped.querySelector('button, progress')).toBeNull();
-  expect(owned.querySelector('button').textContent).toBe('Equip');
+  expect(owned.querySelector('.lb-inventory-equip-target').getAttribute('aria-label')).toBe('Equip Bubble');
   expect(owned.querySelector('progress')).toBeNull();
   expect(locked.querySelector('progress').value).toBe(2);
   expect(locked.textContent).toContain('2/10 parts');
