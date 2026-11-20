@@ -1209,8 +1209,8 @@
                     <div style="background:${c}" aria-hidden="true"></div>
                 </div>
                 <input type="text" id="pe-c${i}-hex" aria-label="${lbl} piece hex color" value="${c}" maxlength="7" autocomplete="off" spellcheck="false" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
-                <button class="lb-block-btn lb-block-btn--icon" onclick="window._palEditEyedrop(${i})" aria-label="Eyedropper for ${lbl}" title="Eyedropper">${_SVG_EYEDROPPER}</button>
-                <button class="lb-block-btn lb-block-btn--icon" onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb-palette-tool" onclick="window._palEditEyedrop(${i})" aria-label="Eyedropper for ${lbl}" title="Eyedropper">${_SVG_EYEDROPPER}</button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb-palette-tool" onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
             </div>`;
         });
 
@@ -1288,7 +1288,7 @@
 
     // --- SVG ICON CONSTANTS ---
     const _SVG_COPY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
-    const _SVG_EYEDROPPER = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.7 4.7a2.4 2.4 0 00-3.4 0L14 8l2 2 3.3-3.3a2.4 2.4 0 000-3.4z"/><path d="M14 8l-8.6 8.6a2 2 0 00-.5 1V20h2.4c.4 0 .7-.2 1-.5L17 11"/></svg>';
+    const _SVG_EYEDROPPER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 8 4 4m-3-3 5-5a2.1 2.1 0 0 1 3 3l-5 5m-3-3-8 8v2h2l8-8M5 19l-2 2"/></svg>';
 
     // --- PALETTE VIEW MODAL (read-only color info with copy) ---
     function _openPaletteViewModal(paletteKey) {
@@ -4362,7 +4362,8 @@
         }
     }
 
-    function openSettings() {
+    let settingsFromPause = false;
+    function openSettings(fromPause = false) {
         controlsEditor.render();
         _reminders?.render();
         _musicFollowsSpeedToggle.checked = settings.musicFollowsSpeed !== false;
@@ -4449,15 +4450,15 @@
         _themeBackgroundSelect.value = LBArtPack.backgroundMode(settings.themeBackground);
         _bgBlockMotionSelect.value = settings.bgBlockMotion === 'falling' ? 'falling' : 'spinning';
         _runMissionsSelect.value = settings.showRunMissions === true ? 'on' : 'off';
-        const _pauseVisible = !document.getElementById('pause-overlay').classList.contains('hidden');
-        window._settingsFromPause = _pauseVisible;
-        if (!_pauseVisible) document.getElementById('menu-overlay').classList.add('hidden');
+        settingsFromPause = fromPause;
+        document.getElementById(fromPause ? 'pause-overlay' : 'menu-overlay').classList.add('hidden');
         const _settEl = document.getElementById('settings-overlay');
         const settingsBack = document.getElementById('settings-back');
-        settingsBack.querySelector('use').setAttribute('href', _pauseVisible ? '#lb-topbar-parent' : '#lb-topbar-home');
-        settingsBack.querySelector('span').textContent = _pauseVisible ? 'Back' : 'Menu';
+        settingsBack.querySelector('use').setAttribute('href', fromPause ? '#lb-topbar-parent' : '#lb-topbar-home');
+        settingsBack.querySelector('span').textContent = fromPause ? 'Back' : 'Menu';
         _settEl.classList.remove('hidden');
         _animateIn(_settEl, 'anim-in-right');
+        settingsBack.focus({ preventScroll: true });
     }
     async function resetAllProgress() {
         const phrase = 'RESET MY PROGRESS';
@@ -4518,10 +4519,15 @@
     function closeSettings() {
         controlsEditor.cancel();
         if (_settingsTrackPollId) { clearInterval(_settingsTrackPollId); _settingsTrackPollId = null; }
-        const _fromPause = window._settingsFromPause;
-        window._settingsFromPause = false;
-        _animateOut(document.getElementById('settings-overlay'), 'anim-out-right', function() {
-            if (!_fromPause) {
+        const overlay = document.getElementById('settings-overlay');
+        if (overlay.classList.contains('hidden') || overlay.classList.contains('anim-out-right')) return;
+        const fromPause = settingsFromPause;
+        _animateOut(overlay, 'anim-out-right', function() {
+            settingsFromPause = false;
+            if (fromPause) {
+                document.getElementById('pause-overlay').classList.remove('hidden');
+                document.getElementById('pause-settings').focus({ preventScroll: true });
+            } else {
                 const _mEl = document.getElementById('menu-overlay');
                 _mEl.classList.remove('hidden');
                 _animateIn(_mEl, 'anim-in-left');
@@ -11358,7 +11364,7 @@
         const sections = [
             ['basics', 'Basics & controls', `
                 ${block('Stack & clear', `<p>Fill horizontal rows to clear them and make room. If a new piece can’t enter the board, the run ends.</p><ul class="lb-help-pieces" aria-label="The seven pieces">${pieces}</ul>`)}
-                ${block('Keyboard bindings', `${definitions(controls)}${bullets('Change either slot in <strong>Settings → Controls</strong>. Select a slot and press a key to bind it.', `Press ${keycap('Backspace')} to clear a selected slot, or choose <strong>Reset to defaults</strong> to restore the layout.`)}`)}
+                ${block('Keyboard bindings', `${definitions(controls)}${bullets('Change either slot in <strong>Settings → Controls</strong>. Select a slot and press a key to bind it.', `Press ${keycap('Backspace')} to clear a selected slot, or use the arrow button beside Primary to restore both keys for that action.`)}`)}
                 ${block('Touch', `<p>Use the on-screen buttons or gesture on the board.</p>${definitions([
                     ['Drag sideways', 'Move'], ['Drag down slowly', 'Soft drop'], ['Flick down', 'Hard drop'],
                     ['Swipe up', 'Hold'], ['Tap', 'Rotate'], ['Left-side or two-finger tap', 'Rotate counter-clockwise']

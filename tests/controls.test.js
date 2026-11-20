@@ -77,7 +77,7 @@ function showRun(game) {
   game.w.document.getElementById('menu-overlay').classList.add('hidden');
 }
 
-it('warns about conflicts, saves a CCW binding, and restores defaults through settings', async () => {
+it('warns about conflicts, saves a CCW binding, and restores both slots of just that row', async () => {
   const game = await loadGame();
   try {
     testLayout(game);
@@ -85,13 +85,17 @@ it('warns about conflicts, saves a CCW binding, and restores defaults through se
     const settings = document.getElementById('settings-overlay');
     settings.classList.remove('hidden');
     const binding = document.querySelector('button[aria-label^="Rotate CCW, secondary"]');
+    const restore = document.querySelector('[aria-label="Restore default keys for Rotate CCW"]');
     const saved = () => JSON.parse(localStorage.getItem('tetrisRPG_settings')).keyBindings;
+    expect(restore.hidden).toBe(true);
+    expect(document.querySelector('.lb-controls-reset')).toBeNull();
     binding.click();
     key(game, 'KeyW');
     expect(document.querySelector('.lb-controls-status').textContent).toMatch(/already assigned to Rotate CW/);
     key(game, 'KeyZ');
     expect(saved().ccw).toEqual([null, 'KeyZ']);
     expect(binding.textContent).toBe('Z');
+    expect(restore.hidden).toBe(false);
 
     settings.classList.add('hidden');
     showRun(game);
@@ -105,9 +109,67 @@ it('warns about conflicts, saves a CCW binding, and restores defaults through se
     expect(game.api.state.player.matrix).toEqual(original);
 
     settings.classList.remove('hidden');
-    document.querySelector('.lb-controls-reset').click();
-    expect(saved()).toEqual(normalizeBindings());
+    const primary = document.querySelector('button[aria-label^="Rotate CCW, primary"]');
+    primary.click();
+    key(game, 'KeyX');
+    document.querySelector('button[aria-label^="Hold, primary"]').click();
+    key(game, 'KeyC');
+    restore.click();
+    expect(saved()).toEqual({ ...normalizeBindings(), hold: ['KeyC', null] });
     expect(binding.textContent).toBe('Unbound');
+    expect(restore.hidden).toBe(true);
+    expect(document.activeElement).toBe(primary);
+  } finally {
+    game.close();
+  }
+});
+
+it('clears only a conflicting slot when its key is reclaimed by a row restore', async () => {
+  const bindings = { ...normalizeBindings(), left: [null, 'KeyA'], ccw: ['ArrowLeft', 'KeyZ'] };
+  const game = await loadGame(true, null, null, undefined, { keyBindings: bindings });
+  try {
+    const { document, localStorage } = game.w;
+    game.w.openSettings();
+    document.querySelector('[aria-label="Restore default keys for Move left"]').click();
+    const saved = JSON.parse(localStorage.getItem('tetrisRPG_settings')).keyBindings;
+    expect(saved).toEqual({ ...normalizeBindings(), ccw: [null, 'KeyZ'] });
+    expect(document.querySelector('.lb-controls-status').textContent).toContain('Reassigned keys cleared from: Rotate CCW.');
+  } finally {
+    game.close();
+  }
+});
+
+it('opens the same Settings from the menu and pause and returns to the caller', async () => {
+  const game = await loadGame();
+  try {
+    testLayout(game);
+    const { w } = game;
+    const get = id => w.document.getElementById(id);
+    const settings = get('settings-overlay');
+    const back = get('settings-back');
+    const bindInline = button => { button.onclick = w.Function(button.getAttribute('onclick')); };
+    [get('btn-settings'), get('pause-settings'), back].forEach(bindInline);
+    const finishClose = () => settings.dispatchEvent(new w.Event('animationend'));
+    get('btn-settings').click();
+    expect(settings.classList.contains('hidden')).toBe(false);
+    expect(back.textContent.trim()).toBe('Menu');
+    back.click();
+    finishClose();
+    expect(get('menu-overlay').classList.contains('hidden')).toBe(false);
+
+    showRun(game);
+    key(game, 'Escape');
+    expect(get('pause-overlay').classList.contains('hidden')).toBe(false);
+    get('pause-settings').click();
+    expect(get('pause-overlay').classList.contains('hidden')).toBe(true);
+    expect(settings.classList.contains('hidden')).toBe(false);
+    expect(back.textContent.trim()).toBe('Back');
+    key(game, 'Escape');
+    finishClose();
+    expect(settings.classList.contains('hidden')).toBe(true);
+    expect(get('pause-overlay').classList.contains('hidden')).toBe(false);
+    expect(get('menu-overlay').classList.contains('hidden')).toBe(true);
+    expect(w.document.activeElement).toBe(get('pause-settings'));
   } finally {
     game.close();
   }

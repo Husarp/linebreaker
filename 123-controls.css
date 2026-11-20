@@ -1,0 +1,45 @@
+#settings-overlay .lb-controls-row {
+    grid-template-columns: minmax(0, 1.15fr) var(--target) repeat(2, minmax(0, 1fr));
+}
+
+#settings-overlay .lb-controls-row > button:nth-of-type(2),
+#settings-overlay .lb102-controls-head > :nth-child(2) { grid-column: 3; }
+#settings-overlay .lb102-controls-head > :nth-child(3) { grid-column: 4; }
+
+#settings-overlay .lb-controls-restore {
+    grid-column: 2;
+    padding: 0 0 4px !important;
+}
+
+#settings-overlay .lb-controls-restore[hidden] { display: none; }
+
+.lb-controls-restore svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
+
+@media (max-width: 599px) {
+    #settings-overlay .lb-controls-row:not(.lb102-controls-head) > span { font-size: var(--text-sm); }
+}
+
+#pause-overlay button { padding-block-end: 4px !important; }
+
+#go-overlay :is(.result-retry, .go-stat-rows .lb-run-icon--lines) { --action-tint: var(--accent); }
+#go-overlay :is(.result-menu, .go-stat-rows .lb-run-icon--speed) { --action-tint: var(--bb-rarity-epic); }
+#go-overlay :is(.result-pin, #go-xp-row .go-icon) { --action-tint: var(--bb-rarity-legendary); }
+#go-overlay .go-stat-rows .go-icon,
+#go-overlay #go-xp-row .go-icon { color: color-mix(in srgb, var(--action-tint) 78%, white); }
+#go-overlay .go-actions > .lb-block-btn { padding-block-end: 10px !important; }
+
+#pal-edit-modal .lb-palette-tool { padding: 0 0 4px !important; }
+
+#pal-edit-modal .lb-palette-tool svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+}
