@@ -123,10 +123,7 @@ it('shows only highscore history without rewriting saved scores', () => {
   byId('stats-tab-hs').click();
   expect(byId('highscores-container').textContent).not.toContain('Records by speed level');
   expect(all('#highscores-list .lb-score').map(element => element.textContent)).toEqual(['900 pts', '850 pts', '720 pts', '500 pts']);
-  expect(all('#highscores-list .lb-stats-podium-place').map(place => [place.dataset.place, place.querySelector('.lb-stats-podium-score').textContent])).toEqual([
-    ['2', '850 pts'], ['1', '900 pts'], ['3', '720 pts'],
-  ]);
-  expect(all('#highscores-list .lb-stats-podium-step img').map(crown => crown.alt)).toEqual(['#2', '#1', '#3']);
+  expect(query('#highscores-list .lb-stats-podium')).toBeNull();
   expect(all('#highscores-list .lb-rank').map(rank => rank.querySelector('img')?.alt ?? rank.textContent)).toEqual(['#1', '#2', '#3', '#4']);
   expect(query('#highscores-list .lb-stats-current .lb-date').textContent).toContain('CURRENT');
   expect(game.api.save.highscoreHistory).toEqual(JSON.parse(JSON.stringify(save.highscoreHistory)));

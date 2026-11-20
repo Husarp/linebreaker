@@ -2697,7 +2697,7 @@
         _checkGlowNotifications();
     }
     function _exchangePartsIcon() {
-        return '<img class="lb-exchange-parts-icon" src="assets/ui/parts/universal-part-128.png" width="28" height="28" alt="">';
+        return `<img class="lb-exchange-parts-icon" src="${window.LBArtPack.universalPart}" width="28" height="28" alt="">`;
     }
     function openUseUniversalPart() {
         if ((saveData.universalParts || 0) < 1) return;
@@ -4880,7 +4880,6 @@
         container.innerHTML = '';
         // Sort descending by score
         all.sort((a, b) => b.score - a.score);
-        container.appendChild(_statsPodium(all));
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
         all.forEach((e, i) => {
@@ -10499,7 +10498,7 @@
                 if (_grantRewardPart(item.key)) {
                     rewards.push(_partConversion(item.key, 1));
                 } else {
-                    rewards.push({ icon:'🧩', label:`+1 Part: ${_partItemName(item.key)}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
+                    rewards.push({ type: 'parts', key: item.key, label:`+1 Part: ${_partItemName(item.key)}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
                 }
             }
         }
