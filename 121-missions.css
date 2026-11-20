@@ -1,0 +1,142 @@
+#missions-overlay:has(#mq-mission-view:not([hidden])) .mq89-header,
+.mq-pb-wrap {
+    border: 2px solid var(--bb-edge);
+    box-shadow: inset 0 0 0 2px var(--bb-well);
+}
+
+.mq-pb-wrap .mq-ms-icon:not(.reached-d, .reached-w) { color: var(--bb-edge); }
+
+#missions-overlay:has(#mq-mission-view:not([hidden])) .mq89-header {
+    background: var(--bb-heading);
+    box-shadow: inset 0 0 0 2px var(--bb-well), 0 3px var(--bb-well);
+}
+
+.mq-pb-wrap {
+    margin-bottom: 16px;
+    padding: 8px 12px;
+    border-radius: 3px 9px 3px 9px;
+    background: var(--bb-panel);
+}
+
+#mq-countdown:not([hidden]) {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 8px;
+    border: 1px solid var(--bb-edge);
+    background: var(--bb-panel);
+    box-shadow: inset 0 -2px var(--bb-well);
+    color: var(--bb-muted);
+    font: 650 .65rem/1.2 var(--font-body);
+    white-space: nowrap;
+}
+
+#mq-countdown svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+}
+
+#mq-countdown time {
+    color: var(--mq-reset-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.mq-streak-flame { font-size: 1.4rem; }
+.mq-streak-flame--watermark {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    font-size: 4rem;
+    opacity: .08;
+    line-height: 1;
+    pointer-events: none;
+}
+
+.mq-card .mq-tier-badge {
+    margin: 0;
+    padding: 2px 5px;
+    border-color: color-mix(in srgb, var(--mq-tier) 62%, transparent);
+    border-radius: 0;
+    background: color-mix(in srgb, var(--mq-tier) 13%, transparent);
+    color: color-mix(in srgb, var(--mq-tier) 75%, white);
+    font: 800 .625rem/1.2 var(--font-body);
+    letter-spacing: .065em;
+}
+
+.mq-card-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0 8px;
+}
+
+.mq-card-meter {
+    flex: 1;
+    height: 11px;
+    overflow: hidden;
+    padding: 2px;
+    border: 1px solid;
+    background: rgba(255,255,255,.04);
+}
+
+.mq-card-progress-value {
+    min-width: 52px;
+    text-align: center;
+    white-space: nowrap;
+    font: .55rem 'JetBrains Mono', monospace;
+}
+
+@media (orientation: portrait) and (max-width: 600px) {
+    #missions-overlay:has(#mq-mission-view:not([hidden])) { overflow: hidden !important; }
+    #missions-overlay #mq-mission-view:not([hidden]) {
+        flex: 1 1 auto !important;
+        display: block !important;
+        overflow: hidden auto !important;
+        padding: 12px 10px 16px;
+    }
+
+    .mq-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mq-card {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: auto auto 1fr auto;
+        align-content: start;
+        gap: 6px;
+        padding: 9px;
+    }
+
+    .mq-card-hdr { grid-area: 1 / 1 / 2 / -1; margin: 0; }
+    .mq-card-body { display: contents; }
+    .mq-card .mq-mini-well { grid-area: 2 / 1; }
+    .mq-card .mq-mini-well td { width: 6px; height: 6px; }
+    .mq-card-text { grid-area: 3 / 1 / 4 / -1; overflow-wrap: anywhere; }
+    .mq-card-body--nowell .mq-card-text { grid-row: 2 / 4; }
+    .mq-card-title { margin-bottom: 2px; }
+    .mq-card-action { grid-area: 4 / 1 / 5 / -1; }
+    .mq-card-action > div { margin-top: 0 !important; }
+    .mq-card-progress {
+        grid-area: 2 / 2;
+        align-self: center;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 3px;
+        margin: 0;
+    }
+    .mq-card-meter { flex: none; }
+    .mq-card-progress-value { min-width: 0; text-align: right; }
+}
+
+@media (max-width: 420px) {
+    .mq89-header.lb-block-topbar .lb-topbar-title { white-space: nowrap; }
+    .mq89-header #mq-countdown > span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0 !important;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+}

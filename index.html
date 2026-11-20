@@ -56,6 +56,7 @@
     <link rel="stylesheet" href="111-topbar.css">
     <link rel="stylesheet" href="112-stats-crowns.css">
     <link rel="stylesheet" href="120-hud.css">
+    <link rel="stylesheet" href="121-missions.css">
 </head>
 <body>
 
@@ -430,14 +431,17 @@
             <button type="button" class="lb-block-btn" data-tab="season" aria-pressed="false" aria-controls="season-pass-overlay">SEASON</button>
             <button type="button" class="mq-v4-rules lb-info-btn" data-help-section="missions" aria-label="About missions" title="About missions"></button>
         </div>
-        <div id="mq-countdown"></div>
+        <div id="mq-countdown">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="15" rx="1"/><path d="M8 3v6m8-6v6M4 11h16m-12 5h2m4 0h2"/></svg>
+            <span>Reset in</span> <time></time>
+        </div>
     </div>
     <!-- Body: full-width missions + right sidebar -->
-    <div id="mq-mission-view" style="flex:1;overflow:hidden;min-height:0;">
-        <div style="flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:14px 18px 20px;">
+    <div id="mq-mission-view" class="lb-scroll-fade" style="flex:1;overflow:hidden;min-height:0;">
+        <div class="lb-scroll-fade" style="flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:14px 18px 20px;">
             <div id="missions-body" style="max-width:950px;margin:0 auto;"></div>
         </div>
-        <div style="width:234px;flex-shrink:0;overflow-y:auto;padding:14px 12px 14px 10px;display:flex;flex-direction:column;gap:10px;border-left:1px solid rgba(255,255,255,0.05);">
+        <div class="lb-scroll-fade" style="width:234px;flex-shrink:0;overflow-y:auto;padding:14px 12px 14px 10px;display:flex;flex-direction:column;gap:10px;border-left:1px solid rgba(255,255,255,0.05);">
             <div id="mq-streak-panel" class="mq-streak-panel"></div>
             <div id="mq-stats-section"></div>
         </div>

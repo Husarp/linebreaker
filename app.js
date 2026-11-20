@@ -9857,11 +9857,11 @@
         const miniWellHtml = hasProgress ? _miniWell(q.progress, q.target, tc) : '';
         // Progress row: continuous HUD-style bar (Section D) + progress/target on right
         const progressRowHtml = hasProgress ? `
-            <div style="display:flex;align-items:center;gap:10px;margin-top:12px;margin-bottom:8px;">
-                <div style="flex:1;height:11px;background:rgba(255,255,255,0.04);border:1px solid ${tc}44;padding:2px;overflow:hidden;">
+            <div class="mq-card-progress">
+                <div class="mq-card-meter" style="border-color:${tc}44;">
                     <div style="height:100%;width:${pct}%;background:${tc};box-shadow:0 0 6px ${tc};background-image:linear-gradient(90deg,${tc}cc 0%,${tc} 100%);"></div>
                 </div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;min-width:52px;text-align:center;white-space:nowrap;">${_progFmt}</div>
+                <div class="mq-card-progress-value">${_progFmt}</div>
             </div>` : '';
         // Action row (bottom of card)
         let actionHtml = '';
@@ -9883,7 +9883,7 @@
         return `<div class="mq-card-wrap">
             <div class="mq-card${isSecret?' mq-card--secret':''}${changeModeCls}" style="${cardStyle}">
                 <div class="mq-card-hdr">
-                    <span class="mq-tier-badge" style="color:${tc};border-color:${tc}44">${escapeHtml(tierLabel)}</span>
+                    <span class="mq-tier-badge" style="--mq-tier:${tc}">${escapeHtml(tierLabel)}</span>
                     <span class="mq-pts" style="color:${tc}">+${escapeHtml(q.pts)} pts</span>
                 </div>
                 <div class="mq-card-body${miniWellHtml ? '' : ' mq-card-body--nowell'}">
@@ -9893,7 +9893,7 @@
                         <div class="mq-card-desc">${desc}</div>
                     </div>
                 </div>
-                ${progressRowHtml}${actionHtml}
+                ${progressRowHtml}${actionHtml ? `<div class="mq-card-action">${actionHtml}</div>` : ''}
             </div>
             ${changeOverlay}
         </div>`;
@@ -9970,17 +9970,16 @@
                     </div>
                 </div>`;
             }
-            const starCol = isGolden ? '#ffcc44' : '#2a2a3a';
+            const starCol = isGolden ? '#ffcc44' : 'var(--bb-edge)';
             const starFilter = isGolden ? 'filter:drop-shadow(0 0 6px rgba(255,204,68,0.55));' : '';
             const starSvg = `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="${starCol}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
             return `<div class="mq-pb-icon-wrap" style="left:${gPct}%;top:10px;"><span class="mq-star-tip" data-mqctip="${MQ_WEEKLY_GOLDEN_THRESHOLD}+ pts: earn +1 Universal Part per extra point" style="${starFilter}cursor:help;display:block;">${starSvg}</span></div>`;
         })() : '';
         const ptsColor = isGolden ? '#ffcc44' : (isWeekly ? '#ffcc44' : '#4499ff');
-        const ptsDimColor = isWeekly ? '#664400' : '#223355';
         return `<div class="mq-pb-wrap" style="position:relative;">
             <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;">
                 <span style="font-family:var(--ui-font);font-size:1.4rem;font-weight:900;color:${ptsColor};letter-spacing:1px;line-height:1;${isGolden?'text-shadow:0 0 12px rgba(255,204,68,0.45);':''}">${escapeHtml(points)}</span>
-                <span style="font-family:var(--ui-font);font-size:0.52rem;color:${ptsDimColor};letter-spacing:2px;padding-bottom:1px;">PTS</span>
+                <span style="font-family:var(--ui-font);font-size:0.52rem;color:var(--bb-muted);letter-spacing:2px;padding-bottom:1px;">PTS</span>
             </div>
             <div class="mq-pb-labels">${labels}${goldenLabelHtml}</div>
             <div style="position:relative;">
@@ -10142,9 +10141,9 @@
         const streakPanelHtml = `
             <div style="border:1px solid rgba(255,204,68,0.25);border-radius:10px;overflow:hidden;">
             <div class="mq-streak-half" style="padding:14px 16px;background:rgba(255,204,68,0.05);border:none;border-radius:0;position:relative;overflow:hidden;">
-                <div style="position:absolute;right:-12px;top:-12px;font-size:4rem;opacity:0.08;line-height:1;pointer-events:none;">🔥</div>
+                <div class="mq-streak-flame mq-streak-flame--watermark" aria-hidden="true">🔥</div>
                 <div style="display:flex;align-items:center;gap:8px;position:relative;">
-                    <span style="font-size:1.4rem;">🔥</span>
+                    <span class="mq-streak-flame" aria-hidden="true">🔥</span>
                     <span style="font-family:var(--ui-font);font-size:1.8rem;font-weight:900;color:#ffcc44;line-height:1;">${escapeHtml(dStreak)}</span>
                     <span style="font-size:0.55rem;color:#aa8800;font-family:monospace;align-self:flex-end;margin-bottom:3px;">${dStreak === 1 ? 'day' : 'days'}</span>
                 </div>
@@ -10179,7 +10178,7 @@
         const streakPanelEl = document.getElementById('mq-streak-panel');
         if (streakPanelEl) streakPanelEl.innerHTML = streakPanelHtml;
 
-        const bonusBoxHtml = `            <div id="mq-bonus-box" style="padding:14px 16px;background:rgba(255,204,68,0.04);border:1px solid rgba(255,204,68,0.2);border-radius:10px;transition:box-shadow 0.3s,border-color 0.3s;">
+        const bonusBoxHtml = `            <div id="mq-bonus-box" style="padding:14px 16px;background:rgba(255,204,68,0.04);border:1px solid rgba(255,204,68,0.2);transition:box-shadow 0.3s,border-color 0.3s;">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                     <span style="line-height:0;flex-shrink:0;"><svg viewBox="0 0 24 24" width="22" height="22" fill="white" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 3.66333L20.25 7.7398V17.01L12 21.0865L3.75 17.01V7.7398L12 3.66333ZM5.25 9.41292V16.078L11.25 19.0427V12.3776L5.25 9.41292ZM12.75 12.3776V19.0427L18.75 16.078V9.41292L16.5 10.5247V13.4999L15 14.2499V11.2659L12.75 12.3776ZM17.807 8.20577L15.8527 9.17139C15.8099 9.13606 15.7624 9.10498 15.7106 9.07908L10.1015 6.27454L12 5.33645L17.807 8.20577ZM8.41452 7.1081L14.1871 9.9944L12 11.0751L6.19304 8.20577L8.41452 7.1081Z"/></svg></span>
                     <div style="flex:1;">
@@ -10316,7 +10315,10 @@
         const s = totalSec % 60;
         const hms = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         const timeStr = d > 0 ? `${d}d ${hms}` : hms;
-        el.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;font-family:var(--ui-font);font-size:0.52rem;color:${accentColor};letter-spacing:0.1em;background:${accentColor}10;border:1px solid ${accentColor}33;padding:5px 11px;"><span style="width:6px;height:6px;background:${accentColor};border-radius:50%;box-shadow:0 0 6px ${accentColor};display:inline-block;flex-shrink:0;"></span>RESET IN ${timeStr}</span>`;
+        el.style.setProperty('--mq-reset-color', accentColor);
+        const timer = el.querySelector('time');
+        timer.dateTime = `P${d}DT${h}H${m}M${s}S`;
+        timer.textContent = timeStr;
     }
 
     window._mqChangeMode = false;
