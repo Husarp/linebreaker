@@ -1,0 +1,57 @@
+#app .pc-panel > .glass-box:not(.btn-pause-pc) {
+    background: var(--bb-panel);
+    backdrop-filter: none;
+    border: 1px solid var(--bb-edge);
+    border-radius: var(--bb-frame);
+    box-shadow: inset 0 1px #ffffff1e, inset 0 -3px var(--bb-well), inset 0 0 0 1px var(--bb-well), 2px 2px var(--bb-well);
+}
+
+#app .pc-panel > .glass-box:not(.btn-pause-pc) > .label {
+    color: var(--bb-muted);
+}
+
+#app :is(#hold-panel, #pc-next-wrap) > .label {
+    color: var(--accent-bright);
+}
+
+#app .lb-hud-speed-tape {
+    margin: 4px auto 0;
+}
+
+#app .lb-hud-speed-marker {
+    font-size: 0.45rem;
+    margin-bottom: 2px;
+}
+
+@media (orientation: portrait) and (max-width: 600px) {
+    #app .pc-panel > .glass-box:not(.btn-pause-pc) {
+        align-content: center;
+        border-width: var(--bb-stroke);
+        border-radius: 4px 8px;
+    }
+
+    #app .glass-box:has(> .lb-hud-speed-tape) {
+        padding-block: 0;
+    }
+
+    #app .glass-box:has(> .lb-hud-speed-tape) > .label {
+        margin-bottom: 0;
+    }
+
+    #app .lb-hud-speed-tape {
+        margin-block-start: 0;
+    }
+
+    #app .lb-hud-speed-marker {
+        font-size: 8px;
+        margin-bottom: 0;
+    }
+
+    #app .glass-box:has(> #pc-time) {
+        padding-inline: 2px;
+    }
+
+    #app #pc-time {
+        font-size: clamp(9px, 2.8vw, 12px);
+    }
+}
