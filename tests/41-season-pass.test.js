@@ -76,6 +76,19 @@ it('rejects future-stage attempts and preserves the clock lock until that day op
   expect(stageStatus(config.stages[8], seasonState(save, unlock))).toBe('future');
 });
 
+it('unlocks stages in threshold order and only after the corresponding UTC day arrives', () => {
+  const save = { season: emptySeason(1) };
+  const dayTwo = EPOCH + DAY;
+  const statuses = now => config.stages.slice(0, 3).map(stage => stageStatus(stage, seasonState(save, now)));
+  creditMissionPoints(save, 15, dayTwo);
+  expect(statuses(dayTwo)).toEqual(['claimable', 'locked', 'future']);
+  creditMissionPoints(save, 1, dayTwo);
+  expect(statuses(dayTwo)).toEqual(['claimable', 'claimable', 'future']);
+  creditMissionPoints(save, 8, dayTwo);
+  expect(statuses(dayTwo + DAY - 1)).toEqual(['claimable', 'claimable', 'future']);
+  expect(statuses(dayTwo + DAY)).toEqual(['claimable', 'claimable', 'claimable']);
+});
+
 it('uses the tier pool and skips ineligible parts, boosters and cosmetic duplicates', () => {
   expect(rollReward(config, 'rare', inventory, () => 0)).toEqual({ type: 'parts', key: 'shadow', amount: 2 });
   expect(rollReward(config, 'rare', inventory, () => 0.5)).toEqual({ type: 'booster', key: '1.5x_game', amount: 1 });
@@ -147,9 +160,11 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   expect(missions.hasAttribute('inert')).toBe(false);
   expect(overlay.hidden).toBe(false);
   expect(missionView.hidden).toBe(true);
+  expect(w.getComputedStyle(missionView).display).toBe('none');
   expect(seasonTab.getAttribute('aria-pressed')).toBe('true');
   expect(overlay.querySelector('.sp-points p').textContent).toContain('daily and weekly');
-  expect(overlay.querySelector('[aria-current="date"] h3').textContent).toBe('Day 30');
+  expect(overlay.querySelector('[aria-current="step"] h3').textContent).toBe('Stage 1');
+  expect(overlay.querySelector('#sp-next').textContent).toBe('Stage 1 ready to claim');
   const finalClaim = () => overlay.querySelector('[data-sp-day="30"]');
   now -= 120_000;
   finalClaim().click();
@@ -157,11 +172,14 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   expect(overlay.querySelector('#sp-notice').textContent).toContain('Check your device date and time');
   expect(overlay.querySelector('[data-tier="exclusive"]').dataset.state).toBe('future');
   now = firstMinute;
-  overlay.querySelector('.sp-today').click();
+  overlay.querySelector('.sp-jump').click();
   finalClaim().click();
   expect(api.save.season.claimed[30]).toEqual({ type: 'skin', key: 'season-prism' });
   expect(api.save.ownedSkins).toContain('season-prism');
   expect(finalClaim()).toBeNull();
+  overlay.querySelector('[data-sp-day="1"]').click();
+  expect(overlay.querySelector('[data-stage="1"] .sp-state').textContent).toBe('✓ Claimed');
+  expect(overlay.querySelector('#sp-next').textContent).toBe('Stage 2 ready to claim');
   weeklyTab.click();
   expect(overlay.hidden).toBe(true);
   expect(missionView.hidden).toBe(false);
