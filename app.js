@@ -11241,7 +11241,8 @@
             const rows = cells.map(([, row]) => row);
             const left = (3 - Math.max(...columns) - Math.min(...columns)) * 5;
             const top = (1 - Math.max(...rows) - Math.min(...rows)) * 5;
-            return `<li><svg viewBox="0 0 40 20" width="40" height="20" color="${COLORS[index + 1]}" aria-hidden="true">${cells.map(([column, row]) => `<rect x="${column * 10 + left + 1}" y="${row * 10 + top + 1}" width="8" height="8" rx="1"/>`).join('')}</svg><span>${'IJLOSTZ'[index]}</span></li>`;
+            const blocks = cells.map(([column, row]) => `<g transform="translate(${column * 10 + left} ${row * 10 + top})"><rect width="9" height="9" rx="1"/><path class="lb-help-piece-highlight" d="M1 7V1H8"/><path class="lb-help-piece-shadow" d="M1 8H8V2"/></g>`).join('');
+            return `<li><svg viewBox="-0.5 -0.5 40 20" width="40" height="20" color="${COLORS[index + 1]}" aria-hidden="true">${blocks}</svg><span>${'IJLOSTZ'[index]}</span></li>`;
         }).join('');
         const rankRows = RANKS.map(({ name, maxLvl }, index) => [
             name, `${(RANKS[index - 1]?.maxLvl || 0) + 1}–${maxLvl}`, number(_RANK_XP_PER_LEVEL[index])
@@ -11317,7 +11318,7 @@
                 <button type="button" class="lb-block-btn" id="help-tutorial">Open tutorials</button>`]
         ];
         helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-block-btn" data-help-jump="${id}">${title}</button>`).join('');
-        helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-help-topic lb-block-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" class="lb-help-chapter-title" tabindex="-1">${title}</h2>${body}</section>`).join('');
+        helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-help-topic lb-block-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" class="lb-block-panel-head lb-block-section-title" tabindex="-1">${title}</h2>${body}</section>`).join('');
         document.getElementById('help-tutorial').addEventListener('click', () => {
             window.openTutorial();
             document.querySelector('#tutorial-overlay .btn-back').focus();
