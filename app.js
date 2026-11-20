@@ -8272,19 +8272,48 @@
     }
     
     function _renderGoStats(best, isRecord, funMode, xp, recordBonus = 0) {
-        const overlay = document.getElementById('go-overlay');
-        overlay.classList.toggle('go-fun', funMode);
         document.getElementById('go-score').textContent = Math.round(score).toLocaleString();
         document.getElementById('go-best-score').textContent = Math.round(best).toLocaleString();
         document.getElementById('go-best-label').textContent = isRecord ? 'New best' : 'Best';
         document.getElementById('go-lines-cnt').textContent = linesClearedThisGame;
         document.getElementById('go-max-speed').textContent = speedLevel;
         document.getElementById('go-total-xp').textContent = xp.toLocaleString();
-        document.getElementById('go-xp-tile').hidden = funMode;
+        document.getElementById('go-xp-row').hidden = funMode;
         document.getElementById('go-pin-btn').hidden = funMode;
         const bonus = document.getElementById('go-record-bonus');
         bonus.hidden = recordBonus <= 0;
         bonus.textContent = `Record bonus · +${recordBonus.toLocaleString()} XP`;
+    }
+
+    const _goMissionProgress = new Map();
+
+    function _renderGoMissionProgress(update) {
+        const sections = () => {
+            const { daily, weekly } = saveData.missions || {};
+            return [
+                ['Daily', daily?.quests || []],
+                ['Secret', daily?.secret ? [daily.secret] : []],
+                ['Weekly', weekly?.missions || []],
+            ];
+        };
+        const before = new Map(sections().flatMap(([, quests]) => quests.map(quest => [quest, quest.progress || 0])));
+        update();
+        for (const [period, quests] of sections()) {
+            for (const quest of quests) {
+                const previous = before.get(quest) || 0;
+                if (!(quest.progress > previous)) continue;
+                const title = period === 'Secret' && !quest.completed ? 'Secret mission' : quest.title || quest.id;
+                _goMissionProgress.set(quest, { title, period, progress: quest.progress, target: quest.target,
+                    completed: quest.completed, points: quest.completed ? quest.pts || 0 : 0 });
+            }
+        }
+        const disclosure = document.getElementById('go-mission-progress');
+        disclosure.hidden = !_goMissionProgress.size;
+        const points = [..._goMissionProgress.values()].reduce((total, row) => total + row.points, 0);
+        document.getElementById('go-mission-points').textContent = points ? `+${points} pts to claim` : '0 pts earned';
+        document.getElementById('go-mission-list').innerHTML = [..._goMissionProgress.values()].map(row => `
+            <li><span><strong>${escapeHtml(row.title)}</strong><small>${row.period}</small></span>
+                <span>${row.completed ? 'Completed' : `${row.progress.toLocaleString()} / ${row.target.toLocaleString()}`}</span></li>`).join('');
     }
 
     function gameOver(){
@@ -8294,7 +8323,10 @@
         isAnimating=false; _hardDropAnimating=false; // safety: clear all animation locks
         lineClear.reset();
         _boosterUsedThisRound = false;
-        document.getElementById('go-mission-row').hidden = true;
+        _goMissionProgress.clear();
+        const missionDisclosure = document.getElementById('go-mission-progress');
+        missionDisclosure.hidden = true;
+        missionDisclosure.open = false;
         try {
         const _gcGO = document.getElementById('game-container');
         if (_gcGO) _gcGO.style.transform = '';
@@ -8348,35 +8380,7 @@
         const best = _bestScore();
         _renderGoStats(best, best > previousBest, false, finalXP, pbBonus);
         gainedXPThisRound = finalXP;
-        // Snapshot completed state before update so we can detect newly-completed quests this game
-        const _preCompD = saveData.missions ? new Set(
-            [...(saveData.missions.daily.quests || []).filter(q => q.completed).map(q => q.id),
-             ...(saveData.missions.daily.secret?.completed ? ['__secret__'] : [])]
-        ) : null;
-        const _preCompW = saveData.missions ? new Set(
-            (saveData.missions.weekly.missions || []).filter(wm => wm.completed).map(wm => wm.id)
-        ) : null;
-        // Update mission progress at game end
-        _updateGameMissionProgress(finalXP);
-        // Show mission summary on game-over screen
-        { const _goMR = document.getElementById('go-mission-row');
-          if (_goMR && saveData.missions && _preCompD !== null) {
-              const _mq = saveData.missions;
-              const _newD = (_mq.daily.quests || []).filter(q => q.completed && !_preCompD.has(q.id)).length
-                          + (_mq.daily.secret?.completed && !_preCompD.has('__secret__') ? 1 : 0);
-              const _newW = (_mq.weekly.missions || []).filter(wm => wm.completed && !_preCompW.has(wm.id)).length;
-              const _ptsEarned = _mq.daily.pointsToday || 0;
-              if (_newD > 0 || _newW > 0) {
-                  const _parts = [];
-                  if (_newD > 0) _parts.push(`${_newD} daily quest${_newD !== 1 ? 's' : ''}`);
-                  if (_newW > 0) _parts.push(`${_newW} weekly mission${_newW !== 1 ? 's' : ''}`);
-                  _goMR.textContent = `Missions · ${_parts.join(' + ')} completed`;
-                  _goMR.hidden = false;
-              } else if (_ptsEarned > 0) {
-                  _goMR.textContent = `Missions · ${_ptsEarned} daily points`;
-                  _goMR.hidden = false;
-              }
-          } }
+        _renderGoMissionProgress(() => _updateGameMissionProgress(finalXP));
         const _lvlBefore = getLevelInfo(saveData.totalXP).level;
         saveData.totalXP += finalXP;
         const _lvlAfter = getLevelInfo(saveData.totalXP).level;
@@ -8501,7 +8505,7 @@
         const bonus = Math.round(originalXP * (mult - 1));
         gainedXPThisRound += bonus;
         _grantXP(bonus);
-        if (bonus > 0) _updateMissionProgress({ totalXP: bonus });
+        if (bonus > 0) _renderGoMissionProgress(() => _updateMissionProgress({ totalXP: bonus }));
         document.getElementById('go-total-xp').textContent = gainedXPThisRound.toLocaleString();
         _renderGoBoostRow(gainedXPThisRound);
         animateXPGain();
