@@ -6288,7 +6288,6 @@
                 card.className = 'ach-pending-row';
                 card.dataset.rarity = rarity;
                 const nameHtml = `<span class="ach-pending-rarity">${rc.label}</span><span class="ach-pending-name">${escapeHtml(claim.name)}</span>`;
-                const xpHtml = `<span class="ach-pending-xp">+${escapeHtml(claim.xp.toLocaleString())} XP</span>`;
                 const claimBtn = document.createElement('button');
                 claimBtn.className = 'lb-block-btn';
                 claimBtn.textContent = 'CLAIM';
@@ -6304,7 +6303,7 @@
                     drawRankBadge();
                     renderAchievementsOverlay(tab);
                 });
-                card.innerHTML = nameHtml + xpHtml;
+                card.innerHTML = nameHtml;
                 card.appendChild(claimBtn);
                 pendingGrid.appendChild(card);
             });

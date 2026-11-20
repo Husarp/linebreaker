@@ -78,7 +78,10 @@ describe('achievement screen', () => {
     expect(query('#ach-list').textContent).toContain('PENDING REWARDS');
     const rareReward = query('.ach-pending-row[data-rarity="rare"]');
     expect(rareReward.querySelector('.ach-pending-rarity').textContent).toBe('RARE');
-    expect(rareReward.querySelector('.ach-pending-xp').textContent).toBe('+1,000 XP');
+    expect(rareReward.querySelector('.ach-pending-name').textContent).toBe('Mirror Universe');
+    for (const reward of query('#ach-list').querySelectorAll('.ach-pending-row')) {
+      expect(reward.textContent).not.toMatch(/\bXP\b/);
+    }
     expect(rareReward.querySelector('button').getAttribute('aria-label')).toBe('Claim Mirror Universe');
     expect(game.api.save.totalXP).toBe(0);
     [...query('#ach-list').querySelectorAll('button')].find(button => button.textContent === 'CLAIM').click();
