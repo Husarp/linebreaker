@@ -57,11 +57,12 @@ it('credits raw and multiplied game XP separately and adds booster XP only once'
   const missions = api.defaultMissions();
   const xpQuests = (prefix, totalTarget) => [
     {id: `${prefix}-raw`, tier: 'easy', metric: 'rawXP', target: 100, cumulative: true, progress: 0},
-    {id: `${prefix}-total`, tier: 'easy', metric: 'totalXP', target: totalTarget, cumulative: true, progress: 0},
+    {id: `${prefix}-total`, title: `${prefix} total XP`, pts: 2, tier: 'easy', metric: 'totalXP', target: totalTarget, cumulative: true, progress: 0},
     {id: `${prefix}-games`, tier: 'easy', metric: 'gamesPlayed', target: 5, cumulative: true, progress: 0},
   ];
   missions.daily.lastRefreshDate = api.missionDateKey();
   missions.daily.quests = xpQuests('daily', 35);
+  missions.daily.pointsToday = 8;
   missions.weekly.weekKey = api.missionWeekKey();
   missions.weekly.isoWeekKey = true;
   missions.weekly.missions = xpQuests('weekly', 100);
@@ -73,6 +74,9 @@ it('credits raw and multiplied game XP separately and adds booster XP only once'
     const {daily, weekly} = api.save.missions;
     return [daily.quests, weekly.missions].map(quests => quests.map(quest => quest.progress));
   };
+  const disclosure = game.w.document.getElementById('go-mission-progress');
+  const points = game.w.document.getElementById('go-mission-points');
+  const missionRows = () => [...disclosure.querySelectorAll('li')];
   const clearSingle = () => {
     const cells = Array.from({length: 22}, () => Array(10).fill(0));
     cells[21].fill(2);
@@ -85,14 +89,29 @@ it('credits raw and multiplied game XP separately and adds booster XP only once'
   api.setup({save, scoreMultiplier: 1.3});
   api.gameOver();
   expect(progress()).toEqual([[0, 0, 0], [0, 0, 0]]);
+  expect(disclosure.hidden).toBe(true);
   api.setup({save: api.save, scoreMultiplier: 1.3});
   clearSingle();
   expect(progress()).toEqual([[10, 20, 1], [10, 20, 1]]);
+  expect(disclosure.hidden).toBe(false);
+  expect(disclosure.open).toBe(false);
+  expect(points.textContent).toBe('0 pts earned');
+  expect(missionRows()).toHaveLength(6);
+  expect(missionRows()[1].textContent).toContain('20 / 35');
+  disclosure.querySelector('summary').click();
+  expect(disclosure.open).toBe(true);
   game.w.useScoreBooster('2xp_game');
   game.w.useScoreBooster('2xp_game');
   expect(progress()).toEqual([[10, 35, 1], [10, 40, 1]]);
   expect(api.save.missions.daily.quests[1].completed).toBe(true);
+  expect(disclosure.open).toBe(true);
+  expect(points.textContent).toBe('+2 pts to claim');
+  expect(missionRows()[1].textContent).toContain('Completed');
   api.setup({save: api.save, scoreMultiplier: 1.3});
   clearSingle();
   expect(progress()).toEqual([[20, 35, 2], [20, 60, 2]]);
+  expect(disclosure.open).toBe(false);
+  expect(points.textContent).toBe('0 pts earned');
+  expect(missionRows()).toHaveLength(5);
+  expect(disclosure.textContent).not.toContain('daily total XP');
 });

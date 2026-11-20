@@ -36,6 +36,7 @@
     <link rel="stylesheet" href="68-inventory.css">
     <link rel="stylesheet" href="73-qa-fixes.css">
     <link rel="stylesheet" href="80-global.css">
+    <link rel="stylesheet" href="85-game-over.css">
 </head>
 <body>
 
@@ -853,24 +854,29 @@
 <div id="go-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="go-title">
     <h1 id="go-title">GAME OVER</h1>
     <div class="go-panel lb-block-panel">
-        <dl class="go-stats" aria-label="Run results">
-            <div class="go-tile go-tile--score"><dt>Score</dt><dd id="go-score">0</dd></div>
-            <div class="go-tile go-tile--best"><dt id="go-best-label">Best</dt><dd id="go-best-score">0</dd></div>
-            <div class="go-tile"><dt>Lines</dt><dd id="go-lines-cnt">0</dd></div>
-            <div class="go-tile"><dt>Speed level</dt><dd id="go-max-speed">1</dd></div>
-            <div class="go-tile" id="go-xp-tile"><dt>XP gained</dt><dd id="go-total-xp" aria-live="polite">0</dd></div>
+        <dl class="go-scoreline" aria-label="Scores">
+            <div><dt>Score</dt><dd id="go-score">0</dd></div>
+            <div><dt id="go-best-label">Best</dt><dd id="go-best-score">0</dd></div>
+        </dl>
+        <dl class="go-stat-rows" aria-label="Run stats">
+            <div><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h5m8 0h5m-8-7-3 5 4 2-3 7"/></svg>Lines broken</dt><dd id="go-lines-cnt">0</dd></div>
+            <div><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18a9 9 0 1 1 16 0M12 14l4-5M7 14H5m7-6V6m7 8h-2"/></svg>Speed level</dt><dd id="go-max-speed">1</dd></div>
+            <div id="go-xp-row"><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/></svg>XP gained</dt><dd id="go-total-xp" aria-live="polite">0</dd></div>
         </dl>
         <p id="go-record-bonus" hidden></p>
-        <button type="button" id="go-mission-row" class="lb-block-btn" onclick="openMissions()" hidden></button>
+        <details class="go-mission-progress lb-block-expand" id="go-mission-progress" hidden>
+            <summary><span class="go-mission-summary"><strong>Mission progress</strong><span id="go-mission-points"></span><svg class="go-icon go-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
+            <ul class="lb-block-expand-body" id="go-mission-list"></ul>
+        </details>
     </div>
 
     <section id="go-boost-row" class="go-panel lb-block-panel" aria-labelledby="go-boost-title" hidden></section>
     <section id="go-achievements-new" class="go-panel lb-block-panel" aria-labelledby="go-ach-title" hidden></section>
 
     <div class="go-actions">
-        <button type="button" class="lb-block-btn lb-block-btn--primary" onclick="window.startGame()">Again</button>
-        <button type="button" class="lb-block-btn" onclick="window.resetGameToMenu()">Menu</button>
-        <button type="button" class="lb-block-btn" onclick="window.pinCurrentScore()" id="go-pin-btn">Pin score</button>
+        <button type="button" class="lb-block-btn lb-block-btn--primary" onclick="window.startGame()"><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 2 8M4 4v6h6"/></svg>Retry</button>
+        <button type="button" class="lb-block-btn" onclick="window.resetGameToMenu()"><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-7 9 7M5 10v10h14V10M10 20v-6h4v6"/></svg>Menu</button>
+        <button type="button" class="lb-block-btn" onclick="window.pinCurrentScore()" id="go-pin-btn"><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m14 3 7 7-3 1-3 3v4l-9-9h4l3-3zM10.5 13.5 4 20"/></svg>Pin score</button>
     </div>
 </div>
 
