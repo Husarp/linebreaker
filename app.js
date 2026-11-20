@@ -11033,44 +11033,23 @@
         ];
         const ov = document.createElement('div');
         ov.id = 'sfx-panel-modal';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;';
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(255,50,50,0.3);border-radius:14px;padding:20px;width:min(380px,90vw);max-height:80vh;overflow-y:auto;position:relative;">
-            <button type="button" id="sfx-panel-close" class="lb-block-btn lb-block-btn--icon lb80-sfx-close" aria-label="Close sounds">✕</button>
-            <div class="lb80-sfx-head">
-                <div style="font-size:0.6rem;letter-spacing:2px;color:#ff6666;">🔊 SFX PREVIEW</div>
-                <div class="lb-block-tabs">
-                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab active" data-pack="a" aria-pressed="true">DEFAULT</button>
-                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="b" aria-pressed="false">CYBER</button>
-                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="c" aria-pressed="false">RETRO</button>
-                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="d" aria-pressed="false">ZEN</button>
-                    <button type="button" class="sfx-pack-tab lb-block-btn lb-block-tab" data-pack="e" aria-pressed="false">ARCADE</button>
-                </div>
-            </div>
-            ${sfxList.map(s => `<div class="sfx-row" data-sfx="${s.name}" style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;">
-                <div style="width:28px;height:28px;border-radius:6px;background:rgba(255,100,100,0.1);border:1px solid rgba(255,100,100,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="#ff9999"><polygon points="2,5 5,5 9,2 9,14 5,11 2,11"/><path d="M11 5.5a3 3 0 010 5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M13 3.5a5.5 5.5 0 010 9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
-                </div>
-                <div>
-                    <div style="font-size:0.75rem;color:#fff;font-weight:bold;">${s.name}</div>
-                    <div style="font-size:0.6rem;color:#666;">${s.desc}</div>
-                </div>
-            </div>`).join('')}
-        </div>`;
+        const packs = ['DEFAULT', 'CYBER', 'RETRO', 'ZEN', 'ARCADE'].map((label, index) => ({ label, id: 'abcde'[index] }));
+        renderSfxPreview(ov, 'SFX Preview', packs, sfxList);
         ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
         document.body.appendChild(ov);
-        ov.querySelector('#sfx-panel-close').addEventListener('click', () => ov.remove());
+        ov.querySelector('.lb102-sfx-close').addEventListener('click', () => ov.remove());
         let _devSfxPack = 'a';
-        ov.querySelectorAll('.sfx-pack-tab').forEach(tab => {
+        ov.querySelectorAll('[data-pack]').forEach(tab => {
             tab.addEventListener('click', () => {
                 _devSfxPack = tab.dataset.pack;
-                ov.querySelectorAll('.sfx-pack-tab').forEach(t => {
+                ov.querySelectorAll('[data-pack]').forEach(t => {
                     const active = t.dataset.pack === _devSfxPack;
                     t.setAttribute('aria-pressed', active);
                     t.classList.toggle('active', active);
                 });
             });
         });
-        ov.querySelectorAll('.sfx-row').forEach(row => {
+        ov.querySelectorAll('[data-sfx]').forEach(row => {
             row.addEventListener('click', () => {
                 initAudio(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
                 const n = row.dataset.sfx;
@@ -11082,6 +11061,25 @@
             });
         });
     };
+    }
+    function renderSfxPreview(overlay, title, packs, sounds) {
+        const titleId = `${overlay.id}-title`;
+        overlay.className = 'lb102-sfx-overlay';
+        overlay.innerHTML = `<div class="lb-block-panel lb102-sfx-window" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
+            <header class="lb-block-panel-head lb102-sfx-head">
+                <h2 class="lb-block-section-title" id="${titleId}">${title}</h2>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb102-sfx-close" aria-label="Close sounds"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+            </header>
+            <div class="lb-block-tabs lb102-sfx-tabs" role="group" aria-label="Sound packs">
+                ${packs.map((pack, index) => `<button type="button" class="lb-block-btn lb-block-tab${index === 0 ? ' active' : ''}" data-pack="${pack.id}" aria-pressed="${index === 0}">${pack.label}</button>`).join('')}
+            </div>
+            <div class="lb-scroll-fade lb102-sfx-list">
+                ${sounds.map(sound => `<button type="button" class="lb-block-btn lb102-sfx-row" data-sfx="${sound.name}" aria-label="Play ${sound.desc}">
+                    <span class="lb102-sfx-speaker" aria-hidden="true">${_SVG_VOL}</span>
+                    <span><strong>${sound.name}</strong><small>${sound.desc}</small></span>
+                </button>`).join('')}
+            </div>
+        </div>`;
     }
     window.openSfxPackPreview = function() {
         const existing = document.getElementById('sfx-preview-modal');
@@ -11109,44 +11107,24 @@
         ];
         const ov = document.createElement('div');
         ov.id = 'sfx-preview-modal';
-        ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;';
         let _activePack = packDefs[0];
-        ov.innerHTML = `<div style="background:#12121e;border:1px solid rgba(0,255,255,0.2);border-radius:14px;padding:20px;width:min(380px,90vw);max-height:80vh;overflow-y:auto;position:relative;">
-            <button type="button" id="sfx-prev-close" class="lb-block-btn lb-block-btn--icon lb80-sfx-close" aria-label="Close sounds">✕</button>
-            <div class="lb80-sfx-head">
-                <div style="font-size:0.6rem;letter-spacing:2px;color:var(--primary);">SFX PACK PREVIEW</div>
-                <div id="sfx-prev-tabs" class="lb-block-tabs">
-                    ${packDefs.map((p, i) => `<button type="button" class="sfx-prev-tab lb-block-btn lb-block-tab${i===0?' active':''}" data-pack="${p.id}" aria-pressed="${i===0}">${p.label}</button>`).join('')}
-                </div>
-            </div>
-            ${sfxList.map(s => `<div class="sfx-prev-row" data-sfx="${s.name}" style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;border-radius:6px;transition:background 0.15s;">
-                <div style="width:28px;height:28px;border-radius:6px;background:rgba(0,255,255,0.08);border:1px solid rgba(0,255,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="var(--primary)"><polygon points="2,5 5,5 9,2 9,14 5,11 2,11"/><path d="M11 5.5a3 3 0 010 5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M13 3.5a5.5 5.5 0 010 9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
-                </div>
-                <div>
-                    <div style="font-size:0.75rem;color:#fff;font-weight:bold;">${s.name}</div>
-                    <div style="font-size:0.6rem;color:#666;">${s.desc}</div>
-                </div>
-            </div>`).join('')}
-        </div>`;
+        renderSfxPreview(ov, 'SFX Pack Preview', packDefs, sfxList);
         ov.addEventListener('click', e => { if (e.target === ov) window._closeModal('sfx-preview-modal'); });
         document.body.appendChild(ov);
         _animateIn(ov.querySelector('div'), 'anim-in-down');
-        ov.querySelector('#sfx-prev-close').addEventListener('click', () => window._closeModal('sfx-preview-modal'));
-        ov.querySelectorAll('.sfx-prev-tab').forEach(tab => {
+        ov.querySelector('.lb102-sfx-close').addEventListener('click', () => window._closeModal('sfx-preview-modal'));
+        ov.querySelectorAll('[data-pack]').forEach(tab => {
             tab.addEventListener('click', () => {
                 const pid = tab.dataset.pack;
                 _activePack = packDefs.find(p => p.id === pid) || packDefs[0];
-                ov.querySelectorAll('.sfx-prev-tab').forEach(t => {
+                ov.querySelectorAll('[data-pack]').forEach(t => {
                     const act = t.dataset.pack === pid;
                     t.setAttribute('aria-pressed', act);
                     t.classList.toggle('active', act);
                 });
             });
         });
-        ov.querySelectorAll('.sfx-prev-row').forEach(row => {
-            row.addEventListener('mouseenter', () => { row.style.background = 'rgba(0,255,255,0.05)'; });
-            row.addEventListener('mouseleave', () => { row.style.background = ''; });
+        ov.querySelectorAll('[data-sfx]').forEach(row => {
             row.addEventListener('click', () => { _activePack.fn(row.dataset.sfx); });
         });
     };

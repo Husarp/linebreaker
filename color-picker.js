@@ -83,10 +83,10 @@
             return colors.map(hex => `<button type="button" class="lb-btn lb-btn--ghost lb-color-swatch" data-color="${hex}" aria-label="Use ${hex}" title="${hex}" style="--swatch:${hex}"></button>`).join('');
         }
 
-        dialog.innerHTML = `<div class="lb-color-content">
+        dialog.innerHTML = `<div class="lb-color-content lb-scroll-fade">
             <header class="lb-color-header">
                 <h2 id="${id}-title">${title}</h2>
-                <button type="button" class="lb-btn--icon lb-block-btn lb-block-btn--icon" aria-label="Close">×</button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb102-picker-close" aria-label="Close"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
             </header>
             ${pieces ? `<div class="lb-color-piece-header">
                 <span class="lb-color-label"></span>

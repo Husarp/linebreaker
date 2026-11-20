@@ -49,6 +49,7 @@
     <link rel="stylesheet" href="88-inventory.css">
     <link rel="stylesheet" href="100-play-start.css">
     <link rel="stylesheet" href="101-stats.css">
+    <link rel="stylesheet" href="102-settings.css">
 </head>
 <body>
 
@@ -424,16 +425,17 @@
 
 <!-- SETTINGS SCREEN -->
 <div id="settings-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1004;">
-    <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding:14px 20px; flex-shrink:0; position:sticky; top:0; z-index:20;">
-        <button class="btn-back" onclick="window.closeSettings()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
-        <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary);">SETTINGS</span>
-    </div>
-    <div style="width:100%; max-width:560px; margin:0 auto; padding:16px 20px;">
+    <header class="lb-header lb-block-topbar lb102-topbar">
+        <button type="button" class="btn-back lb-block-back" onclick="window.closeSettings()"><svg aria-hidden="true" viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>Back</button>
+        <h1>Settings</h1>
+    </header>
+    <section class="lb-scroll-fade lb102-settings-scroll" aria-label="Settings options" tabindex="0">
+    <div class="lb102-settings-content">
 
         <section class="lb-card lb-stack lb-controls" id="controls-settings" aria-labelledby="controls-title">
             <h2 class="lb-eyebrow lb-help-label" id="controls-title">Controls <button type="button" class="lb-info-btn" data-help-section="basics" aria-label="About controls" title="About controls"></button></h2>
             <div class="lb-controls-grid">
-                <div class="lb-controls-row lb-muted" aria-hidden="true"><span>Action</span><span>Primary</span><span>Secondary</span></div>
+                <div class="lb-controls-row lb102-controls-head" aria-hidden="true"><span>Action</span><span>Primary</span><span>Secondary</span></div>
             </div>
             <p class="lb-controls-status lb-muted" role="status"></p>
             <div class="lb-actions"><button type="button" class="lb-btn lb-btn--ghost lb-controls-reset">Reset to defaults</button></div>
@@ -709,6 +711,7 @@
             </div>
 
     </div>
+    </section>
 </div>
 
 <!-- TRANSFER SAVE MENU -->
@@ -969,18 +972,18 @@
 </div>
 
 <!-- TUTORIAL OVERLAY -->
-<div id="tutorial-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1008;">
-    <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding:14px 20px; flex-shrink:0; position:sticky; top:0; z-index:1;">
-        <button class="btn-back" onclick="window.closeTutorial()"><svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>BACK</button>
-        <span style="font-family:var(--ui-font); font-size:0.58rem; color:var(--primary); display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polygon points="10 8 16 11 10 14 10 8" fill="currentColor" opacity="0.7"/></svg>TUTORIALS</span>
-    </div>
-    <div style="width:100%; max-width:580px; margin:0 auto; padding:20px;">
-        <div style="text-align:center; padding:40px 20px; color:#666;">
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:#444;margin-bottom:16px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            <div style="font-size:0.85rem; font-weight:bold; color:#888; margin-bottom:8px;">Coming Soon</div>
-            <div style="font-size:0.72rem; line-height:1.6;">Tutorial videos and helpful links will appear here.</div>
-        </div>
-    </div>
+<div id="tutorial-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1008;" aria-labelledby="tutorial-title">
+    <header class="lb-header lb-block-topbar lb102-topbar">
+        <button type="button" class="btn-back lb-block-back" onclick="window.closeTutorial()"><svg aria-hidden="true" viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 L11 14 Q15 14 15 10 Q15 5 11 5 L3 5"/><path d="M6 2 L3 5 L6 8"/></svg>Back</button>
+        <h1 id="tutorial-title"><svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polygon points="10 8 16 11 10 14 10 8" fill="currentColor" opacity="0.7"/></svg>Tutorials</h1>
+    </header>
+    <section class="lb-scroll-fade lb102-tutorial-scroll" aria-label="Tutorial content">
+        <article class="lb-block-panel lb102-tutorial-card">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <h2>Coming Soon</h2>
+            <p>Tutorial videos and helpful links will appear here.</p>
+        </article>
+    </section>
 </div>
 
 <!-- CREDITS OVERLAY -->
