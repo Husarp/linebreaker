@@ -1,0 +1,151 @@
+@property --lb-scroll-fade-start {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+}
+
+@property --lb-scroll-fade-end {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+}
+
+.lb-scroll-fade {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scroll-padding-block: 16px;
+}
+
+@supports (animation-timeline: scroll(self block)) and (animation-range: 0px 16px) {
+    .lb-scroll-fade {
+        mask-image: linear-gradient(to bottom,
+            transparent, #000 var(--lb-scroll-fade-start),
+            #000 calc(100% - var(--lb-scroll-fade-end)), transparent);
+        animation: lb-scroll-fade-start linear both, lb-scroll-fade-end linear both;
+        animation-timeline: scroll(self block), scroll(self block);
+        animation-range: 0px 16px, calc(100% - 16px) 100%;
+    }
+}
+
+@keyframes lb-scroll-fade-start {
+    from { --lb-scroll-fade-start: 0px; }
+    to { --lb-scroll-fade-start: 16px; }
+}
+
+@keyframes lb-scroll-fade-end {
+    from { --lb-scroll-fade-end: 16px; }
+    to { --lb-scroll-fade-end: 0px; }
+}
+
+.overlay.lb-fullscreen:is(#settings-overlay, #tutorial-overlay) { overflow: hidden; }
+.lb-header.lb102-topbar {
+    flex: none;
+    gap: 12px;
+    padding: 16px max(16px, calc((100% - 900px) / 2));
+}
+
+#settings-overlay > .lb102-settings-scroll,
+#tutorial-overlay > .lb102-tutorial-scroll { flex: 1 1 auto; padding: 0 !important; }
+.lb102-settings-content,
+.lb102-tutorial-card {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 900px;
+    margin-inline: auto;
+}
+.lb102-settings-content { padding: 24px 16px max(32px, env(safe-area-inset-bottom)); }
+#settings-overlay :is(.settings-title, #controls-title) {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-block: 3px;
+    border: 1px solid var(--bb-edge);
+    border-bottom-width: var(--bb-stroke);
+    border-radius: var(--bb-cap);
+    box-shadow: inset 0 1px #fff2;
+}
+#settings-overlay .lb102-controls-head {
+    padding-block: 2px 6px;
+    border-bottom: 1px solid var(--bb-edge);
+    color: var(--bb-muted);
+    font: 700 var(--text-xs)/1.4 var(--font-body);
+    font-variant-caps: all-small-caps;
+    letter-spacing: .075em;
+}
+
+#tutorial-title { display: flex; align-items: center; gap: 8px; }
+.lb102-tutorial-card {
+    width: calc(100% - 32px);
+    margin-block: 24px 32px;
+    padding: 40px 20px;
+    text-align: center;
+    font: var(--text-sm)/1.6 var(--font-body);
+}
+.lb102-tutorial-card svg { color: var(--accent-bright); }
+.lb102-tutorial-card h2 { margin: 8px 0 4px; font-size: var(--text-body); }
+.lb102-tutorial-card p { margin: 0; color: var(--bb-muted); }
+
+.lb-color-dialog { overflow: hidden; }
+.lb-color-dialog .lb-color-content {
+    box-sizing: border-box;
+    max-height: calc(100dvh - 26px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+.lb-color-dialog .lb102-picker-close { align-self: center; flex: 0 0 var(--target); }
+.lb-color-dialog .lb-color-apply.lb-block-btn,
+.lb-color-dialog .lb102-picker-close { align-items: center; justify-content: center; line-height: 1; }
+
+.lb102-sfx-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10001;
+    display: grid;
+    place-items: center;
+    background: rgb(0 0 0 / 80%);
+}
+.lb102-sfx-overlay > .lb102-sfx-window {
+    display: flex;
+    flex-direction: column;
+    width: min(380px, 90vw);
+    max-height: 80dvh;
+    padding: 8px;
+    overflow: hidden;
+}
+.lb102-sfx-head {
+    flex: none;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border: 1px solid var(--bb-edge);
+    border-radius: var(--bb-cap);
+}
+.lb102-sfx-head h2 {
+    font: 400 clamp(.55rem, 2.6vw, .68rem)/1.6 var(--bb-font-pixel);
+    text-transform: uppercase;
+}
+.lb102-sfx-tabs { flex: none; margin: 8px; }
+.lb102-sfx-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0 4px 4px 8px;
+    padding: 2px 6px 4px 0;
+    scrollbar-gutter: stable;
+}
+:is(#sfx-panel-modal, #sfx-preview-modal) .lb102-sfx-row.lb-block-btn {
+    flex: none;
+    min-width: 0;
+    justify-content: start;
+    gap: 12px;
+    text-align: left;
+    font-size: var(--text-xs);
+}
+.lb102-sfx-row:focus-visible { outline-offset: -3px; }
+.lb102-sfx-row strong, .lb102-sfx-row small { display: block; }
+.lb102-sfx-row small { color: var(--bb-muted); font-size: .875em; font-weight: 400; }
+.lb102-sfx-speaker { display: flex; flex: none; color: var(--accent-bright); }
+.lb102-sfx-speaker svg { width: 20px; height: 20px; }
+
+@media (orientation: portrait) and (max-width: 600px) {
+    .lb102-settings-content { padding: 16px; }
+    .lb102-tutorial-card { margin-top: 16px; }
+}
