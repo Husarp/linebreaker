@@ -1,6 +1,5 @@
 (() => {
     const { observe, claimStage, storeState, stageStatus, prepareConfig, exclusiveSkin } = window.LBSeason;
-    const labels = { claimed: 'Claimed', claimable: 'Claimable', locked: 'Locked', future: 'Future' };
     const title = value => value[0].toUpperCase() + value.slice(1);
     const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
     const clockDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -16,26 +15,30 @@
                 </header>
                 <div class="sp-points">
                     <div><h2 id="sp-points-title">Season points</h2><p>Claim daily and weekly mission points to earn season points.</p></div>
-                    <div class="sp-meter"><progress class="lb-progress--pattern" aria-labelledby="sp-points-title" max="1" value="0"></progress><span id="sp-progress-text"></span></div>
+                    <div class="sp-meter">
+                        <span id="sp-progress-text"></span>
+                        <progress class="lb-block-progress" aria-labelledby="sp-points-title" aria-describedby="sp-progress-text" max="1" value="0"></progress>
+                        <p id="sp-next"></p>
+                    </div>
                 </div>
                 <p id="sp-notice" class="sp-notice" role="status" hidden></p>
                 <div class="sp-track-header">
-                    <div><h2>Free reward track</h2><p>Each claim rolls a reward from the stage’s tier.</p></div>
-                    <button type="button" class="sp-button sp-today lb-block-btn" hidden></button>
+                    <div><h2>Free reward track</h2><p>Stages open when their day arrives and you have enough points.</p></div>
+                    <button type="button" class="sp-jump lb-block-btn" hidden></button>
                 </div>
                 <div id="sp-loading" role="status"></div>
-                <button type="button" class="sp-button sp-retry lb-block-btn" hidden>Retry</button>
+                <button type="button" class="sp-retry lb-block-btn" hidden>Retry</button>
                 <div class="sp-track" role="region" aria-label="Season reward stages" tabindex="0" hidden><ol></ol></div>
                 <aside class="sp-highlight">
                     <img src="assets/ui/41-season-pass-exclusive.webp" alt="" width="144" height="106">
-                    <div><h2>Season reward highlight</h2><p>Day 30 features the exclusive Season Prism block skin.</p></div>
+                    <div><h2>Season Prism</h2><p>Exclusive block skin · Stage 30</p></div>
                 </aside>
                 <p id="sp-announcement" class="sp-sr-only" role="status"></p>
             </div>`;
         const find = selector => screen.querySelector(selector);
         const track = find('.sp-track');
         const cards = find('ol');
-        const today = find('.sp-today');
+        const jump = find('.sp-jump');
         const retry = find('.sp-retry');
         const countdown = find('#sp-days');
         const notice = find('#sp-notice');
@@ -43,7 +46,7 @@
         const announcement = find('#sp-announcement');
         let config, configRequest, timer, previous, centerOnRender, saveCheckpoint;
         const isOpen = () => !screen.hidden;
-        const verticalTrack = () => window.matchMedia?.('(orientation: portrait)')?.matches;
+        const verticalTrack = () => window.matchMedia?.('(orientation: portrait), (max-width: 699px)')?.matches;
 
         function rewardLabel(reward) {
             const { type, key, amount, tier, contents } = reward;
@@ -54,8 +57,8 @@
             return `${amount} ${partName(key)} ${amount === 1 ? 'Part' : 'Parts'}`;
         }
 
-        function centerToday() {
-            const card = cards.querySelector('[aria-current="date"]');
+        function centerStage(focus = false) {
+            const card = cards.querySelector('[data-next]');
             if (!card) return;
             const rect = card.getBoundingClientRect();
             if (verticalTrack()) {
@@ -64,6 +67,7 @@
                 const area = track.getBoundingClientRect();
                 track.scrollLeft += rect.left - area.left + (rect.width - area.width) / 2;
             }
+            if (focus) card.focus({ preventScroll: true });
         }
 
         function render(state) {
@@ -72,7 +76,7 @@
                 && previous.season === season && previous.points === season.points && previous.config === config
                 && previous.blocked === blocked && previous.seasonBlockedUntil === seasonBlockedUntil) return;
             previous = { ...state, points: season.points, config };
-            find('#sp-season').textContent = period.id ? `Season ${period.id} · 30-day season` : '30-day season';
+            find('#sp-season').textContent = period.id ? `Season ${period.id} · Day ${period.day} / 30` : '30-day season';
             countdown.textContent = `${period.daysLeft} ${period.daysLeft === 1 ? 'day' : 'days'} left`;
             find('#sp-dates').textContent = period.id ? `Started ${date.format(period.start)} (UTC)` : '';
             notice.hidden = !blocked;
@@ -84,49 +88,67 @@
             progressBar.value = Math.min(season.points, progressBar.max);
             find('#sp-progress-text').textContent = maximum ? `${points.format(season.points)} / ${points.format(maximum)} points` : `${points.format(season.points)} points`;
             track.hidden = !config;
-            today.hidden = !config || !period.day;
-            today.textContent = `Today · Day ${period.day}`;
             if (!config) return;
 
-            const focused = document.activeElement?.dataset.spDay;
-            cards.replaceChildren(...config.stages.map(stage => {
-                const status = stageStatus(stage, state);
+            const stages = config.stages.map(stage => ({ ...stage, status: stageStatus(stage, state) }));
+            const next = stages.find(stage => stage.status !== 'claimed');
+            const remaining = next ? Math.max(0, next.points - season.points) : 0;
+            jump.hidden = !next;
+            jump.textContent = next ? `Go to stage ${next.day}` : '';
+            const nextDetail = !next ? 'All 30 rewards claimed'
+                : blocked ? 'Claims paused'
+                : next.status === 'claimable' ? `Stage ${next.day} ready to claim`
+                : next.status === 'future' ? `Stage ${next.day} opens on Day ${next.day}${remaining ? ` · ${points.format(remaining)} pts to go` : ''}`
+                : `${points.format(remaining)} more pts to Stage ${next.day}`;
+            find('#sp-next').textContent = nextDetail;
+
+            const focused = document.activeElement?.closest('.sp-card')?.dataset.stage;
+            cards.replaceChildren(...stages.map(({ day, tier, points: threshold, status }) => {
                 const card = document.createElement('li');
                 card.className = 'sp-card';
-                card.dataset.tier = stage.tier;
+                card.dataset.stage = day;
+                card.dataset.tier = tier;
                 card.dataset.state = status;
-                if (stage.day === period.day) card.setAttribute('aria-current', 'date');
-                card.innerHTML = `<p class="sp-tier"></p><h3></h3>
-                    ${stage.tier === 'exclusive'
+                card.tabIndex = -1;
+                if (day === next?.day) {
+                    card.dataset.next = '';
+                    card.setAttribute('aria-current', 'step');
+                }
+                card.innerHTML = `<span class="sp-step" aria-hidden="true"></span><h3></h3>
+                    ${tier === 'exclusive'
                         ? '<img class="sp-reward-icon" src="assets/ui/41-season-pass-exclusive.webp" alt="" width="64" height="46">'
                         : '<svg class="sp-reward-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z M3 8l9 5 9-5m-9 5v8M7.5 5.5l9 5"/></svg>'}
-                    <p class="sp-threshold"></p><p class="sp-state"></p>`;
-                card.querySelector('.sp-tier').textContent = title(stage.tier);
-                card.querySelector('h3').textContent = `Day ${stage.day}`;
-                const threshold = card.querySelector('.sp-threshold');
-                threshold.textContent = `${points.format(stage.points)} season points`;
-                const label = card.querySelector('.sp-state');
-                label.textContent = status === 'future' ? 'Future · Not yet open' : labels[status];
+                    <p class="sp-tier"></p><p class="sp-threshold"></p><p class="sp-state"></p>`;
+                card.querySelector('h3').textContent = `Stage ${day}`;
+                card.querySelector('.sp-tier').textContent = tier === 'exclusive' ? 'Exclusive skin' : `${title(tier)} reward`;
+                card.querySelector('.sp-threshold').textContent = `${points.format(threshold)} pts`;
+                card.querySelector('.sp-state').textContent = status === 'claimed' ? '✓ Claimed'
+                    : status === 'claimable' ? 'Ready to claim'
+                    : status === 'future' ? `Locked · Day ${day}`
+                    : blocked ? 'Locked · Claims paused' : 'Locked · Needs points';
                 if (status === 'claimed') {
                     const receipt = document.createElement('p');
                     receipt.className = 'sp-receipt';
-                    receipt.textContent = rewardLabel(season.claimed[stage.day]);
+                    receipt.textContent = rewardLabel(season.claimed[day]);
                     card.append(receipt);
                 } else if (status === 'claimable') {
                     const button = document.createElement('button');
                     button.type = 'button';
-                    button.className = 'sp-button sp-claim lb-block-btn lb-block-btn--primary';
-                    button.dataset.spDay = stage.day;
-                    button.setAttribute('aria-label', `Claim day ${stage.day} ${stage.tier} reward`);
+                    button.className = 'sp-claim lb-block-btn lb-block-btn--primary';
+                    button.dataset.spDay = day;
+                    button.setAttribute('aria-label', `Claim stage ${day} ${tier} reward`);
                     button.textContent = 'Claim reward';
                     card.append(button);
                 }
                 return card;
             }));
-            if (focused) (find(`[data-sp-day="${focused}"]`) || track).focus({ preventScroll: true });
+            if (focused) (find(`[data-sp-day="${focused}"]`) || find(`[data-stage="${focused}"]`))?.focus({ preventScroll: true });
             if (centerOnRender) {
                 centerOnRender = false;
-                if (!verticalTrack()) centerToday();
+                if (!verticalTrack()) {
+                    track.scrollLeft = next ? 0 : track.scrollWidth;
+                    if (next?.day > 3) centerStage();
+                }
             }
         }
 
@@ -182,9 +204,9 @@
             return loadConfig();
         }
         retry.addEventListener('click', loadConfig);
-        today.addEventListener('click', () => {
+        jump.addEventListener('click', () => {
             refresh();
-            centerToday();
+            centerStage(true);
         });
         window.addEventListener('focus', () => { if (isOpen()) refresh(); });
         track.addEventListener('click', event => {
@@ -196,7 +218,7 @@
             storeState(currentSave, result);
             if (result.reward) {
                 (result.reward.contents || [result.reward]).forEach(grant);
-                announcement.textContent = `Day ${day} claimed: ${rewardLabel(result.reward)}`;
+                announcement.textContent = `Stage ${day} claimed: ${rewardLabel(result.reward)}`;
             }
             refresh(true);
         });
