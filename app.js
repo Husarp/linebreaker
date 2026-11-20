@@ -2991,8 +2991,7 @@
         document.body.appendChild(ov);
     }
 
-    const RARITY_COLORS = { common:'#4caf50', rare:'#4499ff', epic:'#9932cc', legendary:'#ff9900', mythic:'#cc1111' };
-    function _crateRewardGrid(rewards) {
+    function _crateRewardGrid(rewards, showPartProgress = false) {
         return LBCrates.rewardGrid(rewards.map(reward => {
             if (reward.type === 'converted_parts') {
                 const item = reward.key === 'dragon' ? 'Golden' : reward.key.startsWith('sfx') ? `${reward.key.slice(3)} SFX`
@@ -3001,7 +3000,7 @@
                     desc: `From duplicate ${item} parts`, rarity: reward.rarity };
             }
             const item = /^\+(\d+) Part: (.+)$/.exec(reward.label);
-            if (item) return { ...reward, type: 'parts', label: `${item[2]} Part`, amount: reward.amount ?? Number(item[1]), desc: undefined };
+            if (item) return { ...reward, type: 'parts', label: `${item[2]} Part`, amount: reward.amount ?? Number(item[1]), desc: showPartProgress ? reward.desc : undefined };
             const universal = /^\+(\d+) Universal Parts?$/.exec(reward.label);
             if (universal) return { ...reward, type: 'universal_parts', label: 'Universal Part', amount: reward.amount ?? Number(universal[1]), desc: undefined };
             return { ...reward, amount: reward.amount ?? 1 };
@@ -3011,6 +3010,12 @@
         if ((!saveData.pendingMilestoneReward && !saveData.pendingMilestoneBoxes?.length) || _levelBoxShowing) return;
         const lv = saveData.pendingMilestoneReward?.level || saveData.pendingMilestoneBoxes[0];
         _showMilestoneBox(lv);
+    }
+    function _rewardRankIdentity(level) {
+        const rank = RANKS[Math.floor((level - 1) / 10)] || CELESTITE_RANK;
+        const division = rank === CELESTITE_RANK ? level : (level - 1) % 10;
+        const name = rank.name[0] + rank.name.slice(1).toLowerCase();
+        return { rank, name: division ? `${name} ${_toRoman(division)}` : name };
     }
     function _showMilestoneBox(lv) {
         if (_levelBoxShowing || dailyGift.isOpen()) return;
@@ -3031,9 +3036,10 @@
         overlay.id = 'level-box-overlay';
         const panel = document.createElement('div');
         panel.className = 'lb64-crate-panel lb-block-panel';
+        const { rank, name } = _rewardRankIdentity(lv);
         panel.innerHTML = `
-            <p class="lb64-crate-kicker">Level milestone</p>
-            <h2 class="lb64-crate-title">Level ${escapeHtml(lv)}</h2>
+            <h2 class="lb64-crate-title"><span class="lb-rank-identity" style="color:${rank.c}">${name}</span> milestone reward</h2>
+            <p class="lb64-crate-kicker">Level ${escapeHtml(lv)}</p>
             <p class="lb64-crate-subtitle">Every 10 levels</p>
         `;
         const preOpen = document.createElement('div');
@@ -3172,7 +3178,8 @@
         if (_levelBoxShowing || dailyGift.isOpen() || !saveData.pendingLevelBox) return;
         _levelBoxShowing = true;
         const { level, rankName, rankColor: savedRankColor, rewards } = saveData.pendingLevelBox;
-        const rankColor = hexColor(savedRankColor, '#ffd700');
+        const identity = Number.isInteger(level) && level > 0 ? _rewardRankIdentity(level) : null;
+        const rankColor = identity?.rank.c ?? hexColor(savedRankColor, '#ffd700');
 
         const overlay = document.createElement('div');
         overlay.className = 'lb-reward-overlay lb64-crate-overlay';
@@ -3183,9 +3190,8 @@
         const panel = document.createElement('div');
         panel.className = 'lb64-crate-panel lb-block-panel';
         panel.innerHTML = `
-            <p class="lb64-crate-kicker">Milestone reward</p>
-            <h2 class="lb64-crate-title lb-rank-identity" style="color:${rankColor}">${escapeHtml(rankName)}</h2>
-            <p class="lb64-crate-subtitle">Level ${escapeHtml(level)} · New rank reached!</p>
+            <h2 class="lb64-crate-title"><span class="lb-rank-identity" style="color:${rankColor}">${escapeHtml(identity?.name ?? rankName)}</span> milestone reward</h2>
+            <p class="lb64-crate-subtitle">Level ${escapeHtml(level)}</p>
         `;
 
         const preOpen = document.createElement('div');
@@ -8996,33 +9002,63 @@
     function skipSong() { /* song skipping disabled */ }
 
     function _showLevelUpRewardPopup(level, rewards) {
-        const li = getLevelInfo(saveData.totalXP);
-        const rankName = li.rank.name;
-        const _liLvlInRank = li.lvlInRank ?? ((li.level - 1) % 10);
-        const levelStr = li.isCelestite ? (' ' + _toRoman(li.level)) : (_liLvlInRank === 0 ? '' : (' ' + _toRoman(_liLvlInRank)));
+        const { rank, name } = _rewardRankIdentity(level);
+        const points = getShapePoints(150, 150, 114, rank.shape)?.map(point => point.join(',')).join(' ');
+        const emblem = rank === CELESTITE_RANK
+            ? '<path d="M150 30 250 75V170Q250 248 150 275Q50 248 50 170V75Z"/>'
+            : points ? `<polygon points="${points}"/>` : '<circle cx="150" cy="150" r="114"/>';
         document.getElementById('level-up-popup-overlay')?.remove();
         const overlay = document.createElement('div');
         overlay.className = 'lb-reward-overlay';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
-        overlay.setAttribute('aria-label', 'Earned rewards');
+        overlay.setAttribute('aria-labelledby', 'lb105-level-title');
         overlay.id = 'level-up-popup-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1300;display:flex;align-items:center;justify-content:center;font-family:inherit;';
-        const rewardsHtml = rewards.map(r => {
-            const col = hexColor(RARITY_COLORS[r.rarity], '#cccccc');
-            return `<div style="border:1px solid ${col};border-radius:10px;padding:8px 12px;margin-bottom:7px;box-shadow:0 0 10px ${col}30;display:flex;align-items:center;gap:8px;">
-                ${r.type === 'universal_parts' ? _exchangePartsIcon() : `<span style="font-size:1.4rem;">${escapeHtml(r.icon)}</span>`}
-                <div><div style="font-size:0.85rem;font-weight:bold;color:${col};">${escapeHtml(r.label)}</div><div style="font-size:0.62rem;color:#aaa;">${rankUnlockText(r.desc)}</div><div class="lb-reward-rarity">${escapeHtml(r.rarity)}</div></div>
-            </div>`;
-        }).join('');
-        overlay.innerHTML = `<div style="background:rgba(6,6,20,0.98);border:1px solid var(--primary);border-radius:16px;padding:24px 22px;max-width:340px;width:90%;text-align:center;box-shadow:0 0 40px var(--primary)30;">
-            <div style="font-size:0.55rem;letter-spacing:3px;color:var(--primary);margin-bottom:6px;">LEVEL UP!</div>
-            <div class="lb-rank-identity" style="font-size:1.1rem;font-weight:bold;color:#fff;margin-bottom:16px;">${escapeHtml(rankName)}${levelStr}</div>
-            <div style="text-align:left;max-height:280px;overflow-y:auto;">${rewardsHtml}</div>
-            <button type="button" class="lb-block-btn lb-block-btn--primary lb80-level-dismiss" onclick="document.getElementById('level-up-popup-overlay').remove()">AWESOME!</button>
+        overlay.style.setProperty('--lb105-rank', rank.c);
+        overlay.innerHTML = `<div class="lb105-level-panel lb-block-panel">
+            <header class="lb105-level-header">
+                <h2 id="lb105-level-title">Level up!</h2>
+                <div class="lb105-level-emblem">
+                    <svg viewBox="0 0 300 300" aria-hidden="true">${emblem}</svg>
+                    <span aria-label="Level ${level}">${level}</span>
+                </div>
+                <strong class="lb105-level-rank">${name}</strong>
+            </header>
+            <div class="lb105-level-reward-frame">
+                <div class="lb105-level-rewards" role="region" aria-label="Level rewards"></div>
+            </div>
+            <button type="button" class="lb-block-btn lb-block-btn--primary">Awesome!</button>
         </div>`;
-        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+        const scroller = overlay.querySelector('.lb105-level-rewards');
+        const frame = scroller.parentElement;
+        scroller.append(_crateRewardGrid(rewards.map(reward => {
+            const boosterKey = reward.icon === '⚡' && Object.keys(BOOSTER_INFO).find(key => BOOSTER_INFO[key].label === reward.label);
+            return boosterKey ? { ...reward, type: 'booster', key: boosterKey } : reward;
+        }), true));
+        const updateFade = () => {
+            const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+            frame.classList.toggle('can-scroll-up', scroller.scrollTop > 1);
+            frame.classList.toggle('can-scroll-down', maxScroll - scroller.scrollTop > 1);
+            scroller.tabIndex = maxScroll > 1 ? 0 : -1;
+        };
+        scroller.addEventListener('scroll', updateFade, { passive: true });
+        const dismiss = overlay.querySelector('button');
+        const previousFocus = document.activeElement;
+        const close = () => {
+            overlay.remove();
+            previousFocus?.focus({ preventScroll: true });
+        };
+        dismiss.addEventListener('click', close);
+        overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
         document.body.appendChild(overlay);
+        updateFade();
+        dismiss.focus({ preventScroll: true });
+        if ('ResizeObserver' in window) {
+            const resize = new ResizeObserver(() => overlay.isConnected ? updateFade() : resize.disconnect());
+            resize.observe(scroller);
+            resize.observe(scroller.firstElementChild);
+        }
     }
 
 

@@ -127,6 +127,22 @@ it('opens the documented screenshot targets through real UI handlers', async () 
   await expect(w.__LB_QA.open('typo')).rejects.toThrow('Unknown QA screen');
 }, 15_000);
 
+it('shows the level and rank division in level rewards and crates', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
+  const { w } = game;
+  await w.__LB_QA.open('level-up');
+  const popup = w.document.querySelector('#level-up-popup-overlay');
+  expect(popup.querySelector('.lb105-level-rank').textContent).toBe('Gold IX');
+  expect(popup.querySelector('[aria-label="Level 30"]').textContent).toBe('30');
+  expect(popup.querySelector('.lb105-level-emblem polygon').getAttribute('points').split(' ')).toHaveLength(5);
+  const universal = popup.querySelector('img[src$="universal-part-128.png"]').closest('.lb-block-reward');
+  expect(universal.querySelector('.lb-block-reward-amount').textContent).toBe('×2');
+  popup.querySelector('button').click();
+  expect(popup.isConnected).toBe(false);
+  await w.__LB_QA.open('level-crate');
+  expect(w.document.querySelector('#level-box-overlay h2').textContent).toBe('Gold IX milestone reward');
+});
+
 it('shows the equipped inventory items and moves the active block skin to the first card', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w } = game;
