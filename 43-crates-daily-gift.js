@@ -105,7 +105,7 @@
             const image = element('img');
             image.alt = '';
             image.src = reward.type === 'booster' && window.LBArtPack.boosterToken(reward.key)
-                || (reward.type === 'universal_parts' ? 'assets/ui/64-universal-part.svg' : 'assets/ui/64-item-part.svg');
+                || (reward.type === 'universal_parts' ? 'assets/ui/parts/universal-part-128.png' : 'assets/ui/64-item-part.svg');
             const quantity = Number(reward.amount.toFixed(1));
             const amount = element('span', 'lb-block-reward-amount', `×${quantity}`);
             amount.setAttribute('aria-label', `Quantity: ${quantity}`);
