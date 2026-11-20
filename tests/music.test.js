@@ -104,6 +104,14 @@ it('uses all three synth playlists when local MP3s are missing, even with an old
     w.musicWidgetPause();
     w.musicWidgetPause();
     expect(title()).toBe('Glass Harbor');
+    const seek = w.document.getElementById('mw-progress');
+    expect(seek.disabled).toBe(false);
+    seek.value = '50';
+    w.musicWidgetSeek(new w.Event('change'), seek);
+    expect(title()).toBe('Glass Harbor');
+    expect(seek.valueAsNumber).toBeCloseTo(50, 0);
+    expect(seek.style.getPropertyValue('--track-progress')).toBe(`${seek.value}%`);
+    expect(w.document.getElementById('mw-elapsed').textContent).not.toBe('0:00');
     w.Math.random = () => 0.75;
     await api.switchMusicMode('game');
     expect(api._getPlaylist('game')).toContain(title());

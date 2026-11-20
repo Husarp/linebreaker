@@ -1,0 +1,173 @@
+.lb110-menu, #music-widget {
+    --accent: var(--primary, #00ffff);
+    --accent-bright: color-mix(in srgb, var(--accent) 55%, white);
+}
+
+.lb110-menu {
+    display: grid;
+    gap: 16px;
+    width: 424px;
+    --lb110-lip: 5px;
+    --lb110-tint: 22%;
+}
+
+.lb110-menu-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+}
+
+#menu-overlay .lb110-key {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 58px;
+    margin: 0;
+    padding: 9px 8px 5px;
+    border: 1px solid color-mix(in srgb, var(--nc) 73%, #121425);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--nc) var(--lb110-tint), #121425);
+    box-shadow: inset 0 2px #ffffff18, inset 0 calc(-1 * var(--lb110-lip)) color-mix(in srgb, var(--nc) 19%, #080911), 0 1px 2px #000b;
+    color: color-mix(in srgb, var(--nc) 25%, #f5f4f0);
+    font: 750 .65rem/1.2 var(--font-display);
+    letter-spacing: .065em;
+    text-shadow: 0 1px 2px #000a;
+    white-space: nowrap;
+    overflow: hidden;
+    animation: none !important;
+    transition: background .15s, transform .15s;
+}
+
+#menu-overlay #btn-play.lb110-key {
+    --nc: var(--accent);
+    min-height: 66px;
+    font-size: .95rem;
+    letter-spacing: .14em;
+}
+
+#menu-overlay #btn-play.lb110-key::before { display: none; }
+#menu-overlay #btn-missions.lb110-key { --nc: #44ff88; --cut-x: calc(100% + 2px); --cut-y: calc(100% + 2px); }
+#menu-overlay #btn-stats.lb110-key { --nc: #cc44ff; --cut-x: -2px; --cut-y: calc(100% + 2px); }
+#menu-overlay #btn-achievements.lb110-key { --nc: #ff3355; --cut-x: calc(100% + 2px); --cut-y: -2px; }
+#menu-overlay #btn-inventory.lb110-key { --nc: #ffe600; --cut-x: -2px; --cut-y: -2px; }
+
+.lb110-menu-grid > .lb110-key {
+    mask-image: radial-gradient(circle at var(--cut-x) var(--cut-y), transparent 21px, white 26px);
+}
+
+#menu-overlay .lb110-key:hover {
+    background: color-mix(in srgb, var(--nc) calc(var(--lb110-tint) + 8%), #121425);
+    transform: none;
+}
+
+#menu-overlay .lb110-key:active { transform: translateY(1px) !important; }
+#menu-overlay .lb110-key:focus-visible { outline: 2px solid var(--nc); outline-offset: -4px; }
+
+body:not([data-pack="pixel"]) #menu-overlay .lb110-key.glow-notify {
+    background: color-mix(in srgb, var(--nc) 30%, #121425) !important;
+}
+
+#music-widget {
+    box-sizing: border-box;
+    display: grid;
+    align-content: start;
+    gap: 5px;
+    width: 300px;
+    min-width: 0;
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: var(--bb-panel);
+    border: 1px solid var(--bb-edge);
+    border-radius: var(--bb-cap);
+    box-shadow: var(--bb-cap-shadow);
+    backdrop-filter: none;
+}
+
+.lb110-track {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 38px;
+    padding: 2px 6px 5px;
+    border-bottom: 1px solid var(--bb-edge);
+}
+
+.lb110-track > svg, .lb110-signal { flex: none; color: var(--accent-bright); }
+.lb110-track #mw-info { min-width: 0; text-align: start; }
+.lb110-track small { display: block; color: var(--bb-muted); font-size: .61rem; line-height: 1; letter-spacing: .1em; }
+.lb110-track #mw-title { display: block; max-width: none; color: var(--bb-ink); font-size: .94rem; line-height: 1.15; }
+.lb110-track #mw-artist { min-height: 0; color: var(--bb-muted); }
+.lb110-track #mw-artist:empty { display: none; }
+
+.lb110-signal { display: flex; align-items: end; gap: 3px; }
+.lb110-signal i { width: 3px; height: 7px; background: currentColor; }
+.lb110-signal i:nth-child(2) { height: 13px; }
+.lb110-signal i:nth-child(3) { height: 10px; }
+.lb110-signal i:nth-child(4) { height: 16px; opacity: .5; }
+
+#mw-controls { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+#music-widget #mw-controls .lb-block-btn { width: 100%; min-width: 0; }
+#mw-controls #mw-pause {
+    --bb-button-edge: var(--accent);
+    --bb-button-face: color-mix(in srgb, var(--accent) 22%, var(--bb-face));
+    --bb-button-hover: color-mix(in srgb, var(--accent) 22%, var(--bb-hover));
+    --bb-button-ink: var(--accent-bright);
+}
+
+#mw-time-row {
+    display: grid;
+    grid-template-columns: 33px minmax(0, 1fr) 33px;
+    align-items: center;
+    gap: 8px;
+    color: var(--bb-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+#mw-time-row :is(#mw-elapsed, #mw-total) { color: inherit; font-size: .7rem; }
+
+#mw-progress {
+    appearance: none;
+    width: 100%;
+    height: 22px;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    --track-height: 5px;
+    --thumb-height: 13px;
+    --seek-well: var(--bb-well);
+    --seek-fill: var(--accent);
+    --seek-thumb: var(--accent-bright);
+    --seek-track: linear-gradient(90deg, var(--seek-fill) var(--track-progress, 0%), var(--seek-well) 0);
+}
+
+#mw-progress:disabled { cursor: default; opacity: .65; }
+#mw-progress:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
+#mw-progress::-webkit-slider-runnable-track { height: var(--track-height); border: 0; border-radius: 2px; background: var(--seek-track); }
+#mw-progress::-moz-range-track { height: var(--track-height); border: 0; border-radius: 2px; background: var(--seek-track); }
+#mw-progress::-webkit-slider-thumb {
+    appearance: none;
+    width: 8px;
+    height: var(--thumb-height);
+    margin-top: calc((var(--track-height) - var(--thumb-height)) / 2);
+    border: 0;
+    border-radius: 2px;
+    background: var(--seek-thumb);
+}
+#mw-progress::-moz-range-thumb { width: 8px; height: var(--thumb-height); border: 0; border-radius: 2px; background: var(--seek-thumb); }
+
+body[data-pack="pixel"] .lb110-track small { color: #212529; }
+body[data-pack="pixel"] .lb110-track > svg,
+body[data-pack="pixel"] .lb110-signal { color: #085786; }
+body[data-pack="pixel"] #mw-progress { --seek-well: #9e9e9e; --seek-fill: #209cee; --seek-thumb: #085786; }
+
+@media (max-width: 599px) {
+    #music-widget { width: min(100%, 320px); }
+    #menu-overlay #btn-achievements.lb110-key { font-size: clamp(.48rem, 3.5vw, .65rem); }
+}
