@@ -46,14 +46,12 @@
   figcaption strong, figcaption small { display: block; }
   .stage { background: #0b101b; }
   .stage > :is(img, svg) { display: block; width: 100%; height: auto; }
-  .phone .logo-fine-shard, .phone .logo-crack-halo { display: none; }
-  .phone .logo-crack-core { stroke-width: 1; }
   .menu-check { padding: 0 12px 12px; }
   .menu-check img { width: min(100%, 280px); height: auto; filter: grayscale(1); }
 </style>
 <main>
   <header>
-    <div><h1>Linebreaker logo proof</h1><p>Ticket 109 · V2 compared with V1</p></div>
+    <div><h1>Linebreaker logo proof</h1><p>Ticket 113 · V3 compared with V2 and V1</p></div>
     <div>
       <button type="button" data-phone="false" aria-pressed="true">Full · 1920 max</button>
       <button type="button" data-phone="true" aria-pressed="false">Phone · 390</button>
@@ -62,18 +60,22 @@
   <section class="proof" aria-label="Logo previews">
     <figure>
       <figcaption>
-        <div><strong>Block-built V2</strong><small>Five rows · stepped cracks and flying tiles</small></div>
+        <div><strong>Block-built V3</strong><small>Press Start 2P · white-hot row and square shards</small></div>
         <button type="button" id="replay">Replay row clear</button>
       </figcaption>
       <div class="stage">{{BLOCKS}}</div>
     </figure>
     <figure>
-      <figcaption><div><strong>Block-built V1</strong><small>Seven rows · previous version</small></div></figcaption>
-      <div class="stage"><img alt="Linebreaker V1" src="{{PREVIOUS_URL}}"></div>
+      <figcaption><div><strong>Block-built V2</strong><small>Five rows · previous version</small></div></figcaption>
+      <div class="stage"><img alt="Linebreaker V2" src="{{V2_URL}}"></div>
     </figure>
     <figure>
-      <figcaption><div><strong>V2 legibility check</strong><small>Menu width · grayscale without effects</small></div></figcaption>
-      <div class="stage menu-check"><img alt="Linebreaker V2 without effects" src="{{CLEAN_URL}}"></div>
+      <figcaption><div><strong>Block-built V1</strong><small>Seven rows · previous version</small></div></figcaption>
+      <div class="stage"><img alt="Linebreaker V1" src="{{V1_URL}}"></div>
+    </figure>
+    <figure>
+      <figcaption><div><strong>V3 legibility check</strong><small>Menu width · grayscale without effects</small></div></figcaption>
+      <div class="stage menu-check"><img alt="Linebreaker V3 without effects" src="{{CLEAN_URL}}"></div>
     </figure>
     <figure>
       <figcaption><div><strong>Store wordmark</strong><small>F minimal · exact center cut</small></div></figcaption>
