@@ -97,6 +97,8 @@ it('keeps Start and Cancel between the mode cards and the options in both modes'
     const follows = (first, second) => !!(first.compareDocumentPosition(second) & game.w.Node.DOCUMENT_POSITION_FOLLOWING);
     for (const name of ['normal', 'fun']) {
         mode(name).click();
+        expect([...get('mode-select-overlay').querySelectorAll('.lb69-mode[aria-pressed="true"]')]).toEqual([mode(name)]);
+        expect(get('play-score-panel').hidden).toBe(name === 'fun');
         expect(follows(mode('fun'), get('play-start'))).toBe(true);
         expect(follows(get('play-start'), get('play-back'))).toBe(true);
         expect(follows(get('play-back'), get('mode-options-panel'))).toBe(true);
@@ -105,19 +107,23 @@ it('keeps Start and Cancel between the mode cards and the options in both modes'
     }
 });
 
-it('previews and starts a custom Fun board without applying score modifiers', async () => {
+it('plays a custom Fun board with functional modifiers but no score modifier', async () => {
     game = await loadGame(true, null, null, { optGhost: false });
-    game.api.setSave({ ...game.api.save, totalXP: 30_000, seenFunRules: true });
+    game.api.setSave({ ...game.api.save, totalXP: 65_000, seenFunRules: true });
     game.w.openModeSelect();
-    modifier('optMirror').click();
     expect(get('play-board-preview').hidden).toBe(true);
 
     mode('fun').click();
     expect(mode('fun').getAttribute('aria-pressed')).toBe('true');
     expect(get('fun-mode-config').hidden).toBe(false);
     expect(get('play-board-preview').hidden).toBe(false);
-    expect(score()).toBe('100%');
-    expect(get('play-active-modifiers').textContent).toContain('Mirror');
+    expect(get('play-score-panel').hidden).toBe(true);
+    for (const key of ['optMirror', 'optHold', 'optGhost', 'optNoNext']) {
+        expect(modifier(key).disabled).toBe(false);
+        expect(modifier(key).closest('label').querySelector('.lb69-modifier-score').hidden).toBe(true);
+        modifier(key).click();
+        expect(modifier(key).checked).toBe(true);
+    }
     for (const [field, value] of [['fun-cols', '12'], ['fun-rows', '24'], ['fun-speed', '6']]) {
         get(field).value = value;
         get(field).dispatchEvent(new game.w.Event('input', { bubbles: true }));
@@ -136,6 +142,52 @@ it('previews and starts a custom Fun board without applying score modifiers', as
     expect(game.api.state.board).toHaveLength(26);
     expect(game.api.state.board[0]).toHaveLength(12);
     expect(game.api.state.level).toBe(6);
+    expect(get('game-container').style.transform).toBe('scaleY(-1)');
+    expect(get('pc-next-wrap').style.display).toBe('none');
+    get('start-skip').click();
+    const startX = game.api.state.player.pos.x;
+    game.api.move(1);
+    expect(game.api.state.player.pos.x).toBe(startX - 1);
+    game.api.hold();
+    expect(game.api.state.holdPiece).not.toBeNull();
+    const board = game.api.state.board;
+    board.at(-1).fill(1);
+    game.api.setBoard(board);
+    const scoreBeforeClear = game.api.state.score;
+    expect(game.api.sweep()).toBe(true);
+    game.advance(200);
+    expect(game.api.state.score - scoreBeforeClear).toBe(20);
+});
+
+it('builds the themed wordmark, counts down, and cancels pending ticks when skipped', async () => {
+    game = await loadGame(true, null, null, { theme: 'sakura' });
+    const intro = get('start-animation-overlay');
+    const wordmark = get('start-wordmark');
+    const countdown = get('start-countdown');
+    game.w.startGame();
+    expect(intro.style.getPropertyValue('--lb-theme-art-portrait')).toContain('sakura-portrait.jpg');
+    expect(wordmark.children).toHaveLength(22);
+    expect(wordmark.firstElementChild.textContent).toBe('LINEBREAKER');
+    expect(countdown.hidden).toBe(true);
+
+    game.advance(1600);
+    expect(wordmark.hidden).toBe(true);
+    expect(countdown.hidden).toBe(false);
+    expect(countdown.textContent).toBe('3');
+    game.advance(450);
+    expect(countdown.textContent).toBe('2');
+    game.advance(450);
+    expect(countdown.textContent).toBe('1');
+    expect(get('app').classList.contains('active-game')).toBe(false);
+    game.advance(450);
+    expect(intro.classList.contains('hidden')).toBe(true);
+    expect(get('app').classList.contains('active-game')).toBe(true);
+
+    game.w.startGame();
+    get('start-skip').click();
+    game.advance(3000);
+    expect(intro.classList.contains('hidden')).toBe(true);
+    expect(countdown.hidden).toBe(true);
 });
 
 it('preserves the existing Fun selection fallback until Gold I and closes with Escape', async () => {

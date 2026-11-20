@@ -47,6 +47,7 @@
     <link rel="stylesheet" href="90-play-music.css">
     <link rel="stylesheet" href="91-hud.css">
     <link rel="stylesheet" href="88-inventory.css">
+    <link rel="stylesheet" href="100-play-start.css">
 </head>
 <body>
 
@@ -728,7 +729,7 @@
 </div>
 
 <!-- MODE SELECT -->
-<div id="mode-select-overlay" class="overlay hidden" role="dialog" aria-labelledby="play-title">
+<div id="mode-select-overlay" class="overlay hidden" role="dialog" aria-labelledby="play-title" tabindex="-1">
     <svg class="lb69-icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
         <symbol id="play-icon-normal" viewBox="0 0 24 24"><path d="M3 3h6v6h12v6H3zM3 9h6v6m6-6v6"/></symbol>
         <symbol id="play-icon-fun" viewBox="0 0 24 24"><path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.4-5.7-3-5.7 3 1.1-6.4-4.6-4.5 6.4-.9z"/></symbol>
@@ -770,7 +771,7 @@
             </section>
             <section id="fun-mode-config" class="lb69-config" aria-labelledby="play-board-title" hidden>
                 <h2 id="play-board-title">Fun setup</h2>
-                <p>Modifiers don’t affect score in Fun.</p>
+                <p>Modifiers still work in Fun, without score bonuses or penalties.</p>
                 <div class="lb69-range">
                     <label for="fun-cols">Columns</label>
                     <output id="fun-cols-val" for="fun-cols">10</output>
@@ -792,7 +793,7 @@
                 </figure>
             </section>
         </div>
-        <section class="lb69-score lb-block-panel" aria-labelledby="play-score-title" aria-live="polite" aria-atomic="true">
+        <section id="play-score-panel" class="lb69-score lb-block-panel" aria-labelledby="play-score-title" aria-live="polite" aria-atomic="true">
             <h2 id="play-score-title">Score multiplier</h2>
             <strong id="mode-xp-mult-val">100%</strong>
             <p id="play-no-modifiers">No active modifiers</p>
@@ -886,8 +887,12 @@
 </div>
 
 <!-- START ANIMATION -->
-<div id="start-animation-overlay" class="overlay hidden">
-    <div id="start-text-container" role="status" aria-label="Get ready to play"></div>
+<div id="start-animation-overlay" class="overlay hidden" role="dialog" aria-label="Get ready to play" aria-modal="true">
+    <div id="start-text-container" aria-hidden="true">
+        <div id="start-wordmark"></div>
+        <span id="start-countdown" hidden></span>
+    </div>
+    <button type="button" id="start-skip" class="lb-block-btn">Skip intro</button>
 </div>
 
 <!-- GRA -->
