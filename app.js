@@ -1106,10 +1106,10 @@
     };
 
     function _colorPickerButton(id, label, swatch, active, handler) {
-        return `<button type="button" id="${id}" class="lb-block-btn lb-colors-launch" data-equipped="${active}" onclick="window.${handler}()">
-            <span class="lb-color-launch-mark" aria-hidden="true" style="--swatch:${swatch}"></span>
-            <span>${label}</span>${active ? `<span class="lb-colors-state">${_colorInventoryStatus(true)}</span>` : '<span class="lb-colors-state">Edit</span>'}
-        </button>`;
+        return _colorInventoryCard({ label, owned: true, equipped: active,
+            preview: `<button type="button" id="${id}" class="lb-block-btn lb-colors-launch" aria-label="Edit ${label}" onclick="window.${handler}()">
+                <span class="lb-color-launch-mark" aria-hidden="true" style="--swatch:${swatch}"></span><span>Edit</span>
+            </button>` });
     }
 
     const _PIECE_LABELS = ['I','O','T','S','Z','J','L'];
@@ -3691,11 +3691,11 @@
         if (tab === 'blocks' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
             inventoryPreviewTimer = setInterval(() => {
                 if (document.hidden || _invOv.classList.contains('hidden')) return;
-                inventoryPreviewColor = inventoryPreviewColor % (COLORS.length - 1) + 1;
+                inventoryPreviewColor = inventoryPreviewColor % (BASE_PIECES.length - 1) + 1;
                 document.querySelectorAll('#owned-skin-btns canvas').forEach(canvas => {
                     _drawSkinPreview(canvas, canvas.parentElement.dataset.itemKey, inventoryPreviewColor);
                 });
-            }, 3000);
+            }, 2500);
         }
         if (_prevInvTab && _prevInvTab !== tab) {
             const _ord = ['blocks', 'colors', 'other'];
@@ -3774,7 +3774,7 @@
     function _inventoryState(equipped) {
         const label = equipped ? 'Equipped' : 'Locked';
         const path = equipped ? '<path d="m5 12 4 4L19 6"/>' : '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>';
-        return `<svg class="lb-inventory-state" role="img" aria-label="${label}" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+        return `<svg class="lb-inventory-state" role="img" aria-label="${label}" viewBox="0 0 24 24" width="${equipped ? 26 : 18}" height="${equipped ? 26 : 18}" fill="none" stroke="currentColor" stroke-width="${equipped ? 3 : 2}" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
     }
 
     function _makeInventoryRow(...args) { return _makeTrackRow(...args, false, true); }
@@ -3806,8 +3806,7 @@
     }
 
     function _colorInventoryStatus(equipped) {
-        const icon = equipped ? '<path d="m5 12 4 4L19 6"/>' : '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>';
-        return `<svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>${equipped ? 'Equipped' : 'Locked'}`;
+        return `<span class="lb-colors-state">${_inventoryState(equipped)}</span>`;
     }
 
     function _colorInventoryCard({ key, label, owned, equipped = false, preview = '', detail = '', actions = '', unlock = '' }) {
@@ -3815,7 +3814,7 @@
         const parts = Math.max(0, Math.min(cost, Number(saveData.parts?.[key]) || 0));
         if (cost && parts === cost) actions += `<button type="button" class="lb-block-btn lb-block-btn--primary" onclick="${unlock}">Unlock</button>`;
         return `<article class="lb-block-card lb-colors-card"${key ? ` data-item-key="${key}"` : ''} data-owned="${owned}" data-equipped="${equipped}">
-            <header><h3>${label}</h3>${equipped || !owned ? `<span class="lb-colors-state">${_colorInventoryStatus(equipped)}</span>` : ''}</header>
+            <header><h3>${label}</h3>${equipped || !owned ? _colorInventoryStatus(equipped) : ''}</header>
             ${preview}${detail ? `<p>${detail}</p>` : ''}
             ${cost ? `<div class="lb-colors-parts"><progress class="lb-block-progress" aria-label="${label} parts" value="${parts}" max="${cost}"></progress><span>${parts}/${cost} parts</span></div>` : ''}
             ${actions ? `<div class="lb-colors-actions">${actions}</div>` : ''}
@@ -3886,7 +3885,7 @@
             ownedSkinContainer.querySelectorAll('[data-item-key]').forEach(row => {
                 const canvas = document.createElement('canvas');
                 canvas.className = 'lb-inventory-preview';
-                canvas.width = 120; canvas.height = 80;
+                canvas.width = 144; canvas.height = 72;
                 canvas.setAttribute('role', 'img');
                 canvas.setAttribute('aria-label', `${skinNames[row.dataset.itemKey]} block preview`);
                 row.querySelector('.lb-inventory-heading').after(canvas);
@@ -3906,7 +3905,7 @@
                 const color = THEMES[key].primary;
                 return _colorInventoryCard({ key, label, owned, equipped,
                     preview: `<button type="button" class="lb-block-btn lb-colors-theme-sample" aria-label="Copy ${label} hex ${color}" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)">
-                        <span class="lb-colors-chip" style="--swatch:${color}"></span><code>${color}</code><span aria-hidden="true">${_SVG_COPY}</span></button>`,
+                        <span class="lb-colors-chip" style="--swatch:${color}"></span><span aria-hidden="true">${_SVG_COPY}</span></button>`,
                     actions: owned && !equipped ? `<button type="button" class="lb-block-btn" onclick="window.applyTheme('${key}')">Equip</button>` : '',
                     unlock: `window.playerUnlockItem('theme','${key}')` });
             }).join('');
@@ -4131,11 +4130,11 @@
 
         container.innerHTML = `
             ${uniRow}
-            <section class="lb-block-card lb-inventory-section">
+            <section class="lb-block-card lb-inventory-section lb-inventory-boosters">
                 <h2 class="lb-block-section-title lb-help-label">Boosters <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" title="About boosters"></button></h2>
                 ${boosterHtml}
             </section>
-            <section class="lb-block-card lb-inventory-section">
+            <section class="lb-block-card lb-inventory-section lb-inventory-sfx">
                 <h2 class="lb-block-section-title">SFX Packs</h2>
                 ${sfxPacksHtml}
             </section>`;
@@ -4151,11 +4150,18 @@
             const packId = packIds.get(row.dataset.itemKey) || 'default';
             const preview = document.createElement('button');
             preview.type = 'button';
-            preview.className = 'lb-block-btn';
+            preview.className = 'lb-block-btn lb-inventory-sfx-preview';
             preview.textContent = 'Preview';
             preview.setAttribute('aria-label', `Preview ${row.querySelector('.lb-inventory-name').textContent}`);
             preview.addEventListener('click', () => _openSfxPreviewPopup(packId, preview));
-            row.querySelector('.lb-inventory-heading').appendChild(preview);
+            row.querySelector('.lb-inventory-heading').after(preview);
+            if (row.dataset.equipped === 'true') {
+                const state = row.querySelector('.lb-inventory-state');
+                const status = document.createElement('span');
+                status.className = 'lb-inventory-state';
+                status.textContent = 'Equipped';
+                state.replaceWith(status);
+            }
             row.style.cursor = 'pointer';
             row.onclick = (e) => {
                 if (!e.target.closest('button')) _openSfxPreviewPopup(packId, preview);
@@ -7518,8 +7524,8 @@
     function _drawSkinPreview(canvas, skin, id) {
         canvas.dataset.previewColor = id;
         const context = canvas.getContext('2d');
-        const piece = BASE_PIECES[6].slice(0, 2);
-        const size = 36;
+        const piece = BASE_PIECES[id].filter(row => row.some(Boolean));
+        const size = 34;
         const draw = () => {
             context.clearRect(0, 0, canvas.width, canvas.height);
             context.save();

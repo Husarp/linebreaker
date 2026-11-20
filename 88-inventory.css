@@ -1,0 +1,112 @@
+#inventory-overlay > .lb-inventory-content {
+    max-width: 1024px !important;
+    padding: 12px clamp(10px, 2vw, 20px) max(24px, env(safe-area-inset-bottom)) !important;
+}
+
+#inventory-overlay :is(.lb-inventory-section, .lb-inventory-parts) {
+    margin-bottom: 12px;
+    padding: 10px;
+}
+
+#inventory-overlay :is(#owned-skin-btns, #owned-grid-style-btns, #owned-theme-btns, #owned-palette-btns, .lb-inventory-sfx) {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 146px), 1fr));
+    grid-auto-rows: auto;
+    gap: 8px;
+}
+
+@media (min-width: 650px) {
+    #inventory-overlay :is(#owned-skin-btns, #owned-grid-style-btns, #owned-theme-btns, #owned-palette-btns, .lb-inventory-sfx) {
+        grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+    }
+}
+
+#inventory-overlay #ghost-section-wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#inventory-overlay .lb-inventory-boosters { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+#inventory-overlay .lb-inventory-boosters > .lb-exchange-row { margin-bottom: 0; }
+#inventory-overlay :is(#ghost-section-wrap > h3, #ghost-section-wrap > :only-child, .lb-inventory-boosters > h2, .lb-inventory-sfx > h2, #owned-palette-btns > .lb-colors-shuffle) { grid-column: 1 / -1; }
+#inventory-overlay #owned-palette-btns > .lb-colors-card { grid-column: auto; }
+#inventory-overlay :is(#owned-theme-btns, #owned-palette-btns) { padding: 8px; }
+
+#inventory-overlay :is(.lb-inventory-item, .lb-colors-card) {
+    display: flex;
+    flex-flow: column nowrap;
+    gap: 6px;
+    min-width: 0;
+    padding: 8px !important;
+    border-radius: var(--bb-cap);
+}
+
+#inventory-overlay .lb-colors-card {
+    --bb-frame-edge: var(--bb-edge);
+    background: var(--bb-heading) !important;
+    box-shadow: inset 0 2px #fff1, inset 0 -3px #0003 !important;
+}
+
+#inventory-overlay .lb-colors-card[data-owned="false"] { background: var(--bb-panel) !important; }
+#inventory-overlay .lb-colors-card[data-equipped="true"] { --bb-frame-edge: var(--inventory-equipped); }
+#inventory-overlay .lb-colors-card[data-equipped="true"] .lb-colors-state { color: var(--inventory-equipped); }
+
+#inventory-overlay :is(.lb-inventory-heading, .lb-colors-card > header) {
+    min-height: 26px;
+    align-items: center;
+    overflow-wrap: anywhere;
+}
+
+@media (min-width: 650px) {
+    #inventory-overlay #ghost-section-wrap .lb-inventory-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-content: center;
+    }
+
+    #inventory-overlay #ghost-section-wrap .lb-inventory-controls {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        align-self: center;
+        margin: 0;
+    }
+}
+
+#inventory-overlay .lb-inventory-preview {
+    width: min(100%, 144px);
+    margin-inline: auto;
+}
+
+#inventory-overlay .lb-inventory-grid-preview {
+    width: min(100%, 64px);
+    margin-inline: auto;
+}
+
+#inventory-overlay :is(.lb-inventory-controls, .lb-colors-actions, .lb-colors-parts) {
+    width: 100%;
+    margin-top: auto;
+}
+
+#inventory-overlay .lb-inventory-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+#inventory-overlay :is(.lb-inventory-progress, .lb-colors-parts) progress { flex: 1; min-width: 0; }
+#inventory-overlay .lb-colors-parts + .lb-colors-actions { margin-top: 0; }
+#inventory-overlay :is(.lb-inventory-action, .lb-colors-actions > button) { width: 100%; }
+#inventory-overlay .lb-inventory-sfx-preview { align-self: center; margin-block: auto; }
+#inventory-overlay .lb-inventory-sfx .lb-inventory-heading .lb-inventory-name { margin-right: 0; }
+#inventory-overlay .lb-inventory-sfx span.lb-inventory-state { flex: none; font-size: .65rem; }
+
+#inventory-overlay :is(.lb-colors-theme-sample, .lb-palette-preview, .lb-colors-launch) {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    margin: 0;
+    padding-inline: 6px !important;
+}
+
+#inventory-overlay .lb-colors-theme-sample { position: relative; }
+#inventory-overlay .lb-colors-theme-sample > span:last-child { position: absolute; right: 6px; margin: 0; }
+#inventory-overlay .lb-colors-chip { flex: 0 0 56px; height: 26px; }
+#inventory-overlay .lb-colors-launch .lb-color-launch-mark { flex: 0 0 38px; height: 26px; }
+#inventory-overlay .lb-palette-preview span { max-width: 20px; }

@@ -217,9 +217,9 @@ it('shows distinct inventory colour states and keeps palette preview separate fr
   expect(panel.getAttribute('aria-labelledby')).toBe(tab.id);
   expect(panel.classList.contains('hidden')).toBe(false);
   const card = key => document.querySelector(`[data-invtab-content="colors"] [data-item-key="${key}"]`);
-  expect(card('default').querySelector('.lb-colors-state').textContent).toBe('Equipped');
+  expect(card('default').querySelector('.lb-colors-state svg').getAttribute('aria-label')).toBe('Equipped');
   expect(card('ocean').querySelector('.lb-colors-state')).toBeNull();
-  expect(card('forest').querySelector('.lb-colors-state').textContent).toBe('Locked');
+  expect(card('forest').querySelector('.lb-colors-state svg').getAttribute('aria-label')).toBe('Locked');
   expect(card('forest').querySelector('progress').value).toBe(1);
   expect(document.getElementById('theme-owned-count').textContent).toBe('2/10');
 
@@ -250,7 +250,7 @@ it('marks equipped and locked inventory cards without adding owned tags', () => 
   for (const [card, status] of [[equipped, 'Equipped'], [owned, null], [locked, 'Locked'], [ready, 'Locked']]) {
     expect(card.querySelector('.lb-item-state')).toBeNull();
     expect(card.querySelector('svg.lb-inventory-state')?.getAttribute('aria-label') ?? null).toBe(status);
-    expect(card.querySelector('canvas[role="img"]').width).toBe(120);
+    expect(card.querySelector('canvas[role="img"]').width).toBe(144);
   }
   expect(equipped.querySelector('button, progress')).toBeNull();
   expect(owned.querySelector('button').textContent).toBe('Equip');
@@ -267,12 +267,20 @@ it('cycles the inline skin previews only while Blocks is open', () => {
   const intervals = vi.spyOn(window, 'setInterval');
   const clear = vi.spyOn(window, 'clearInterval');
   window.openInventory();
-  const preview = document.querySelector('[data-item-key="retro"] canvas');
-  const color = preview.dataset.previewColor;
-  const index = intervals.mock.calls.findIndex(([, delay]) => delay === 3000);
+  const previews = [...document.querySelectorAll('#owned-skin-btns canvas')];
+  const preview = previews.find(canvas => canvas.parentElement.dataset.itemKey === 'retro');
+  const translate = vi.fn();
+  const getContext = preview.getContext.bind(preview);
+  preview.getContext = () => Object.assign(getContext('2d'), { translate });
+  const index = intervals.mock.calls.findIndex(([, delay]) => delay === 2500);
   expect(index).toBeGreaterThanOrEqual(0);
-  intervals.mock.calls[index][0]();
-  expect(preview.dataset.previewColor).not.toBe(color);
+  const tick = intervals.mock.calls[index][0];
+  for (const piece of [2, 3, 4, 5, 6, 7, 1]) {
+    tick();
+    expect(new Set(previews.map(canvas => canvas.dataset.previewColor))).toEqual(new Set([String(piece)]));
+  }
+  expect(translate).toHaveBeenNthCalledWith(1, 21, 2);
+  expect(translate).toHaveBeenLastCalledWith(4, 19);
   preview.parentElement.dispatchEvent(new window.MouseEvent('mouseenter'));
   expect(document.getElementById('skin-preview-tip')).toBeNull();
   window.inventoryTab('other');

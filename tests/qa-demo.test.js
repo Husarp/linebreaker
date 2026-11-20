@@ -147,7 +147,7 @@ it('shows the equipped inventory items and moves the active block skin to the fi
   expect(query('#owned-grid-style-btns [data-equipped="true"]').dataset.itemKey).toBe('lines');
   const sfx = query('#inventory-other-content .lb-inventory-section [data-equipped="true"]');
   expect(sfx.textContent).toContain('Default SFX');
-  expect(sfx.querySelector('[aria-label="Equipped"]')).not.toBeNull();
+  expect(sfx.querySelector('.lb-inventory-state')?.textContent).toBe('Equipped');
 });
 
 it('shows booster costs and disables exchanges the player cannot afford', async () => {
