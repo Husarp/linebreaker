@@ -33,8 +33,18 @@
     bar.className = 'lb-touch-controls'; bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Touch game controls');
     const pointers = new Map(); let gesture;
     const reset = () => { pointers.clear(); gesture = null; game.release(); };
+    const glyphs = {
+        left: 'M12 5l-7 7 7 7m-7-7h14', right: 'M12 5l7 7-7 7m7-7H5',
+        cw: 'M5 9a8 8 0 1 1 0 7m0-7V3m0 6h6',
+        soft: 'M5 9l7 7 7-7', hard: 'M5 5l7 7 7-7M5 12l7 7 7-7'
+    };
     for (const [action, label] of [['left','Left'],['right','Right'],['cw','Rotate'],['soft','Soft drop'],['hard','Hard drop'],['hold','Hold'],['pause','Pause']]) {
-        const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
+        const button = document.createElement('button'); button.type = 'button';
+        button.dataset.action = action;
+        button.setAttribute('aria-label', label);
+        const caption = document.createElement('span'); caption.textContent = label;
+        button.append(caption);
+        if (glyphs[action]) button.insertAdjacentHTML('beforeend', `<svg class="lb-touch-glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${glyphs[action]}"/></svg>`);
         button.addEventListener('pointerdown', event => {
             event.preventDefault(); button.setPointerCapture(event.pointerId);
             if (action === 'left' || action === 'right' || action === 'soft') game.press(action);
@@ -45,6 +55,14 @@
         bar.append(button);
     }
     document.getElementById('app').append(bar);
+    const holdPanel = document.getElementById('hold-panel');
+    if (holdPanel) {
+        const holdButton = document.createElement('button'); holdButton.type = 'button';
+        holdButton.className = 'lb-phone-hold';
+        holdButton.setAttribute('aria-label', 'Hold piece');
+        holdButton.addEventListener('click', () => game.action('hold'));
+        holdPanel.append(holdButton);
+    }
     board.addEventListener('pointerdown', event => {
         if (!game.active()) return;
         event.preventDefault(); board.setPointerCapture(event.pointerId);

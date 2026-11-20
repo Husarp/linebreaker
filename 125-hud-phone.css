@@ -1,0 +1,97 @@
+.lb-phone-hold,
+.lb-touch-controls .lb-touch-glyph { display: none; }
+
+@media (orientation: portrait) and (max-width: 600px) {
+    #app.active-game,
+    .lb-touch #app.active-game {
+        --hud-top: max(12px, env(safe-area-inset-top));
+        --hud-bottom: max(12px, env(safe-area-inset-bottom));
+        --hud-left: max(12px, env(safe-area-inset-left));
+        --hud-right: max(12px, env(safe-area-inset-right));
+        --hud-gap: 8px;
+        --hud-preview-row: 56px;
+        --hud-stat-row: 52px;
+        --hud-control-row: 54px;
+        --hud-footer-space: 0px;
+        --hud-ratio: var(--hud-board-ratio, .5);
+        --hud-board-room: calc(100dvh - var(--hud-top) - var(--hud-bottom) - var(--hud-preview-row) - var(--hud-stat-row) - 2 * var(--hud-gap) - var(--hud-footer-space));
+        --hud-inner-width: calc(100vw - var(--hud-left) - var(--hud-right));
+        --hud-frame: 6px;
+        --hud-board-width: min(var(--hud-inner-width), calc(max(0px, var(--hud-board-room) - var(--hud-frame)) * var(--hud-ratio) + var(--hud-frame)));
+        --hud-strip-width: min(var(--hud-inner-width), max(244px, var(--hud-board-width)));
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        grid-template-rows: var(--hud-preview-row) auto var(--hud-stat-row);
+        grid-template-areas: none;
+        gap: var(--hud-gap) 5px;
+        padding: var(--hud-top) calc(var(--hud-right) + (var(--hud-inner-width) - var(--hud-strip-width)) / 2) var(--hud-bottom) calc(var(--hud-left) + (var(--hud-inner-width) - var(--hud-strip-width)) / 2);
+    }
+
+    .lb-touch #app.active-game {
+        --hud-footer-space: calc(var(--hud-control-row) + var(--hud-gap));
+        grid-template-rows: var(--hud-preview-row) auto var(--hud-stat-row) var(--hud-control-row);
+    }
+
+    #app #hold-panel { grid-area: 1 / 1 / 2 / 4; position: relative; }
+    #app #pc-next-wrap { grid-area: 1 / 4 / 2 / 7; flex-wrap: nowrap; }
+    #app #pc-next-wrap > .label { flex-basis: auto; }
+    #app .lb-hud-score { grid-area: 1 / 7 / 2 / 10; }
+    #app .lb-hud-lines { grid-area: 1 / 10 / 2 / 13; }
+    #app .lb-hud-time { grid-area: 3 / 1 / 4 / 5; }
+    #app .lb-hud-speed { grid-area: 3 / 5 / 4 / 9; }
+    #app .btn-pause-pc { grid-area: 3 / 9 / 4 / 13; flex-direction: row; gap: 5px; font-size: 13px; }
+
+    #app .lb-hud-tile { padding-inline: 4px; }
+    #app .lb-hud-hold-slot,
+    #app .lb-hud-queue { height: 32px; }
+    #app #pc-next-wrap[data-expanded] canvas { width: min(33.33%, 32px); }
+
+    #app #game-wrapper,
+    .lb-touch #app.active-game #game-wrapper { grid-area: 2 / 1 / 3 / -1; height: auto; }
+    #app #game-container {
+        box-sizing: content-box;
+        width: calc(var(--hud-board-width) - var(--hud-frame));
+        height: auto;
+    }
+
+    #app :is(#mode-badge, #booster-hud),
+    #app .lb-run-missions { inset-block-start: calc(var(--hud-top) + var(--hud-preview-row) + var(--hud-gap) + 6px) !important; }
+    #app #mode-badge { left: calc(var(--hud-left) + (var(--hud-inner-width) - var(--hud-board-width)) / 2 + 6px); transform: none; }
+    #app #booster-hud,
+    #app .lb-run-missions { right: calc(var(--hud-right) + (var(--hud-inner-width) - var(--hud-board-width)) / 2 + 6px); }
+    #app:has(.lb-run-missions:not([hidden])) #booster-hud { inset-block-start: calc(var(--hud-top) + var(--hud-preview-row) + var(--hud-gap) + 40px) !important; }
+
+    .lb-touch #app.active-game .lb-touch-controls {
+        grid-area: 4 / 1 / 5 / -1;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 5px;
+    }
+
+    .lb-touch #app.active-game .lb-touch-controls button {
+        display: grid;
+        place-items: center;
+        padding: 0 0 4px;
+        border: var(--bb-stroke) solid var(--bb-edge);
+        border-radius: var(--bb-cap);
+        background: var(--bb-face);
+        color: var(--bb-ink);
+        box-shadow: var(--bb-cap-shadow);
+    }
+
+    .lb-touch #app.active-game .lb-touch-controls button:active { background: var(--bb-pressed); }
+    .lb-touch #app.active-game .lb-touch-controls :is(button[data-action="hold"], button[data-action="pause"], button > span) { display: none; }
+    .lb-touch #app.active-game .lb-touch-controls .lb-touch-glyph { display: block; }
+
+    .lb-touch #app .lb-phone-hold {
+        display: block;
+        position: absolute;
+        inset: 0;
+        border: 0;
+        border-radius: inherit;
+        background: transparent;
+        touch-action: manipulation;
+        cursor: pointer;
+    }
+
+    .lb-touch #app .lb-phone-hold:active { background: var(--accent-soft); opacity: .25; }
+    #app :is(.lb-phone-hold, .lb-touch-controls button):focus-visible { outline: 2px solid var(--accent-bright); outline-offset: -3px; }
+}
