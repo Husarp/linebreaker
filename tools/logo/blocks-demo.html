@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linebreaker · Logo proof</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --accent: #00d8ef;
+    --edge: #46545d;
+    --text: #f3f6fc;
+    --muted: #b2bdc9;
+    background: #15191d;
+    color: var(--text);
+    font: 1rem/1.5 system-ui, sans-serif;
+    scrollbar-color: var(--edge) #15191d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  main { width: min(100%, 1920px); margin: auto; padding-bottom: 24px; }
+  header, figcaption { padding: 14px clamp(12px, 3vw, 32px); }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  h1, p, figure { margin: 0; }
+  h1 { font-size: clamp(1.35rem, 2.75vw, 2rem); line-height: 1.2; }
+  p, small { color: var(--muted); }
+  button {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--edge);
+    border-radius: 8px;
+    background: #2b3339;
+    box-shadow: inset 0 1px #fff2, inset 0 -3px #0004;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  button:hover { background: #374149; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  .proof { width: min(100%, 1920px); margin: auto; }
+  .proof.phone { width: min(100%, 390px); }
+  figure { background: #23292e; border-block: 1px solid var(--edge); }
+  figure + figure { margin-top: 12px; }
+  figcaption { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  figcaption strong, figcaption small { display: block; }
+  .stage { background: #0b101b; }
+  .stage > :is(img, svg) { display: block; width: 100%; height: auto; }
+</style>
+<main>
+  <header>
+    <div><h1>Linebreaker logo proof</h1><p>Ticket 108 · Wordmarks and row-clear motion</p></div>
+    <div>
+      <button type="button" data-phone="false" aria-pressed="true">Full · 1920 max</button>
+      <button type="button" data-phone="true" aria-pressed="false">Phone · 390</button>
+    </div>
+  </header>
+  <section class="proof" aria-label="Logo previews">
+    <figure>
+      <figcaption><div><strong>Block-built static</strong><small>D4 · 7-row grid</small></div></figcaption>
+      <div class="stage"><img alt="Linebreaker" src="{{BLOCKS_URL}}"></div>
+    </figure>
+    <figure>
+      <figcaption>
+        <div><strong>Block-built motion</strong><small>Menu / start intro</small></div>
+        <button type="button" id="replay">Replay row clear</button>
+      </figcaption>
+      <div class="stage">{{BLOCKS}}</div>
+    </figure>
+    <figure>
+      <figcaption><div><strong>Store wordmark</strong><small>F minimal · exact center cut</small></div></figcaption>
+      <div class="stage"><img alt="Linebreaker" src="{{STORE_URL}}"></div>
+    </figure>
+  </section>
+</main>
+<script type="module">
+{{ANIMATION}}
+const proof = document.querySelector('.proof');
+const previews = document.querySelectorAll('[data-phone]');
+for (const preview of previews) {
+  preview.addEventListener('click', () => {
+    proof.classList.toggle('phone', preview.dataset.phone === 'true');
+    for (const option of previews) option.setAttribute('aria-pressed', String(option === preview));
+  });
+}
+const svg = proof.querySelector('svg');
+const replay = document.getElementById('replay');
+const motion = matchMedia('(prefers-reduced-motion: reduce)');
+function syncMotion() {
+  replay.disabled = motion.matches;
+  replay.textContent = motion.matches ? 'Reduced motion on' : 'Replay row clear';
+}
+syncMotion();
+motion.addEventListener('change', syncMotion);
+replay.addEventListener('click', () => playLogoClear(svg));
+</script>
+</html>

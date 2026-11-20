@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="935" height="124" viewBox="-16 -12 935 124" role="img" aria-label="Linebreaker">
+<title>Linebreaker</title>
+<defs><clipPath id="store-cut"><path d="M0 0H903V47H0Z M0 53H903V100H0Z"/></clipPath></defs>
+<g fill="#f6f8ff" fill-rule="evenodd" clip-path="url(#store-cut)">
+<path transform="translate(0 0)" d="M0 0H28V73H70V100H0Z"/>
+<path transform="translate(79 0)" fill="#00d8ef" d="M0 0h21v21H0Z M0 26h21v21H0Z M0 53h21v21H0Z M0 79h21v21H0Z"/>
+<path transform="translate(109 0)" d="M0 0H27L62 47V0H89V100H62L27 53V100H0Z"/>
+<path transform="translate(207 0)" d="M0 0H68V23H28V37H65V62H28V77H68V100H0Z"/>
+<path transform="translate(284 0)" d="M0 0H47C66 0 77 11 77 27C77 36 73 43 65 47C76 51 81 59 81 71C81 89 69 100 49 100H0Z M27 22V38H42C49 38 52 35 52 30S49 22 42 22Z M27 62V78H45C52 78 55 75 55 70S52 62 45 62Z"/>
+<path transform="translate(374 0)" d="M0 0H45C67 0 80 13 80 33C80 49 72 60 59 64L82 100H51L27 66V100H0Z M27 23V42H42C49 42 53 38 53 32S49 23 42 23Z"/>
+<path transform="translate(465 0)" d="M0 0H68V23H28V37H65V62H28V77H68V100H0Z"/>
+<path transform="translate(542 0)" d="M37 0H63L100 100H71L65 84H35L29 100H0Z M43 61H57L50 35Z"/>
+<path transform="translate(651 0)" d="M0 0H27V33L53 0H84L48 48L84 100H53L27 66V100H0Z"/>
+<path transform="translate(744 0)" d="M0 0H68V23H28V37H65V62H28V77H68V100H0Z"/>
+<path transform="translate(821 0)" d="M0 0H45C67 0 80 13 80 33C80 49 72 60 59 64L82 100H51L27 66V100H0Z M27 23V42H42C49 42 53 38 53 32S49 23 42 23Z"/>
+</g>
+</svg>
