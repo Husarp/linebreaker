@@ -66,6 +66,12 @@ kotlin { jvmToolchain(21) }
 def verifyReleaseConfig = tasks.register('verifyReleaseConfig') {
     doLast {
         if (!signed) throw new GradleException('Configure the existing external Linebreaker release keys (docs/ANDROID.md).')
+        def pluginList = file('src/main/assets/capacitor.plugins.json')
+        def plugins = pluginList.isFile() ? new groovy.json.JsonSlurper().parse(pluginList) : []
+        def required = ['@capacitor/preferences', '@capacitor/local-notifications']
+        if (!(plugins*.pkg).containsAll(required)) {
+            throw new GradleException('Android update notifications require the locked plugins. Run npm ci and npm run android:sync.')
+        }
     }
 }
 tasks.matching { it.name == 'preReleaseBuild' }.configureEach { dependsOn verifyReleaseConfig }

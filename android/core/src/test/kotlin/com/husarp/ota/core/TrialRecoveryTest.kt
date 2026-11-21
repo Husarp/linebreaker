@@ -4,51 +4,25 @@ import org.junit.Test
 import org.junit.Assert.*
 
 class TrialRecoveryTest {
-    @Test fun fourSecondsCountsOnlyForegroundUnlockedTime() {
-        val r = TrialRecovery(); r.launch("a",0)
-        assertTrue(r.showLoading)
-        assertEquals(4000L,r.update(0,true,true))
-        assertEquals(2000L,r.update(2000,true,true))
-        assertNull(r.update(3000,false,true))
-        assertNull(r.update(100000,false,true)); assertNull(r.reason)
-        assertEquals(1000L,r.update(100000,true,true))
-        assertEquals(1L,r.update(100999,true,true)); assertTrue(r.showLoading)
-        r.update(101000,true,true); assertEquals("ready-timeout",r.reason)
-        assertFalse(r.showLoading)
-    }
-    @Test fun uncaughtAndLoadErrorsTriggerImmediatelyOnlyDuringTrial() {
-        for (cause in listOf("javascript-error","load-error")) {
-            val r = TrialRecovery(); r.launch("a",0)
-            r.failed(false,cause); assertNull(r.reason)
-            r.failed(true,cause); assertEquals(cause,r.reason); assertFalse(r.showLoading)
-            r.update(10,false,true); assertEquals(cause,r.reason) // held for resume
-            r.update(20,true,false); assertNull(r.reason)
-        }
-    }
-    @Test fun waitHidesLoadingAndRestartsFourSecondTimerIncludingPauseAndRecreation() {
-        val r=TrialRecovery();r.launch("a",0);r.update(0,true,true)
-        r.update(4000,true,true);assertEquals("ready-timeout",r.reason)
-        r.waitLonger(4500);assertNull(r.reason);assertFalse(r.showLoading)
-        assertEquals(4000L,r.update(4500,true,true))
-        r.update(5500,false,true)
-        r.launch("a",100000) // same launch must retain Wait and remaining time
-        assertEquals(3000L,r.update(100000,true,true));assertFalse(r.showLoading)
-        assertEquals(1L,r.update(102999,true,true))
-        r.update(103000,true,true);assertEquals("ready-timeout",r.reason)
-        r.waitLonger(103000);r.update(103000,true,true)
-        r.failed(true,"javascript-error");assertEquals("javascript-error",r.reason)
-        r.launch("b",104000);assertTrue(r.showLoading);assertNull(r.reason)
-        assertEquals(4000L,r.update(104000,true,true))
-    }
-    @Test fun readinessCancelsInitialAndWaitTimersAndExistingErrors() {
-        for (wait in listOf(false,true)) {
-            val r=TrialRecovery();r.launch("a",0);r.update(0,true,true)
-            r.failed(true,"load-error")
-            if(wait) r.waitLonger(1000)
-            assertNull(r.update(2000,true,false));assertNull(r.reason)
-            assertNull(r.update(90000,true,false));assertNull(r.reason)
-            r.failed(false,"javascript-error");assertNull(r.reason)
-        }
+    @Test fun consentedRepairReplacesAFailedTrialButRejectsStaleConsent() {
+        val harness = Harness()
+        harness.good("1.1.0")
+        harness.pending("1.2.0")
+        val trial = harness.engine.coldStart()
+        val fix = bundle("1.3.0")
+        val staging = harness.stage(fix)
+        expectFailure { harness.engine.commit(fix, staging) }
+        expectFailure { harness.engine.commit(fix, staging, "stale") }
+        assertEquals(trial.version, harness.engine.snapshot().current)
+        harness.engine.commit(fix, staging, trial.token)
+        assertEquals("1.1.0", harness.engine.snapshot().current)
+        assertTrue(trial.version in harness.engine.snapshot().failed)
+        val repaired = Harness(harness.root).engine
+        val next = repaired.coldStart()
+        assertEquals(fix.version, next.version)
+        assertTrue(repaired.ready(next.version, next.token))
+        assertNull(repaired.takeRollbackNotice(next.version, next.token))
+        assertEquals(fix.message, repaired.takeUpdatedNotice(next.version, next.token)?.notes)
     }
     @Test fun goBackIsImmediateDurableAndNeverOffersFailedVersionAgain() {
         val h=Harness();h.good("1.1.0");h.pending("1.2.0");val l=h.engine.coldStart()

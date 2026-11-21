@@ -54,11 +54,11 @@ class Engine(val root: File, val embedded: Manifest, private val shellApi: Int, 
         if (state.current in state.blocked) log.add("Kill switch: ${state.current} blocked; fallback scheduled for next start")
     }
     private fun fallback(): String = state.previous?.takeIf { it !in state.blocked && it !in state.failed && runCatching { manifest(it) }.isSuccess } ?: embedded.version
-    private fun rollback(blocked: Boolean, reason: String = if (blocked) "blocked" else "failed-starts"): String {
+    private fun rollback(blocked: Boolean, reason: String = if (blocked) "blocked" else "failed-starts", notify: Boolean = true): String {
         val bad = state.current; val target = fallback()
         state.current = target; state.previous = null; state.trial = false; state.trialStarts = 0
         if (!blocked && bad !in state.failed) state.failed.add(bad)
-        state.rolledBack = RollbackNotice(bad, target, reason)
+        state.rolledBack = if (notify) RollbackNotice(bad, target, reason) else null
         state.notifiedVersion = target // Recovery is not a new-version announcement.
         save() // Make fallback durable before deleting the failed overlay.
         if (bad != embedded.version && bad != target) File(bundles, bad).deleteRecursively()
@@ -152,11 +152,13 @@ class Engine(val root: File, val embedded: Manifest, private val shellApi: Int, 
         try { save() } catch (e: Exception) { state.rolledBack = notice; throw e }
         return notice
     }
-    @Synchronized fun commit(m: Manifest, staging: File) {
+    @Synchronized fun commit(m: Manifest, staging: File, recoveryToken: String? = null) {
         validateManifest(m)
         require(m.minShellApi <= shellApi) { "Incompatible shell" }
         require(m.version !in state.failed && m.version !in state.blocked)
-        require(compareVersions(m.version, state.current) > 0 && !state.trial)
+        require(compareVersions(m.version, state.current) > 0)
+        require(recoveryToken == null || (recoveryToken == token && loaded == state.current && m.kind == "fix"))
+        require(!state.trial || recoveryToken != null)
         val destination = File(bundles, m.version)
         // Unreferenced destination can exist if power failed after rename but before state write.
         require(m.version != state.current && m.version != state.previous)
@@ -164,7 +166,9 @@ class Engine(val root: File, val embedded: Manifest, private val shellApi: Int, 
         check(staging.renameTo(destination)) { "Staging rename failed" }
         syncDirectory(bundles); syncDirectory(staging.parentFile!!)
         dates.record("web", m.version, m.releasedAt, downloaded = true)
-        state.pending = m.version; save(); cleanup()
+        state.pending = m.version
+        if (state.trial) rollback(false, "startup-repair", notify = false) else save()
+        cleanup()
         log.add("Staging → bundles/${m.version}; atomic state.json pending pointer committed")
     }
     @Synchronized fun reset() {

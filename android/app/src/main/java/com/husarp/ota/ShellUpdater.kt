@@ -20,7 +20,7 @@ import java.util.zip.ZipFile
 
 /** The APK path is independent of web checks, downloads and trial/consent state. */
 class ShellUpdater(private val context: Context, private val engine: Engine,
-                   private val verifier: ManifestVerifier, private val mayInterrupt: () -> Boolean,
+                   private val verifier: ManifestVerifier, private val checks: UpdateChecks, private val mayInterrupt: () -> Boolean,
                    private val changed: () -> Unit, private val settings: () -> UpdateSettings, private val unmetered: () -> Boolean) {
     private val executor = Executors.newSingleThreadExecutor()
     private val transport = HttpsTransport()
@@ -92,8 +92,9 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
                 prefs.edit().remove("session").apply(); installing=false
             }
             log("check started; installed versionCode ${BuildConfig.VERSION_CODE}")
-            val source=fetchManifest(Updater.SHELL_URL,transport,engine.log) ?: run { lastCheckSucceeded=true; return@submit }
-            val m=verifier.verifyShell(source.bytes,System.currentTimeMillis(),-1)
+            val (source, m) = checks.fetch(CheckChannel.SHELL, Updater.SHELL_URL, transport) {
+                verifier.verifyShell(it.bytes,System.currentTimeMillis(),-1)
+            }
             engine.dates.record("shell",m.versionCode.toString(),m.releasedAt,
                 available=m.versionCode>BuildConfig.VERSION_CODE)
             lastCheckSucceeded=true
@@ -122,7 +123,8 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
             maybeInstallOnExecutor()
         } catch(e: Exception) {
             lastCheckSucceeded=false
-            status="Shell check/download failed: ${e.message}"; log("failed: ${e.javaClass.simpleName}: ${e.message}",start)
+            status=if (e is CheckException) e.failure.message else "Shell update processing failed: ${e.message}"
+            log("failed: ${e.javaClass.simpleName}: ${e.message}",start)
         } finally { downloading=false; changed(); log("check finished",start) }
     }
     private fun download(m: ShellManifest, consent: Boolean): File {

@@ -92,16 +92,21 @@ fun validateManifest(m: Manifest) {
 enum class Action { REJECT, FULL_APP, PROMPT, AUTO, WAIT }
 data class Decision(val action: Action, val reason: String, val delta: Long = 0)
 fun decide(m: Manifest, current: Manifest, embedded: Manifest, shellApi: Int, settings: UpdateSettings, unmetered: Boolean,
-           failed: Collection<String>, blocked: Collection<String>, trial: Boolean, pending: String?): Decision {
+           failed: Collection<String>, blocked: Collection<String>, trial: Boolean, pending: String?, startupRecovery: Boolean = false): Decision {
     if (m.version in failed) return Decision(Action.REJECT, "Version previously failed")
     if (m.version in blocked || m.version in m.blocked) return Decision(Action.REJECT, "Version blocked")
     if (compareVersions(m.version, current.version) <= 0) return Decision(Action.REJECT, "Equal or lower version")
-    if (pending != null && compareVersions(m.version, pending) <= 0) return Decision(Action.WAIT, "Update already staged")
+    if (pending != null) {
+        val comparison = compareVersions(m.version, pending)
+        if (comparison < 0 || (comparison == 0 && !startupRecovery)) return Decision(Action.WAIT, "Update already staged")
+    }
     if (m.minShellApi > shellApi) return Decision(Action.FULL_APP, "This update needs the full app update (shellApi ${m.minShellApi})")
-    if (trial) return Decision(Action.WAIT, "Waiting for current trial to signal ready")
+    if (startupRecovery && m.kind != "fix") return Decision(Action.REJECT, "No startup fix published")
+    if (trial && !startupRecovery) return Decision(Action.WAIT, "Waiting for current trial to signal ready")
     val currentHashes = current.files.associate { it.path to it.sha256 }
     val embeddedHashes = embedded.files.associate { it.path to it.sha256 }
     val delta = m.files.filter { currentHashes[it.path] != it.sha256 && embeddedHashes[it.path] != it.sha256 }.sumOf { it.size }
+    if (startupRecovery) return Decision(Action.PROMPT, "Startup repair needs consent", delta)
     val critical = current.version in blocked || current.version in m.blocked
     return if (automaticDownload(settings, m.kind, delta, unmetered, critical))
         Decision(Action.AUTO, "Automatic update allowed", delta)

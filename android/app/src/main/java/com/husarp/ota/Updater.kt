@@ -55,7 +55,18 @@ class Updater(private val context: Context, val engine: Engine, private val veri
     private var laterVersion: String? = null
     private var updated: JSObject? = null
     private var rolledBack: JSObject? = null
-    val recovery = TrialRecovery()
+    val watchdog = StartupWatchdog()
+
+    fun simulateBrokenStart() = prefs.edit().putBoolean("simulateBrokenStart", true).commit()
+
+    private fun selectLaunch() {
+        val next = engine.coldStart()
+        val simulate = prefs.getBoolean("simulateBrokenStart", false) &&
+            prefs.edit().remove("simulateBrokenStart").commit()
+        watchdog.launch(next.token, SystemClock.elapsedRealtime(), simulate)
+        launch = next
+        if (simulate) engine.log.add("Ignoring ready for this launch (debug simulation)")
+    }
     private var shellEventVersion: Long? = null
     private val waitingWeb = File(engine.root,"waiting-web.json")
     private data class WaitingWeb(val envelope: String, val source: String)
@@ -74,7 +85,14 @@ class Updater(private val context: Context, val engine: Engine, private val veri
     var onChange: (() -> Unit)? = null
     var onToast: ((String) -> Unit)? = null
     val eventListeners = CopyOnWriteArrayList<(String, JSObject) -> Unit>()
-    val shell = ShellUpdater(context.applicationContext, engine, verifier, { safeToInterrupt }, { changed() }, { updateSettings() }, { unmetered() })
+    val checks = UpdateChecks(context, engine.log) { changed() }
+    val shell = ShellUpdater(context.applicationContext, engine, verifier, checks, { safeToInterrupt }, { changed() }, { updateSettings() }, { unmetered() })
+    @Volatile private var readyGame: Pair<String, Boolean>? = null
+    fun gameCheckNotices() = readyGame?.takeIf { it.first == launch.token }?.second
+    fun retryChecks() { check(true); shell.check(manual = true) }
+    fun retryCheck(channel: CheckChannel) {
+        if (channel == CheckChannel.WEB) check(true) else shell.check(manual = true)
+    }
     init {
         val installedAt = context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
         engine.dates.record("shell", BuildConfig.VERSION_CODE.toString(), BuildConfig.SHELL_RELEASED_AT, installedAt = installedAt)
@@ -178,12 +196,13 @@ class Updater(private val context: Context, val engine: Engine, private val veri
             val result=awaitQuickApply(check,SystemClock.elapsedRealtime()-start,false)
             engine.log.add("Quick apply $result; timeout/error keeps current and lets background work continue",SystemClock.elapsedRealtime()-start)
         }
-        launch = engine.coldStart(); prepared = true; launching = false
+        selectLaunch(); prepared = true; launching = false
         if(launch.notice!=null) status="Ready · ${launch.version}"
         engine.log.add("Quick apply finished: ${launch.version}; existing staged=$pending", SystemClock.elapsedRealtime()-start)
         changed()
     }
     fun info(): JSObject = JSObject().apply {
+        put("updateChecks", checks.snapshot())
         put("webVersion", launch.version); put("shellVersion", BuildConfig.VERSION_NAME); put("shellApi", BuildConfig.SHELL_API)
         put("runningShellVersionCode", BuildConfig.VERSION_CODE)
         val webDates = engine.dates.get("web", launch.version)
@@ -233,10 +252,10 @@ class Updater(private val context: Context, val engine: Engine, private val veri
             try {
                 engine.log.add("Check started (${if (manual) "Check now" else "background/start"})")
                 message("Checking…")
-                val downloaded = eligibleWaiting() ?: fetchManifest(url, transport, engine.log)
-                if (downloaded == null) { lastCheckSucceeded=true; message("No web update published"); return@submit }
                 val sigStart = System.nanoTime()
-                val m = verifier.verify(downloaded.bytes, System.currentTimeMillis())
+                val waiting = if (manual) null else eligibleWaiting()
+                val (downloaded, m) = if (waiting != null) waiting to verifier.verify(waiting.bytes, System.currentTimeMillis())
+                else checks.fetch(CheckChannel.WEB, url, transport) { verifier.verify(it.bytes, System.currentTimeMillis()) }
                 engine.log.add("Signature OK (Ed25519); expiry/release/file inventory OK", (System.nanoTime()-sigStart)/1_000_000)
                 if (compareVersions(m.version, engine.snapshot().current) > 0)
                     engine.dates.record("web", m.version, m.releasedAt, available = true)
@@ -263,7 +282,7 @@ class Updater(private val context: Context, val engine: Engine, private val veri
                 lastCheckSucceeded=true
             } catch (e: Exception) {
                 engine.log.add("Signature/check/download error: ${e.javaClass.simpleName}: ${e.message}")
-                message("Check unavailable; current bundle stays usable. See Logs.")
+                message(if (e is CheckException) e.failure.message else "Update processing failed. See Logs.")
             } finally {
                 busy.set(false); engine.log.add("Check finished", (System.nanoTime()-started)/1_000_000); changed()
             }
@@ -281,15 +300,77 @@ class Updater(private val context: Context, val engine: Engine, private val veri
             } finally { busy.set(false); consentDownloading = false; changed() }
         }
     }
-    private fun install(selected: Offer, consent: Boolean) {
+    internal data class StartupFix(val token: String, val staged: Boolean, val source: DownloadedManifest)
+
+    private fun startupOffer(source: DownloadedManifest, manifest: Manifest = verifier.verify(source.bytes, System.currentTimeMillis())): Offer {
+        val state = engine.snapshot()
+        val decision = decide(manifest, engine.currentManifest(), engine.embedded, BuildConfig.SHELL_API,
+            settings, unmetered(), state.failed, state.blocked, state.trial, state.pending, startupRecovery = true)
+        return Offer(manifest, source, decision)
+    }
+
+    private fun isStagedFix(manifest: Manifest) = engine.snapshot().pending == manifest.version &&
+        runCatching { engine.manifest(manifest.version) == manifest }.getOrDefault(false)
+
+    internal fun checkForStartupFix(complete: (StartupFix?, String, Boolean) -> Unit) {
+        if (!busy.compareAndSet(false, true)) { complete(null, "Updater busy. Try again shortly.", false); return }
+        val token = launch.token
+        worker.execute {
+            var fix: StartupFix? = null
+            var failedCheck = false
+            val result = try {
+                val (source, manifest) = checks.fetch(CheckChannel.WEB, url, transport) { verifier.verify(it.bytes, System.currentTimeMillis()) }
+                val selected = startupOffer(source, manifest)
+                if (selected.decision.action != Action.PROMPT) selected.decision.reason
+                else {
+                    val staged = isStagedFix(selected.manifest)
+                    val bytes = if (staged) 0 else selected.decision.delta
+                    fix = StartupFix(token, staged, source)
+                    if (staged) "Fix ${selected.manifest.version} is ready to apply."
+                    else "Fix ${selected.manifest.version} · ${formatSize(bytes)}. Download and restart?"
+                }
+            } catch (e: Exception) {
+                engine.log.add("Startup fix check failed: ${e.message}")
+                failedCheck = e is CheckException
+                if (e is CheckException) e.failure.message else "Could not check for a fix. See Logs in the shell."
+            } finally { busy.set(false); changed() }
+            main.post { complete(fix, result, failedCheck) }
+        }
+    }
+
+    internal fun applyStartupFix(fix: StartupFix, complete: (String?) -> Unit) {
+        if (!busy.compareAndSet(false, true)) { complete("Updater busy. Try again shortly."); return }
+        worker.execute {
+            val error = try {
+                require(launch.token == fix.token) { "Startup repair belongs to an earlier launch" }
+                val selected = startupOffer(fix.source)
+                require(selected.decision.action == Action.PROMPT) { selected.decision.reason }
+                val staged = isStagedFix(selected.manifest)
+                check(!fix.staged || staged) { "Previously staged fix is no longer available" }
+                engine.blocked(selected.manifest.blocked)
+                check(staged || (install(selected, true, fix.token) && isStagedFix(selected.manifest))) {
+                    "Fix was not staged"
+                }
+                restartLaunch()
+                null
+            } catch (e: Exception) {
+                engine.log.add("Startup fix failed: ${e.message}")
+                "Could not apply the fix. See Logs in the shell."
+            } finally { busy.set(false); changed() }
+            main.post { complete(error) }
+        }
+    }
+
+    private fun install(selected: Offer, consent: Boolean, recoveryToken: String? = null): Boolean {
         val m = verifier.verify(selected.source.bytes, System.currentTimeMillis())
         val s = engine.snapshot()
-        val d = decide(m, engine.currentManifest(), engine.embedded, BuildConfig.SHELL_API, settings, unmetered(), s.failed, s.blocked, s.trial, s.pending)
+        val d = decide(m, engine.currentManifest(), engine.embedded, BuildConfig.SHELL_API, settings, unmetered(),
+            s.failed, s.blocked, s.trial, s.pending, startupRecovery = recoveryToken != null)
         if (!consent && d.action == Action.PROMPT) {
             offer = selected.copy(decision=d)
             availableState()?.let { event("updateAvailable",it) }
             message("New version ${m.version} · ${formatSize(d.delta)}")
-            return
+            return false
         }
         require(d.action == Action.AUTO || (consent && d.action == Action.PROMPT)) { d.reason }
         offer = null
@@ -310,17 +391,18 @@ class Updater(private val context: Context, val engine: Engine, private val veri
             }
         })
         val staged = installer.stage(m, engine.currentManifest(), { engine.currentOverlayFile(it) }, selected.source.finalUrl)
-        if (staged == null) { message("${m.version}: Not enough storage; skipped"); return }
-        engine.commit(m, staged)
+        if (staged == null) { message("${m.version}: Not enough storage; skipped"); return false }
+        engine.commit(m, staged, recoveryToken)
         waitingWeb.delete()
-        autoRestartPending = consent
+        autoRestartPending = consent && recoveryToken == null
         message("Fixes downloaded (${m.version}) · Restart")
         engine.log.add("Update staged ${m.version}; consent=$consent, foreground=$foreground, safe=$safeToInterrupt", (System.nanoTime()-started)/1_000_000)
         transfer?.let { engine.log.add("Web transfer ${it.done}/${it.total} bytes at ${it.speed} B/s") }
         event("updateStaged",webState(m).put("version",m.version).put("size",d.delta).put("kind",m.kind))
+        return true
     }
-    fun restart(reset: Boolean = false, complete: () -> Unit) {
-        if (!safeToInterrupt) { toast("Finish the current activity before restarting"); return }
+    fun restart(reset: Boolean = false, startupRecovery: Boolean = false, complete: () -> Unit) {
+        if (!startupRecovery && !safeToInterrupt) { toast("Finish the current activity before restarting"); return }
         if (!busy.compareAndSet(false, true)) { toast("Please wait for the current download"); return }
         launching = true
         worker.execute {
@@ -329,37 +411,33 @@ class Updater(private val context: Context, val engine: Engine, private val veri
                     engine.reset(); waitingWeb.delete()
                     setUpdateSettings(JSObject().put("setupAnswered",false))
                 }
-                launch = engine.coldStart(); offer = null; laterVersion = null; status = "Ready · ${launch.version}"
-                autoRestartPending = false; safeToInterrupt = false
-                updated = null; rolledBack = null
+                restartLaunch()
                 main.post { complete() }
             } catch (e: Exception) { engine.log.add("Restart error: ${e.message}"); message("Restart failed; see Logs") }
             finally { busy.set(false); launching = false; changed() }
         }
     }
-    // Local recovery must not queue behind a network check or wait for a reopen.
-    @Synchronized fun recoverNow(reason: String, complete: () -> Unit): Boolean {
-        if (!engine.recover(launch.version, launch.token, reason)) return false
-        launch = engine.coldStart(); offer = null; laterVersion = null
+    private fun restartLaunch() {
+        selectLaunch(); offer = null; laterVersion = null
         status = "Ready · ${launch.version}"; autoRestartPending = false; safeToInterrupt = false
         updated = null; rolledBack = null
-        complete(); changed()
-        return true
     }
     fun isBusy() = busy.get()
-    @Synchronized fun ready(version: String, token: String): Boolean = engine.ready(version, token).also {
+    @Synchronized fun ready(version: String, token: String, checkNotices: Boolean = false): Boolean {
+        if (!watchdog.acceptsReady(token) || !engine.ready(version, token)) return false
+        watchdog.markReady(token)
+        readyGame = token to checkNotices
         changed()
-        if (it) {
-            engine.takeRollbackNotice(version,token)?.let { notice ->
-                rolledBack = JSObject().put("from",notice.from).put("to",notice.to).put("reason",notice.reason)
-                event("rolledBack",rolledBack!!)
-            }
-            engine.takeUpdatedNotice(version,token)?.let { notice ->
-                updated = JSObject().put("from",notice.from).put("to",notice.to).put("notes",notice.notes)
-                event("updated",updated!!)
-            }
-            if (waitingWeb.exists()) check()
+        engine.takeRollbackNotice(version,token)?.let { notice ->
+            rolledBack = JSObject().put("from",notice.from).put("to",notice.to).put("reason",notice.reason)
+            event("rolledBack",rolledBack!!)
         }
+        engine.takeUpdatedNotice(version,token)?.let { notice ->
+            updated = JSObject().put("from",notice.from).put("to",notice.to).put("notes",notice.notes)
+            event("updated",updated!!)
+        }
+        if (waitingWeb.exists()) check()
+        return true
     }
     fun formatSize(bytes: Long) = if (bytes >= 1024*1024) "%.2f MiB".format(bytes/1048576.0) else "%.1f KiB".format(bytes/1024.0)
 }

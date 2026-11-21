@@ -57,7 +57,7 @@ fun assetManifestUrl(chain: List<String>): String {
 }
 class IntegrityException(message: String) : IOException(message)
 data class DownloadedManifest(val bytes: ByteArray, val finalUrl: String)
-fun fetchManifest(url: String, transport: Transport, log: EventLog): DownloadedManifest? {
+fun fetchManifest(url: String, transport: Transport, log: EventLog, allowMissing: Boolean = true): DownloadedManifest? {
     val started = System.nanoTime()
     try {
         transport.open(url, 0).use { r ->
@@ -67,14 +67,14 @@ fun fetchManifest(url: String, transport: Transport, log: EventLog): DownloadedM
             return DownloadedManifest(bytes, r.url)
         }
     } catch (e: HttpStatusException) {
-        if (e.status != 404) throw e
+        if (!allowMissing || e.status != 404) throw e
         log.add("Manifest not found (HTTP 404): no update published", (System.nanoTime() - started) / 1_000_000)
         return null
     }
 }
 fun InputStream.readBytesLimited(limit: Int): ByteArray {
     val out = java.io.ByteArrayOutputStream(); val buf = ByteArray(8192)
-    while (true) { val n = read(buf); if (n < 0) break; require(out.size().toLong() + n <= limit) { "Response too large" }; out.write(buf, 0, n) }
+    while (true) { val n = read(buf); if (n < 0) break; if (out.size().toLong() + n > limit) throw IntegrityException("Response too large"); out.write(buf, 0, n) }
     return out.toByteArray()
 }
 

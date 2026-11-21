@@ -45,12 +45,20 @@ class UpdateSettingsTest {
         assertTrue(automaticDownload(s,"fix",5*MIB+1,true))
         assertTrue(automaticDownload(s,"feature",1,true))
     }
-    @Test fun setupBlocksEvenCriticalDownloads() {
-        for(kind in listOf("fix","feature","shell")) {
-            assertFalse(automaticDownload(UpdateSettings(),kind,1,true))
-            assertFalse(automaticDownload(UpdateSettings(),kind,1,false,true))
+    @Test fun unansweredSetupAllowsOnlySmallFixesWithinDefaults() {
+        val unanswered = UpdateSettings()
+        for (wifi in listOf(true, false)) {
+            assertTrue(automaticDownload(unanswered,"fix",SMALL_FIX_LIMIT,wifi))
+            assertFalse(automaticDownload(unanswered,"fix",SMALL_FIX_LIMIT+1,wifi,true))
+            assertFalse(automaticDownload(unanswered,"feature",1,wifi,true))
+            assertFalse(automaticDownload(unanswered,"shell",1,wifi,true))
         }
-        assertFalse(automaticShellInstall(UpdateSettings()))
+        assertFalse(automaticShellInstall(unanswered))
+    }
+    @Test fun unansweredSetupPreservesOptOuts() {
+        assertFalse(automaticDownload(migrateUpdateSettings(false),"fix",1,true))
+        assertFalse(automaticDownload(UpdateSettings(smallFixes=false),"fix",1,true,true))
+        assertFalse(automaticDownload(UpdateSettings(mobileLimitMb=0),"fix",1,false))
     }
     @Test fun criticalOverridesBothSwitchesAndAllNetworkLimitsAfterSetup() {
         val s=defaults.copy(smallFixes=false,majorUpdates=false,mobileLimitMb=0,wifiLimitMb=5)
@@ -97,7 +105,8 @@ class UpdateSettingsTest {
         assertEquals(Action.PROMPT,d.action); assertEquals(21*MIB,d.delta)
     }
     @Test fun settingsAppliedToRealDecision() {
-        assertEquals(Action.PROMPT,decision(UpdateSettings(),1).action)
+        assertEquals(Action.AUTO,decision(UpdateSettings(),1).action)
+        assertEquals(Action.PROMPT,decision(UpdateSettings(),SMALL_FIX_LIMIT+1).action)
         assertEquals(Action.AUTO,decision(defaults,1).action)
         assertEquals(Action.PROMPT,decision(defaults.copy(smallFixes=false),1).action)
         assertEquals(Action.AUTO,decision(defaults.copy(majorUpdates=true),10*MIB,"feature").action)

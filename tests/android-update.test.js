@@ -31,6 +31,7 @@ async function boot({ platform = 'android', native = {}, version = '0.1.1', safe
     setSafeToInterrupt: vi.fn(async () => {}), appReady: vi.fn(async () => ({ accepted: true })),
     setUpdateSettings: vi.fn(async partial => Object.assign(state.updateSettings, partial)),
     download: vi.fn(async () => {}), restart: vi.fn(async () => {}), check: vi.fn(async () => {}),
+    claimCheckNotice: vi.fn(async () => ({})),
   };
   window.Capacitor = { getPlatform: () => platform, Plugins: { Ota: ota, ...plugins } };
   window.BUNDLE = { version };
@@ -80,8 +81,35 @@ it('acknowledges the actual bundle and native token only after save restoration 
   expect(game.window.resumeLinebreakerOtaWrites).not.toHaveBeenCalled();
   game.frames.shift()();
   await flush();
-  expect(game.ota.appReady).toHaveBeenCalledWith({ version: '0.1.1', token: 'session' });
+  expect(game.ota.appReady).toHaveBeenCalledWith({ version: '0.1.1', token: 'session', checkNotices: true });
   expect(game.window.resumeLinebreakerOtaWrites).toHaveBeenCalledOnce();
+});
+
+it('shows a pending check failure after game readiness and keeps Retry in settings', async () => {
+  const message = "Can't check for updates — connection blocked (firewall?)";
+  const game = await boot({ native: { updateChecks: { noticePending: true, failed: true, summary: message } } });
+  game.ota.claimCheckNotice.mockImplementationOnce(async () => {
+    game.state.updateChecks.noticePending = false;
+    return { message };
+  });
+  await game.restoreSave();
+  expect(game.ota.claimCheckNotice).not.toHaveBeenCalled();
+  await game.ready();
+  expect(game.ota.claimCheckNotice).toHaveBeenCalledWith({ token: 'session' });
+  const notice = game.get('.lb149-check-notice');
+  expect(notice.hidden).toBe(false);
+  expect(notice.querySelector('[role="status"]').textContent).toBe(message);
+  notice.querySelector('button').click();
+  await game.redraw();
+  expect(game.ota.check).toHaveBeenCalledOnce();
+  expect(game.ota.claimCheckNotice).toHaveBeenCalledOnce();
+  expect(notice.hidden).toBe(true);
+  expect(game.get('[data-check-status]').textContent).toBe(message);
+  expect(game.get('[data-section-actions] button').textContent).toBe('Retry');
+  game.state.updateChecks = { summary: 'Last checked: 10:05 AM' };
+  await game.redraw();
+  expect(game.get('[data-check-status]').textContent).toBe('Last checked: 10:05 AM');
+  expect(game.get('[data-section-actions] button').textContent).toBe('CHECK NOW');
 });
 
 it('never marks a mismatched web bundle ready', async () => {
@@ -92,16 +120,28 @@ it('never marks a mismatched web bundle ready', async () => {
   expect(game.window.resumeLinebreakerOtaWrites).not.toHaveBeenCalled();
 });
 
-it('shows update setup before acknowledging ready and saves the recommended policy', async () => {
+it('acknowledges readiness without a setup answer and then offers the recommended policy', async () => {
   const game = await boot({ native: { updateSettings: { ...defaults, setupAnswered: false } } });
   await game.restoreSave();
-  expect(game.get('dialog[open]').getAttribute('aria-label')).toBe('How should updates work?');
+  expect(game.get('dialog[open]')).toBeNull();
   await game.ready();
+  expect(game.ota.appReady).toHaveBeenCalledOnce();
+  expect(game.get('dialog[open]').getAttribute('aria-label')).toBe('How should updates work?');
   expect(game.ota.setSafeToInterrupt).toHaveBeenLastCalledWith({ safe: false });
   game.click('Recommended');
   await flush();
   expect(game.ota.setUpdateSettings).toHaveBeenCalledWith(defaults);
   expect(game.ota.setSafeToInterrupt).toHaveBeenLastCalledWith({ safe: true });
+});
+
+it('does not resume writes or offer setup when the shell ignores a ready signal', async () => {
+  const game = await boot({ native: { updateSettings: { ...defaults, setupAnswered: false } } });
+  game.ota.appReady.mockResolvedValue({ accepted: false });
+  await game.restoreSave();
+  await game.ready();
+  expect(game.ota.appReady).toHaveBeenCalledOnce();
+  expect(game.window.resumeLinebreakerOtaWrites).not.toHaveBeenCalled();
+  expect(game.get('dialog[open]')).toBeNull();
 });
 
 it('exposes Android policy and shell actions directly in the Updates section', async () => {

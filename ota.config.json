@@ -5,7 +5,7 @@
   "channels": { "bundle": "channel", "shell": "shell-channel" },
   "artifacts": { "manifest": "manifest.json", "shellManifest": "shell.json", "apk": "LinebreakerShell-{code}.apk", "asset": "f-{sha256}.bin" },
   "updateUrls": { "bundle": null, "shell": null, "releases": null },
-  "build": { "shellApi": 1, "versionCode": 1001, "versionName": "1.0.0", "webVersion": "1.0.1", "minShellApi": 1, "message": "Fix startup stalls, improve phone safe areas, and put update controls in Settings." },
+  "build": { "shellApi": 1, "versionCode": 1002, "versionName": "1.0.2", "webVersion": "1.0.2", "minShellApi": 1, "message": "Recover from startup stalls, see why update checks fail, get small fixes before update setup, and improve Android cutout and notification handling." },
   "signing": {
     "privateKey": "~/.keystores/linebreaker/ota-private.pem",
     "publicKey": "keys/public-key.b64",

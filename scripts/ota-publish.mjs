@@ -29,7 +29,7 @@ export function publishPlan(kind, version, c = config, base = root) {
     if (bytes.length !== entry.size || crypto.createHash('sha256').update(bytes).digest('hex') !== entry.sha256) throw new Error(`Prepared asset changed: ${name}`);
   }
   const repo = ['--repo',`${c.github.owner}/${c.github.repo}`];
-  return {tag, repo, title:`${c.appName} ${web ? 'app bundle' : 'Android shell'} channel`,
+  return {tag, repo, title:web ? `Live update ${m.version} (Android app bundle channel)` : `Android app ${m.versionName} (shell channel)`, notes:web ? m.message : m.notes,
     payloads:names.map(name=>path.join(dir,name)), manifest};
 }
 export function executePublish(plan, gh = args => {
@@ -40,13 +40,15 @@ export function executePublish(plan, gh = args => {
   const run = args => { const r = gh(args); if (r.status !== 0) throw new Error(r.stderr || 'gh command failed'); return r; };
   // Listing must succeed: an auth/network failure must never be treated as a missing release.
   const releases = JSON.parse(run(['release','list',...plan.repo,'--limit','1000','--json','tagName']).stdout);
-  if (releases.some(r=>r.tagName===plan.tag)) run(['release','edit',plan.tag,...plan.repo,'--prerelease','--latest=false','--title',plan.title]);
-  else run(['release','create',plan.tag,...plan.repo,'--prerelease','--latest=false','--title',plan.title,'--notes','Signed Android OTA channel. Normal APK/EXE releases keep Latest.']);
+  const exists = releases.some(r=>r.tagName===plan.tag);
+  const metadata = [...plan.repo,'--prerelease','--latest=false','--title',plan.title,`--notes=${plan.notes}`];
+  if (!exists) run(['release','create',plan.tag,...metadata]);
   // Hash-addressed payloads and versioned APKs stay available across channel changes.
   // Only the small metadata asset changes meaning. Do not delete/recreate the release.
   // Batch below GitHub/OS argument limits for applications with many files.
   for (let i=0;i<plan.payloads.length;i+=50) run(['release','upload',plan.tag,...plan.payloads.slice(i,i+50),...plan.repo,'--clobber']);
   run(['release','upload',plan.tag,plan.manifest,...plan.repo,'--clobber']);
+  if (exists) run(['release','edit',plan.tag,...metadata]);
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {

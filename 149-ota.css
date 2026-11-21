@@ -53,4 +53,10 @@
 }
 .lb149-banner[hidden] { display: none; }
 .lb149-banner small { flex-basis: 100%; color: var(--bb-muted); }
+.lb149-check-notice {
+    position: fixed;
+    z-index: 1000;
+    max-width: calc(100% - max(.75rem, var(--lb-safe-right)) - max(.75rem, var(--lb-safe-left)));
+}
+.lb149-check-notice [role="status"] { font-family: var(--bb-font-pixel); }
 [data-update-version][tabindex="0"] { cursor: pointer; user-select: none; -webkit-touch-callout: none; }

@@ -45,4 +45,18 @@ class DecisionTest {
     }
     @Test fun trialMustBecomeReadyBeforeAnotherUpdate() { assertEquals(Action.WAIT,decision(trial=true).action) }
     @Test fun alreadyStagedNotDownloadedAgain() { assertEquals(Action.WAIT,decision(pending="1.0.1").action) }
+    @Test fun startupRepairAlwaysAsksAndOnlyOffersCompatibleNewFixes() {
+        val fix = bundle("1.0.2", embedded.files + entry("large.bin", "x").copy(size = 25 * MIB))
+        fun repair(manifest: Manifest, failed: List<String> = emptyList(), blocked: List<String> = emptyList(), pending: String? = null) =
+            decide(manifest, embedded, embedded, 1, UpdateSettings(smallFixes = false, mobileLimitMb = 0),
+                false, failed, blocked, true, pending, startupRecovery = true)
+        assertEquals(Decision(Action.PROMPT, "Startup repair needs consent", 25 * MIB), repair(fix))
+        assertEquals(Action.PROMPT, repair(fix, pending = fix.version).action)
+        assertEquals(Action.WAIT, repair(fix, pending = "1.0.3").action)
+        assertEquals(Action.REJECT, repair(fix.copy(kind = "feature")).action)
+        assertEquals(Action.REJECT, repair(embedded).action)
+        assertEquals(Action.REJECT, repair(fix, failed = listOf(fix.version)).action)
+        assertEquals(Action.REJECT, repair(fix, blocked = listOf(fix.version)).action)
+        assertEquals(Action.FULL_APP, repair(fix.copy(minShellApi = 2)).action)
+    }
 }

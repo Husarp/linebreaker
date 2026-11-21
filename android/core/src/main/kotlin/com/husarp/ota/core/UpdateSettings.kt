@@ -30,11 +30,12 @@ fun migrateUpdateSettings(oldAutomatic: Boolean?) = UpdateSettings(
     smallFixes = oldAutomatic != false, majorUpdates = false
 )
 fun automaticDownload(settings: UpdateSettings, kind: String, bytes: Long, unmetered: Boolean, critical: Boolean = false): Boolean {
-    if (!settings.setupAnswered) return false
-    if (critical) return true
+    val smallFix = kind == "fix" && bytes <= SMALL_FIX_LIMIT
+    if (!settings.setupAnswered && !smallFix) return false
+    if (settings.setupAnswered && critical) return true
     val enabled = when {
         kind == "shell" -> settings.shellUpdates // Off: offer Later / Update; the user decides.
-        kind == "fix" && bytes <= SMALL_FIX_LIMIT -> settings.smallFixes
+        smallFix -> settings.smallFixes
         else -> settings.majorUpdates
     }
     return enabled && settings.allowsBytes(bytes, unmetered)

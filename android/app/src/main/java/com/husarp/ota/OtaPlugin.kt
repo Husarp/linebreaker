@@ -30,10 +30,15 @@ class OtaPlugin : Plugin() {
         updater.setSafeToInterrupt(safe); call.resolve()
     }
     @PluginMethod fun appReady(call: PluginCall) {
-        val accepted=updater.ready(call.getString("version") ?: "",call.getString("token") ?: "")
+        val accepted=updater.ready(call.getString("version") ?: "",call.getString("token") ?: "", call.getBoolean("checkNotices") == true)
         call.resolve(JSObject().put("accepted",accepted))
     }
-    @PluginMethod fun check(call: PluginCall) { updater.check(true); updater.shell.check(manual = true); call.resolve() }
+    @PluginMethod fun claimCheckNotice(call: PluginCall) {
+        val notice = if (updater.foreground && updater.gameCheckNotices() == true && call.getString("token") == updater.launch.token)
+            updater.checks.claim() else null
+        call.resolve(JSObject().put("message", notice?.failure?.message))
+    }
+    @PluginMethod fun check(call: PluginCall) { updater.retryChecks(); call.resolve() }
     @PluginMethod fun download(call: PluginCall) { updater.download(); call.resolve() }
     @PluginMethod fun restart(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).restartBundle() }; call.resolve() }
     @PluginMethod fun settings(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).showSettings() }; call.resolve() }

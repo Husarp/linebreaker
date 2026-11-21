@@ -32,11 +32,15 @@
       <form data-address><label for="lb154-update-address">Bundle update address</label><div class="lb149-actions"><input id="lb154-update-address" type="url" required><button class="lb-block-btn">Save address</button></div></form>
     </details>
     <label class="lb149-choice" hidden>Android update notifications <span class="lb-block-switch"><input type="checkbox" role="switch" data-notifications disabled><span class="toggle-slider"></span></span></label>
-    <p data-feedback role="status"></p><p data-status role="status"></p><div class="lb149-actions" data-section-actions></div>`;
+    <p data-feedback role="status"></p><p data-check-status role="status"></p><p data-status role="status"></p><div class="lb149-actions" data-section-actions></div>`;
   const banner = document.createElement('aside');
   banner.className = 'lb-block-panel lb149-banner';
   banner.hidden = true;
   menu.append(banner);
+  const checkNotice = document.createElement('aside');
+  checkNotice.className = 'lb-block-panel lb149-banner lb149-check-notice';
+  checkNotice.hidden = true;
+  document.body.append(checkNotice);
   settingsHost.append(section);
   const diagnostics = dialog('Update diagnostics', `<dl data-versions></dl><p data-state role="status"></p>
     <label class="lb149-choice">Automatic updates <span class="lb-block-switch"><input type="checkbox" role="switch" data-auto><span class="toggle-slider"></span></span></label>
@@ -139,6 +143,19 @@
     makeButton('Clear', async () => { await ota.clearUpdateLog(); logField.value = ''; feedback(diagnostics, 'Log cleared.'); }),
   );
   const retry = makeButton('CHECK NOW', check);
+  async function showCheckNotice(current) {
+    if (!ready || document.hidden || !current.updateChecks?.noticePending) return;
+    const { message } = await ota.claimCheckNotice({ token: current.token }).catch(() => ({}));
+    if (!message) return;
+    const title = document.createElement('span');
+    title.setAttribute('role', 'status');
+    checkNotice.replaceChildren(title,
+      makeButton('Retry', () => { checkNotice.hidden = true; void check(); }, true),
+      makeButton('Dismiss', () => { checkNotice.hidden = true; }));
+    checkNotice.hidden = false;
+    title.textContent = message;
+    setTimeout(() => { checkNotice.hidden = true; }, 15000);
+  }
   let currentAction;
   let notify = () => {};
   const getUpdate = makeButton('GET UPDATE', () => currentAction && run(currentAction), true);
@@ -313,7 +330,10 @@
     const transfer = current.webDownloadVersion ? current.webTransfer : current.shellTransfer;
     const progress = busy && transfer?.total ? ` · ${Math.floor(100 * transfer.done / transfer.total)}% · ${size(transfer.done)} / ${size(transfer.total)} · ${size(transfer.speed)}/s` : '';
     status(`${current.status} · ${current.shellStatus}${progress}`);
-    diagnostics.querySelector('[data-state]').textContent = `${current.trial ? 'Trial' : busy ? 'Downloading' : current.staged || current.shellReady ? 'Ready' : 'No staged update'}: ${section.querySelector('[data-status]').textContent}`;
+    const checkSummary = current.updateChecks?.summary ?? '';
+    section.querySelector('[data-check-status]').textContent = checkSummary;
+    retry.textContent = current.updateChecks?.failed ? 'Retry' : 'CHECK NOW';
+    diagnostics.querySelector('[data-state]').textContent = `${current.trial ? 'Trial' : busy ? 'Downloading' : current.staged || current.shellReady ? 'Ready' : 'No staged update'}: ${section.querySelector('[data-status]').textContent}${checkSummary ? ` · ${checkSummary}` : ''}`;
     renderPolicy(current.updateSettings);
     section.querySelector('[data-shell-version]').textContent = `App shell ${current.shellVersion}`;
     setupButton.hidden = current.updateSettings?.setupAnswered !== false;
@@ -373,7 +393,7 @@
       if (shellUpgrade && !notice) notice = { to: shellUpgrade, notes: current.shellNotes };
       shellUpgrade = null;
       render(current);
-      return reloadLog();
+      return Promise.all([reloadLog(), showCheckNotice(current)]);
     }).finally(() => { refreshing = null; });
     return refreshing;
   }
@@ -381,13 +401,13 @@
     const initial = await ota.info();
     state = initial;
     if (initial.webVersion !== bundle.version || !initial.token) return;
-    attachVersion(bundle.version, openShell);
-    render(initial);
-    if (!initial.updateSettings.setupAnswered) openSettings(false);
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     await window.flushLinebreakerSave?.();
-    if (!(await ota.appReady({ version: bundle.version, token: initial.token })).accepted) return;
+    if (!(await ota.appReady({ version: bundle.version, token: initial.token, checkNotices: true })).accepted) return;
     void window.resumeLinebreakerOtaWrites?.()?.catch(error => console.warn('Could not resume save writes:', error));
+    attachVersion(bundle.version, openShell);
+    render(initial);
+    if (initial.updateSettings?.setupAnswered === false) openSettings(false);
     ready = true;
     shellUpgrade = startupUpgrade(localStorage, 'lb149:shell', initial.shellVersion);
     if (Number.isSafeInteger(initial.runningShellVersionCode)) {
