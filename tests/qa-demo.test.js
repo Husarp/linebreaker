@@ -5,6 +5,27 @@ import { loadGame } from './loader.js';
 let game;
 afterEach(() => game?.close());
 
+it('opens the settings shell before syncing controls, remembers tabs, and cancels a closed screen fill', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => { window.__testDeferredScreens = true; });
+  const { w, advance } = game;
+  const selected = () => w.document.querySelector('[data-settings-tab][aria-selected="true"]').dataset.settingsTab;
+  const controls = w.document.getElementById('settings-controls');
+  const opened = w.openSettings(false, 'updates');
+  expect(selected()).toBe('updates');
+  expect(w.document.querySelector('#settings-updates').hidden).toBe(false);
+  w.closeSettings();
+  advance(16); advance(16);
+  await opened;
+  const reopened = w.openSettings();
+  expect(selected()).toBe('updates');
+  w.document.querySelector('[data-settings-tab="controls"]').click();
+  expect(selected()).toBe('controls');
+  expect(controls.hidden).toBe(false);
+  advance(16); advance(16);
+  await reopened;
+  w.closeSettings();
+});
+
 const fileFor = {
   'data/missions.json': 'data/missions.json',
   'data/season.json': 'data/season.json',
@@ -12,11 +33,24 @@ const fileFor = {
 };
 const fetchDemoAssets = async path => ({ ok: Boolean(fileFor[path]), json: async () => JSON.parse(readFileSync(new URL(`../${fileFor[path]}`, import.meta.url))) });
 
-it.each(['?dev', '?demo'])('does not enable the QA API with %s alone', async query => {
+it.each(['?dev&cutout', '?demo&cutout'])('does not enable the QA API or mock cutout with %s', async query => {
   const invoke = vi.fn().mockResolvedValue(null);
   game = await loadGame(false, invoke, null, undefined, null, window => window.history.replaceState(null, '', query));
   expect(game.w.__LB_QA).toBeUndefined();
+  expect(game.w.document.documentElement.hasAttribute('data-lb-qa-cutout')).toBe(false);
   expect(invoke).toHaveBeenCalledWith('load_save');
+});
+
+it('mocks a legacy safe-area inset in QA without a native cutout API', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => {
+    window.history.replaceState(null, '', '?dev&demo&cutout');
+  });
+  const { w } = game;
+  const root = w.document.documentElement;
+  expect(root.hasAttribute('data-lb-qa-cutout')).toBe(true);
+  expect(root.style.getPropertyValue('--safe-area-inset-top')).toBe('40px');
+  expect(root.dataset.lbCutout).toBeUndefined();
+  expect(w.__lbWindowInsets).toBeUndefined();
 });
 
 it.each(['browser', 'desktop', 'android'])('never accesses real saves or save preferences in %s demo mode', async platform => {
@@ -106,7 +140,9 @@ it('opens the documented screenshot targets through real UI handlers', async () 
   const { w, advance } = game;
   const targets = {
     menu: '#menu-overlay', play: '#mode-select-overlay', 'play-fun': '#mode-select-overlay[data-mode="fun"]',
-    settings: '#settings-overlay', inventory: '[data-invtab-content="blocks"]',
+    settings: '#settings-game', 'settings-controls': '#settings-controls', 'settings-audio': '#settings-audio',
+    'settings-display': '#settings-display', 'settings-updates': '#settings-updates', 'settings-about': '#settings-about',
+    'whats-new-notice': '.lb184-banner', inventory: '[data-invtab-content="blocks"]',
     'inventory-colors': '[data-invtab-content="colors"]', 'inventory-other': '[data-invtab-content="other"]',
     stats: '#general-stats-container', leaderboard: '#leaderboard-container', pinned: '#pinned-container', highscores: '#highscores-container',
     missions: '#missions-overlay', 'missions-weekly': '#missions-overlay', 'mission-confirm': '#mq-confirm-overlay',
@@ -143,7 +179,8 @@ it('shows the level and rank division in level rewards and crates', async () => 
   await w.__LB_QA.open('level-up');
   const popup = w.document.querySelector('#level-up-popup-overlay');
   expect(popup.querySelector('.lb105-level-rank').textContent).toBe('Gold IX');
-  expect(popup.querySelector('[aria-label="Level 30"]').textContent).toBe('30');
+  expect(popup.querySelector('.lb105-level-emblem span')).toBeNull();
+  expect(popup.querySelector('.lb105-level-emblem + .lb105-level-value').textContent).toBe('Level 30');
   expect(popup.querySelector('.lb105-level-emblem polygon').getAttribute('points').split(' ')).toHaveLength(5);
   const universal = popup.querySelector('.lb-block-reward > img[src$="universal-part-128.png"]').closest('.lb-block-reward');
   expect(universal.querySelector('.lb-block-reward-amount').textContent).toBe('×2');
@@ -151,6 +188,27 @@ it('shows the level and rank division in level rewards and crates', async () => 
   expect(popup.isConnected).toBe(false);
   await w.__LB_QA.open('level-crate');
   expect(w.document.querySelector('#level-box-overlay h2').textContent).toBe('Gold IX milestone reward');
+});
+
+it('shows the compact reset time above daily and weekly cards but not on Season', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
+  const { w, advance } = game;
+  const countdown = w.document.querySelector('#mq-countdown');
+  const timer = countdown.querySelector('time');
+  const dailyRemaining = (5 * 60 + 12) * 60;
+  const weeklyRemaining = dailyRemaining + 2 * 86400;
+  w.LBNotifications.nextReset = (now, weekly) => +now + (weekly ? weeklyRemaining : dailyRemaining) * 1000;
+  await w.__LB_QA.open('missions');
+  expect(countdown.nextElementSibling.id).toBe('missions-body');
+  expect(countdown.hidden).toBe(false);
+  expect(timer.textContent).toBe('5h 12m');
+  expect(timer.dateTime).toBe('P0DT5H12M0S');
+  w.document.querySelector('#missions-overlay [data-tab="weekly"]').click();
+  advance(1000);
+  expect(timer.textContent).toBe('2d 5h 12m');
+  expect(timer.dateTime).toBe('P2DT5H12M0S');
+  w.document.querySelector('#missions-overlay [data-tab="season"]').click();
+  expect(countdown.hidden).toBe(true);
 });
 
 it('updates the open season countdown at precision boundaries and rollover', async () => {

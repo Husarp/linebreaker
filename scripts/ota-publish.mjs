@@ -6,19 +6,14 @@ import crypto from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {config, root} from './ota-config.mjs';
+import {assertMatchingWeb, preparedBundle, readApkWeb, readSignedManifest, stagedApkWeb} from './ota-consistency.mjs';
 export function publishPlan(kind, version, c = config, base = root) {
   const web = kind === 'bundle';
   if (!['bundle','shell'].includes(kind) || !(web ? /^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$/ : /^[1-9][0-9]{0,9}$/).test(version || '') || (!web && Number(version) > 2100000000)) throw new Error('Specify a prepared bundle version or shell versionCode');
   const tag = c.channels[kind];
   const dir = path.join(base, 'dist', web ? version : `shell-${version}`);
   const manifest = path.join(dir, web ? c.artifacts.manifest : c.artifacts.shellManifest);
-  const envelope = JSON.parse(fs.readFileSync(manifest));
-  const payload = Buffer.from(envelope.payload,'base64');
-  // Provisioned public key only: publishing never needs the private key.
-  const publicFile = c.signing.publicKey.startsWith('~/') ? path.join(process.env.HOME,c.signing.publicKey.slice(2)) : path.resolve(base,c.signing.publicKey);
-  const key = crypto.createPublicKey({key:{kty:'OKP',crv:'Ed25519',x:Buffer.from(fs.readFileSync(publicFile,'utf8').trim(),'base64').toString('base64url')},format:'jwk'});
-  if (!crypto.verify(null,payload,key,Buffer.from(envelope.signature,'base64'))) throw new Error('Prepared metadata signature invalid');
-  const m = JSON.parse(payload);
+  const m = readSignedManifest(manifest, c, base);
   if (web ? m.version !== version : m.versionCode !== Number(version)) throw new Error('Prepared metadata version mismatch');
   const names = web ? [...new Set(m.files.map(f=>f.asset))].filter(name=>fs.existsSync(path.join(dir,name))) : [m.apk];
   if (!web && m.apk !== c.artifacts.apk.replaceAll('{code}', version)) throw new Error('APK name/config mismatch');
@@ -27,6 +22,15 @@ export function publishPlan(kind, version, c = config, base = root) {
     const bytes = fs.readFileSync(path.join(dir,name));
     const entry = web ? m.files.find(f=>f.asset===name) : m;
     if (bytes.length !== entry.size || crypto.createHash('sha256').update(bytes).digest('hex') !== entry.sha256) throw new Error(`Prepared asset changed: ${name}`);
+  }
+  if (web) {
+    for (const {apk, manifest: baked} of stagedApkWeb(c, base)) assertMatchingWeb(baked, m, apk);
+  } else {
+    const apk = path.join(dir, m.apk);
+    const baked = readApkWeb(apk);
+    if (baked.version !== m.embeddedWebVersion) throw new Error('Shell metadata/embedded web version mismatch');
+    const bundle = preparedBundle(baked.version, c, base);
+    if (bundle) assertMatchingWeb(baked, bundle, apk);
   }
   const repo = ['--repo',`${c.github.owner}/${c.github.repo}`];
   return {tag, repo, title:web ? `Live update ${m.version} (Android app bundle channel)` : `Android app ${m.versionName} (shell channel)`, notes:web ? m.message : m.notes,

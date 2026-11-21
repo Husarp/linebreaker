@@ -2,9 +2,14 @@ import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { config } from '../scripts/ota-config.mjs';
 import { executePublish, publishPlan } from '../scripts/ota-publish.mjs';
+
+vi.mock(import('../scripts/ota-consistency.mjs'), async importOriginal => ({
+  ...await importOriginal(),
+  readApkWeb: () => ({ version: '1.0.2', files: [] }),
+}));
 
 it.each([
   ['bundle', '1.0.3', 'Live update 1.0.3 (Android app bundle channel)', 'Fix notes\nSecond line'],
@@ -22,7 +27,7 @@ it.each([
     const sha256 = createHash('sha256').update(bytes).digest('hex');
     const asset = web ? `f-${sha256}.bin` : `LinebreakerShell-${version}.apk`;
     const metadata = web ? { version, message: notes, files: [{ asset, sha256, size: bytes.length }] }
-      : { versionName: '1.0.2', versionCode: Number(version), apk: asset, notes, sha256, size: bytes.length };
+      : { versionName: '1.0.2', versionCode: Number(version), embeddedWebVersion: '1.0.2', apk: asset, notes, sha256, size: bytes.length };
     const payload = Buffer.from(JSON.stringify(metadata));
     writeFileSync(path.join(dir, asset), bytes);
     writeFileSync(path.join(dir, web ? c.artifacts.manifest : c.artifacts.shellManifest), JSON.stringify({

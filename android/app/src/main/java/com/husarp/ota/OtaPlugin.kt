@@ -16,7 +16,9 @@ class OtaPlugin : Plugin() {
         catch(e: Exception) { call.reject(e.message ?: "Invalid settings") }
     }
     @PluginMethod fun downloadShell(call: PluginCall) {
-        activity.runOnUiThread { (activity as MainActivity).installWithNotificationPermission { updater.shell.check(true) } }; call.resolve()
+        if (call.getBoolean("downloadOnly") == true) updater.shell.check(consent = true, downloadOnly = true)
+        else activity.runOnUiThread { (activity as MainActivity).installWithNotificationPermission { updater.shell.check(true) } }
+        call.resolve()
     }
     @PluginMethod fun info(call: PluginCall) { call.resolve(updater.info()) }
     @PluginMethod fun getState(call: PluginCall) { call.resolve(updater.info()) }
@@ -53,5 +55,7 @@ class OtaPlugin : Plugin() {
     }
     @PluginMethod fun clearUpdateLog(call: PluginCall) { updater.engine.log.clear(); call.resolve() }
     @PluginMethod fun confirmReset(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).confirmReset() }; call.resolve() }
-    @PluginMethod fun openReleases(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).openReleases() }; call.resolve() }
+    @PluginMethod fun openReleases(call: PluginCall) { activity.runOnUiThread {
+        if ((activity as MainActivity).openReleases()) call.resolve() else call.reject("No browser available")
+    } }
 }

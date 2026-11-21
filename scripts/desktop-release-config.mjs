@@ -26,10 +26,14 @@ export async function readVersions() {
   const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
   const [config, cargo, npm, lock] = await Promise.all(Object.values(projectFiles).map(read));
   const files = { config: JSON.parse(config), cargo, npm: JSON.parse(npm), lock: JSON.parse(lock) };
-  const version = files.config.version;
-  if (typeof version !== 'string' || !stableVersion(version) ||
-    [cargoVersionLine(cargo)?.[1], files.npm.version, files.lock.version, files.lock.packages[''].version]
-      .some(value => value !== version)) throw Error('Tauri, Cargo, npm and npm lock versions must match');
+  const desktopVersion = files.config.version;
+  const webVersion = files.npm.version;
+  if (!stableVersion(desktopVersion) || cargoVersionLine(cargo)?.[1] !== desktopVersion) {
+    throw Error('Tauri and Cargo versions must match');
+  }
+  if (!stableVersion(webVersion) || files.lock.version !== webVersion || files.lock.packages[''].version !== webVersion) {
+    throw Error('npm and npm lock versions must match');
+  }
   return files;
 }
 

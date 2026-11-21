@@ -13,6 +13,7 @@ export function buildWeb(out, version = config.build.webVersion, message = confi
   if (path.resolve(out) === source || path.resolve(out).startsWith(source + path.sep)) throw new Error('Bundle output must be outside its source directory');
   execFileSync(process.execPath, ['scripts/build-web.mjs'], { cwd: root, stdio: 'inherit' });
   fs.cpSync(source, out, { recursive: true });
+  for (const file of ['cordova.js', 'cordova_plugins.js']) fs.closeSync(fs.openSync(path.join(out, file), 'a'));
   fs.writeFileSync(path.join(out, 'version.js'), `window.BUNDLE = ${JSON.stringify({ version, message, releasedAt })};\n`);
 }
 

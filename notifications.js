@@ -72,7 +72,7 @@
                 const { exact_alarm: exactAlarm } = await bounded('Checking exact alarms', () => plugin.checkExactNotificationSetting());
                 const notifications = [];
                 const add = (key, schedule) => notifications.push({
-                    ...reminders[key], schedule, isExactNotification: exactAlarm === 'granted'
+                    ...reminders[key], smallIcon: 'ic_stat_linebreaker', schedule, isExactNotification: exactAlarm === 'granted'
                 });
                 if (prefs.daily) add('daily', { on: midnight });
                 if (prefs.weekly) add('weekly', { on: { ...midnight, weekday: monday } });

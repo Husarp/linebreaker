@@ -284,6 +284,7 @@ class Updater(private val context: Context, val engine: Engine, private val veri
                 engine.log.add("Signature/check/download error: ${e.javaClass.simpleName}: ${e.message}")
                 message(if (e is CheckException) e.failure.message else "Update processing failed. See Logs.")
             } finally {
+                webDownloadVersion = null; transfer = null
                 busy.set(false); engine.log.add("Check finished", (System.nanoTime()-started)/1_000_000); changed()
             }
         }
@@ -297,7 +298,7 @@ class Updater(private val context: Context, val engine: Engine, private val veri
         worker.execute {
             try { install(selected, true) } catch (e: Exception) {
                 engine.log.add("Error downloading: ${e.message}"); message("Download failed; retry Check now. See Logs.")
-            } finally { busy.set(false); consentDownloading = false; changed() }
+            } finally { webDownloadVersion = null; transfer = null; busy.set(false); consentDownloading = false; changed() }
         }
     }
     internal data class StartupFix(val token: String, val staged: Boolean, val source: DownloadedManifest)

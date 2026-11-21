@@ -9,11 +9,9 @@
 #season-pass-overlay [hidden] { display: none !important; }
 #season-pass-overlay .sp-header h1 { font-family: var(--bb-font-pixel); }
 #season-pass-overlay #sp-days { color: var(--text); }
-#season-pass-overlay .sp-points p { font-size: var(--text-sm); }
 #season-pass-overlay .sp-meter { gap: 4px; }
 #season-pass-overlay .sp-meter progress { border-color: var(--bb-edge); background: var(--bb-well); }
 #season-pass-overlay .sp-meter progress::-webkit-progress-bar { background: var(--bb-well); }
-#season-pass-overlay #sp-next { color: var(--accent-bright); }
 #season-pass-overlay .sp-notice { top: var(--sp-fade); }
 
 #season-pass-overlay .sp-track {
@@ -70,14 +68,26 @@
     color: var(--text-muted);
 }
 
-#season-pass-overlay .sp-card:is([data-state="locked"], [data-state="future"]) :is(.sp-reward-icon, .sp-threshold) {
+#season-pass-overlay .sp-card:is([data-state="locked"], [data-state="future"]) .sp-threshold {
     color: var(--text-muted);
     filter: grayscale(1);
+}
+#season-pass-overlay .sp-reward-icon { width: 64px; object-fit: contain; }
+#season-pass-overlay .sp-card[data-tier="common"] .sp-tier { color: var(--text-muted); }
+#season-pass-overlay .sp-card:is([data-tier="rare"], [data-tier="epic"], [data-tier="legendary"], [data-tier="exclusive"]) .sp-tier {
+    color: var(--sp-rarity);
+}
+#season-pass-overlay .sp-card[data-tier="rare"] { --sp-rarity: var(--rarity-rare); }
+#season-pass-overlay .sp-card[data-tier="epic"] { --sp-rarity: var(--rarity-epic); }
+#season-pass-overlay .sp-card[data-tier="legendary"] { --sp-rarity: var(--rarity-legendary); }
+#season-pass-overlay .sp-card[data-tier="exclusive"] { --sp-rarity: var(--rarity-mythic); }
+#season-pass-overlay .sp-card:is([data-tier="legendary"], [data-tier="exclusive"]) .sp-reward-icon {
+    filter: drop-shadow(0 0 5px var(--sp-rarity));
 }
 
 @media (orientation: portrait), (max-width: 699px) {
     #season-pass-overlay .sp-shell { gap: 12px; }
-    #season-pass-overlay :is(.sp-header, .sp-points, .sp-highlight) { padding: 12px; gap: 8px; }
+    #season-pass-overlay :is(.sp-header, .sp-highlight) { padding: 12px; gap: 8px; }
     #season-pass-overlay .sp-header h1 { font-size: 21px; }
     #season-pass-overlay .sp-days { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
     #season-pass-overlay h2 { font-size: 19px; }

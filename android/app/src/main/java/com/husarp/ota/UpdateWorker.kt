@@ -16,6 +16,7 @@ class UpdateWorker(context: Context, params: WorkerParameters) : Worker(context,
         val shell=updater.shell.check()
         return try {
             web?.get(); shell.get()
+            ShellUpdatedNotification.postWorkerOffers(applicationContext, updater)
             updater.engine.log.add("WorkManager finished",(System.nanoTime()-start)/1_000_000)
             if(updater.lastCheckSucceeded && updater.shell.lastCheckSucceeded) Result.success() else {
                 updater.engine.log.add("WorkManager retry requested after failed check/download (network constraint + backoff)")
@@ -76,6 +77,7 @@ class CriticalCheckWorker(context: Context, params: WorkerParameters) : Worker(c
             (if(inputData.getString("reason") == null) updater.updateSettings().periodicHours == null else !updater.updateSettings().checksOnOpen)) return Result.success()
         return try {
             updater.check()?.get()
+            ShellUpdatedNotification.postWorkerOffers(applicationContext, updater)
             if(updater.lastCheckSucceeded) Result.success() else Result.retry()
         } catch(_: Exception) { Result.retry() }
     }

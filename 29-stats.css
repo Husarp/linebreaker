@@ -148,14 +148,13 @@
 #stats-overlay .lb-stats-table thead { color: var(--text-muted); }
 #stats-overlay .lb-stats-table :is(th, td):last-child { text-align: end; }
 
-#score-pin-popup {
-    position: fixed;
-    z-index: 2200;
-    cursor: pointer;
-    background: var(--surface-1);
-    font: 700 var(--text-body)/var(--leading) var(--font-body);
-    box-shadow: var(--shadow);
-}
+#lb-tooltip-global { min-width: min(13rem, calc(100vw - 20px)); pointer-events: auto; }
+.lb-score-info-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.lb-score-info-details { display: grid; gap: 4px; margin-block-start: 6px; }
+.lb-score-info-details svg { vertical-align: middle; }
+#score-pin-popup[aria-pressed="true"] { --bb-button-ink: var(--accent-bright); }
+#score-pin-popup[aria-pressed="true"] svg { fill: currentColor; }
+#stats-overlay .lb-current-tag { font: .55rem/1.4 var(--bb-font-pixel); letter-spacing: .04em; }
 
 @media (min-width: 600px) {
     #stats-overlay .lb-stats-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }

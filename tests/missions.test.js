@@ -5,6 +5,25 @@ let game, api;
 beforeEach(async () => { game = await loadGame(); api = game.api; api.setup(); });
 afterEach(() => game?.close());
 
+it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])('claims points from the %s card reward action', async (tab, list, points) => {
+  api.refreshMissions();
+  const save = api.save;
+  const mission = save.missions[tab][list][0];
+  const total = save.missions[tab][points];
+  Object.assign(mission, { progress: mission.target, completed: true, ptsClaimed: false });
+  api.setSave(save);
+  await game.w.openMissions(tab);
+
+  const card = () => game.w.document.querySelector('[data-mission-slot="0"]');
+  const claim = card().querySelector('.mq-card-action--claim > button.lb-block-btn--primary');
+  expect(claim.textContent).toBe(`Claim +${mission.pts} pts`);
+  game.w.Function(claim.getAttribute('onclick')).call(claim);
+  game.advance(1000);
+  expect(api.save.missions[tab][points]).toBe(total + mission.pts);
+  expect(api.save.missions[tab][list][0].ptsClaimed).toBe(true);
+  expect(game.w.document.querySelector('#missions-body .mq-pts-claim-btn')).toBeNull();
+});
+
 it.each([
   ['daily', 'pointsToday', 10, 6, 9, 12],
   ['weekly', 'points', 100, 60, 90, 120],
@@ -25,8 +44,69 @@ it.each([
   expect(done.querySelector('img').getAttribute('src')).toBe(`assets/ui/crates/${LBCrates.missionRarity(claimed, tab === 'weekly')}.png`);
   expect(done.querySelector('.mq-ms-claimed')).not.toBeNull();
   expect(future.getAttribute('aria-label')).toBe(`${locked} points: locked crate`);
-  expect(future.querySelector('.mq-ms-crate--locked').getAttribute('src')).toBe('assets/ui/crates/common.png');
+  expect(future.querySelector('.mq-ms-crate--locked').getAttribute('src')).toBe(`assets/ui/crates/${tab === 'daily' ? 'mythic' : 'common'}.png`);
   expect(selector(locked, 'button')).toBeNull();
+});
+
+it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])('replaces one %s mission and spends only its free swap without an animation', (tab, list, points) => {
+  api.refreshMissions();
+  const save = api.save;
+  const period = save.missions[tab];
+  const before = period[list].map(mission => mission.id);
+  const parts = save.universalParts;
+  const total = period[points];
+  game.w.renderMissionsOverlay(tab);
+  const { document } = game.w;
+  const toggle = () => document.querySelector('#mq-change-toggle');
+  const select = () => {
+    const button = document.querySelector('.mq-change-overlay');
+    const index = Number(button.closest('[data-mission-slot]').dataset.missionSlot);
+    game.w._changeMission(index, tab === 'weekly');
+    return index;
+  };
+  expect(toggle().classList.contains('btn-secondary')).toBe(true);
+  game.w._toggleChangeMode();
+  const index = select();
+  const tier = period[list][index].tier;
+  document.querySelector('#mq-confirm-cancel').click();
+  const current = () => api.save.missions[tab];
+  expect(current().changeUsed).toBe(false);
+  expect(current()[list].map(mission => mission.id)).toEqual(before);
+  select();
+  document.querySelector('#mq-confirm-ok').click();
+  expect(document.querySelector('#mq-confirm-overlay').classList.contains('hidden')).toBe(true);
+  expect(current().changeUsed).toBe(true);
+  expect(toggle().disabled).toBe(true);
+  expect(current()[list][index]).toMatchObject({ tier, progress: 0, completed: false, ptsClaimed: false });
+  expect(current()[list][index].id).not.toBe(before[index]);
+  expect(current()[list].filter((mission, slot) => slot !== index).map(mission => mission.id)).toEqual(before.filter((_, slot) => slot !== index));
+  expect(current()[points]).toBe(total);
+  expect(api.save.universalParts).toBe(parts);
+  expect(api.save.missions[tab === 'daily' ? 'weekly' : 'daily'].changeUsed).toBe(false);
+  const after = current()[list][index];
+  game.w._changeMission(index, tab === 'weekly');
+  document.querySelector('#mq-confirm-ok').click();
+  expect(current()[list][index]).toEqual(after);
+});
+
+it('greys the weekly golden-zone crate until points exceed 180 and keeps the universal-parts claim', () => {
+  api.refreshMissions();
+  const save = api.save;
+  const weekly = save.missions.weekly;
+  const { document } = game.w;
+  weekly.points = 180;
+  weekly.pendingUniversalParts = 0;
+  api.setSave(save);
+  game.w.renderMissionsOverlay('weekly');
+  const locked = document.querySelector('[data-mqctip]');
+  expect(locked.getAttribute('aria-label')).toContain('180+ points');
+  expect(locked.querySelector('.mq-ms-crate--locked').src).toContain('/crates/mythic.png');
+  weekly.points++;
+  weekly.pendingUniversalParts = 1;
+  api.setSave(save);
+  game.w.renderMissionsOverlay('weekly');
+  const claim = [...document.querySelectorAll('.mq-ms-claim-btn')].find(button => button.getAttribute('aria-label').startsWith('Collect +1 Universal Part'));
+  expect(claim.querySelector('img').src).toContain('/crates/mythic.png');
 });
 
 it('rolls full daily and weekly sets without repeated objectives', () => {

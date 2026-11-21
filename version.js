@@ -1,1 +1,1 @@
-window.BUNDLE = null;
+window.BUNDLE = { version: '1.1.2' };

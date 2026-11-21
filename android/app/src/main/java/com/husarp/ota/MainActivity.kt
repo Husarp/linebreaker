@@ -44,7 +44,10 @@ class MainActivity : BridgeActivity() {
     private var resumed = false
     private var recoveryDialog: AlertDialog? = null
     private var refreshRecoveryCheck: (() -> Unit)? = null
-    private var checkFailureDialog: AlertDialog? = null
+    private var updateBanner: NativeUpdateBanner? = null
+    private var maintenanceBanner: NativeUpdateBanner? = null
+    private var activeBannerKey: String? = null
+    private val transientBanners = mutableListOf<UpdateBannerItem>()
     private var applyingStartupFix = false
     private lateinit var activityLaunchToken: String
     private var loadingOverlay: View? = null
@@ -69,7 +72,6 @@ class MainActivity : BridgeActivity() {
             logDialog == null && !isFinishing && !isDestroyed) showStartupRecovery(reason)
         if (resumed && awake) {
             refreshRecoveryCheck?.invoke()
-            if (updater.gameCheckNotices() == false) showCheckFailure()
         }
         if (delay != null) handler.postDelayed(recoveryTick, delay.coerceAtLeast(1))
     }
@@ -140,22 +142,11 @@ class MainActivity : BridgeActivity() {
         if (updater.launch.version != updater.engine.embedded.version) box.addView(reset)
         box.addView(wait); box.addView(shell)
         box.addView(copy)
-        nativeMessageDialog?.dismiss()
+        updateBanner?.clear()
         dialog.setOnDismissListener {
             if (recoveryDialog === dialog) { recoveryDialog = null; refreshRecoveryCheck = null }
         }
         recoveryDialog = dialog; dialog.show()
-    }
-    private fun showCheckFailure() {
-        if (isFinishing || isDestroyed || recoveryDialog != null || debugDialog != null || logDialog != null ||
-            nativeMessageDialog != null || checkFailureDialog != null) return
-        val notice = updater.checks.claim() ?: return
-        checkFailureDialog = AlertDialog.Builder(this).setMessage(notice.failure.message)
-            .setPositiveButton("Retry") { _, _ -> updater.retryCheck(notice.channel) }
-            .setNeutralButton("Open shell") { _, _ -> showSettings() }
-            .setNegativeButton("Dismiss", null)
-            .setOnDismissListener { checkFailureDialog = null }
-            .show()
     }
     private fun startupFailed(reason: String) {
         updater.watchdog.failed(activityLaunchToken, reason)
@@ -169,6 +160,7 @@ class MainActivity : BridgeActivity() {
         }
     }
     override fun onCreate(savedInstanceState: Bundle?) {
+        ShellUpdatedNotification.enterForeground(this)
         updater.prepareLaunch()
         activityLaunchToken = updater.launch.token
         registerPlugin(OtaPlugin::class.java)
@@ -217,6 +209,7 @@ class MainActivity : BridgeActivity() {
             addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_USER_PRESENT)
         })
         val webFrame = findViewById<FrameLayout>(android.R.id.content)
+        updateBanner = NativeUpdateBanner(webFrame, ::dismissUpdateBanner)
         loadingOverlay = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(16.dp,12.dp,16.dp,12.dp); setBackgroundColor(Color.WHITE)
@@ -230,10 +223,16 @@ class MainActivity : BridgeActivity() {
         }
         webFrame.addView(loadingOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         updater.onChange = { if (!isFinishing) { refreshRecovery(); refreshDebugSettings?.invoke(); if (resumed) updater.shell.presentRequestedAndroidUi(this); showNativeMessages() } }
-        updater.onToast = { text -> if (!isFinishing) Toast.makeText(this, text, Toast.LENGTH_LONG).show() }
+        updater.onToast = { text ->
+            if (!isFinishing) {
+                transientBanners.add(UpdateBannerItem("message:$text", "Please wait", text))
+                showNativeMessages()
+            }
+        }
     }
     private fun setupEdgeToEdge(web: WebView) {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
+        WindowCompat.enableEdgeToEdge(window)
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
         if (Build.VERSION.SDK_INT >= 28) {
@@ -247,11 +246,15 @@ class MainActivity : BridgeActivity() {
             window.isStatusBarContrastEnforced = false
             window.isNavigationBarContrastEnforced = false
         }
-        val decor = window.decorView
-        ViewCompat.setOnApplyWindowInsetsListener(decor) { view, insets ->
+        val webHost = web.parent as View
+        findViewById<View>(android.R.id.content).fitsSystemWindows = false
+        webHost.fitsSystemWindows = false
+        web.fitsSystemWindows = false
+        ViewCompat.setOnApplyWindowInsetsListener(webHost) { view, insets ->
             safeArea = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             systemTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
             cutoutRects = insets.displayCutout?.boundingRects.orEmpty()
+            showNativeMessages()
             val keyboardOverlays = (window.attributes.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST) ==
                 WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
             val keyboard = if (keyboardOverlays) 0 else insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
@@ -260,7 +263,7 @@ class MainActivity : BridgeActivity() {
             WindowInsetsCompat.Builder(insets).setInsets(WindowInsetsCompat.Type.ime(), Insets.NONE)
                 .setVisible(WindowInsetsCompat.Type.ime(), false).build()
         }
-        ViewCompat.requestApplyInsets(decor)
+        ViewCompat.requestApplyInsets(webHost)
     }
     private fun injectSafeArea(web: WebView) {
         val density = resources.displayMetrics.density
@@ -287,11 +290,14 @@ class MainActivity : BridgeActivity() {
     }
     private fun hideSystemBars() {
         val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightNavigationBars = false
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller.hide(WindowInsetsCompat.Type.systemBars())
     }
     override fun onStart() {
         super.onStart()
+        ShellUpdatedNotification.enterForeground(this)
         updater.setForeground(true)
 
     }
@@ -308,6 +314,7 @@ class MainActivity : BridgeActivity() {
     }
     override fun onStop() {
         updater.setForeground(false)
+        ShellUpdatedNotification.leaveForeground()
 
         super.onStop()
     }
@@ -327,13 +334,20 @@ class MainActivity : BridgeActivity() {
     }
     private val Int.dp get() = (this * resources.displayMetrics.density).toInt()
     fun restartBundle(reset: Boolean = false, startupRecovery: Boolean = false) { updater.restart(reset, startupRecovery) { recreate() } }
-    fun openReleases() {
-        try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.RELEASES_URL))) }
-        catch (e: android.content.ActivityNotFoundException) { Toast.makeText(this,"No browser available",Toast.LENGTH_LONG).show() }
+    fun openReleases(): Boolean {
+        try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.RELEASES_URL))); return true }
+        catch (e: android.content.ActivityNotFoundException) {
+            updater.engine.log.add("Could not open releases: ${e.message}")
+            if (updater.gameCheckNotices() != true) {
+                transientBanners.add(UpdateBannerItem("releases", "Could not open GitHub", "There’s no browser available to open the releases page."))
+                showNativeMessages()
+            }
+            return false
+        }
     }
     fun confirmReset(startupRecovery: Boolean = false) {
         AlertDialog.Builder(this).setTitle("Reset to built-in version?")
-            .setMessage("Downloaded web bundles will be removed and update setup will appear again. Your saves stay.")
+            .setMessage("This removes downloaded updates and shows update setup again. Your saves stay.")
             .setPositiveButton("Reset") { _, _ ->
                 restartBundle(reset = true, startupRecovery = startupRecovery && updater.watchdog.reason != null)
             }.setNegativeButton("Cancel", null).show()
@@ -343,20 +357,19 @@ class MainActivity : BridgeActivity() {
     fun showSettings() {
         if (debugDialog?.isShowing == true) return
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp,8.dp,20.dp,8.dp) }
-        val versions = TextView(this).apply { text = "App / shell ${BuildConfig.VERSION_NAME}\nshellApi ${BuildConfig.SHELL_API}\nWeb ${updater.launch.version}\nEmbedded ${updater.engine.embedded.version}" }
+        val versions = TextView(this).apply { text = "Playing version ${updater.launch.version}\nAndroid app ${BuildConfig.VERSION_NAME}" }
         val initial = updater.settingsJson()
         val switches = linkedMapOf<String, Switch>()
         val choices = linkedMapOf<String, Pair<Spinner, List<String>>>()
         box.addView(versions)
-        box.addView(TextView(this).apply { text = "State: ${updater.status}\nShell: ${updater.shell.status}" })
-        val checkStatus = TextView(this).apply { text = updater.checks.summary() }
+        val checkStatus = TextView(this).apply { text = if (updater.checks.hasError()) "Could not check for updates" else "" }
         val checkHelp = Button(this).apply {
             text = "ⓘ"
             contentDescription = "Update connection help"
             visibility = if (updater.checks.hasError()) View.VISIBLE else View.GONE
             setOnClickListener {
                 AlertDialog.Builder(this@MainActivity).setTitle("Update connection help")
-                    .setMessage("Sign in to public Wi-Fi, or try mobile data.\n\nIf the update server refuses requests, wait and retry or try an unrestricted network.\n\nCheck your device date and time and make sure the bundle update address is correct.")
+                    .setMessage("Sign in to public Wi-Fi or try mobile data. Check your device date and time, then try again.")
                     .setPositiveButton("Close", null).show()
             }
         }
@@ -367,7 +380,7 @@ class MainActivity : BridgeActivity() {
         })
         listOf("smallFixes" to "Small fixes: install automatically",
             "majorUpdates" to "New versions and big fixes: install automatically without asking",
-            "shellUpdates" to "App (shell) updates: install automatically").forEach { (key,label) ->
+            "shellUpdates" to "App updates: install automatically").forEach { (key,label) ->
             val control = Switch(this).apply { text = label; isChecked = initial.getBoolean(key) }
             switches[key] = control; box.addView(control)
         }
@@ -384,14 +397,8 @@ class MainActivity : BridgeActivity() {
         choice("checkFrequency", "Check for updates", listOf("open","1h","6h","24h","manual"),
             listOf("When the app opens","Every hour","Every 6 hours","Every day","Only when I tap Check now"))
         box.addView(TextView(this).apply { text = "Only when I tap Check now disables all automatic checks, including critical fixes. Metered Wi-Fi counts as mobile data." })
-        val address = EditText(this).apply { setText(initial.getString("url")); inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI; hint = "HTTPS manifest URL"; textSize = 14f }
-        box.addView(TextView(this).apply { text = "Update URL" }); box.addView(address)
-        val messages = Switch(this).apply {
-            text = "Show update messages from the shell (debug)"; isChecked = updater.showShellMessages
-        }
-        box.addView(messages)
         val checkButton = Button(this).apply {
-            text = if (updater.checks.hasError()) "Retry" else "Check now"
+            text = "Check for updates"
             setOnClickListener { updater.retryChecks() }
         }
         box.addView(checkButton)
@@ -399,13 +406,13 @@ class MainActivity : BridgeActivity() {
             setOnClickListener {
                 if (!updater.safeToInterrupt) return@setOnClickListener
                 if (updater.shell.isReady()) updater.shell.installFromWeb(this@MainActivity)
-                else updater.shell.check(consent = true)
+                else updater.shell.check(consent = true, downloadOnly = true)
             }
         }
         fun refreshShellOffer() {
             val ready = updater.shell.manifest()?.takeIf { updater.shell.isReady() }?.versionName
             val available = updater.shell.availableState()?.optString("version")
-            shellUpdate.text = if (ready != null) "Install app update $ready" else "Download app update $available"
+            shellUpdate.text = if (ready != null) "Install update $ready" else "Get update $available"
             shellUpdate.visibility = if (ready != null || !available.isNullOrEmpty()) View.VISIBLE else View.GONE
             shellUpdate.isEnabled = updater.safeToInterrupt && !updater.shell.downloading
         }
@@ -426,24 +433,25 @@ class MainActivity : BridgeActivity() {
             setOnClickListener { confirmReset(startupRecovery = updater.watchdog.reason != null) }
         }
         box.addView(reset)
-        val closeShell = Button(this).apply { text = "Close"; contentDescription = "Close app shell" }
+        val closeShell = Button(this).apply { text = "Close"; contentDescription = "Close app maintenance" }
         val shellHeader = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(20.dp, 8.dp, 12.dp, 0)
-            addView(TextView(this@MainActivity).apply { text = "App shell"; textSize = 20f },
+            addView(TextView(this@MainActivity).apply { text = "App maintenance"; textSize = 20f },
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(closeShell)
         }
-        val dialog = AlertDialog.Builder(this).setCustomTitle(shellHeader).setView(ScrollView(this).apply { addView(box) })
+        val maintenance = FrameLayout(this).apply { addView(ScrollView(this@MainActivity).apply { addView(box) }) }
+        maintenanceBanner = NativeUpdateBanner(maintenance, ::dismissUpdateBanner)
+        val dialog = AlertDialog.Builder(this).setCustomTitle(shellHeader).setView(maintenance)
             .setCancelable(true).setPositiveButton("Save",null).create()
         dialog.setCanceledOnTouchOutside(false)
         closeShell.setOnClickListener { dialog.cancel() }
         debugDialog = dialog
         refreshDebugSettings = {
             refreshShellOffer()
-            checkStatus.text = updater.checks.summary()
+            checkStatus.text = if (updater.checks.hasError()) "Could not check for updates" else ""
             checkHelp.visibility = if (updater.checks.hasError()) View.VISIBLE else View.GONE
-            checkButton.text = if (updater.checks.hasError()) "Retry" else "Check now"
             val latest = updater.settingsJson()
             switches.forEach { (key,control) ->
                 if (control.isChecked == initial.getBoolean(key)) {
@@ -455,11 +463,11 @@ class MainActivity : BridgeActivity() {
                     pair.first.setSelection(pair.second.indexOf(latest.get(key).toString())); initial.put(key,latest.get(key))
                 }
             }
-            if (address.text.toString() == initial.getString("url")) {
-                address.setText(latest.getString("url")); initial.put("url",latest.getString("url"))
-            }
         }
-        dialog.setOnDismissListener { debugDialog = null; refreshDebugSettings = null; refreshRecovery(); showNativeMessages() }
+        dialog.setOnDismissListener {
+            maintenanceBanner?.clear(); maintenanceBanner = null
+            debugDialog = null; refreshDebugSettings = null; refreshRecovery(); showNativeMessages()
+        }
         dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             try {
                 val patch = com.getcapacitor.JSObject().put("setupAnswered",true)
@@ -468,58 +476,85 @@ class MainActivity : BridgeActivity() {
                     val value = pair.second[pair.first.selectedItemPosition]
                     if (value != initial.get(key).toString()) patch.put(key,if (key == "checkFrequency") value else value.toInt())
                 }
-                val url = address.text.toString().trim()
-                if (url != initial.getString("url")) patch.put("url",url)
                 updater.setUpdateSettings(patch)
-                updater.showShellMessages = messages.isChecked
                 dialog.dismiss(); showNativeMessages()
             }
-            catch (e: Exception) { address.error = e.message }
+            catch (e: Exception) { updater.engine.log.add("Could not save update settings: ${e.message}"); checkStatus.text = "Could not save update settings" }
         } }; dialog.show()
+        maintenance.post { showNativeMessages() }
     }
-    private var nativeMessageDialog: AlertDialog? = null
     private val nativeSeen = mutableSetOf<String>()
+    private fun dismissUpdateBanner(key: String) {
+        nativeSeen.add(key)
+        if (key.startsWith("app-installed:")) getSharedPreferences("native-update-messages", Context.MODE_PRIVATE)
+            .edit().putBoolean(key, true).apply()
+        transientBanners.removeAll { it.key == key }
+        showNativeMessages()
+    }
     private fun showNativeMessages() {
-        if (!updater.showShellMessages) { nativeMessageDialog?.dismiss(); return }
-        if (!resumed || isFinishing || isDestroyed || recoveryDialog != null || checkFailureDialog != null || debugDialog != null || updater.engine.snapshot().trial || !updater.safeToInterrupt ||
-            !updater.updateSettings().setupAnswered || nativeMessageDialog != null) return
-        val state = updater.info()
-        val notices = getSharedPreferences("native-update-messages", Context.MODE_PRIVATE)
-        fun show(key: String, title: String, detail: String = "", actionLabel: String? = null, action: (() -> Unit)? = null): Boolean {
-            if (key in nativeSeen || notices.getBoolean(key,false)) return false
-            nativeSeen.add(key)
-            val builder = AlertDialog.Builder(this).setTitle(title).setMessage(detail)
-                .setNegativeButton(if (actionLabel == null) "Close" else "Later") { _, _ -> notices.edit().putBoolean(key,true).apply() }
-            if (actionLabel != null) builder.setPositiveButton(actionLabel) { _, _ -> action?.invoke() }
-            nativeMessageDialog = builder.create().apply {
-                setOnCancelListener { notices.edit().putBoolean(key,true).apply() }
-                setOnDismissListener { nativeMessageDialog = null; handler.post { showNativeMessages() } }
-                show()
-            }
-            return true
+        val maintenance = maintenanceBanner
+        val banner = maintenance ?: updateBanner ?: return
+        if (maintenance != null) updateBanner?.clear()
+        val webNotices = updater.gameCheckNotices()
+        if (!resumed || isFinishing || isDestroyed || logDialog != null ||
+            (maintenance == null && (recoveryDialog != null || webNotices != false))) {
+            banner.clear(); activeBannerKey = null; return
         }
+        updater.checks.claim()?.let { notice ->
+            transientBanners.add(UpdateBannerItem("check:${SystemClock.elapsedRealtime()}", "Could not check for updates",
+                "Check your connection and try again.", "Retry", { updater.retryCheck(notice.channel) }))
+        }
+        val state = updater.info()
+        val items = transientBanners.toMutableList()
         state.optJSONObject("rolledBack")?.let {
-            if (show("rolledBack:${it.optString("from")}:${it.optString("to")}",
-                "Version ${it.optString("from")} didn't start, so you're back on ${it.optString("to")}. A fix is on the way.")) return
+            items.add(UpdateBannerItem("rollback:${it.optString("from")}:${it.optString("to")}", "Previous version restored",
+                "Version ${it.optString("from")} could not start. You’re back on ${it.optString("to")}.", "Details", ::showLogs))
         }
         state.optJSONObject("updated")?.let {
-            if (show("updated:${it.optString("to")}", "What's new in ${it.optString("to")}",it.optString("notes"))) return
+            items.add(UpdateBannerItem("updated:${it.optString("to")}", "Update installed", "You’re now on version ${it.optString("to")}."))
         }
-        state.optJSONObject("shellReady")?.let {
-            if (show("shell:${it.optLong("versionCode")}", "App update ${it.optString("version")} ready · Install",updater.formatSize(it.optLong("size")),"Install") {
-                installWithNotificationPermission { updater.shell.installFromWeb(this) }
-            }) return
+        val installedKey = "app-installed:${BuildConfig.VERSION_CODE}"
+        if (updater.shell.installedNotes() != null && !getSharedPreferences("native-update-messages", Context.MODE_PRIVATE).getBoolean(installedKey, false)) {
+            items.add(UpdateBannerItem(installedKey, "App update installed", "You’re now on version ${BuildConfig.VERSION_NAME}."))
         }
-        if (!state.optBoolean("busy") && !state.optBoolean("shellUpdateReady")) state.optJSONObject("shellAvailable")?.let {
-            if (show("shell-offer:${it.optLong("versionCode")}", "App update ${it.optString("version")}",updater.formatSize(it.optLong("size")),"Update") { installWithNotificationPermission { updater.shell.check(true) } }) return
+        val webDownload = state.optJSONObject("webTransfer").takeIf { state.optBoolean("busy") && state.optString("webDownloadVersion").isNotBlank() }
+        val appDownloading = state.optBoolean("shellDownloading")
+        if (webDownload != null || appDownloading) {
+            val transfer = webDownload ?: state.optJSONObject("shellTransfer")
+            val total = transfer?.optLong("total") ?: 0
+            val progress = if (total > 0) (100.0 * transfer!!.optLong("done") / total).toInt().coerceIn(0, 100) else null
+            items.add(UpdateBannerItem("download:${if (webDownload != null) state.optString("webDownloadVersion") else "app"}",
+                "Downloading update", "Leave Linebreaker open or come back later.", percent = progress, downloading = true))
+        }
+        val appReady = state.optJSONObject("shellReady")
+        if (!appDownloading) (appReady ?: state.optJSONObject("shellAvailable"))?.let {
+            val version = it.optString("version")
+            items.add(if (appReady != null) UpdateBannerItem("app-ready:$version", "App update ready", "Version $version is ready to install.",
+                "Install update $version", { installWithNotificationPermission { updater.shell.installFromWeb(this) } })
+            else UpdateBannerItem("app-offer:$version", "App update available", "Version $version · ${updater.formatSize(it.optLong("size"))}",
+                "Get update $version", { updater.shell.check(consent = true, downloadOnly = true) }))
         }
         val staged = state.optJSONObject("staged")
-        if (staged != null && !state.optBoolean("autoRestart")) {
-            show("staged:${staged.optString("version")}", "Fixes downloaded (${staged.optString("version")}) · Restart",actionLabel = "Restart") { restartBundle() }
-        } else if (staged == null && !state.optBoolean("busy")) state.optJSONObject("available")?.let {
-            if (it.optBoolean("needsShell")) show("needs-shell:${it.optString("version")}", "${it.optString("version")} needs the app update first")
-            else show("offer:${it.optString("version")}", "New version ${it.optString("version")}",updater.formatSize(it.optLong("size")),"Update") { updater.download() }
+        if (!state.optBoolean("busy")) (staged ?: state.optJSONObject("available"))?.let {
+            val version = it.optString("version")
+            items.add(when {
+                staged != null -> UpdateBannerItem("ready:$version", "Update ready", "Restart Linebreaker to finish updating.", "Install update $version", { restartBundle(startupRecovery = updater.watchdog.reason != null) })
+                it.optBoolean("needsShell") -> UpdateBannerItem("app-first:$version", "Update available", "Install the app update first to get version $version.")
+                else -> UpdateBannerItem("offer:$version", "Update available", "Version $version · ${updater.formatSize(it.optLong("size"))}", "Get update $version", updater::download)
+            })
         }
+        val error = updateFailure(updater.status, updater.shell.status)
+        if (error != null) items.add(UpdateBannerItem("error:$error", "Could not update", "Check your connection or try again later.", "Details", ::showLogs))
+        val queue = items.filter { it.key !in nativeSeen }
+        val next = queue.firstOrNull { it.key == activeBannerKey } ?: queue.firstOrNull()
+        activeBannerKey = next?.key
+        if (maintenance == null) banner.render(next, safeArea.top, safeArea.left, safeArea.right)
+        else banner.render(next, 0, 0, 0)
+    }
+    private fun updateFailure(vararg states: String) = states.firstOrNull {
+        it.startsWith("Download failed") || it.startsWith("Install failed") || it.startsWith("App install failed") ||
+            it.startsWith("Shell update processing failed") || it.startsWith("Update processing failed") || it.startsWith("Restart failed") ||
+            it.contains("Not enough storage")
     }
     internal fun logWebDiagnostic(level: String, message: String) {
         updater.engine.log.add("WebView ${level.take(24)}: ${message.take(1200).replace('\r', ' ')}")
@@ -529,7 +564,7 @@ class MainActivity : BridgeActivity() {
         val version = webView?.let { "${it.packageName} ${it.versionName}" } ?: "unknown"
         return "WebView: $version\nAndroid: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\nDevice: ${Build.MANUFACTURER} ${Build.MODEL}"
     }
-    private fun logsText() = "${logEnvironment()}\n\n${updater.checks.summary()}\n${updater.checks.snapshot()}\n\nstate.json\n${updater.engine.stateJson()}\n\nNewest first (last 500 lines)\n${updater.engine.log.read()}"
+    private fun logsText() = "${logEnvironment()}\nUpdate address: ${updater.url}\nApp ${BuildConfig.VERSION_NAME} / API ${BuildConfig.SHELL_API}\n${updater.status} · ${updater.shell.status}\n\n${updater.checks.summary()}\n${updater.checks.snapshot()}\n\nstate.json\n${updater.engine.stateJson()}\n\nNewest first (last 500 lines)\n${updater.engine.log.read()}"
     private fun renderLogs() { logText?.text = logsText() }
     private fun copyLogs() {
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("OTA state and logs", logsText()))
@@ -550,8 +585,7 @@ class MainActivity : BridgeActivity() {
         logDialog!!.show()
     }
     override fun onDestroy() {
-        handler.removeCallbacks(recoveryTick); recoveryDialog?.dismiss(); nativeMessageDialog?.setOnDismissListener(null); nativeMessageDialog?.dismiss()
-        checkFailureDialog?.dismiss()
+        handler.removeCallbacks(recoveryTick); recoveryDialog?.dismiss(); updateBanner?.clear()
         debugDialog?.setOnDismissListener(null); debugDialog?.dismiss(); refreshDebugSettings = null
         unregisterReceiver(screenReceiver)
         handler.removeCallbacks(refreshLogs); logDialog?.setOnDismissListener(null); logDialog?.dismiss()

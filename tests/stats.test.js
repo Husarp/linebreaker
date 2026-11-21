@@ -36,18 +36,22 @@ it('opens on general stats and switches exactly four panels by click or keyboard
   expect(byId('cal-instructions')).toBeNull();
 });
 
-it('gives each raw-stat tile a decorative SVG and shares the cleared-line icon with game over', () => {
+it('gives raw-stat tiles decorative icons shared with game over and Missions', () => {
   const icons = all('.lb-metric-grid dt svg');
-  expect(icons).toHaveLength(12);
+  expect(icons).toHaveLength(11);
   const symbols = icons.map(icon => {
     expect(icon.getAttribute('aria-hidden')).toBe('true');
     const reference = icon.querySelector('use').getAttribute('href');
     expect(byId(reference.slice(1))).not.toBeNull();
     return reference;
   });
-  expect(new Set(symbols).size).toBe(12);
+  expect(new Set(symbols).size).toBe(11);
   expect(query('#stat-lines').previousElementSibling.querySelector('use').getAttribute('href'))
     .toBe(query('#go-overlay .lb-run-icon--lines use').getAttribute('href'));
+  game.w.openMissions();
+  const streak = query('.lb-metric-streak .lb-metric-icon');
+  expect(streak.getAttribute('aria-hidden')).toBe('true');
+  expect(streak.textContent).toBe(query('.mq-streak-flame:not(.mq-streak-flame--watermark)').textContent);
 });
 
 it('shows best counts alongside percentages of unrounded, comparable averages', () => {
@@ -144,7 +148,8 @@ it('shows only highscore history without rewriting saved scores', () => {
   expect(all('#highscores-list .lb-score').map(element => element.textContent)).toEqual(['900 pts', '850 pts', '720 pts', '500 pts']);
   expect(query('#highscores-list .lb-stats-podium')).toBeNull();
   expect(all('#highscores-list .lb-rank').map(rank => rank.querySelector('img')?.alt ?? rank.textContent)).toEqual(['#1', '#2', '#3', '#4']);
-  expect(query('#highscores-list .lb-stats-current .lb-date').textContent).toContain('CURRENT');
+  expect(query('#highscores-list .lb-stats-current .lb-current-tag').textContent).toBe('NOW');
+  expect(query('#highscores-list .lb-details-row').textContent).toMatch(/Lines 4.*Time 1m 30s/);
   expect(game.api.save.highscoreHistory).toEqual(JSON.parse(JSON.stringify(save.highscoreHistory)));
   expect(game.api.save.leaderboard).toEqual(JSON.parse(JSON.stringify(save.leaderboard)));
 });
@@ -164,17 +169,30 @@ it('preserves leaderboard pagination, pin and unpin actions, and the Fun mode bo
   ]);
   expect(winner.querySelector('img').alt).toBe('');
   winner.click();
+  expect(byId('lb-tooltip-global').getAttribute('role')).toBe('dialog');
+  expect(byId('lb-tooltip-global').textContent).toContain('Lines: 4');
+  expect(byId('score-pin-popup').getAttribute('aria-label')).toBe('Pin score');
   byId('score-pin-popup').click();
   expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([100]);
+  expect(byId('score-pin-popup').getAttribute('aria-pressed')).toBe('true');
+  byId('score-pin-popup').click();
+  expect(game.api.save.pinnedScores).toHaveLength(0);
+  byId('score-pin-popup').click();
+  winner.dispatchEvent(new game.w.Event('scroll'));
+  expect(byId('lb-tooltip-global').hidden).toBe(true);
+  expect(winner.getAttribute('aria-expanded')).toBe('false');
   expect(all('#lb-list .lb-row')).toHaveLength(47);
   query('#lb-list .lb-load-more').click();
   expect(all('#lb-list .lb-row')).toHaveLength(48);
   all('#lb-list .lb-row').at(-1).click();
+  expect(byId('lb-tooltip-global').textContent).toContain('#51');
   byId('score-pin-popup').click();
   expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([100, 50]);
   query('[data-stats-board="fun"]').click();
   expect(byId('lb-list').hidden).toBe(true);
   expect(byId('fun-list').textContent).toContain('12×22');
+  query('#fun-list .lb-row').click();
+  expect(byId('lb-tooltip-global').textContent).toContain('Board: 12×22');
   byId('stats-tab-pin').click();
   expect(query('#pinned-list .lb-pin-icon svg').getAttribute('width')).toBe('20');
   expect(query('#pinned-list .lb-pin-icon img').alt).toBe('#1');
@@ -186,6 +204,28 @@ it('preserves leaderboard pagination, pin and unpin actions, and the Fun mode bo
   query('#pinned-list .lb-row').click();
   byId('score-pin-popup').click();
   expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([100]);
+});
+
+it('anchors the score dialog to its row and distinguishes identical stats by played time', () => {
+  const save = game.api.save;
+  const first = { ...score(900, 5, 800), clock: '10:30' };
+  const second = { ...first, clock: '10:31' };
+  save.leaderboard = [first, second];
+  game.api.setSave(save);
+  game.w.openStats();
+  byId('stats-tab-lb').click();
+  const winner = query('#lb-list button[data-place="1"]');
+  winner.getBoundingClientRect = () => ({ left: 100, width: 120, top: 150, bottom: 220 });
+  winner.click();
+  expect(byId('lb-tooltip-global').style.left).toBe('160px');
+  byId('score-pin-popup').click();
+  query('#lb-list button[data-place="2"]').click();
+  expect(byId('score-pin-popup').getAttribute('aria-pressed')).toBe('false');
+  byId('score-pin-popup').click();
+  expect(game.api.save.pinnedScores.map(entry => entry.clock)).toEqual(['10:30', '10:31']);
+  byId('score-pin-popup').dispatchEvent(new game.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  expect(byId('lb-tooltip-global').hidden).toBe(true);
+  expect(game.w.document.activeElement.dataset.place).toBe('2');
 });
 
 it('keeps the neutral pin icon for tied or unmatched runs instead of guessing a place', () => {

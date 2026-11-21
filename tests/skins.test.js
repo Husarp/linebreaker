@@ -5,6 +5,31 @@ import { loadGame } from './loader.js';
 let game;
 afterEach(() => game?.close());
 
+it('draws static inventory previews only when they enter the observation range', async () => {
+  let activeObserver;
+  game = await loadGame(true, null, null, undefined, {skin: 'retro'}, window => {
+    window.IntersectionObserver = class {
+      targets = new Set();
+      constructor(callback) { this.callback = callback; activeObserver = this; }
+      observe(target) { this.targets.add(target); }
+      unobserve(target) { this.targets.delete(target); }
+      disconnect() { this.targets.clear(); }
+    };
+  });
+  game.api.setup();
+  game.w.openInventory();
+  const preview = game.w.document.querySelector('#owned-skin-btns canvas[data-skin="glass"]');
+  const deliver = isIntersecting => activeObserver.callback([{ target: preview, isIntersecting }], activeObserver);
+  expect(activeObserver.targets.has(preview)).toBe(true);
+  deliver(false);
+  expect(preview.dataset.previewColor).toBeUndefined();
+  deliver(true);
+  expect(preview.dataset.previewColor).toBe('1');
+  expect(activeObserver.targets.has(preview)).toBe(false);
+  game.w.closeInventory();
+  expect(activeObserver.targets.size).toBe(0);
+});
+
 it('cycles only the equipped inventory preview and reuses static previews across repopulation', async () => {
   let tickPreview;
   game = await loadGame(true, null, null, {skin: 'retro'}, null, window => {

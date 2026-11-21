@@ -25,7 +25,6 @@
         ...Object.fromEntries([...IMAGE_SKINS.values()].map(({ key, name }) => [key, name])) };
     const REMOVED_SKINS = new Set(['holo-foil','lava','nebula','wood-inlay','neon-tube','neon','gem','gameboy','monochrome','modern','candy','vim','aerolab','classic','window',
         'matrix','gold','golddragon','circuit','marble','fire','toxic','ice','flat','glossy','metal','puffy','bordered','gloss2k','lumines','minimal']);
-    const BG_BLOCK_SKINS = ['glass','shadow','retro','outline'];
     function _skinAvailable(key) { return Object.hasOwn(SKIN_NAMES, key); }
     function _renderSkin() { return _skinAvailable(settings.skin) ? settings.skin : DEFAULT_BLOCK_SKIN; }
     const _devPanel = document.getElementById('dev-panel');
@@ -76,267 +75,9 @@
     }
     const BASE_PIECES=[null,[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],[[1,0,0],[1,1,1],[0,0,0]],[[0,0,1],[1,1,1],[0,0,0]],[[1,1],[1,1]],[[0,1,1],[1,1,0],[0,0,0]],[[0,1,0],[1,1,1],[0,0,0]],[[1,1,0],[0,1,1],[0,0,0]]];
 
-    const bgCanvas = document.getElementById('bg-canvas');
-    const bgCtx = bgCanvas.getContext('2d');
-    let bgBlocks =[];
-    
-    function resizeBg() { bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight; }
     window.addEventListener('resize', () => {
-        resizeBg();
         if (settings?.gameScale) applyGameScale(settings.gameScale);
     });
-    resizeBg();
-
-    const BG_STYLES = {
-        default:    { count: 8,  sizeMin:25, sizeMax:45, speedMin:0.5, speedMax:2.0, glow:false, alpha:0.5 },
-        medium:     { count: 16, sizeMin:20, sizeMax:42, speedMin:1.0, speedMax:3.0, glow:false, alpha:0.52 },
-        heavy_rain: { count: 28, sizeMin:15, sizeMax:38, speedMin:1.5, speedMax:4.5, glow:false, alpha:0.55 },
-    };
-
-    function _setBgBlockRotation(block, falling, initialRotation = 0, spinRange = 0.025) {
-        block.rot = falling ? 0 : initialRotation;
-        block.vRot = falling ? 0 : (Math.random() - 0.5) * spinRange;
-        block.turnInterval = falling && block.shape.length !== 2 ? 16000 + Math.random() * 20000 : 0;
-        block.turnIn = block.turnInterval;
-    }
-    function _moveBgBlock(block, dt) {
-        const frames = dt * 60 / 1000;
-        block.y += block.vy * frames;
-        if (!block.turnInterval) {
-            block.rot += block.vRot * frames;
-            return;
-        }
-        block.turnIn -= dt;
-        if (block.turnIn <= 0) {
-            const turns = 1 + Math.floor(-block.turnIn / block.turnInterval);
-            block.rot = (block.rot + turns * Math.PI / 2) % (2 * Math.PI);
-            block.turnIn += turns * block.turnInterval;
-        }
-    }
-
-    class BgBlock {
-        constructor(style, falling = false) { this.style = style || BG_STYLES.default; this.falling = falling; this.reset(true); }
-        reset(randomY = false) {
-            this.sprite = null;
-            this.shape = BASE_PIECES[Math.floor(Math.random() * 7) + 1];
-            this.color = COLORS[Math.floor(Math.random() * 7) + 1];
-            this.skin = BG_BLOCK_SKINS[Math.floor(Math.random() * BG_BLOCK_SKINS.length)];
-            this.size = Math.random() * (this.style.sizeMax - this.style.sizeMin) + this.style.sizeMin;
-            const margin = this.size * 2;
-            this.x = Math.random() * (bgCanvas.width - margin * 2) + margin;
-            this.y = randomY ? Math.random() * bgCanvas.height : -this.size * 4;
-            this.vy = this.falling ? 0.32 + Math.random() * 0.23 : Math.random() * (this.style.speedMax - this.style.speedMin) + this.style.speedMin;
-            _setBgBlockRotation(this, this.falling, this.falling ? 0 : Math.random() * Math.PI * 2);
-        }
-        update(dt=1000/60) {
-            _moveBgBlock(this, dt);
-            if (this.y > bgCanvas.height + this.size * 4) this.reset();
-        }
-        draw() {
-            if (!this.sprite) {
-                this.sprite=document.createElement('canvas');
-                this.sprite.width=this.sprite.height=Math.ceil(this.size*4+48);
-                const c=this.sprite.getContext('2d');
-                c.translate(this.sprite.width/2,this.sprite.height/2);
-                this._paint(c);
-            }
-            bgCtx.save();bgCtx.translate(this.x,this.y);bgCtx.rotate(this.rot);
-            bgCtx.drawImage(this.sprite,-this.sprite.width/2,-this.sprite.height/2);bgCtx.restore();
-        }
-        _paint(paintCtx) {
-            paintCtx.save();
-            paintCtx.globalAlpha = this.style.alpha;
-            const offset = (this.shape.length * this.size) / 2;
-            const s = this.size, col = this.color, sk = this.skin || DEFAULT_BLOCK_SKIN;
-            for (let r = 0; r < this.shape.length; r++) {
-                for (let c = 0; c < this.shape[r].length; c++) {
-                    if (this.shape[r][c]) {
-                        const cx = c * s - offset, cy = r * s - offset;
-                        if (sk === 'retro') {
-                            paintCtx.fillStyle = col; paintCtx.fillRect(cx+1, cy+1, s-2, s-2);
-                            paintCtx.fillStyle = 'rgba(255,255,255,0.55)'; paintCtx.fillRect(cx+1, cy+1, s-2, 2); paintCtx.fillRect(cx+1, cy+1, 2, s-2);
-                            paintCtx.fillStyle = 'rgba(0,0,0,0.45)'; paintCtx.fillRect(cx+1, cy+s-3, s-2, 2); paintCtx.fillRect(cx+s-3, cy+1, 2, s-2);
-                        } else if (sk === 'glass') {
-                            paintCtx.save(); paintCtx.globalAlpha = this.style.alpha * 0.35; paintCtx.fillStyle = col; paintCtx.fillRect(cx, cy, s-1, s-1); paintCtx.restore();
-                            paintCtx.strokeStyle = col; paintCtx.lineWidth = 1.5; paintCtx.strokeRect(cx+0.5, cy+0.5, s-2, s-2);
-                        } else if (sk === 'shadow') {
-                            paintCtx.fillStyle = 'rgba(20,20,30,0.96)'; paintCtx.fillRect(cx+1, cy+1, s-2, s-2);
-                            paintCtx.strokeStyle = col; paintCtx.lineWidth = 1.5; paintCtx.shadowColor = col; paintCtx.shadowBlur = 6;
-                            paintCtx.strokeRect(cx+2, cy+2, s-4, s-4); paintCtx.shadowBlur = 0;
-                        } else {
-                            paintCtx.strokeStyle = col; paintCtx.lineWidth = 1.5;
-                            paintCtx.strokeRect(cx+1, cy+1, s-2, s-2);
-                        }
-                    }
-                }
-            }
-            paintCtx.restore();
-        }
-    }
-
-    function _rebuildBgBlocks() {
-        const v = settings && settings.heavyBg ? parseInt(settings.heavyBg) : 1;
-        const style = v >= 3 ? BG_STYLES.heavy_rain : v >= 2 ? BG_STYLES.medium : BG_STYLES.default;
-        const falling = settings.bgBlockMotion === 'falling';
-        bgBlocks = [];
-        for (let i = 0; i < style.count; i++) bgBlocks.push(new BgBlock(style, falling));
-    }
-    // Initialize background with default style at startup (settings not yet loaded)
-    { const _s = BG_STYLES.default; for (let i = 0; i < _s.count; i++) bgBlocks.push(new BgBlock(_s)); }
-    // --- SPECIAL PARACHUTE BLOCK (color-changing, clickable for +1 part) ---
-    let _specialBlock = null;
-    let _specialBlockLastSpawn = 0;
-
-    function _spawnSpecialBlock() {
-        if (_specialBlock || LBArtPack.backgroundMode(settings.themeBackground) !== 'plain') return;
-        _specialBlockLastSpawn = Date.now();
-        const falling = settings.bgBlockMotion === 'falling';
-        _specialBlock = {
-            shape: BASE_PIECES[Math.floor(Math.random() * 7) + 1],
-            size: 32,
-            x: Math.random() * (bgCanvas.width - 200) + 100,
-            y: -130,
-            vy: falling ? 0.55 : 0.8,
-            _colorPhase: 0,
-        };
-        _setBgBlockRotation(_specialBlock, falling, 0, 0.015);
-    }
-
-    function _updateSpecialBlock(dt=1000/60) {
-        if (!_specialBlock) return;
-        const b = _specialBlock;
-        const f=dt*60/1000;
-        _moveBgBlock(b, dt);
-        b._colorPhase += 0.03*f;
-        // Remove if off screen
-        if (b.y > bgCanvas.height + b.size * 4) {
-            _specialBlock = null;
-            return;
-        }
-        // Remove if menu hidden
-        const menuEl = document.getElementById('menu-overlay');
-        if (menuEl && menuEl.classList.contains('hidden')) { _specialBlock = null; return; }
-    }
-
-    function _drawSpecialBlock() {
-        if (!_specialBlock) return;
-        const b = _specialBlock;
-        const phase = b._colorPhase;
-        // Cycle through colors smoothly
-        const r = Math.round(128 + 127 * Math.sin(phase));
-        const g = Math.round(128 + 127 * Math.sin(phase + 2.1));
-        const bl = Math.round(128 + 127 * Math.sin(phase + 4.2));
-        const col = `rgb(${r},${g},${bl})`;
-
-        bgCtx.save();
-        bgCtx.translate(b.x, b.y);
-        bgCtx.rotate(b.rot);
-        bgCtx.globalAlpha = 0.65;
-        const offset = (b.shape.length * b.size) / 2;
-        bgCtx.shadowColor = col;
-        bgCtx.shadowBlur = 14;
-        for (let row = 0; row < b.shape.length; row++) {
-            for (let c = 0; c < b.shape[row].length; c++) {
-                if (b.shape[row][c]) {
-                    // Same style as regular bg blocks
-                    bgCtx.fillStyle = col;
-                    bgCtx.fillRect(c * b.size - offset, row * b.size - offset, b.size - 1, b.size - 1);
-                    bgCtx.fillStyle = 'rgba(0,0,0,0.4)';
-                    bgCtx.fillRect(c * b.size - offset + b.size * 0.2, row * b.size - offset + b.size * 0.2, b.size * 0.6, b.size * 0.6);
-                }
-            }
-        }
-        bgCtx.restore();
-    }
-
-    function _isClickOnSpecialBlock(clientX, clientY) {
-        if (!_specialBlock) return false;
-        const b = _specialBlock;
-        const dx = clientX - b.x, dy = clientY - b.y;
-        const hitR = b.size * 2.5;
-        return dx * dx + dy * dy < hitR * hitR;
-    }
-
-    document.addEventListener('click', (e) => {
-        if (!_specialBlock) return;
-        const menuEl = document.getElementById('menu-overlay');
-        if (!menuEl || menuEl.classList.contains('hidden')) return;
-        if (_isClickOnSpecialBlock(e.clientX, e.clientY)) {
-            const b = _specialBlock;
-            _specialBlock = null;
-            saveData.stats.parachuteDropsCaught = (saveData.stats.parachuteDropsCaught || 0) + 1;
-            if (!saveData.achievements?.['parachute_catcher']?.unlocked) unlockAchievement('parachute_catcher');
-            playSFX('gift');
-
-            // Determine reward: normal part for random item (95%), universal part (5%), or XP if all owned
-            let rewardText, rewardColor;
-            const _items = _getAllPartsItems();
-            if (_items.length === 0) {
-                // All items owned → give XP
-                const xpGain = 1000;
-                _grantXP(xpGain);
-                rewardText = `+${xpGain.toLocaleString()} XP`;
-                rewardColor = '#44ffaa';
-            } else if (Math.random() < 0.05) {
-                // 5% chance: universal part
-                addUniversalParts(1);
-                rewardText = `+1 Universal Part`;
-                rewardColor = '#ffd700';
-            } else {
-                // 95% chance: normal part for a random item
-                const _rItem = _items[Math.floor(Math.random() * _items.length)];
-                const converted = _grantRewardPart(_rItem.key);
-                rewardText = converted ? _rewardLabel(_partConversion(_rItem.key, 1)) : escapeHtml(`+1 Part: ${_partItemName(_rItem.key)}`);
-                rewardColor = converted ? '#ffd700' : '#4499ff';
-            }
-
-            checkProgressAchievements();
-            saveDataToFile();
-            drawRankBadge();
-
-            // Floating text — modern style, stays longer
-            const flyEl = document.createElement('div');
-            flyEl.innerHTML = `<div style="font-size:0.85rem;font-weight:bold;color:${rewardColor};text-shadow:0 0 10px ${rewardColor}66;letter-spacing:0.5px;">${rewardText}</div><div style="font-size:0.6rem;color:rgba(255,255,255,0.5);margin-top:2px;">Airdrop caught!</div>`;
-            flyEl.style.cssText = `position:fixed;left:${b.x}px;top:${b.y}px;transform:translateX(-50%);z-index:2600;pointer-events:none;text-align:center;background:rgba(0,0,0,0.7);padding:6px 14px;border-radius:8px;border:1px solid ${rewardColor}44;transition:all 2s ease-out;opacity:1;`;
-            document.body.appendChild(flyEl);
-            requestAnimationFrame(() => { flyEl.style.top = (b.y - 80) + 'px'; flyEl.style.opacity = '0'; });
-            setTimeout(() => flyEl.remove(), 2400);
-        }
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (_specialBlock && _isClickOnSpecialBlock(e.clientX, e.clientY)) {
-            document.body.style.cursor = 'pointer';
-        } else if (document.body.style.cursor === 'pointer') {
-            document.body.style.cursor = '';
-        }
-    });
-
-    let _bgFrame = null, _bgTime = null;
-    const _bgApp = document.getElementById('app');
-    function _bgVisible() {
-        return !document.hidden && !_bgApp.classList.contains('active-game')
-            && LBArtPack.backgroundMode(settings.themeBackground) === 'plain';
-    }
-    function bgLoop(now) {
-        _bgFrame = null;
-        if (!_bgVisible()) { _bgTime = null; return; }
-        const dt = _bgTime === null ? 0 : Math.min(100, now - _bgTime);
-        _bgTime = now;
-        bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
-        bgBlocks.forEach(b => { b.update(dt); b.draw(); });
-        _updateSpecialBlock(dt);
-        _drawSpecialBlock();
-        _bgFrame = requestAnimationFrame(bgLoop);
-    }
-    function _syncBgLoop() {
-        if (!_bgVisible()) {
-            if (_bgFrame !== null) cancelAnimationFrame(_bgFrame);
-            _bgFrame = null; _bgTime = null;
-        } else if (_bgFrame === null) _bgFrame = requestAnimationFrame(bgLoop);
-    }
-    new MutationObserver(_syncBgLoop).observe(_bgApp, { attributes:true, attributeFilter:['class'] });
-    document.addEventListener('visibilitychange', _syncBgLoop);
 
     const _SPLASH_QUOTES = [
         "100% gravity!",
@@ -422,13 +163,26 @@
         "Legend doesn't happen overnight.",
         "Keep your stack flat. Mostly.",
         "Lucky day!",
-        "Keep an eye on the falling blocks...",
         "Not every block is what it seems.",
         "Have you tried clicking around?",
         "Some things hide in plain sight.",
     ];
-    const _SPLASH_COLORS = ['#ffff55', '#55ffff', '#ff77ff', '#88ff88', '#ffaa44', '#aaaaff'];
-    { const _sq = document.getElementById('splash-quote'); if (_sq) { const _d = new Date(); const _daySeed = _d.getFullYear() * 10000 + (_d.getMonth()+1) * 100 + _d.getDate(); const _qi = _daySeed % _SPLASH_QUOTES.length; const _ci = _daySeed % _SPLASH_COLORS.length; _sq.textContent = _SPLASH_QUOTES[_qi]; _sq.style.color = _SPLASH_COLORS[_ci]; if (_SPLASH_QUOTES[_qi] === 'Lucky day!') { setTimeout(() => { if (!saveData.achievements?.['lucky_day']?.unlocked) { unlockAchievement('lucky_day'); saveDataToFile(); } }, 500); } } }
+    {
+        const splash = document.getElementById('splash-quote');
+        const today = new Date();
+        const daySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+        const quote = _SPLASH_QUOTES[daySeed % _SPLASH_QUOTES.length];
+        splash.textContent = quote;
+        splash.style.setProperty('--splash-length', quote.length);
+        if (quote === 'Lucky day!') {
+            setTimeout(() => {
+                if (!saveData.achievements?.lucky_day?.unlocked) {
+                    unlockAchievement('lucky_day');
+                    saveDataToFile();
+                }
+            }, 500);
+        }
+    }
 
     const logoButton = document.getElementById('lb122-logo-button');
     const logo = logoButton.querySelector('img');
@@ -989,8 +743,8 @@
     }
 
     // Settings
-    const defaultSettings = { musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: DEFAULT_BLOCK_SKIN, fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
-    Object.assign(defaultSettings, { bgBlockMotion: 'spinning', showRunMissions: false, musicFollowsSpeed: true, showSpeedUp: true });
+    const defaultSettings = { musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: DEFAULT_BLOCK_SKIN, fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
+    Object.assign(defaultSettings, { showRunMissions: false, musicFollowsSpeed: true, musicPaused: false, showSpeedUp: true });
     defaultSettings.themeBackground = 'image';
     defaultSettings.movingBackground = true;
     defaultSettings.lineClearEffect = 'default';
@@ -1031,21 +785,13 @@
             wallpaperAnimation.play();
         }
     }
-    function syncBackground() {
-        bgCanvas.hidden = LBArtPack.backgroundMode(settings.themeBackground) !== 'plain';
-        if (bgCanvas.hidden) _specialBlock = null;
-        _syncBgLoop();
-        syncWallpaper();
-    }
     document.addEventListener('visibilitychange', syncWallpaper);
     reducedMotion?.addEventListener?.('change', syncWallpaper);
     const _lineClearEffectSelect = document.getElementById('setting-line-clear-effect');
-    const _bgBlockMotionSelect = document.getElementById('setting-bg-block-motion');
     const _runMissionsSelect = document.getElementById('setting-run-missions');
     const _musicFollowsSpeedToggle = document.getElementById('setting-music-follows-speed');
     _themeBackgroundSelect.addEventListener('change', () => onSettingChange('themeBackground', _themeBackgroundSelect.value));
     _movingBackgroundToggle.addEventListener('change', () => onSettingChange('movingBackground', _movingBackgroundToggle.checked));
-    _bgBlockMotionSelect.addEventListener('change', () => onSettingChange('bgBlockMotion', _bgBlockMotionSelect.value));
     _runMissionsSelect.addEventListener('change', () => onSettingChange('showRunMissions', _runMissionsSelect.value === 'on'));
     _musicFollowsSpeedToggle.addEventListener('change', () => onSettingChange('musicFollowsSpeed', _musicFollowsSpeedToggle.checked));
     document.getElementById('setting-speed-up-text').addEventListener('change', event => onSettingChange('showSpeedUp', event.target.checked));
@@ -1220,7 +966,7 @@
             playBtn.style.background = ''; // let CSS animation handle it
         }
         settings.theme = name;
-        syncBackground();
+        syncWallpaper();
         if (persist) saveSettings();
         // Re-render theme list if inventory is open
         const ownedThemeContainer = document.getElementById('owned-theme-btns');
@@ -2232,7 +1978,6 @@
     let _trackStartTime = 0;
     let _trackPauseOffset = 0;
     let _trackDuration = 0;
-    let _musicPaused = false;
     let _runMusicPaused = false;
     const _runMusicTempo = LBMusicTempo.createRunTempo();
     let _widgetIntervalId = null;
@@ -2316,7 +2061,10 @@
     function _releaseMusicSource() {
         const previous = _activeMusic;
         _activeMusic = null;
-        try { previous?.source.stop(); } catch (error) { console.warn('Music stop failed:', error); }
+        if (!previous) return;
+        previous.output.gain.value = 0;
+        previous.output.disconnect();
+        try { previous.source.stop(); } catch (error) { console.warn('Music stop failed:', error); }
     }
 
     function _musicPosition() {
@@ -2326,7 +2074,7 @@
 
     function _syncMusicPlayback(retryAudio = false) {
         const active = _activeMusic;
-        const shouldPlay = _audioInForeground() && !_musicPaused && !(_currentMode === 'game' && _runMusicPaused);
+        const shouldPlay = _audioInForeground() && !settings.musicPaused && !(_currentMode === 'game' && _runMusicPaused);
         if (shouldPlay && audioCtx && audioCtx.state !== 'running' && musicPlaying) _unlockAudio(retryAudio);
         if (active && active.playing !== shouldPlay) {
             try {
@@ -2385,18 +2133,20 @@
             }
             updateNowPlaying('');
         };
-        let source;
         try {
-            source = _createMusicSource(entry.buf);
-            const active = { source, started: false, playing: false, fail: error => { if (_activeMusic === active) failed(error); } };
+            const output = audioCtx.createGain();
+            const source = _createMusicSource(entry.buf);
+            const active = { source, output, started: false, playing: false, fail: error => { if (_activeMusic === active) failed(error); } };
             _activeMusic = active;
-            source.connect(masterGain);
+            source.connect(output);
+            output.gain.value = 1;
+            output.connect(masterGain);
             if (tempo !== undefined) source.setTempo?.(tempo);
             source.onerror = active.fail;
             source.onended = () => {
                 if (_activeMusic !== active) return;
                 _releaseMusicSource();
-                if (!_musicPaused) onEnded();
+                if (!settings.musicPaused) onEnded();
             };
             _trackPauseOffset = Math.max(0, Math.min(offset, (entry.buf.duration || Infinity) - 0.1));
             _trackDuration = entry.buf.duration;
@@ -2426,7 +2176,6 @@
     }
     function _playMenuTrack(name, offset = 0) {
         if (_currentMode !== 'menu' || !musicPlaying || !audioCtx || !_trackPool.has(name)) return;
-        _musicPaused = false;
         _replaceMusicSource(name, 'menu', offset, () => {
             const pl = _selectMusicTracks('menu');
             _menuShuffleQueue = _menuShuffleQueue.filter(track => pl.includes(track));
@@ -2464,7 +2213,6 @@
     function _stopMusicSources() {
         _musicRevision++;
         _releaseMusicSource();
-        _musicPaused = false;
         _trackPauseOffset = _trackStartTime = _trackDuration = 0;
     }
     async function switchMusicMode(mode) {
@@ -2478,7 +2226,7 @@
         if (mode === 'menu') fadeMusic(1, 0);
         const revision = _musicRevision;
         await _initTrackCatalog();
-        if (revision !== _musicRevision || !musicPlaying || !audioCtx || _activeMusic || _musicPaused) return;
+        if (revision !== _musicRevision || !musicPlaying || !audioCtx || _activeMusic || settings.musicPaused) return;
         if (mode === 'menu') {
             const playlist = _selectMusicTracks('menu');
             _fillMenuQueue(playlist, '');
@@ -2526,7 +2274,7 @@
         }
         if (!_widgetIntervalId) {
             _widgetIntervalId = setInterval(() => {
-                if (_currentMode === 'menu' && !_musicPaused && _trackDuration > 0) _updateMusicWidget();
+                if (_currentMode === 'menu' && !settings.musicPaused && _trackDuration > 0) _updateMusicWidget();
             }, 500);
         }
     }
@@ -2715,7 +2463,6 @@
             // localStorage is authoritative — avoids stale file overwriting fresh settings on reload
             if (useFileSettings) {
                 persistSettings();
-                _rebuildBgBlocks();
                 _doApplyTheme(settings.theme || 'default');
                 applyFontSize(settings.fontSize || '5');
                 applyGameScale(settings.gameScale || '5');
@@ -4053,11 +3800,12 @@
             const max = Math.min(upTo, fl.length);
             for (let i = 0; i < max; i++) {
                 const e = fl[i];
-                const div = document.createElement('div'); div.className = 'lb-row';
+                const div = document.createElement('button'); div.className = 'lb-row';
                 const rankColor = i === 0 ? '#ffd700' : i < 3 ? '#c0c0c0' : i < 10 ? '#9b59b6' : '#666';
                 const configStr = `${e.cols||10}×${e.rows||20}` + (e.startSpeed && e.startSpeed > 1 ? ` · spd ${e.startSpeed}` : '');
                 const details = `<span class="lb-detail">${escapeHtml(configStr)}</span><span class="lb-detail">${lbFmt(e.time||0)}</span><span class="lb-detail">${escapeHtml(e.lines||0)} lines</span>`;
                 div.innerHTML = `<span class="lb-rank" style="font-size:0.85rem;font-weight:bold;color:${rankColor};min-width:52px;text-align:center;">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock))}</span>`;
+                _bindScoreInfo(div, e, `#${i + 1} Fun`, { board: configStr });
                 container.appendChild(div);
             }
             if (max < fl.length) {
@@ -4091,11 +3839,53 @@
         });
     }
 
-    function settingsTab(tab) { /* tabs removed — settings is a single scroll */ }
+    const settingsTabs = document.querySelector('.lb102-tabs');
+    const settingsTabButtons = [...settingsTabs.querySelectorAll('[data-settings-tab]')];
+    let activeSettingsTab = 'game';
+    function updateSettingsTabEdges() {
+        const { scrollLeft, scrollWidth, clientWidth } = settingsTabs;
+        settingsTabs.parentElement.toggleAttribute('data-left', scrollLeft > 1);
+        settingsTabs.parentElement.toggleAttribute('data-right', scrollLeft + clientWidth < scrollWidth - 1);
+    }
+    function settingsTab(tab = activeSettingsTab, focus = false, reveal = true) {
+        const selected = settingsTabButtons.find(button => button.dataset.settingsTab === tab);
+        if (!selected) return;
+        activeSettingsTab = tab;
+        for (const button of settingsTabButtons) {
+            button.setAttribute('aria-selected', String(button === selected));
+            button.tabIndex = button === selected ? 0 : -1;
+            document.getElementById(button.getAttribute('aria-controls')).hidden = button !== selected;
+        }
+        if (reveal) revealSettingsTab(selected);
+        if (focus) selected.focus({ preventScroll: true });
+    }
+    function revealSettingsTab(selected) {
+        document.querySelector('.lb102-settings-scroll').scrollTop = 0;
+        selected.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+        updateSettingsTabEdges();
+    }
+    settingsTabs.addEventListener('scroll', updateSettingsTabEdges, { passive: true });
+    window.addEventListener('resize', updateSettingsTabEdges);
+    settingsTabs.addEventListener('click', event => {
+        const tab = event.target.closest('[data-settings-tab]');
+        if (tab) settingsTab(tab.dataset.settingsTab);
+    });
+    settingsTabs.addEventListener('keydown', event => {
+        const current = settingsTabButtons.indexOf(event.target);
+        if (current < 0) return;
+        const count = settingsTabButtons.length;
+        const next = { ArrowLeft: (current + count - 1) % count, ArrowRight: (current + 1) % count, Home: 0, End: count - 1 }[event.key];
+        if (next === undefined) return;
+        event.preventDefault();
+        event.stopPropagation();
+        settingsTab(settingsTabButtons[next].dataset.settingsTab, true);
+    });
     let inventoryPreviewTimer;
     let inventoryPreviewColor = 1;
     let inventoryPreviewPalette;
     let inventoryActivePreview;
+    let inventoryPreviewObserver;
+    let inventoryActivePreviewNearViewport = false;
     const inventoryStaticPreviews = new Map();
 
     function _inventorySkinPreview(skin, label, active) {
@@ -4110,10 +3900,33 @@
         canvas.dataset.skin = skin;
         canvas.setAttribute('role', 'img');
         canvas.setAttribute('aria-label', `${label} block preview`);
-        _drawSkinPreview(canvas, skin, active ? inventoryPreviewColor : 1);
         if (active) inventoryActivePreview = canvas;
         else inventoryStaticPreviews.set(skin, canvas);
         return canvas;
+    }
+
+    function _observeInventoryPreviews(container) {
+        inventoryPreviewObserver?.disconnect();
+        inventoryActivePreviewNearViewport = false;
+        if (typeof IntersectionObserver === 'function') {
+            inventoryPreviewObserver = new IntersectionObserver((entries, observer) => {
+                if (observer !== inventoryPreviewObserver) return;
+                for (const { target, isIntersecting } of entries) {
+                    if (!target.isConnected) continue;
+                    if (target === inventoryActivePreview) inventoryActivePreviewNearViewport = isIntersecting;
+                    if (!isIntersecting) continue;
+                    if (!target.dataset.previewColor) _drawSkinPreview(target, target.dataset.skin, target === inventoryActivePreview ? inventoryPreviewColor : 1);
+                    if (target !== inventoryActivePreview) observer.unobserve(target);
+                }
+            }, { root: container.closest('.lb-inventory-content'), rootMargin: '120px 0px' });
+        }
+        for (const canvas of container.querySelectorAll('.lb-inventory-preview')) {
+            if (inventoryPreviewObserver) {
+                if (canvas === inventoryActivePreview || !canvas.dataset.previewColor) inventoryPreviewObserver.observe(canvas);
+            } else if (!canvas.dataset.previewColor) {
+                _drawSkinPreview(canvas, canvas.dataset.skin, canvas === inventoryActivePreview ? inventoryPreviewColor : 1);
+            }
+        }
     }
 
     function inventoryTab(tab) {
@@ -4134,7 +3947,7 @@
         clearInterval(inventoryPreviewTimer);
         if (tab === 'blocks' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
             inventoryPreviewTimer = setInterval(() => {
-                if (document.hidden || _invOv.classList.contains('hidden') || !inventoryActivePreview?.isConnected) return;
+                if (document.hidden || _invOv.classList.contains('hidden') || !inventoryActivePreview?.isConnected || (inventoryPreviewObserver && !inventoryActivePreviewNearViewport)) return;
                 inventoryPreviewColor = inventoryPreviewColor % (BASE_PIECES.length - 1) + 1;
                 _drawSkinPreview(inventoryActivePreview, inventoryActivePreview.dataset.skin, inventoryPreviewColor);
             }, 2500);
@@ -4349,6 +4162,7 @@
                 const skin = row.dataset.itemKey;
                 row.querySelector('.lb-inventory-heading').after(_inventorySkinPreview(skin, skinNames[skin], skin === activeSkin));
             });
+            _observeInventoryPreviews(ownedSkinContainer);
         }
 
         const ownedThemeContainer = document.getElementById('owned-theme-btns');
@@ -4475,8 +4289,6 @@
         }
 
         // Background toggle
-        const heavyBgCb = document.getElementById('setting-heavy-bg');
-        if (heavyBgCb) heavyBgCb.checked = !!(settings.heavyBg);
 
         // Fonts: tied to style packs, not separately unlockable
     }
@@ -4707,19 +4519,39 @@
         const missionsBtn = document.querySelector('[onclick="window.openMissions()"]');
         if (missionsBtn) { const _wgm = missionsBtn.classList.contains('glow-notify'); missionsBtn.classList.toggle('glow-notify', _hasMissionReward); _updateBtnSweep(missionsBtn, _hasMissionReward); if (_hasMissionReward && !_wgm) _shakeNotifyBtn(missionsBtn); }
     }
-    function openInventory() {
-        inventoryTab('blocks');
-        _checkGlowNotifications();
-        const _invEl = document.getElementById('inventory-overlay');
-        _invEl.classList.remove('hidden');
-        _invEl.querySelector('.lb-inventory-content').scrollTop = 0;
-        _animateIn(_invEl, 'anim-in-right');
+    function fillScreenAfterPaint(overlay, fill) {
+        const request = {};
+        overlay.screenFill = request;
+        return new Promise((resolve, reject) => requestAnimationFrame(() => requestAnimationFrame(() => {
+            setTimeout(() => {
+                if (overlay.screenFill !== request || overlay.classList.contains('hidden')) return resolve();
+                try { resolve(fill()); }
+                catch (error) { reject(error); }
+                finally { overlay.screenFill = null; }
+            }, 0);
+        })));
+    }
+
+    function hideMenuScreen(overlay) {
+        closeInfo();
+        overlay.screenFill = null;
+        overlay.classList.add('hidden');
+    }
+
+    function openInventory(tab = 'blocks') {
+        const overlay = document.getElementById('inventory-overlay');
+        overlay.classList.remove('hidden');
+        return fillScreenAfterPaint(overlay, () => {
+            inventoryTab(tab);
+            overlay.querySelector('.lb-inventory-content').scrollTop = 0;
+            _checkGlowNotifications();
+        });
     }
     function closeInventory() {
         clearInterval(inventoryPreviewTimer);
-        const _mEl = document.getElementById('menu-overlay');
-        _animateOut(document.getElementById('inventory-overlay'), 'anim-out-right');
-        if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
+        inventoryPreviewObserver?.disconnect();
+        inventoryPreviewObserver = undefined;
+        hideMenuScreen(document.getElementById('inventory-overlay'));
     }
 
     // --- UI CONTROL HELPERS ---
@@ -4788,7 +4620,23 @@
     }
 
     let settingsFromPause = false;
-    function openSettings(fromPause = false) {
+    function openSettings(fromPause = false, tab = activeSettingsTab) {
+        const overlay = document.getElementById('settings-overlay');
+        const back = document.getElementById('settings-back');
+        settingsFromPause = fromPause;
+        closeInfo();
+        document.getElementById(fromPause ? 'pause-overlay' : 'menu-overlay').classList.add('hidden');
+        back.querySelector('use').setAttribute('href', fromPause ? '#lb-topbar-parent' : '#lb-topbar-home');
+        back.querySelector('span').textContent = fromPause ? 'Back' : 'Menu';
+        overlay.classList.remove('hidden');
+        settingsTab(tab, false, false);
+        return fillScreenAfterPaint(overlay, () => {
+            revealSettingsTab(settingsTabs.querySelector('[aria-selected="true"]'));
+            if (!overlay.contains(document.activeElement)) back.focus({ preventScroll: true });
+            syncSettingsControls();
+        });
+    }
+    function syncSettingsControls() {
         controlsEditor.render();
         _reminders?.render();
         _musicFollowsSpeedToggle.checked = settings.musicFollowsSpeed !== false;
@@ -4865,24 +4713,9 @@
         if (lcSlider) { lcSlider.value = lcIdx; _dStepsSync('lineclear-dtrack','',lcSlider,0,5); }
         const lcVal = document.getElementById('setting-lineclear-val'); if (lcVal) lcVal.innerText = lcMs === 0 ? 'Instant' : lcMs + 'ms';
         _lineClearEffectSelect.value = settings.lineClearEffect;
-        // Heavy fall D-step
-        const hbV = parseInt(settings.heavyBg) || 1;
-        const hbSlider = document.getElementById('slider-heavybg');
-        if (hbSlider) { hbSlider.value = hbV; _dStepsSync('heavybg-dtrack','',hbSlider,1,3); }
-        const hbVal = document.getElementById('setting-heavybg-val'); if (hbVal) hbVal.innerText = ['','Light','Medium','Heavy'][hbV] || '';
         _themeBackgroundSelect.value = LBArtPack.backgroundMode(settings.themeBackground);
         _movingBackgroundToggle.checked = settings.movingBackground !== false;
-        _bgBlockMotionSelect.value = settings.bgBlockMotion === 'falling' ? 'falling' : 'spinning';
         _runMissionsSelect.value = settings.showRunMissions === true ? 'on' : 'off';
-        settingsFromPause = fromPause;
-        document.getElementById(fromPause ? 'pause-overlay' : 'menu-overlay').classList.add('hidden');
-        const _settEl = document.getElementById('settings-overlay');
-        const settingsBack = document.getElementById('settings-back');
-        settingsBack.querySelector('use').setAttribute('href', fromPause ? '#lb-topbar-parent' : '#lb-topbar-home');
-        settingsBack.querySelector('span').textContent = fromPause ? 'Back' : 'Menu';
-        _settEl.classList.remove('hidden');
-        _animateIn(_settEl, 'anim-in-right');
-        settingsBack.focus({ preventScroll: true });
     }
     async function resetAllProgress() {
         if (_readOnlyRawSave) { customAlert('This version cannot change your save.', 'SAVE IS READ-ONLY'); return; }
@@ -4945,19 +4778,21 @@
         controlsEditor.cancel();
         if (_settingsTrackPollId) { clearInterval(_settingsTrackPollId); _settingsTrackPollId = null; }
         const overlay = document.getElementById('settings-overlay');
-        if (overlay.classList.contains('hidden') || overlay.classList.contains('anim-out-right')) return;
+        if (overlay.classList.contains('hidden')) return;
         const fromPause = settingsFromPause;
-        _animateOut(overlay, 'anim-out-right', function() {
-            settingsFromPause = false;
-            if (fromPause) {
-                document.getElementById('pause-overlay').classList.remove('hidden');
-                document.getElementById('pause-settings').focus({ preventScroll: true });
-            } else {
-                const _mEl = document.getElementById('menu-overlay');
-                _mEl.classList.remove('hidden');
-                _animateIn(_mEl, 'anim-in-left');
-            }
-        });
+        hideMenuScreen(overlay);
+        settingsFromPause = false;
+        const parent = document.getElementById(fromPause ? 'pause-overlay' : 'menu-overlay');
+        parent.classList.remove('hidden');
+        if (fromPause) {
+            document.getElementById('pause-settings').focus({ preventScroll: true });
+        } else {
+            requestAnimationFrame(() => {
+                if (!parent.classList.contains('hidden') && (document.activeElement === document.body || overlay.contains(document.activeElement))) {
+                    document.getElementById('btn-settings').focus({ preventScroll: true });
+                }
+            });
+        }
     }
     function toggleInstructions() {
         const hidden = document.getElementById('instr-content').classList.toggle('hidden');
@@ -5003,27 +4838,13 @@
             const gsVEl = document.getElementById('gamescale-step-val'); if (gsVEl) gsVEl.innerText = value;
             const gsFEl = document.getElementById('gamescale-step-fill'); if (gsFEl) gsFEl.style.width = ((parseInt(value)-1)/9*100).toFixed(1)+'%';
             saveSettingsDebounced(); return;
-        } else if (key === 'heavyBg') {
-            settings.heavyBg = parseInt(value) || 1;
-            _rebuildBgBlocks();
-            const _hbLabels = ['','Light','Medium','Heavy'];
-            const hbVal = document.getElementById('setting-heavybg-val'); if (hbVal) hbVal.innerText = _hbLabels[settings.heavyBg] || '';
-            _dStepsSync('heavybg-dtrack','',document.getElementById('slider-heavybg'),1,3);
         } else if (key === 'themeBackground') {
             settings.themeBackground = LBArtPack.backgroundMode(value);
             LBArtPack.applyThemeBackground(document.querySelector('.bg-gradient'), settings.theme, settings.themeBackground);
-            syncBackground();
+            syncWallpaper();
         } else if (key === 'movingBackground') {
             settings.movingBackground = value === true;
             syncWallpaper();
-        } else if (key === 'bgBlockMotion') {
-            settings.bgBlockMotion = value === 'falling' ? 'falling' : 'spinning';
-            _rebuildBgBlocks();
-            if (_specialBlock) {
-                const falling = settings.bgBlockMotion === 'falling';
-                _specialBlock.vy = falling ? 0.55 : 0.8;
-                _setBgBlockRotation(_specialBlock, falling, _specialBlock.rot, 0.015);
-            }
         } else if (key === 'showRunMissions') {
             settings.showRunMissions = value === true;
             _syncRunMissions(true);
@@ -5173,16 +4994,16 @@
         return { date: LBSave.localDate(date), clock: LBSave.localClock(date) };
     }
     function _bestScore() { return saveData.leaderboard?.[0]?.score || 0; }
-    function saveToLeaderboard(score, lines, blocks, time, maxSpeed, xp, maxCombo) {
-        saveData.leaderboard.push({ score, ..._scoreDate(), lines, blocks, time, maxSpeed, xp, maxCombo: maxCombo || 0 });
+    function saveToLeaderboard(score, lines, blocks, time, maxSpeed, xp, maxCombo, playedAt = _scoreDate()) {
+        saveData.leaderboard.push({ score, ...playedAt, lines, blocks, time, maxSpeed, xp, maxCombo: maxCombo || 0 });
         saveData.leaderboard.sort((a,b) => b.score - a.score);
     }
 
     let _lastGameStats = null; // stores stats from most recent game for pinning
 
-    function pinScore(score, lines, blocks, time, maxSpeed, xp, note) {
+    function pinScore(score, lines, blocks, time, maxSpeed, xp, note, playedAt = _scoreDate()) {
         if (!saveData.pinnedScores) saveData.pinnedScores = [];
-        saveData.pinnedScores.push({ score, ..._scoreDate(), lines, blocks, time, maxSpeed, xp, note: note || '' });
+        saveData.pinnedScores.push({ score, date: playedAt.date, clock: playedAt.clock, lines, blocks, time, maxSpeed, xp, note: note || '' });
         if (saveData.pinnedScores.length > 50) saveData.pinnedScores = saveData.pinnedScores.slice(-50);
         // pin_record achievement — pinned score equals the top leaderboard score (works with dev-added scores too)
         const _effectiveHS = _bestScore();
@@ -5195,47 +5016,85 @@
     function pinCurrentScore() {
         if (!_lastGameStats) { customAlert('No completed game to pin.', 'PIN SCORE'); return; }
         const s = _lastGameStats;
-        pinScore(s.score, s.lines, s.blocks, s.time, s.maxSpeed, s.xp, s.note);
+        if (_findScorePin(s) === -1) pinScore(s.score, s.lines, s.blocks, s.time, s.maxSpeed, s.xp, s.note, s);
         customAlert('Score pinned!', 'PIN SCORE');
-    }
-    function pinLeaderboardEntry(idx) {
-        const e = saveData.leaderboard[idx];
-        if (!e) return;
-        pinScore(e.score, e.lines, e.blocks, e.time, e.maxSpeed, e.xp, 'from leaderboard');
     }
     function unpinScore(realIdx) {
         if (!saveData.pinnedScores) return;
         saveData.pinnedScores.splice(realIdx, 1);
         saveDataToFile();
-        drawPinnedScores();
     }
-    function _showScorePinPopup(event, label, action) {
-        if (infoDragged && event.detail) return;
-        let popup = document.getElementById('score-pin-popup');
-        if (!popup) {
-            popup = document.createElement('button');
-            popup.type = 'button';
-            popup.id = 'score-pin-popup';
-            popup.className = 'lb-block-btn';
-            document.body.appendChild(popup);
-        }
-        const trigger = event.currentTarget;
-        const keyboard = event.detail === 0;
-        popup.textContent = label;
-        const dismiss = () => {
-            closeInfo(trigger);
-            if (keyboard) (trigger.isConnected ? trigger : document.getElementById('pinned-container')).focus({ preventScroll: true });
-        };
-        showInfo(popup, trigger);
-        popup.onclick = (e) => { e.stopPropagation(); action(); dismiss(); };
-        popup.onkeydown = (e) => { if (e.key === 'Escape') { e.stopPropagation(); dismiss(); } };
-        if (keyboard) popup.focus();
+
+    const _scorePinIcon = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#lb-run-icon-pin"/></svg>';
+    const _sameRunStats = (left, right) => ['score', 'lines', 'blocks', 'time', 'maxSpeed', 'xp'].every(key => (left[key] ?? null) === (right[key] ?? null));
+
+    function _findScorePin(entry) {
+        const pins = saveData.pinnedScores || [];
+        const exact = pins.findLastIndex(pin => _sameRunStats(pin, entry) && pin.date === entry.date && pin.clock === entry.clock);
+        if (exact !== -1) return exact;
+        const legacy = pins.findLastIndex(pin => _sameRunStats(pin, entry) && pin.note === 'from leaderboard');
+        const matches = saveData.leaderboard.filter(score => _sameRunStats(score, entry));
+        return matches.length === 1 && matches[0] === entry ? legacy : -1;
+    }
+
+    function _bindScoreInfo(trigger, entry, title, { pinIndex, board } = {}) {
+        trigger.type = 'button';
+        trigger.setAttribute('aria-haspopup', 'dialog');
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.setAttribute('aria-controls', 'lb-tooltip-global');
+        trigger.addEventListener('click', event => {
+            if (infoDragged && event.detail) return;
+            if (activeInfo?.anchor === trigger) { closeInfo(trigger); return; }
+            closeInfo();
+            const panel = infoPanel('lb-tooltip-global');
+            panel.setAttribute('role', 'dialog');
+            panel.setAttribute('aria-labelledby', 'lb-score-info-title');
+            const icons = _lbIcons();
+            const time = Number(entry.time) || 0;
+            const pinControl = board ? '' : `<button type="button" class="lb-block-btn lb-block-btn--icon" id="score-pin-popup">${_scorePinIcon}</button>`;
+            panel.tabIndex = -1;
+            panel.innerHTML = `<header class="lb-score-info-head"><strong id="lb-score-info-title">${escapeHtml(title)} · ${escapeHtml(entry.score.toLocaleString())} pts</strong>${pinControl}</header>
+                <div class="lb-score-info-details">
+                    ${entry.lines != null ? `<span>${icons.lines} Lines: ${escapeHtml(entry.lines)}</span><span>${icons.time} Time: ${Math.floor(time / 60)}m ${String(time % 60).padStart(2, '0')}s</span>` : ''}
+                    ${entry.maxSpeed != null ? `<span>${icons.speed} Speed level: ${escapeHtml(entry.maxSpeed)}</span>` : ''}
+                    ${entry.maxCombo > 1 ? `<span>Combo: ×${escapeHtml(entry.maxCombo)}</span>` : ''}
+                    ${board ? `<span>Board: ${escapeHtml(board)}</span>` : ''}
+                    <span>${escapeHtml(LBSave.displayDate(entry.date, entry.clock))}</span>
+                </div>`;
+            const pinButton = panel.querySelector('#score-pin-popup');
+            const updatePin = () => {
+                const pinned = (pinIndex ?? _findScorePin(entry)) !== -1;
+                pinButton.setAttribute('aria-pressed', pinned);
+                pinButton.setAttribute('aria-label', pinned ? 'Unpin score' : 'Pin score');
+            };
+            if (pinButton) updatePin();
+            showInfo(panel, trigger, { dismiss: () => {
+                panel.hidden = true;
+                trigger.setAttribute('aria-expanded', 'false');
+            } });
+            trigger.setAttribute('aria-expanded', 'true');
+            pinButton?.addEventListener('click', () => {
+                const index = pinIndex ?? _findScorePin(entry);
+                if (index === -1) pinScore(entry.score, entry.lines, entry.blocks, entry.time, entry.maxSpeed, entry.xp, 'from leaderboard', entry);
+                else unpinScore(index);
+                if (pinIndex == null) updatePin();
+                else {
+                    closeInfo(trigger);
+                    drawPinnedScores();
+                    if (!event.detail) (document.querySelector('#pinned-list .lb-row') || document.getElementById('stats-tab-pin')).focus({ preventScroll: true });
+                }
+            });
+            panel.onkeydown = key => {
+                if (key.key === 'Escape') trigger.focus({ preventScroll: true });
+                if (key.key === 'Tab') { key.preventDefault(); closeInfo(trigger); trigger.focus({ preventScroll: true }); }
+            };
+            if (!event.detail) (pinButton || panel).focus({ preventScroll: true });
+        });
     }
     function _lbIcons() {
-        const _ico = (p, w, h) => `<svg viewBox="0 0 16 16" width="${w||12}" height="${h||12}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;opacity:0.8">${p}</svg>`;
         const runIcon = name => `<svg class="lb-run-icon lb-run-icon--${name}" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#lb-run-icon-${name}"/></svg>`;
         return {
-            time:  _ico(`<circle cx="8" cy="9" r="5.5"/><polyline points="8 6 8 9 10 11"/><line x1="5.5" y1="1.5" x2="10.5" y2="1.5"/>`, 16, 16),
+            time: '<svg class="lb-run-icon lb-run-icon--time" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><use href="#lb-metric-clock"/></svg>',
             lines: runIcon('lines'),
             speed: runIcon('speed'),
             cal:   `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px;opacity:0.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
@@ -5261,15 +5120,11 @@
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
             const noteHtml = e.note ? `<span class="lb-stats-meta">${escapeHtml(e.note)}</span>` : '';
-            const matchesPin = entry => ['score', 'lines', 'blocks', 'time', 'maxSpeed', 'xp'].every(key => (entry[key] ?? null) === (e[key] ?? null));
+            const matchesPin = entry => _sameRunStats(entry, e);
             const rankIndex = saveData.leaderboard.slice(0, 3).findIndex(matchesPin);
             const crown = rankIndex !== -1 && saveData.leaderboard.findLastIndex(matchesPin) === rankIndex ? _statsCrown(rankIndex + 1, true) : '';
-            const pinIcon = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>';
-            div.innerHTML = `<span class="lb-pin-icon">${crown || pinIcon}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock, true))}</span>`;
-            div.addEventListener('click', (ev) => {
-                ev.stopPropagation();
-                _showScorePinPopup(ev, '📌 Unpin', () => unpinScore(realIdx));
-            });
+            div.innerHTML = `<span class="lb-pin-icon">${crown || _scorePinIcon}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock, true))}</span>`;
+            _bindScoreInfo(div, e, 'Pinned score', { pinIndex: realIdx });
             container.appendChild(div);
         });
     }
@@ -5315,10 +5170,10 @@
             const isCur = e.isCurrent;
             if (isCur) div.classList.add('lb-stats-current');
             const details = e.lines != null
-                ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}spd ${escapeHtml(e.maxSpeed||1)}</span>`
+                ? `<span class="lb-detail">${ico.lines} Lines ${escapeHtml(e.lines||0)}</span><span class="lb-detail">${ico.time} Time ${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.speed} Lvl ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
             const rank = i + 1;
-            div.innerHTML = `<span class="lb-rank">${_statsCrown(rank, true) || `#${rank}`}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(isCur ? '⭐ CURRENT' : LBSave.displayDate(e.date))}</span>`;
+            div.innerHTML = `<span class="lb-rank">${_statsCrown(rank, true) || `#${rank}`}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${isCur ? '<span class="lb-current-tag" aria-label="Current record">NOW</span>' : escapeHtml(LBSave.displayDate(e.date))}</span>`;
             container.appendChild(div);
         });
     }
@@ -5328,31 +5183,11 @@
         const lb = saveData.leaderboard;
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
-        const tipEl = infoPanel('lb-tooltip-global');
 
         const podiumPanel = document.createElement('section');
         podiumPanel.className = 'lb-stats-podium-panel lb-stats-podium-original';
         podiumPanel.setAttribute('aria-label', 'Best scores');
-        const podium = _statsPodium(lb, (block, e, rank, medal) => {
-            block.addEventListener('click', (ev) => {
-                ev.stopPropagation();
-                _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(rank - 1));
-            });
-            bindInfoPreview(block, () => {
-                let tipHtml = `<div class="lb-stats-podium-tip" data-place="${rank}">#${rank} ${medal} — ${escapeHtml(e.score.toLocaleString())} pts</div>`;
-                if (e.lines != null) {
-                    tipHtml += `<div style="display:flex;flex-direction:column;gap:2px;">`;
-                    tipHtml += `<span>${ico.time} ${lbFmt(e.time||0)}</span>`;
-                    tipHtml += `<span>${ico.lines} ${escapeHtml(e.lines||0)} lines</span>`;
-                    tipHtml += `<span>${ico.speed} speed ${escapeHtml(e.maxSpeed||1)}</span>`;
-                    if (e.maxCombo > 1) tipHtml += `<span>🔥 combo x${escapeHtml(e.maxCombo)}</span>`;
-                    tipHtml += `</div>`;
-                }
-                tipHtml += `<div>${escapeHtml(LBSave.displayDate(e.date, e.clock))}</div>`;
-                tipEl.innerHTML = tipHtml;
-                showInfo(tipEl, block);
-            });
-        });
+        const podium = _statsPodium(lb, (block, e, rank, medal) => _bindScoreInfo(block, e, `#${rank} ${medal}`));
         podiumPanel.appendChild(podium);
         container.appendChild(podiumPanel);
 
@@ -5369,10 +5204,7 @@
                     ? `<span class="lb-detail">${ico.time}${lbFmt(e.time)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed)}</span>`
                     : '';
                 div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock))}</span>`;
-                div.addEventListener('click', (ev) => {
-                    ev.stopPropagation();
-                    _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(i));
-                });
+                _bindScoreInfo(div, e, `#${i + 1}`);
                 container.appendChild(div);
             }
             // Load More button
@@ -5503,7 +5335,6 @@
         gift_ignore: 'M5 3h5v2h4V3h5v2h2v4h2v5h-2v8H3v-8H1V9h2V5h2zm0 2v4h5V7H8V5zm11 2h-2v2h5V5h-3zM5 14v6h5v-6zm9 0v6h5v-6z',
         back_to_back: 'M2 3h20v7H2zm2 2v3h16V5zm-2 9h20v7H2zm2 2v3h16v-3zm4-5h8v2H8zM6 6h4v1H6zm8 0h4v1h-4zM6 17h4v1H6zm8 0h4v1h-4z',
         afk: 'M2 3h20v14H2zm2 2v10h16V5zm4 13h8v2h3v2H5v-2h3zM9 7h7v2h-2v2h-2v1h4v2H9v-2h1v-2h2V9H9z',
-        parachute_catcher: 'M7 2h10v2h3v2h2v5h-4v2h-2v3h1v6H7v-6h1v-3H6v-2H2V6h2V4h3zm0 9v1h3v4h4v-4h3v-1z',
         collector: 'M2 5h14v3h6v12H2zm2 4v9h16v-7H13V8H4zm3 3h3v3H7zm6 1h3v3h-3z',
         pause_spam: ACH_PAUSE + 'M2 8h2v8H2zm18 0h2v8h-2z',
         leaning_tower: 'M12 2h7v5h-7zm-2 6h7v5h-7zm-3 6h7v5H7zm-4 6h18v2H3z',
@@ -5791,7 +5622,7 @@
         },
         {
             id: 'sec_early_bird', cat: 'secret', name: 'Early Bird', type: 'single',
-            rarity: 'rare', clue: 'The early bird catches the block.',
+            rarity: 'rare', clue: 'The early bird plays before sunrise.',
             desc: 'Play a game before 7 AM.',
             check: g => g.earlyBird,
         },
@@ -6008,12 +5839,6 @@
         id: 'afk', cat: 'secret', name: 'AFK', type: 'single',
         rarity: 'rare', clue: 'Still there?',
         desc: 'Spend 15 minutes in the menu without playing.',
-        check: () => false,
-    },
-    {
-        id: 'parachute_catcher', cat: 'secret', name: 'Supply Drop', type: 'single',
-        rarity: 'common', clue: 'Look for a drop against a plain sky.',
-        desc: 'Catch a color-changing block in the menu with the Plain background.',
         check: () => false,
     },
     {
@@ -6644,7 +6469,9 @@
         </svg>`;
     }
 
-    function renderAchievementsOverlay(tab) {
+    const achievementProgressPaths = [...new Set(ACHIEVEMENTS_DEF.flatMap(ach => (ach.tiers || [])
+        .map(tier => tier.progress?.path || tier.progressDisplay?.path)).filter(Boolean))];
+    function renderAchievementsOverlay(tab, opening = false) {
         tab = tab || 'all';
         checkProgressAchievements();
         const overlay = document.getElementById('achievements-overlay');
@@ -6652,7 +6479,7 @@
 
         const _prevAchTab = overlay._achTab || null;
         overlay._achTab = tab;
-        const _isAchTabSwitch = !!_prevAchTab && _prevAchTab !== tab;
+        const _isAchTabSwitch = !opening && !!_prevAchTab && _prevAchTab !== tab;
         const _ACH_ORD = ['all', 'unlocked', 'locked'];
 
         overlay.querySelectorAll('[data-achtab]').forEach(button => {
@@ -6664,6 +6491,11 @@
         const showDates = overlay.querySelector('#ach-dates-toggle').checked;
         const category = overlay.querySelector('#ach-category').value;
         const sort = overlay.querySelector('#ach-sort').value;
+        const pending = saveData.pendingAchievementClaims || [];
+        const renderKey = JSON.stringify([tab, showDates, category, sort, saveData.achievements, pending, achievementProgressPaths.map(_getProgressVal)]);
+        if (container.renderKey === renderKey && pending.every((claim, index) => claim === container.renderClaims[index])) return;
+        container.renderKey = renderKey;
+        container.renderClaims = pending.slice();
 
         if (_isAchTabSwitch && container.innerHTML.trim()) {
             const _bRect = container.getBoundingClientRect();
@@ -7332,6 +7164,22 @@
     let _celestiteHalo;
     let _celestiteFillLUT;
 
+    const BADGE_NUMBERS = false;
+    function _drawBadgeNumber(ctx, x, y, level, color, fontSize = 8) {
+        if (!BADGE_NUMBERS) return;
+        const text = String(level);
+        ctx.save();
+        ctx.font = `${fontSize}px 'Press Start 2P', monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        const metrics = ctx.measureText(text);
+        const offsetX = ((metrics.actualBoundingBoxLeft ?? 0) - (metrics.actualBoundingBoxRight ?? 0)) / 2;
+        const offsetY = ((metrics.actualBoundingBoxAscent ?? fontSize) - (metrics.actualBoundingBoxDescent ?? 0)) / 2;
+        ctx.fillStyle = color;
+        ctx.fillText(text, x + offsetX, y + offsetY);
+        ctx.restore();
+    }
+
     function _drawBadgeCanvas(displayLevel, displayPercent, info, xpLabel, xpProgress) {
         const ctx = rankCtx;
         const w = 300, h = 300; // CSS pixel dimensions (canvas is DPR-scaled internally)
@@ -7461,6 +7309,7 @@
             }
 
             ctx.globalAlpha = 1;
+            if (pct >= 1) _drawBadgeNumber(ctx, cx, cy, displayLevel, info.rank.c, 13);
             return;
         }
         for (let i = 0; i < N; i++) {
@@ -7470,36 +7319,10 @@
             const sx = cx + Math.cos(baseAngle) * ORBIT_R;
             const sy = cy + Math.sin(baseAngle) * ORBIT_R;
 
-            let fill = shapeLevel < displayLevel ? 1 : shapeLevel === displayLevel ? displayPercent : 0;
+            const fill = shapeLevel < displayLevel ? 1 : shapeLevel === displayLevel ? displayPercent : 0;
             const _shapeR = (shape && shape.rounded) ? Math.round(SHAPE_R * 1.38) : SHAPE_R;
             _drawMiniShape(ctx, sx, sy, _shapeR, shape, fill, rankColor, baseAngle);
-
-            // Draw Roman numeral inside shape — only for 100% filled shapes
-            const _shapeIdx = (shapeLevel - groupStart) % 10;
-            const romanNum = _toRoman(_shapeIdx + 1);
-            if (fill >= 1 && romanNum) {
-                ctx.save();
-                // Adaptive font size: shrink if text is too wide for the shape
-                // For star shapes the inner area is smaller, use tighter maxW
-                const _isStar = shape && shape.star;
-                const baseFontPx = Math.round(_shapeR * (_isStar ? 0.52 : 0.62));
-                ctx.font = `bold ${baseFontPx}px 'Arial Narrow', Arial, sans-serif`;
-                ctx.textBaseline = 'alphabetic';
-                ctx.textAlign = 'center';
-                const maxW = _isStar ? _shapeR * (shape.innerRatio || 0.5) * 1.7 : _shapeR * 1.55;
-                let fontPx = baseFontPx;
-                if (ctx.measureText(romanNum).width > maxW) {
-                    fontPx = Math.max(6, Math.floor(baseFontPx * maxW / ctx.measureText(romanNum).width));
-                    ctx.font = `bold ${fontPx}px 'Arial Narrow', Arial, sans-serif`;
-                }
-                // True visual centering: place baseline so glyph center aligns with sy
-                const m = ctx.measureText(romanNum);
-                const drawY = sy + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
-                ctx.globalAlpha = 0.95;
-                ctx.fillStyle = '#fff9e7';
-                ctx.fillText(romanNum, sx, drawY);
-                ctx.restore();
-            }
+            if (fill >= 1) _drawBadgeNumber(ctx, sx, sy, shapeLevel, rankColor);
 
             // Draw XP transfer label near the currently-filling shape
             if (xpLabel && shapeLevel === displayLevel) {
@@ -7594,7 +7417,7 @@
             nameEl.innerText = 'CELESTITE';
             nameEl.style.fontSize = '22px';
             nameEl.style.color = _celCurrentColor;
-            lvlEl.innerText  = _toRoman(info.level);
+            lvlEl.innerText  = BADGE_NUMBERS ? _toRoman(info.level) : '';
             lvlEl.style.fontSize = '20px';
             lvlEl.style.fontWeight = '900';
             lvlEl.style.fontFamily = "'Noto Serif', serif";
@@ -7691,7 +7514,8 @@
             // Draw +XP label on badge canvas near filling shape (shrinks as fill progresses)
             _drawBadgeCanvas(tempInfo.level, tempInfo.percent, tempInfo, xpLabelText, ease);
             const _tLvlInRank = tempInfo.lvlInRank ?? ((tempInfo.level - 1) % 10);
-            document.getElementById('badge-level-num').innerText = tempInfo.isCelestite ? _toRoman(tempInfo.level) : (_tLvlInRank === 0 ? '' : _toRoman(_tLvlInRank));
+            document.getElementById('badge-level-num').innerText = tempInfo.isCelestite
+                ? (BADGE_NUMBERS ? _toRoman(tempInfo.level) : '') : (_tLvlInRank === 0 ? '' : _toRoman(_tLvlInRank));
             document.getElementById('menu-xp-detail').innerText = tempInfo.isCelestite ? `${Math.floor(startXP + gainedXPThisRound * ease).toLocaleString()} total XP` : `${Math.floor(tempInfo.currentXP)} / ${tempInfo.neededXP} XP`;
             _setXpBarFill(tempInfo.percent * 100);
 
@@ -7754,18 +7578,6 @@
             if (_idleMs >= 15 * 60 * 1000) { unlockAchievement('afk'); saveDataToFile(); }
         }
     }, 30000);
-
-    // --- AIRDROP EVENT (uses bg-canvas special block, 1-10 min random interval) ---
-    function _doSpawnParachute() { _spawnSpecialBlock(); }
-    let _nextDropTime = Date.now() + (60 + Math.random() * 540) * 1000; // first drop 1-10 min
-    setInterval(() => {
-        if (_specialBlock || LBArtPack.backgroundMode(settings.themeBackground) !== 'plain') return;
-        const menuEl = document.getElementById('menu-overlay');
-        if (!menuEl || menuEl.classList.contains('hidden')) return;
-        if (Date.now() < _nextDropTime) return;
-        _spawnSpecialBlock();
-        _nextDropTime = Date.now() + (60 + Math.random() * 540) * 1000; // next in 1-10 min
-    }, 5000);
 
     let _musicTrackStartTime30s = null;
     let _currentTrackName30s = '';
@@ -7876,6 +7688,7 @@
         if (!metadata) return null;
         if (!_skinAtlases.has(skin)) {
             const image = new Image();
+            image.decoding = 'async';
             const atlas = { image, cell: metadata.cell, ready: false };
             atlas.promise = new Promise(resolve => {
                 image.onload = () => {
@@ -8693,6 +8506,7 @@
         }
 
         let finalXP=0, pbBonus=0;
+        const playedAt = _scoreDate();
         const previousBest = _bestScore();
         if(linesClearedThisGame>0){
             if(Math.round(score) > previousBest && score > 0){
@@ -8706,7 +8520,7 @@
             // Apply daily mission streak XP multiplier
             { const _msxm = _getMissionStreakXPMult(); if (_msxm > 1) finalXP = Math.round(finalXP * _msxm); }
             // Multiplier already applied to score during gameplay
-            saveToLeaderboard(Math.round(score), linesClearedThisGame, blocksPlacedThisGame, gameTime, speedLevel, finalXP, _maxComboThisGame);
+            saveToLeaderboard(Math.round(score), linesClearedThisGame, blocksPlacedThisGame, gameTime, speedLevel, finalXP, _maxComboThisGame, playedAt);
             // Track raw XP (pre-multiplier) for daily streak threshold check
             if (saveData.missions?.daily) saveData.missions.daily.rawXPToday = (saveData.missions.daily.rawXPToday || 0) + _rawGameXP;
         }
@@ -8799,7 +8613,7 @@
         }
         // sec_speedgames check
         { const _now = Date.now(); _recentGameEndTimes.push({t:_now, lines:linesClearedThisGame}); _recentGameEndTimes = _recentGameEndTimes.filter(e => _now - e.t <= 60000); if (_recentGameEndTimes.filter(e => e.lines >= 1).length >= 5 && !saveData.achievements?.['sec_speedgames']?.unlocked) { unlockAchievement('sec_speedgames'); } }
-        _lastGameStats = { score, lines: linesClearedThisGame, blocks: blocksPlacedThisGame, time: gameTime, maxSpeed: speedLevel, xp: finalXP, maxCombo: _maxComboThisGame };
+        _lastGameStats = { score: Math.round(score), ...playedAt, lines: linesClearedThisGame, blocks: blocksPlacedThisGame, time: gameTime, maxSpeed: speedLevel, xp: finalXP, maxCombo: _maxComboThisGame };
 
         // Check achievements
         saveData.stats.luckySevenCount = (saveData.stats.luckySevenCount || 0) + _sec7CountThisGame;
@@ -9305,13 +9119,14 @@
         if (plTot) plTot.textContent = dur > 0 ? _fmtTime(dur) : '0:00';
         if (plFill) plFill.style.width = (dur > 0 ? Math.min(100, elapsed / dur * 100) : 0) + '%';
         const isPix = settings.stylePack === 'pixel';
-        const icon = _musicPaused
+        const icon = settings.musicPaused
             ? (isPix ? _SVG_PIX_PLAY : `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><polygon points="3,2 13,8 3,14"/></svg>`)
             : (isPix ? _SVG_PIX_PAUSE : `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/></svg>`);
         const pauseBtn = document.getElementById('mw-pause');
-        if (pauseBtn) pauseBtn.innerHTML = icon;
+        const label = settings.musicPaused ? 'Play music' : 'Pause music';
+        if (pauseBtn) { pauseBtn.innerHTML = icon; pauseBtn.setAttribute('aria-label', label); }
         const plPause = document.getElementById('pl-mw-pause');
-        if (plPause) plPause.innerHTML = miniMusicIcon(icon);
+        if (plPause) { plPause.innerHTML = miniMusicIcon(icon); plPause.setAttribute('aria-label', label); }
     }
     window.musicWidgetPrev = function() {
         if (_currentMode !== 'menu' || !musicPlaying) return;
@@ -9324,10 +9139,13 @@
         _playMenuFileTrack(_currentMenuTrackIdx + 1);
     };
     window.musicWidgetPause = function() {
-        if (!audioCtx || !musicPlaying || !_nowPlayingName || _currentMode !== 'menu') return;
-        _musicPaused = !_musicPaused;
-        if (!_musicPaused && !_activeMusic) {
-            _playMenuTrack(_nowPlayingName, _trackPauseOffset);
+        if (_currentMode !== 'menu') return;
+        settings.musicPaused = !settings.musicPaused;
+        saveSettings();
+        if (!settings.musicPaused && !_activeMusic) {
+            if (!musicPlaying) void startMusic();
+            else if (_nowPlayingName) _playMenuTrack(_nowPlayingName, _trackPauseOffset);
+            else void switchMusicMode('menu');
         } else {
             _syncMusicPlayback();
             _updateMusicWidget();
@@ -9377,8 +9195,9 @@
                         <use class="lb135-emblem-highlight" href="#lb135-emblem-shape"/>
                         <use class="lb135-emblem-inner" href="#lb135-emblem-shape"/>
                     </svg>
-                    <span aria-label="Level ${level}">${level}</span>
+                    ${BADGE_NUMBERS ? `<span aria-label="Level ${level}">${level}</span>` : ''}
                 </div>
+                ${BADGE_NUMBERS ? '' : `<span class="lb105-level-value">Level ${level}</span>`}
                 <strong class="lb105-level-rank">${name}</strong>
             </header>
             <div class="lb105-level-rewards lb-scroll-fade" role="region" aria-label="Level rewards"></div>
@@ -9954,7 +9773,8 @@
     const _runMissionsBody = document.getElementById('run-missions-body');
     const _runMissionsNote = document.getElementById('run-missions-note');
     const _runMissionsList = document.getElementById('run-missions-list');
-    const _runMissionsHud = document.querySelector('#app .portrait-right');
+    const _runMissionsApp = document.getElementById('app');
+    const _runMissionsHud = _runMissionsApp.querySelector('.portrait-right');
     let _runMissionsSnapshot = '';
     let _runMissionsNextUpdate = 0;
 
@@ -9965,7 +9785,7 @@
     }
 
     function _syncRunMissions(reset = false) {
-        _runMissionsPanel.hidden = settings.showRunMissions !== true || currentGameMode === 'fun' || isGameOver || !_bgApp.classList.contains('active-game');
+        _runMissionsPanel.hidden = settings.showRunMissions !== true || currentGameMode === 'fun' || isGameOver || !_runMissionsApp.classList.contains('active-game');
         if (_runMissionsPanel.hidden) return;
         const beside = window.innerWidth > window.innerHeight && window.innerWidth - _runMissionsHud.getBoundingClientRect().right >= 230;
         const changed = _runMissionsPanel.classList.contains('is-beside') !== beside;
@@ -10132,12 +9952,12 @@
             for (let c = 0; c < W; c++) {
                 const fromBottom = (H - 1 - r) * W + c;
                 tds += fromBottom < filled
-                    ? `<td style="background:${color};box-shadow:0 0 4px ${color},0 0 8px ${color}44;"></td>`
+                    ? `<td class="mq-mini-well-filled"></td>`
                     : '<td></td>';
             }
             rows += `<tr>${tds}</tr>`;
         }
-        return `<table class="mq-mini-well" style="box-shadow:0 0 0 1px ${color}44;"><tbody>${rows}</tbody></table>`;
+        return `<table class="mq-mini-well" style="--mq-tier:${color}" aria-hidden="true"><tbody>${rows}</tbody></table>`;
     }
 
     function _cellBar(progress, target, color, cells) {
@@ -10165,8 +9985,8 @@
         const claimedState = done && q.ptsClaimed;
         const readyState = done && !q.ptsClaimed;
         const changeAvail = isWeekly ? !saveData.missions?.weekly?.changeUsed : !saveData.missions?.daily?.changeUsed;
-        const canSwapThis = !isSecret && !done && changeAvail && typeof index === 'number';
         const inChangeMode = !!window._mqChangeMode;
+        const canSwapThis = inChangeMode && !isSecret && !done && changeAvail && _swapCandidates(index, isWeekly).length > 0;
         const title = isSecret && !done ? '???' : q.title;
         const desc  = isSecret && !done ? '<span class="mq-secret-hint">Complete to reveal…</span>' : `<span>${escapeHtml(q.desc)}</span>`;
         const hasProgress = !isSecret && q.target > 1;
@@ -10181,7 +10001,7 @@
         const progressRowHtml = hasProgress ? `
             <div class="mq-card-progress">
                 <div class="mq-card-meter" style="border-color:${tc}44;">
-                    <div style="height:100%;width:${pct}%;background:${tc};box-shadow:0 0 6px ${tc};background-image:linear-gradient(90deg,${tc}cc 0%,${tc} 100%);"></div>
+                    <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${tc}cc 0%,${tc} 100%);"></div>
                 </div>
                 <div class="mq-card-progress-value">${_progFmt}</div>
             </div>` : '';
@@ -10190,7 +10010,7 @@
         if (claimedState) {
             actionHtml = `<div style="font-family:var(--ui-font);font-size:0.48rem;color:#44ff88;letter-spacing:0.18em;">&#x2713; CLAIMED</div>`;
         } else if (readyState) {
-            actionHtml = `<div style="text-align:center;margin-top:8px;"><button class="mq-pts-claim-btn lb-block-btn" onclick="window._claimQuestPts(${escapeHtml(JSON.stringify(String(q.id)))},${!!isWeekly},'${tc}',this)">CLAIM +${escapeHtml(q.pts)} PTS</button></div>`;
+            actionHtml = `<button type="button" class="mq-pts-claim-btn lb-block-btn lb-block-btn--primary" onclick="window._claimQuestPts(${escapeHtml(JSON.stringify(String(q.id)))},${!!isWeekly},'${tc}',this)">Claim +${escapeHtml(q.pts)} pts</button>`;
         } else if (!done && hasProgress) {
             actionHtml = `<div style="font-family:var(--ui-font);font-size:0.48rem;color:#555;letter-spacing:0.1em;">${Math.floor(pct)}% complete</div>`;
         }
@@ -10200,7 +10020,7 @@
             : `background:${tc}12;border:2px solid ${tc}44;`;
         const changeModeCls = inChangeMode ? (canSwapThis ? ' mq-card--changeable' : ' mq-card--change-dimmed') : '';
         const changeOverlay = (inChangeMode && canSwapThis)
-            ? `<div class="mq-change-overlay" onclick="window._changeMission(${index},${!!isWeekly})"><span class="mq-change-overlay-label">↺ TAP TO SWAP</span></div>`
+            ? `<button type="button" class="mq-change-overlay" aria-label="Swap ${escapeHtml(q.desc)}" onclick="window._changeMission(${index},${!!isWeekly})"><span class="mq-change-overlay-label">↺ TAP TO SWAP</span></button>`
             : '';
         return `<div class="mq-card-wrap"${index == null ? '' : ` data-mission-slot="${index}"`}>
             <div class="mq-card${isSecret?' mq-card--secret':''}${readyState?' mq-card--ready':''}${changeModeCls}" style="${cardStyle}">
@@ -10215,7 +10035,7 @@
                         <div class="mq-card-desc">${desc}</div>
                     </div>
                 </div>
-                ${progressRowHtml}${actionHtml ? `<div class="mq-card-action${!done && hasProgress ? ' mq-card-action--percent' : ''}">${actionHtml}</div>` : ''}
+                ${progressRowHtml}${actionHtml ? `<div class="mq-card-action${readyState ? ' mq-card-action--claim' : !done && hasProgress ? ' mq-card-action--percent' : ''}">${actionHtml}</div>` : ''}
             </div>
             ${changeOverlay}
         </div>`;
@@ -10271,14 +10091,13 @@
             const isClaimed = (claimed || []).includes(ms.pts);
             const reached = points >= ms.pts || isClaimed;
             const canClaim = reached && !isClaimed;
-            const rarity = reached ? LBCrates.missionRarity(ms.pts, isWeekly) : 'common';
+            const rarity = reached || (!isWeekly && ms.pts === lastMsPts) ? LBCrates.missionRarity(ms.pts, isWeekly) : 'common';
             const crate = _missionCrateMarker(rarity, !reached);
             const label = `${ms.pts} points: ${reached ? `${rarity} crate` : 'locked crate'}`;
             return `<div class="mq-pb-icon-wrap" style="left:${iPct}%">${canClaim
                 ? `<button type="button" class="mq-ms-claim-btn" onclick="window._claimMissionMilestone(${ms.pts},${!!isWeekly},false,this)" aria-label="Claim ${label}" data-control-tip="Claim ${label}">${crate}</button>`
                 : `<span class="mq-ms-marker" role="img" aria-label="${label}${isClaimed ? ', claimed' : ''}" title="${label}${isClaimed ? ' (claimed)' : ''}">${crate}${isClaimed ? '<span class="mq-ms-claimed" aria-hidden="true">✓</span>' : ''}</span>`}</div>`;
         }).join('');
-        // Weekly: pending universal parts — claimable box replaces star when available
         const pending = isWeekly ? (saveData.missions?.weekly?.pendingUniversalParts || 0) : 0;
         const goldenIconHtml = isWeekly ? (() => {
             const gPct = (MQ_WEEKLY_GOLDEN_THRESHOLD / stepSize) / totalSteps * 100;
@@ -10286,16 +10105,14 @@
                 return `<div class="mq-pb-icon-wrap" style="left:${gPct}%;">
                     <div style="position:relative;display:inline-block;">
                         <button type="button" class="mq-ms-claim-btn" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} Universal Part${pending !== 1 ? 's' : ''}" data-control-tip="Collect +${escapeHtml(pending)} Universal Part${pending !== 1 ? 's' : ''}">
-                            ${_missionCrateMarker('legendary')}
+                            ${_missionCrateMarker('mythic')}
                         </button>
                         <div style="position:absolute;top:-3px;right:-5px;background:#ffcc44;color:#050510;font-family:var(--ui-font);font-size:0.32rem;font-weight:bold;padding:1px 3px;border-radius:3px;line-height:1.4;pointer-events:none;">+${escapeHtml(pending)}</div>
                     </div>
                 </div>`;
             }
-            const starCol = isGolden ? '#ffcc44' : 'var(--bb-edge)';
-            const starFilter = isGolden ? 'filter:drop-shadow(0 0 6px rgba(255,204,68,0.55));' : '';
-            const starSvg = `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="${starCol}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
-            return `<div class="mq-pb-icon-wrap" style="left:${gPct}%;top:10px;"><span class="mq-star-tip" data-mqctip="${MQ_WEEKLY_GOLDEN_THRESHOLD}+ pts: earn +1 Universal Part per extra point" style="${starFilter}cursor:help;display:block;">${starSvg}</span></div>`;
+            const label = `${MQ_WEEKLY_GOLDEN_THRESHOLD}+ points: earn +1 Universal Part per extra point`;
+            return `<div class="mq-pb-icon-wrap" style="left:${gPct}%;"><span class="mq-ms-marker" role="img" aria-label="${label}" data-mqctip="${label}">${_missionCrateMarker('mythic', !isGolden)}</span></div>`;
         })() : '';
         const ptsColor = isGolden ? '#ffcc44' : (isWeekly ? '#ffcc44' : '#4499ff');
         return `<div class="mq-pb-wrap" style="position:relative;">
@@ -10321,6 +10138,9 @@
         const now = new Date();
         const _ldk = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
         const todayStr = _ldk(now);
+        const renderKey = JSON.stringify([todayStr, hist]);
+        if (el.renderKey === renderKey) return;
+        el.renderKey = renderKey;
 
         // Current week boundaries (Mon-Sun)
         const dow = now.getDay(); // 0=Sun
@@ -10437,7 +10257,7 @@
         }
     }
 
-    function renderMissionsOverlay(tab) {
+    function renderMissionsOverlay(tab, opening = false) {
         closeInfo();
         if (!saveData.missions) saveData.missions = _defaultMissions();
         _checkMissionsRefresh();
@@ -10449,7 +10269,7 @@
         const _prevTab = el._mTab || null;
         tab = tab || el._mTab || 'daily';
         el._mTab = tab;
-        const _isTabSwitch = !!_prevTab && _prevTab !== tab;
+        const _isTabSwitch = !opening && !!_prevTab && _prevTab !== tab;
 
         const isSeason = tab === 'season';
         el.querySelector('#mq-mission-view').hidden = isSeason;
@@ -10500,7 +10320,7 @@
                 ${!xpDone ? `<div style="font-size:0.42rem;color:#555;margin-top:5px;">Hit ${xpThresh} XP to keep your streak alive</div>` : ''}
             </div>
             </div>
-            <button id="mq-change-toggle" class="mq-change-toggle lb-block-btn${window._mqChangeMode ? ' mq-change-toggle--active' : ''}" ${(tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) && !window._mqChangeMode ? 'disabled' : ''} onclick="event.stopPropagation();window._toggleChangeMode()">
+            <button id="mq-change-toggle" class="mq-change-toggle lb-block-btn btn-secondary" aria-pressed="${!!window._mqChangeMode}" ${(tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) && !window._mqChangeMode ? 'disabled' : ''} onclick="event.stopPropagation();window._toggleChangeMode()">
                 <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 20.75C10.08 20.75 8.23 19.99 6.87 18.63C5.51 17.27 4.75 15.42 4.75 13.5C4.75 11.58 5.51 9.73 6.87 8.37C8.23 7.01 10.08 6.25 12 6.25H14.5C14.9 6.25 15.25 6.6 15.25 7C15.25 7.4 14.9 7.75 14.5 7.75H12C10.86 7.75 9.75 8.09 8.81 8.72C7.86 9.35 7.12 10.25 6.69 11.3C6.25 12.35 6.14 13.51 6.36 14.62C6.58 15.74 7.13 16.76 7.93 17.57C8.74 18.37 9.76 18.92 10.88 19.14C11.99 19.36 13.15 19.25 14.2 18.81C15.25 18.38 16.15 17.64 16.78 16.69C17.41 15.75 17.75 14.64 17.75 13.5C17.75 13.1 18.1 12.75 18.5 12.75C18.9 12.75 19.25 13.1 19.25 13.5C19.25 15.42 18.48 17.26 17.12 18.62C15.76 19.98 13.92 20.75 12 20.75Z"/><path d="M12 10.75C11.6 10.75 11.25 10.4 11.25 10C11.25 9.8 11.33 9.61 11.47 9.47L13.94 7L11.47 4.53C11.18 4.24 11.18 3.76 11.47 3.47C11.76 3.18 12.24 3.18 12.53 3.47L15.53 6.47C15.67 6.61 15.75 6.8 15.75 7C15.75 7.2 15.67 7.39 15.53 7.53L12.53 10.53C12.39 10.67 12.2 10.75 12 10.75Z"/></svg>
                     ${window._mqChangeMode ? 'CANCEL SWAP' : (tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) ? 'SWAP USED' : 'SWAP QUEST'}
@@ -10578,7 +10398,7 @@
 
         const body = el.querySelector('#missions-body');
         if (body) {
-            const previousCards = _prevTab === tab && !el.classList.contains('hidden')
+            const previousCards = !opening && _prevTab === tab && !el.classList.contains('hidden')
                 && typeof body.animate === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
                 ? missionCardPositions(body) : null;
             if (_isTabSwitch && body.innerHTML.trim()) {
@@ -10651,8 +10471,7 @@
         const h = Math.floor((totalSec % 86400) / 3600);
         const m = Math.floor((totalSec % 3600) / 60);
         const s = totalSec % 60;
-        const hms = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-        const timeStr = d > 0 ? `${d}d ${hms}` : hms;
+        const timeStr = d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
         el.style.setProperty('--mq-reset-color', accentColor);
         const timer = el.querySelector('time');
         timer.dateTime = `P${d}DT${h}H${m}M${s}S`;
@@ -10676,26 +10495,20 @@
         window._toggleChangeMode();
     };
 
-    window.openMissions = function() {
-        if (!saveData.missions) saveData.missions = _defaultMissions();
-        _checkMissionsRefresh();
+    window.openMissions = function(tab = 'daily') {
         window._mqChangeMode = false;
-        renderMissionsOverlay('daily');
-        const _mqEl = document.getElementById('missions-overlay');
-        _mqEl.classList.remove('hidden');
-        _animateIn(_mqEl, 'anim-in-right');
-        _updateMissionCountdown();
+        const overlay = document.getElementById('missions-overlay');
+        overlay.classList.remove('hidden');
         if (_missionCountdownInterval) clearInterval(_missionCountdownInterval);
         _missionCountdownInterval = setInterval(_updateMissionCountdown, 1000);
+        return fillScreenAfterPaint(overlay, () => renderMissionsOverlay(tab, true));
     };
     window.closeMissions = function() {
         if (window._mqChangeMode) return;
-        const _mEl = document.getElementById('menu-overlay');
-        _animateOut(document.getElementById('missions-overlay'), 'anim-out-right', function() {
-            _seasonScreen.close();
-            if (_missionCountdownInterval) { clearInterval(_missionCountdownInterval); _missionCountdownInterval = null; }
-        });
-        if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
+        hideMenuScreen(document.getElementById('missions-overlay'));
+        _seasonScreen.close();
+        clearInterval(_missionCountdownInterval);
+        _missionCountdownInterval = null;
     };
     window.renderMissionsOverlay = renderMissionsOverlay;
     document.querySelectorAll('#missions-overlay [data-tab]').forEach(button => {
@@ -10734,53 +10547,41 @@
         const ok = document.getElementById('mq-confirm-ok');
         const cancel = document.getElementById('mq-confirm-cancel');
         const close = (cb) => {
-            inner.classList.add('anim-out-down');
-            inner.addEventListener('animationend', function() {
-                inner.classList.remove('anim-out-down');
-                ov.classList.add('hidden');
-                cb && cb();
-            }, { once: true });
+            if (ov.classList.contains('hidden')) return;
+            ov.classList.add('hidden');
+            inner.classList.remove('anim-in-down');
+            cb?.();
         };
         ok.onclick = () => close(onOk);
         cancel.onclick = () => close();
     }
 
+    function _swapCandidates(index, isWeekly) {
+        const period = saveData.missions?.[isWeekly ? 'weekly' : 'daily'];
+        const list = isWeekly ? period?.missions : period?.quests;
+        if (period?.changeUsed || !list?.[index] || list[index].completed || list[index].tier === 'secret') return [];
+        return _missionSwapPool(isWeekly ? WEEKLY_MISSION_POOL : DAILY_QUEST_POOL, list, index, isWeekly ? null : period.secret);
+    }
+
     window._changeMission = function(index, isWeekly) {
-        if (!saveData.missions) return;
+        if (!_swapCandidates(index, isWeekly).length) return;
+        const missionPeriod = saveData.missions[isWeekly ? 'weekly' : 'daily'];
+        const list = isWeekly ? missionPeriod.missions : missionPeriod.quests;
+        const original = list[index];
         const period = isWeekly ? 'week' : 'day';
         _mqConfirm(
             'CHANGE MISSION?',
             'This will replace the selected mission with a new one of the same tier.',
             `You can only use this once per ${period}.`,
             () => {
-                const m = saveData.missions;
-                if (isWeekly) {
-                    if (m.weekly.changeUsed) return;
-                    const missions = m.weekly.missions;
-                    const eligible = missions.map((wm,i) => i).filter(i => !missions[i].completed);
-                    if (!eligible.length) return;
-                    const idx = (typeof index === 'number' && index >= 0 && index < missions.length && !missions[index].completed)
-                        ? index : eligible[Math.floor(Math.random() * eligible.length)];
-                    const pool = _shuffleArr(_missionSwapPool(WEEKLY_MISSION_POOL, missions, idx));
-                    if (!pool.length) return;
-                    const mult = _missionRankMult();
-                    const _ct = _niceRound(pool[0].target * (['maxSpeed', 'maxCombo'].includes(pool[0].metric) ? 1 : mult));
-                    missions[idx] = { ...pool[0], target: _ct, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(pool[0].metric, pool[0].desc, _ct) };
-                    m.weekly.changeUsed = true;
-                } else {
-                    if (m.daily.changeUsed) return;
-                    const quests = m.daily.quests;
-                    const eligible = quests.map((q,i) => i).filter(i => !quests[i].completed);
-                    if (!eligible.length) return;
-                    const idx = (typeof index === 'number' && index >= 0 && index < quests.length && !quests[index].completed)
-                        ? index : eligible[Math.floor(Math.random() * eligible.length)];
-                    const pool = _shuffleArr(_missionSwapPool(DAILY_QUEST_POOL, quests, idx, m.daily.secret));
-                    if (!pool.length) return;
-                    const mult = _missionRankMult();
-                    const _ct = _niceRound(pool[0].target * (['maxSpeed', 'maxCombo'].includes(pool[0].metric) ? 1 : mult));
-                    quests[idx] = { ...pool[0], target: _ct, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(pool[0].metric, pool[0].desc, _ct) };
-                    m.daily.changeUsed = true;
-                }
+                _checkMissionsRefresh();
+                if (saveData.missions[isWeekly ? 'weekly' : 'daily'] !== missionPeriod || list[index] !== original) return;
+                const [replacement] = _shuffleArr(_swapCandidates(index, isWeekly));
+                if (!replacement) return;
+                const mult = ['maxSpeed', 'maxCombo'].includes(replacement.metric) ? 1 : _missionRankMult();
+                const target = _niceRound(replacement.target * mult);
+                list[index] = { ...replacement, target, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(replacement.metric, replacement.desc, target) };
+                missionPeriod.changeUsed = true;
                 saveDataToFile();
                 window._exitChangeMode();
                 renderMissionsOverlay();
@@ -11386,7 +11187,6 @@
     window.devEditStats = devEditStats;
     window.devUnlockAllAchievements = devUnlockAllAchievements;
     window.devLockAllAchievements = devLockAllAchievements;
-    window.devSpawnParachute = function() { _doSpawnParachute(); customAlert('Parachute spawned!', 'DEV MODE'); };
     window.devUnlockShop = function() {
         // Unlock all skins
         saveData.ownedSkins = Object.keys(SKIN_NAMES);
@@ -11520,7 +11320,6 @@
         });
     };
     window.pinCurrentScore = pinCurrentScore;
-    window.pinLeaderboardEntry = pinLeaderboardEntry;
     window.statsLbTab = statsLbTab;
     window.applyTheme = applyTheme;
     window.applyBlockSkin = applyBlockSkin;
@@ -11666,7 +11465,6 @@
     function renderHelp() {
         const number = value => value.toLocaleString();
         const definitions = entries => `<dl class="lb-help-rows">${entries.map(([term, text]) => `<div><dt>${term}</dt><dd>${text}</dd></div>`).join('')}</dl>`;
-        const bullets = (...items) => `<ul>${items.map(item => `<li>${item}</li>`).join('')}</ul>`;
         const block = (title, body, id = '') => `<div class="lb-help-block"><h3 class="lb-block-section-title"${id ? ` id="help-${id}" tabindex="-1"` : ''}>${title}</h3>${body}</div>`;
         const table = (label, columns, rows) => `<table class="lb-help-table" aria-label="${label}"><thead><tr>${columns.map(column => `<th scope="col">${column}</th>`).join('')}</tr></thead><tbody>${rows.map(([heading, ...cells]) => `<tr><th scope="row">${heading}</th>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
         const milestones = entries => definitions(entries.map(({ pts, label }) => [`${pts} pts`, escapeHtml(label)]));
@@ -11695,15 +11493,15 @@
         rankRows.push([CELESTITE_RANK.name, `${RANKS.at(-1).maxLvl + 1}+`, number(CELESTITE_XP_PER_LEVEL)]);
         const modifiers = playModifiers.map(({ key, name, percent, level, description }) => {
             const text = key === 'optHold'
-                ? 'Store a piece or swap it back in with your Hold binding. Each piece can only be held once per turn.'
+                ? 'Store or swap a piece once per turn using Hold.'
                 : description;
             const pct = `${percent > 0 ? '+' : '−'}${Math.abs(percent)}%`;
             return [name, `${text}<span class="lb-help-meta">Level ${level} · ${pct} in Normal</span>`];
         });
         const sections = [
             ['basics', 'Basics & controls', `
-                ${block('Stack & clear', `<p>Fill horizontal rows to clear them and make room. If a new piece can’t enter the board, the run ends.</p><ul class="lb-help-pieces" aria-label="The seven pieces">${pieces}</ul>`)}
-                ${block('Keyboard bindings', `${definitions(controls)}${bullets('Change either slot in <strong>Settings → Controls</strong>. Select a slot and press a key to bind it.', `Press ${keycap('Backspace')} to clear a selected slot, or use the arrow button beside Primary to restore both keys for that action.`)}`)}
+                ${block('Stack & clear', `<p><strong>Fill a row</strong> to clear it. If the next piece can’t enter, the run ends.</p><ul class="lb-help-pieces" aria-label="The seven pieces">${pieces}</ul>`)}
+                ${block('Keyboard bindings', `<p>In <strong>Settings → Controls</strong>, select a slot and press a key. Use ${keycap('Backspace')} to clear it, or the arrow beside Primary to reset both slots.</p>${definitions(controls)}`)}
                 ${block('Touch', `<p>Use the on-screen buttons or gesture on the board.</p>${definitions([
                     ['Drag sideways', 'Move'], ['Drag down slowly', 'Soft drop'], ['Flick down', 'Hard drop'],
                     ['Swipe up', 'Hold'], ['Tap', 'Rotate'], ['Left-side or two-finger tap', 'Rotate counter-clockwise']
@@ -11712,43 +11510,39 @@
                     ['D-pad / left stick', 'Move'], ['Left / right bumper', 'Soft drop / hard drop'],
                     ['Bottom / right face button', 'Rotate in opposite directions'], ['Left / top face button', 'Hold'], ['Start', 'Pause']
                 ])}<p>In menus: use the D-pad to move focus, the bottom button to select and the right button to go back.</p>`)}
-                ${block('Sound settings', bullets('Adjust music and sound effects separately.', 'Use the playlist under Sound to pick which tracks can play.'), 'sound')}
-                ${block('Display settings', bullets('Change font size and display preferences in Settings.', 'Find screen shake and grid visibility under Gameplay.', 'Equip owned appearance items in Inventory.'), 'display')}`],
+                ${block('Sound settings', '<p>Adjust <strong>music and effects</strong> separately. Use the playlist to choose tracks.</p>', 'sound')}
+                ${block('Display settings', '<p>Change text size in <strong>Settings</strong>, screen shake and grid visibility under <strong>Gameplay</strong>, and equip cosmetics in <strong>Inventory</strong>.</p>', 'display')}`],
             ['scoring', 'Scoring & speed', `
-                ${block('Line clear points', `<p>Placements and line clears both score. Here’s what a clear earns before bonuses and modifiers.</p>${table('Base line clear points', ['Clear', 'Lines', 'Points'], _LINE_PTS.slice(1).map((points, index) => [lineNames[index], index + 1, points]))}`)}
-                ${block('Speed', bullets(`Speed rises every ${LINES_PER_SPEED} lines, up to speed ${SPEED_MULTIPLIERS.length}.`, `Pieces fall faster, and placement and clear points scale from ×${SPEED_MULTIPLIERS[0]} to ×${SPEED_MULTIPLIERS.at(-1)}.`))}
-                ${block('Combos', bullets('Keep clearing lines on consecutive placements. Every line adds a combo step.', `After the first step, each step adds ${COMBO_STEP_POINTS} points before modifiers.`, 'A placement without a clear breaks the combo.'))}`],
+                ${block('Line clear points', `<p>Placing pieces earns points. <strong>Line clears</strong> add these base points:</p>${table('Base line clear points', ['Clear', 'Lines', 'Points'], _LINE_PTS.slice(1).map((points, index) => [lineNames[index], index + 1, points]))}`)}
+                ${block('Speed', `<p>Every <strong>${LINES_PER_SPEED} lines</strong>, pieces fall faster. Speed tops out at ${SPEED_MULTIPLIERS.length}; placement and clear points scale from ×${SPEED_MULTIPLIERS[0]} to ×${SPEED_MULTIPLIERS.at(-1)}.</p>`)}
+                ${block('Combos', `<p>Each line adds a combo step. After the first step, each adds <strong>${COMBO_STEP_POINTS} points</strong> before modifiers. A placement without a clear breaks the combo.</p>`)}`],
             ['ranks', 'Ranks & XP', `
-                ${block('Earn run XP', bullets('Clear at least one line in Normal.', 'Your score and any personal-best bonus count before the daily streak multiplier.', 'Total XP unlocks levels, ranks, rewards and modifiers.'))}
+                ${block('Earn run XP', '<p>Clear <strong>at least one line in Normal</strong>. Your score and any personal-best bonus count before the streak multiplier.</p><p>Total XP unlocks levels, ranks, rewards and modifiers.</p>')}
                 ${block('Rank ladder', table('Rank ladder', ['Rank', 'Levels', 'XP / level'], rankRows))}`],
             ['missions', 'Missions & milestones', `
-                ${block('Play & claim', bullets('Normal runs count toward daily quests and weekly missions. Daily points also count toward weekly milestones.', 'Daily quests refresh every day; weekly missions reset on Monday.', 'Claim completed missions and milestone rewards in Missions.', 'Use <strong>Change</strong> to swap eligible missions. Hidden secret quests can’t be swapped.'))}
+                ${block('Play & claim', '<p>Play <strong>Normal</strong> to progress missions. Daily points count toward weekly milestones. Daily quests refresh each day and weekly missions reset on Monday.</p><p>Claim rewards in <strong>Missions</strong>. Use <strong>Change</strong> to swap eligible missions, not hidden secret quests.</p>')}
                 ${block('Daily milestones', milestones(MQ_DAILY_MILESTONES))}
                 ${block('Weekly milestones', milestones(MQ_WEEKLY_MILESTONES))}
-                ${block('Bonus Box', `<p>Beyond the last daily milestone, every ${MQ_SPECIAL_BOX_CAP} overflow points earn ${MQ_SPECIAL_BOX_PARTS} universal parts.</p>`)}
-                ${block('Golden Zone', `<p>Claim one universal part for every weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD}.</p>`)}`],
+                ${block('Extra rewards', `<p><strong>Bonus Box:</strong> Earn ${MQ_SPECIAL_BOX_PARTS} universal parts for every ${MQ_SPECIAL_BOX_CAP} points past the last daily milestone.</p><p><strong>Golden Zone:</strong> Claim one universal part per weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD}.</p>`)}`],
             ['streaks', 'Streaks & multipliers', `
-                ${block('Keep your streak', bullets(`Earn <strong>${number(_dailyStreakXPThreshold())} raw XP</strong> in Normal each day, before applying the streak multiplier. The target depends on rank.`, 'Missing a day or falling short of the target breaks the streak.'))}
+                ${block('Keep your streak', `<p>Earn <strong>${number(_dailyStreakXPThreshold())} raw XP</strong> in Normal each day, before the streak multiplier. The target depends on rank. Fall short or miss a day and the streak ends.</p>`)}
                 ${block('Streak bonuses', definitions(MISSION_STREAK_XP_TIERS.map(([days, multiplier]) => [`${days}+ days`, `×${multiplier.toFixed(2)} run XP`])))}
-                ${block('What changes', definitions([['Daily streak', 'Run XP only'], ['Mode modifiers', 'Scoring in Normal'], ['Booster', 'XP after the run']]))}`],
+                ${block('What changes', '<p><strong>Streaks</strong> boost run XP. <strong>Modifiers</strong> change Normal scoring. <strong>Boosters</strong> multiply XP after the run.</p>')}`],
             ['boxes', 'Boxes & parts', `
-                ${block('Find parts', bullets('Open level and milestone boxes for item parts and universal parts.', 'Missions also award parts.'))}
-                ${block('Item parts', bullets('Each part belongs to a specific cosmetic: a skin, palette, theme color, grid style or sound pack.', 'Collect enough parts, then unlock and equip the item in Inventory.'))}
-                ${block('Universal parts', bullets('Use <strong>Inventory → Other</strong> to fill in missing item parts.', 'If no part-unlockable items remain, exchange universal parts for XP.'))}`],
+                ${block('Find & use parts', '<p>Earn parts from <strong>level boxes, milestones and missions</strong>. Each cosmetic has its own parts. Collect enough to unlock and equip it in Inventory.</p>')}
+                ${block('Universal parts', '<p>Fill in missing item parts in <strong>Inventory → Other</strong>. Once no part unlocks remain, trade universal parts for XP.</p>')}`],
             ['achievements', 'Achievements & rarities', `
-                ${block('Track & claim', bullets('Open Achievements to track feats and milestones and claim XP for completed goals.', 'Secret goals stay hidden until discovered.'))}
-                ${block('Rarity rewards', `<p>These are standard rewards. Check the achievement card for its actual XP.</p>${table('Standard XP by rarity', ['Rarity', 'XP'], Object.entries(RARITY_ACH).map(([id, { label }]) => [label, number(_ACH_XP[id])]))}`)}`],
+                ${block('Track & claim', '<p>Track goals and <strong>claim XP</strong> in Achievements. Secret goals stay hidden until you find them.</p>')}
+                ${block('Rarity rewards', `<p>Check each card for its exact reward.</p>${table('Standard XP by rarity', ['Rarity', 'XP'], Object.entries(RARITY_ACH).map(([id, { label }]) => [label, number(_ACH_XP[id])]))}`)}`],
             ['boosters', 'Boosters', `
-                ${block('Use a booster', bullets('Find earned boosters in <strong>Inventory → Other</strong>.', 'Use one booster on the results screen of a Normal run that earned XP.', 'Boosters multiply run XP, not your leaderboard score.'))}
+                ${block('Use a booster', '<p>Find boosters in <strong>Inventory → Other</strong>. Use one on the results screen after earning XP in <strong>Normal</strong>. It multiplies XP, not score.</p>')}
                 ${block('XP multipliers', definitions(BOOSTER_KEYS.map(key => [BOOSTER_META[key].label, `×${BOOSTER_INFO[key].mult} run XP`])))}`],
             ['modes', 'Game modes & modifiers', `
-                ${block('Normal', bullets(`Standard board: ${COLS_NORMAL} columns × ${VISIBLE_ROWS} visible rows.`, 'Post scores to the Normal leaderboard and earn XP and mission progress.'))}
-                ${block('Fun', `<p>A sandbox with its own scores. Runs count toward applicable achievements, but give no run XP or mission progress.</p>${definitions([
-                    ['Width', `${settingRange('fun-cols')} columns`], ['Height', `${settingRange('fun-rows')} rows`], ['Starting speed', settingRange('fun-speed')]
-                ])}`)}
-                ${block('Modifiers', `${bullets('Toggle unlocked options before a run.', 'In Normal, percentages add together and affect scoring and run XP. In Fun, modifiers change play without a scoring multiplier.')}${definitions(modifiers)}`)}`],
+                ${block('Normal', `<p>Play on a ${COLS_NORMAL} × ${VISIBLE_ROWS} board for <strong>XP, mission progress</strong> and Normal leaderboard scores.</p>`)}
+                ${block('Fun', `<p>Set the board to ${settingRange('fun-cols')} columns × ${settingRange('fun-rows')} rows and starting speed ${settingRange('fun-speed')}. Fun has its own leaderboard and counts toward some achievements, but gives <strong>no run XP or mission progress</strong>.</p>`)}
+                ${block('Modifiers', `<p>Toggle unlocked options before a run. In <strong>Normal</strong>, percentages add together and affect score and run XP. In <strong>Fun</strong>, modifiers change play only.</p>${definitions(modifiers)}`)}`],
             ['glossary', 'Glossary', `
-                ${block('Line clear names', definitions(lineNames.map((name, index) => [name, `${index + 1} ${index ? 'lines' : 'line'} in one placement`])))}
+                ${block('Line clear names', '<p><strong>Single, Double, Triple and Quad</strong> mean 1, 2, 3 or 4 lines cleared in one placement.</p>')}
                 ${block('Moves & board', definitions([
                     ['Hard drop', 'Send a piece to the lowest valid row and lock it immediately.'],
                     ['Soft drop', 'Move the piece down faster without an instant lock.'],
@@ -11763,7 +11557,9 @@
                 <button type="button" class="lb-block-btn" id="help-tutorial">Open tutorials</button>`]
         ];
         helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-block-btn" data-help-jump="${id}">${title}</button>`).join('');
-        helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-help-topic lb-block-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" class="lb-block-panel-head lb-block-section-title" tabindex="-1">${title}</h2>${body}</section>`).join('');
+        const topicIcons = { basics: 'lb-metric-gamepad', scoring: 'lb-run-icon-lines', ranks: 'lb-metric-total-xp', boxes: 'lb-metric-box', achievements: 'lb-metric-trophy' };
+        const topicIcon = id => id === 'streaks' ? '<span aria-hidden="true">🔥</span>' : topicIcons[id] ? `<svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#${topicIcons[id]}"/></svg>` : '';
+        helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-help-topic lb-block-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" class="lb-block-panel-head lb-block-section-title" tabindex="-1">${topicIcon(id)}${title}</h2>${body}</section>`).join('');
         document.getElementById('help-tutorial').addEventListener('click', () => {
             window.openTutorial();
             document.querySelector('#tutorial-overlay .btn-back').focus();
@@ -11859,11 +11655,14 @@
             if (!achievementsOverlay.classList.contains('hidden')) renderAchievementsOverlay(achievementsOverlay._achTab);
         });
     });
-    window.openAchievements = function(tab) { renderAchievementsOverlay(tab || 'all'); const _achEl = document.getElementById('achievements-overlay'); _achEl.classList.remove('hidden'); _animateIn(_achEl, 'anim-in-right'); };
+    window.openAchievements = function(tab = 'all') {
+        const overlay = document.getElementById('achievements-overlay');
+        overlay.classList.remove('hidden');
+        return fillScreenAfterPaint(overlay, () => renderAchievementsOverlay(tab, true));
+    };
     window.closeAchievements = function() {
-        const _mEl = document.getElementById('menu-overlay');
-        _animateOut(document.getElementById('achievements-overlay'), 'anim-out-right', _checkAchGlow);
-        if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
+        hideMenuScreen(document.getElementById('achievements-overlay'));
+        _checkAchGlow();
     };
     window.openModeSelect = openModeSelect;
     window.closeModeSelect = closeModeSelect;
@@ -11871,7 +11670,6 @@
     window.updateFunConfigDisplay = updateFunConfigDisplay;
     window.startSelectedMode = startSelectedMode;
     window.doHold = doHold;
-    window._rebuildBgBlocks = _rebuildBgBlocks;
 
     // Snap d-steps range inputs to nearest dot value before oninput handlers fire
     document.addEventListener('input', function(e) {
@@ -11902,7 +11700,7 @@
         window.__lb.visualReview = {
             catalog: JSON.parse(JSON.stringify({
                 skins: SKIN_NAMES, defaults: defaultSettings, palettes: BLOCK_PALETTES,
-                themes: THEMES, grids: GRID_STYLES, backgrounds: BG_STYLES,
+                themes: THEMES, grids: GRID_STYLES,
                 sfxPacks, pieces: BASE_PIECES
             })),
             partCost: _getItemCost,
@@ -11937,18 +11735,6 @@
                     [COLS, ROWS, BLOCK, canvas._logicalWidth] = dimensions;
                     settings = oldSettings; saveData = oldSave;
                     oldColors.forEach((color, index) => { COLORS[index] = color; });
-                }
-            },
-            drawBackground(context, key, width, height) {
-                const style = BG_STYLES[key];
-                for (let index = 0; index < style.count; index++) {
-                    const size = (style.sizeMin + (index % 5) * (style.sizeMax - style.sizeMin) / 4) / 2;
-                    context.save();
-                    context.translate(width * ((0.12 + index * 0.618) % 1), height * ((0.25 + index * 0.387) % 1));
-                    context.rotate(index * 0.7);
-                    BgBlock.prototype._paint.call({ style, size, shape: BASE_PIECES[index % 7 + 1],
-                        color: COLORS[index % 7 + 1], skin: BG_BLOCK_SKINS[index % BG_BLOCK_SKINS.length] }, context);
-                    context.restore();
                 }
             },
             async playSound(pack, sound) {
@@ -12002,7 +11788,6 @@
     }
     _setLoadProgress(20, 'Loading settings…');
     try {
-        _rebuildBgBlocks();
         _applyColorPalette(settings.colorPalette || 'classic');
         _doApplyTheme(settings.theme || 'default', { persist: false });
         applyFontSize(settings.fontSize || '5');
@@ -12045,9 +11830,8 @@
             nextPiece: getNextPiece, gameOver, getLevelInfo, drawRankBadge,
             imageSkinAtlasCell, imageSkinTintKey, drawGameBlock, partsItems: _getAllPartsItems, partCost: _getItemCost,
             missionWeekKey: _missionWeekKey, missionDateKey: _missionDateKey,
-            moveBgBlock: _moveBgBlock, makeBgBlock: falling => new BgBlock(BG_STYLES.default, falling),
             rewardLabel: _rewardLabel, grantRewardPart: _grantRewardPart, generateLevelBoxRewards: _generateLevelBoxRewards,
-            spawnSpecialBlock: _spawnSpecialBlock, previewRunMissions: _previewRunMissions,
+            previewRunMissions: _previewRunMissions,
             encSave: _encSave, decSave: _decSave,
             defaultMissions: _defaultMissions, refreshMissions: _checkMissionsRefresh,
             generateDailyQuests: _generateDailyQuests, generateWeeklyMissions: _generateWeeklyMissions,

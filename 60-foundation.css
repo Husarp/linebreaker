@@ -270,12 +270,12 @@ input[type="range"]:is(.lb-block-range, #settings-overlay input)::-moz-range-thu
     pointer-events: none;
     font: 500 13px/1.4 var(--font-body);
 }
-:is(.lb-floating-tip, #score-pin-popup)[hidden] { display: none !important; }
+.lb-floating-tip[hidden] { display: none !important; }
 .lb-floating-tip img { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
 :is(.lb-block-info .lb-block-tooltip, #settings-overlay .settings-tip) { display: none; }
 
 :is(.lb-block-topbar, .sp-header), .lb-r3.lb-fullscreen > .lb-block-topbar:first-child:not(:only-child) {
-    background: var(--bb-panel) !important;
+    background: var(--lb-topbar-surface, var(--bb-panel)) !important;
     border-color: var(--bb-edge) !important;
     border-bottom: 1px solid var(--bb-edge);
 }

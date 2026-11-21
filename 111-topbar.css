@@ -94,7 +94,6 @@
 
 @media (max-width: 760px) {
     .mq89-header.lb-block-topbar { grid-template-columns: minmax(0, 1fr) auto; }
-    .mq89-header #mq-countdown { grid-area: 1 / 2; }
     .mq89-header .mq89-tabs { grid-column: 1 / -1; }
 }
 
@@ -103,8 +102,4 @@
     .lb-block-topbar .lb-topbar-crumb > .lb-topbar-title { font-size: 11px !important; }
     #achievements-overlay .lb-block-topbar { padding-inline: 12px; }
     #achievements-overlay #ach-counter { white-space: nowrap; }
-    .mq89-header #mq-countdown > span {
-        padding-inline: 5px !important;
-        letter-spacing: normal !important;
-    }
 }

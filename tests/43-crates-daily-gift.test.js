@@ -69,6 +69,8 @@ it('grants a gift once and persists it before the player opens the animated reve
   const gift = window.document.querySelector('#lb43-daily-gift');
   window.Math.random = () => 0.995;
   expect(gift.dataset.status).toBe('available');
+  const status = window.document.getElementById(gift.getAttribute('aria-describedby'));
+  expect(status.textContent).toBe('Gift ready');
   gift.click();
   gift.click();
   expect(gift.getAttribute('aria-busy')).toBe('true');
@@ -82,6 +84,7 @@ it('grants a gift once and persists it before the player opens the animated reve
   expect(Object.values(api.save.parts).reduce((total, value) => total + value, 0)).toBe(10);
   expect(writes.at(-1)).toMatchObject({ schemaVersion: 1, lastDailyGift: api.save.lastDailyGift, dailyGiftStreak: 1, lastSeenTime: window.Date.now(), boosters: { '2xp_game': 3 } });
   expect(gift.dataset.status).toBe('claimed');
+  expect(status.textContent).toBe('Claimed');
   dialog.querySelector('button').click();
   expect(crate.classList.contains('lb43-crate-opening')).toBe(true);
   advance(490);

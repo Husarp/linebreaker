@@ -45,6 +45,33 @@ it('loads a defaults-based real save with progress, dates, missions and legacy b
  expect(a.save.pinnedScores[0].note).toBe('Nice run');
  expect(a.save.pendingLevelBox.rewards).toHaveLength(2);
 });
+it('drops retired background entries on load and keeps already collected rewards', () => {
+ const missions = a.defaultMissions();
+ const retired = {id:'parachute_catcher', target:1, progress:1, completed:true, ptsClaimed:true};
+ missions.daily.lastRefreshDate = a.missionDateKey();
+ missions.daily.quests = [retired, {id:'games_15', target:15, progress:2}];
+ missions.daily.secret = retired;
+ missions.daily.pointsToday = 12;
+ missions.weekly.weekKey = a.missionWeekKey();
+ missions.weekly.isoWeekKey = true;
+ missions.weekly.missions = [retired];
+ missions.weekly.points = 19;
+ a.applyLoadedData({...a.save, totalXP:12345, parts:{shadow:4}, universalParts:2,
+   _settings:{heavyBg:3, bgBlockMotion:'falling', movingBackground:false}, missions,
+   stats:{gamesPlayed:12, parachuteDropsCaught:8},
+   achievements:{parachute_catcher:{unlocked:true}, sec_early_bird:{unlocked:true}},
+   pendingAchievementClaims:[{id:'parachute_catcher', xp:100}, {id:'sec_early_bird', xp:500}]});
+ expect(a.save).toMatchObject({totalXP:12345, parts:{shadow:4}, universalParts:2, stats:{gamesPlayed:12}});
+ expect(a.save.stats).not.toHaveProperty('parachuteDropsCaught');
+ expect(a.save.achievements).toEqual({sec_early_bird:expect.objectContaining({unlocked:true})});
+ expect(a.save.pendingAchievementClaims.map(claim => claim.id)).toEqual(['sec_early_bird']);
+ expect(a.save.missions.daily).toMatchObject({quests:[{id:'games_15', progress:2}], secret:null, pointsToday:12});
+ expect(a.save.missions.weekly).toMatchObject({missions:[], points:19});
+ expect(a.save._settings).toMatchObject({movingBackground:false});
+ expect(a.save._settings).not.toHaveProperty('heavyBg');
+ expect(a.save._settings).not.toHaveProperty('bgBlockMotion');
+});
+
 it.each(['legacy export', 'legacy JSON save'])('imports a %s through the shared sanitizer and migrations', async format => {
  const json = JSON.stringify({version:3,data:{totalXP:4000,highscore:100,boosters:{'1.6x_game':2},pinnedScores:[{note:attack,date:attack}]}});
  // TRPG1 uses the same XOR bytes with the legacy prefix (ASCII fixture).

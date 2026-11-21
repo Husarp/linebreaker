@@ -72,6 +72,18 @@ it('paints ten Gold badge shapes even when the menu first renders in a backgroun
   expect(new Set(shapeOrigins).size).toBe(10);
 });
 
+it('keeps numbers off all rank shapes, including fully filled shapes', () => {
+  game.api.setSave({...game.api.save, totalXP: 64000});
+  const labelsAt = fill => {
+    const firstCall = game.calls.length;
+    game.api.drawRankBadge(fill);
+    return game.calls.slice(firstCall).filter(([method]) => method === 'fillText').map(([, text]) => text);
+  };
+  expect(labelsAt(0)).toEqual([]);
+  expect(labelsAt(0.999)).toEqual([]);
+  expect(labelsAt(1)).toEqual([]);
+});
+
 it('draws the cached Halo glow and thin inner line on filled Gold badges', () => {
   const canvasPrototype = game.w.HTMLCanvasElement.prototype;
   const getContext = canvasPrototype.getContext;
@@ -175,7 +187,7 @@ it('clears tapped XP help on scrolling and when navigating to another screen', (
 it.each([
   [37000, 23, 'GOLD', 'II'],
   [473500, 72, 'DIAMOND', 'I'],
-  [640000, 81, 'CELESTITE', 'LXXXI'],
+  [640000, 81, 'CELESTITE', ''],
 ])('renders XP %s and refreshes cached rank data after menu visibility changes', async (xp, level, rank, label) => {
   const menu = game.w.document.getElementById('menu-overlay');
   menu.classList.add('hidden');

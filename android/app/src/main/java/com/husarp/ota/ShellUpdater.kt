@@ -56,7 +56,7 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
     fun state(m: ShellManifest): JSObject = JSObject(json.toJson(engine.dates.get("shell", m.versionCode.toString())))
         .put("releasedAt",m.releasedAt).put("version",m.versionName).put("size",m.size).put("versionCode",m.versionCode)
     fun availableState(): JSObject? = available?.let { state(it) }
-    fun check(consent: Boolean = false, manual: Boolean = false): Future<*> = executor.submit {
+    fun check(consent: Boolean = false, manual: Boolean = false, downloadOnly: Boolean = false): Future<*> = executor.submit {
         if (!consent && !manual && !settings().automaticChecks) return@submit
         val start = System.nanoTime()
         lastCheckSucceeded = false
@@ -121,9 +121,11 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
             val apk=download(m,consent)
             verifyApk(apk,m)
             engine.dates.record("shell",m.versionCode.toString(),m.releasedAt,downloaded=true)
-            atomicWrite(envelope,source.bytes); ready=m; available=null; installRequested=consent || automaticShellInstall(settings()); explicitInstallRequested=consent
-            // Update tapped: install right after the download, no second tap.
-            if (consent) prefs.edit().putInt("notifyTarget",m.versionCode.toInt()).commit()
+            val installNow = consent && !downloadOnly
+            if (downloadOnly) kotlin.check(prefs.edit().putLong("awaitingInstallTap",m.versionCode).commit()) { "Could not save install preference" }
+            atomicWrite(envelope,source.bytes); ready=m; available=null
+            installRequested=!downloadOnly && (installNow || automaticShellInstall(settings())); explicitInstallRequested=installNow
+            if (installNow) prefs.edit().putInt("notifyTarget",m.versionCode.toInt()).commit()
             dir.listFiles()?.filter { it.name.endsWith(".apk") && it.name != m.apk }?.forEach { it.delete() }
             status="App update ${ready?.versionName ?: BuildConfig.VERSION_NAME} ready · Install"; log("APK staged ${m.apk}",start)
             maybeInstallOnExecutor()
@@ -196,6 +198,7 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
     fun maybeInstall() { executor.execute { runCatching { maybeInstallOnExecutor() }.onFailure { status="Install failed: ${it.message}"; log("failed: ${it.message}") } } }
     private fun maybeInstallOnExecutor() {
         val m=ready ?: return
+        if (prefs.getLong("awaitingInstallTap",-1) == m.versionCode) return
         if (!explicitInstallRequested && !automaticShellInstall(settings())) { log("automatic shell installation disabled"); return }
         if (!mayInterrupt()) { log("install deferred: busy in round"); return }
         if (prefs.getBoolean("failed",false)) return
@@ -228,6 +231,7 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
         } catch(e: Exception) { installer.abandonSession(id); installing=false; prefs.edit().remove("session").remove("notifyTarget").apply(); throw e }
     }
     fun presentRequestedAndroidUi(activity: MainActivity) {
+        if (prefs.getLong("awaitingInstallTap",-1) == ready?.versionCode) return
         if (!installRequested || (!explicitInstallRequested && !automaticShellInstall(settings())) || !mayInterrupt() || !isReady()) return
         if (!canInstallPackages() && !permissionOpened) {
             permissionOpened = true
@@ -241,7 +245,7 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
         installRequested = true
         if(userInitiated) {
             explicitInstallRequested = true
-            ready?.let { prefs.edit().putInt("notifyTarget",it.versionCode.toInt()).commit() }
+            ready?.let { prefs.edit().remove("awaitingInstallTap").putInt("notifyTarget",it.versionCode.toInt()).commit() }
         }
         permissionOpened = false
         prefs.edit().putBoolean("failed",false).apply()

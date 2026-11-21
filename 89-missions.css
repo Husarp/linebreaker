@@ -10,7 +10,6 @@
 }
 
 .mq89-header > .btn-back { justify-self: start; }
-.mq89-header #mq-countdown { justify-self: end; }
 .mq89-tabs { display: flex; gap: 6px; align-items: center; }
 .mq89-tabs [data-tab] {
     min-width: 0;
@@ -39,7 +38,7 @@
     min-height: 0;
     background: var(--bb-page);
 }
-#season-pass-overlay :is(.sp-header, .sp-points, .sp-highlight, .sp-card) {
+#season-pass-overlay :is(.sp-header, .sp-highlight, .sp-card) {
     border-color: var(--bb-edge);
     background-color: var(--bb-panel);
     box-shadow: inset 0 2px #ffffff14;
@@ -52,7 +51,6 @@
 
 @media (max-width: 699px) {
     .mq89-header { grid-template-columns: auto 1fr; }
-    .mq89-header #mq-countdown { grid-area: 1 / 2; }
     .mq89-tabs {
         grid-column: 1 / -1;
         display: grid;

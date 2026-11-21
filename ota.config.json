@@ -5,7 +5,7 @@
   "channels": { "bundle": "channel", "shell": "shell-channel" },
   "artifacts": { "manifest": "manifest.json", "shellManifest": "shell.json", "apk": "LinebreakerShell-{code}.apk", "asset": "f-{sha256}.bin" },
   "updateUrls": { "bundle": null, "shell": null, "releases": null },
-  "build": { "shellApi": 1, "versionCode": 1100, "versionName": "1.1.0", "webVersion": "1.1.0", "minShellApi": 1, "message": "Slide between movement arrows, see the next piece more clearly, and enjoy smoother music, quicker reward feedback, and cleaner screens." },
+  "build": { "shellApi": 1, "versionCode": 1102, "versionName": "1.1.2", "webVersion": "1.1.2", "minShellApi": 1, "message": "Adds top update notices and clearer update settings, keeps music paused until you press Play, hides numbers in rank shapes, and fixes mission Swap on phones." },
   "signing": {
     "privateKey": "~/.keystores/linebreaker/ota-private.pem",
     "publicKey": "keys/public-key.b64",

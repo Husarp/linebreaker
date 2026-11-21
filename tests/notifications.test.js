@@ -92,6 +92,7 @@ it('schedules recurring local resets and removes the streak reminder after the g
     game = await loadGame(true, null, capacitor, { reminders: { enabled: true } });
     expect(plugin.schedule).toHaveBeenCalledTimes(1);
     const { notifications } = plugin.schedule.mock.lastCall[0];
+    expect(new Set(notifications.map(({ smallIcon }) => smallIcon))).toEqual(new Set(['ic_stat_linebreaker']));
     expect(notifications).toEqual(expect.arrayContaining([
         expect.objectContaining({ id: 2001, schedule: { on: { hour: 0, minute: 0, second: 0 } }, isExactNotification: false }),
         expect.objectContaining({ id: 2003, schedule: { on: { weekday: 2, hour: 0, minute: 0, second: 0 } }, isExactNotification: false })

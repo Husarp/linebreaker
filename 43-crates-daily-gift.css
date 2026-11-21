@@ -1,19 +1,4 @@
-.lb43-gift-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 8px;
-    padding: 6px 14px;
-    min-height: 44px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-button);
-    background: var(--surface-1);
-    color: var(--text);
-    font: 600 14px / 1.25 var(--font-body);
-    text-align: left;
-    cursor: pointer;
-}
-.lb43-gift-button svg {
+.lb43-gift-button > svg {
     width: 22px;
     height: 22px;
     fill: none;
@@ -21,13 +6,6 @@
     stroke-width: 1.5;
     stroke-linejoin: round;
 }
-.lb43-gift-status { display: block; color: var(--text-muted); font-weight: 400; }
-.lb43-gift-button[data-status="available"] { border-color: var(--accent-border); }
-.lb43-gift-button[data-status="available"] svg { color: var(--accent-bright); }
-.lb43-gift-button[data-status="clock-blocked"] .lb43-gift-status { color: var(--warning); }
-.lb43-gift-button[aria-disabled="true"] { cursor: default; }
-.lb43-gift-button:focus-visible { outline: 3px solid var(--accent-bright); outline-offset: 3px; }
-.lb43-gift-button:not([aria-disabled="true"]):hover { background: var(--surface-2); }
 
 .lb43-gift-overlay {
     position: fixed;

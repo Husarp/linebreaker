@@ -186,7 +186,7 @@ Weekly pasek: hover pokazuje ile punktów każdy dzień wniósł.
 
 ~65+ osiągnięć w kategoriach:
 
-**Basic (tierowane):** Score, Games, Speed, Survival, Streak, Speed Stack, Block Layer, Line Cruncher, Speedrunner, Quad Killer, Combo, Low Rider, Booster Fan, Fun Run, I-Piece Devotion, Daily Grind, Parachute Catcher, Daily XP, Mirror Score, Fun², One at a Time, No Spin Zone, Spinner, Audiophile, Collector.
+**Basic (tierowane):** Score, Games, Speed, Survival, Streak, Speed Stack, Block Layer, Line Cruncher, Speedrunner, Quad Killer, Combo, Low Rider, Booster Fan, Fun Run, I-Piece Devotion, Daily Grind, Daily XP, Mirror Score, Fun², One at a Time, No Spin Zone, Spinner, Audiophile, Collector.
 
 **Missions (tierowane):** patrz tabela wyżej.
 
@@ -210,8 +210,6 @@ Weekly pasek: hover pokazuje ile punktów każdy dzień wniósł.
 - **Ghost color:** white lub colored
 - **SFX Packs:** 5 (default, retro, arcade, cyber, zen)
 - **Intense Tracks Pack** (muzyka podczas intensywnej gry)
-
-**Airdrop:** losowe wydarzenie w menu — kolorowy blok spada w tle. Kliknięcie daje +1 part.
 
 ---
 

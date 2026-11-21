@@ -1,7 +1,7 @@
-.bg-gradient { overflow: hidden; }
+.bg-gradient { overflow: hidden; pointer-events: none; }
 
 .lb-wallpaper {
-    position: absolute;
+    position: fixed;
     inset: 0;
     background-image: var(--lb-theme-art-portrait, none);
     background-position: center;
@@ -13,7 +13,7 @@
 
 .bg-gradient::after {
     content: '';
-    position: absolute;
+    position: fixed;
     inset: 0;
     background: linear-gradient(#06061499, #060614b8);
     pointer-events: none;

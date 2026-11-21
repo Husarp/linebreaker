@@ -130,11 +130,11 @@ it('loads the fetched catalog before the save and round-trips a compact save', a
   }, null, async url => ({ ok: true, json: async () => url === 'data/missions.json' ? fetched : [] }));
   const { api } = game;
   const runtime = api.save;
-  expect(runtime._settings).toMatchObject({ theme: 'ocean', heavyBg: 2 });
+  expect(runtime._settings).toMatchObject({ theme: 'ocean' });
   expect(runtime._settings).toMatchObject({ colorPalette: '_custom_picker', colorHistory: ['#abcdef'], ghostColor: 'colored', keyBindings: { right: ['KeyL', null] } });
   expect(runtime._settings.reminders).toEqual(reminders);
   expect(runtime).toMatchObject({ customPickerColors: pickerColors, menuPlaylist: [track], gamePlaylist: [track], actionPlaylist: [], stats: { songPlayCounts: { [track]: 2 } } });
-  for (const key of ['bgStyle', 'classicColors', 'actionMusicMode']) expect(runtime._settings).not.toHaveProperty(key);
+  for (const key of ['bgStyle', 'heavyBg', 'classicColors', 'actionMusicMode']) expect(runtime._settings).not.toHaveProperty(key);
   expect(runtime.missions.daily.quests[0]).toMatchObject({ title: 'From JSON', desc: 'Complete 8 games', metric: 'gamesPlayed', target: 8, progress: 2, cumulative: true });
   expect(runtime.missions.daily.secret).toMatchObject({ id: 'hat_trick', displayTier: 'hard', completed: true, ptsClaimed: true });
   expect(runtime.missions.weekly.missions[0]).toMatchObject({ tier: 'normal', pts: 15, target: 30, progress: 16, cumulative: true });

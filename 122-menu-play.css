@@ -15,6 +15,8 @@
 @media (orientation: landscape), (width > 600px) {
     #menu-overlay .menu-scale-wrapper {
         transform: scale(min(var(--menu-scale, 1), var(--menu-fit-scale, 1)));
+        overflow: visible;
+        mask-image: none;
     }
 }
 
@@ -30,12 +32,28 @@
 .lb122-logo { display: block; height: auto; }
 #main-title .lb122-logo { width: min(76vw, 320px); }
 #lb122-logo-button:active .lb122-logo { filter: brightness(1.24); }
-.lb122-menu-heading #splash-quote {
-    position: static;
-    padding-block-end: 5px;
-    text-align: center;
-    white-space: normal;
-    animation: none;
+.lb122-menu-heading { position: relative; padding-bottom: 13px; }
+#splash-quote {
+    position: absolute;
+    top: calc(100% - 57px);
+    right: 0;
+    width: max-content;
+    max-width: min(52vw, 220px);
+    font: 700 clamp(8px, calc(min(50vw, 220px) / var(--splash-length, 1)), 12px)/1.25 var(--bb-font-pixel);
+    color: #ffff55;
+    text-align: end;
+    text-shadow: 1px 2px #17150d;
+    pointer-events: none;
+    user-select: none;
+    transform-origin: right center;
+    transform: rotate(-17deg);
+    animation: splashPulse 2.5s ease-in-out infinite;
+}
+@keyframes splashPulse {
+    50% { transform: rotate(-17deg) scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+    #splash-quote { animation: none; }
 }
 
 #menu-xp-bar-wrap {
@@ -78,21 +96,94 @@
 #lb122-xp-tooltip[hidden] { display: none; }
 #lb122-xp-progress { color: var(--accent-bright); }
 
+.lb43-gift-corner {
+    position: absolute;
+    z-index: 2;
+    right: calc(var(--lb-safe-right) + 14px);
+    bottom: calc(var(--lb-safe-bottom) + 14px);
+    text-align: center;
+}
 #lb43-daily-gift {
-    --bb-button-face: var(--bb-panel);
-    gap: 10px;
-    min-width: 164px;
-    text-align: start;
+    --gift-tone: #ffd686;
+    --bb-button-edge: color-mix(in srgb, var(--gift-tone) 60%, var(--bb-edge));
+    position: relative;
+    padding-bottom: 4px !important;
 }
 #lb43-daily-gift[data-status="available"] {
-    --bb-button-edge: var(--accent);
-    --bb-button-face: color-mix(in srgb, var(--accent) 14%, var(--bb-face));
-    --bb-button-hover: color-mix(in srgb, var(--accent) 20%, var(--bb-hover));
+    --bb-button-face: color-mix(in srgb, var(--gift-tone) 12%, var(--bb-face));
+    --bb-button-hover: color-mix(in srgb, var(--gift-tone) 20%, var(--bb-hover));
 }
-#lb43-daily-gift .lb43-gift-status { color: var(--bb-muted); }
-#lb43-daily-gift[data-status="available"] .lb43-gift-status { color: var(--accent-bright); }
-#lb43-daily-gift[data-status="claimed"] svg { color: var(--success); }
-#lb43-daily-gift[data-status="clock-blocked"] .lb43-gift-status { color: var(--warning); }
+#lb43-daily-gift[data-status="claimed"] {
+    --gift-tone: #a7b5a6;
+    --bb-button-edge: #697469;
+    opacity: 1;
+    cursor: default;
+}
+#lb43-daily-gift > svg { color: var(--gift-tone); }
+.lb43-gift-status {
+    display: block;
+    margin-top: 2px;
+    color: var(--bb-muted);
+    font: 500 9px/1.3 var(--font-body);
+}
+#lb43-daily-gift[data-status="clock-blocked"] + .lb43-gift-status { color: var(--warning); }
+.lb43-gift-marker {
+    display: none;
+    place-items: center;
+    position: absolute;
+    top: -4px;
+    right: -3px;
+    width: 16px;
+    height: 16px;
+    border: 1px solid #fff5;
+    border-radius: var(--bb-badge-radius);
+    background: var(--gift-tone);
+    color: #171b17;
+    font: 900 10px/1 var(--font-body);
+}
+.lb43-gift-marker svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
+#lb43-daily-gift:is([data-status="available"], [data-status="claimed"]) .lb43-gift-marker { display: grid; }
+#lb43-daily-gift[data-status="available"] .lb43-gift-marker svg,
+#lb43-daily-gift[data-status="claimed"] .lb43-gift-marker span { display: none; }
+#lb43-daily-gift[data-status="available"]::before {
+    content: "";
+    position: absolute;
+    inset: calc(-1 * var(--bb-stroke));
+    border-radius: inherit;
+    pointer-events: none;
+    animation: lb43-ready-ring 2.8s ease-in-out infinite;
+}
+@keyframes lb43-ready-ring {
+    50% { box-shadow: 0 0 0 3px #ffd68675, 0 0 14px #ffd6866e; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #lb43-daily-gift[data-status="available"]::before {
+        animation: none;
+        box-shadow: 0 0 0 2px #ffd68675;
+    }
+}
+@media (orientation: portrait) and (max-width: 600px) {
+    #menu-overlay {
+        padding-bottom: calc(var(--lb-safe-bottom) + 14px);
+        overflow: hidden;
+    }
+    #menu-overlay .menu-scale-wrapper {
+        flex: 1 1 auto;
+        min-height: 0;
+        margin: 0;
+        justify-content: safe center;
+        overflow: hidden auto;
+        padding-block: 4px;
+        scrollbar-gutter: stable both-edges;
+    }
+    #menu-overlay .menu-scale-wrapper > * { flex-shrink: 0; }
+    .lb43-gift-corner {
+        position: relative;
+        inset: auto;
+        align-self: flex-end;
+        margin: 8px 4px 0 0;
+    }
+}
 
 #mode-select-overlay { scrollbar-gutter: stable both-edges; }
 #mode-select-overlay .lb69-panel {

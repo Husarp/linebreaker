@@ -174,20 +174,19 @@ function drawing(width, height, label) {
     return { canvas, context };
 }
 
-function miniMenu(theme, title, background) {
+function miniMenu(theme, title) {
     const menu = element('div', 'review-menu');
     const play = element('span', 'lb-btn lb-btn--primary', 'Play');
     menu.style.setProperty('--accent', theme.primary);
     menu.style.background = theme.bg;
     play.style.background = theme.btnGrad;
     play.style.borderRadius = theme.radius;
-    if (background) menu.append(background);
     menu.append(element('strong', '', 'LINEBREAKER'), play, element('small', '', title));
     return menu;
 }
 
 function renderGame(review) {
-    const { skins, defaults, palettes, themes, grids, backgrounds, sfxPacks, pieces } = review.catalog;
+    const { skins, defaults, palettes, themes, grids, sfxPacks, pieces } = review.catalog;
     const partLabel = key => `${review.partCost(key)} parts to unlock`;
     const title = key => key.charAt(0).toUpperCase() + key.slice(1);
     const stack = Array.from({ length: 6 }, () => Array(10).fill(0));
@@ -325,18 +324,6 @@ function renderGame(review) {
                 });
                 controls.append(select, play);
                 panel.append(controls);
-            },
-        });
-    }
-
-    const bgGroup = section('backgrounds', 'Background styles', 'Still previews of the three falling-block densities.');
-    for (const [key, name] of Object.entries({ default: 'Light', medium: 'Medium', heavy_rain: 'Heavy' })) {
-        const style = backgrounds[key];
-        card(bgGroup, key, name, `${style.count} falling pieces${key === 'default' ? ' · Default' : ''}`, {
-            preview(panel) {
-                const { canvas, context } = drawing(280, 156, `${name} background`);
-                review.drawBackground(context, key, 280, 156);
-                panel.append(miniMenu(themes.default, `${name} intensity`, canvas));
             },
         });
     }

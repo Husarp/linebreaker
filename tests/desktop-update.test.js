@@ -11,7 +11,7 @@ const windows = [];
 afterEach(() => windows.splice(0).forEach(window => window.close()));
 
 async function launch(hook, preferences, saved = {}) {
-  const { window } = new JSDOM('<main id="menu-overlay"><canvas></canvas></main><main id="settings-overlay"><div><section class="settings-section"></section></div></main>',
+  const { window } = new JSDOM('<main id="menu-overlay"><canvas></canvas></main><main id="settings-updates"><section id="settings-whats-new"></section></main>',
     { url: 'https://linebreaker.test', runScripts: 'outside-only' });
   windows.push(window);
   let time = 0;
@@ -42,7 +42,7 @@ const checks = invoke => invoke.mock.calls.filter(([command]) => command === 'ch
 
 it('throttles automatic checks, allows manual checks, and remembers a dismissed version across restarts', async () => {
   const game = await launch(() => newer);
-  const banner = game.select('.lb-update-banner');
+  const banner = game.select('.lb184-banner');
   expect(banner.hidden).toBe(false);
   expect(banner.textContent).toContain('0.10.0');
   game.select('[data-dismiss]').click();
@@ -57,13 +57,13 @@ it('throttles automatic checks, allows manual checks, and remembers a dismissed 
   expect(banner.hidden).toBe(true);
   expect(game.select('[data-get]').hidden).toBe(false);
   const restarted = await launch(() => newer, undefined, Object.fromEntries(Object.entries(game.window.localStorage)));
-  expect(restarted.select('.lb-update-banner').hidden).toBe(true);
+  expect(restarted.select('.lb184-banner').hidden).toBe(true);
 });
 
-it('honors opt-out and only reports a check failure after manual action', async () => {
+it('honors automatic-check opt-out and uses plain language for check failures', async () => {
   const offline = () => { throw Error('Low-level network error'); };
   const automatic = await launch(offline);
-  expect(automatic.select('[data-result]').textContent).toBe('');
+  expect(automatic.select('.lb184-banner [data-title]').textContent).toBe('Could not check for updates');
   const manual = await launch(offline, 'off');
   manual.focus();
   await settle();
@@ -71,10 +71,10 @@ it('honors opt-out and only reports a check failure after manual action', async 
   manual.select('[data-check]').click();
   await settle();
   expect(checks(manual.invoke)).toHaveLength(1);
-  expect(manual.select('[data-result]').textContent).toMatch(/internet connection/);
+  expect(manual.select('.lb184-banner [data-detail]').textContent).toBe('Check your connection and try again.');
 });
 
-it('shows size and speed, retries without opening GitHub, and drains queued saves before handoff', async () => {
+it('downloads with stable progress, retries, and waits for an explicit install and save flush', async () => {
   let attempts = 0;
   let releaseSave;
   const game = await launch((command, args) => {
@@ -83,18 +83,24 @@ it('shows size and speed, retries without opening GitHub, and drains queued save
       if (++attempts === 1) throw Error('Download failed');
       game.advance(1000);
       args.onProgress.onmessage({ done: 1048576, total: newer.size });
-      expect(game.select('[data-status]').textContent).toBe('1.0 MiB / 2.0 MiB · 1.0 MiB/s');
+      expect(game.select('.lb149-settings [data-status]').textContent).toBe('Downloading');
+      expect(game.select('.lb149-settings [data-percent]').textContent).toBe('50%');
     }
   });
   game.window.flushLinebreakerSave = () => new Promise(resolve => { releaseSave = resolve; });
-  game.select('[data-open]').click();
-  expect(game.select('[data-summary]').textContent).toBe('Update 0.10.0 · 2.0 MiB');
-  const install = game.select('[data-install]');
-  install.click();
+  expect(game.select('.lb184-banner [data-detail]').textContent).toBe('Version 0.10.0 · 2.0 MiB');
+  const action = game.select('[data-get]');
+  expect(action.textContent).toBe('Get update 0.10.0');
+  action.click();
   await settle();
-  expect(install.textContent).toBe('TRY AGAIN');
+  expect(game.select('.lb184-banner [data-title]').textContent).toBe('Could not update');
   expect(game.invoke.mock.calls.some(([command]) => command === 'plugin:opener|open_url')).toBe(false);
-  install.click();
+  game.select('.lb184-banner [data-dismiss]').click();
+  action.click();
+  await settle();
+  expect(action.textContent).toBe('Install update 0.10.0');
+  expect(game.invoke.mock.calls.some(([command]) => command === 'install_desktop_update')).toBe(false);
+  action.click();
   await settle();
   expect(game.invoke.mock.calls.some(([command]) => command === 'install_desktop_update')).toBe(false);
   releaseSave();
@@ -102,36 +108,46 @@ it('shows size and speed, retries without opening GitHub, and drains queued save
   expect(game.invoke).toHaveBeenLastCalledWith('install_desktop_update', { version: newer.version });
 });
 
-it('shows release notes for one Windows startup and suppresses them when a newer update is available', async () => {
+it('keeps the Windows notice until opened or dismissed and retains the notes in Settings', async () => {
   const saved = { 'lb149:desktop': '0.8.0', 'lb149:desktop-pending-notes:version': '0.9.0', 'lb149:desktop-pending-notes': '<b>New</b>' };
   const upgraded = await launch(() => null, 'off', saved);
-  const notice = upgraded.select('.lb149-banner button');
+  const persisted = game => Object.fromEntries(Object.entries(game.window.localStorage));
+  const pending = await launch(() => null, 'off', persisted(upgraded));
+  const notice = pending.select('.lb184-banner');
   expect(notice.hidden).toBe(false);
-  expect(notice.textContent).toBe("What's new in 0.9.0 ›");
-  notice.click();
-  expect(upgraded.select('[data-notes]').textContent).toBe('<b>New</b>');
-  const reopened = await launch(() => null, 'off', Object.fromEntries(Object.entries(upgraded.window.localStorage)));
-  expect(reopened.select('.lb149-banner').hidden).toBe(true);
-  reopened.select('[data-open-notes]').click();
-  expect(reopened.select('[data-notes]').textContent).toBe('<b>New</b>');
+  expect(notice.querySelector('svg')).not.toBeNull();
+  notice.querySelector('[data-actions] button').click();
+  expect(notice.hidden).toBe(true);
+  expect(pending.select('[data-notes]').textContent).toBe('<b>New</b>');
+  const reopened = await launch(() => null, 'off', persisted(pending));
+  expect(reopened.select('.lb184-banner').hidden).toBe(true);
+  expect(reopened.select('#settings-whats-new p').textContent).toBe('<b>New</b>');
+  const dismissed = await launch(() => null, 'off', saved);
+  dismissed.select('[data-dismiss]').click();
+  const dismissedReopened = await launch(() => null, 'off', persisted(dismissed));
+  expect(dismissedReopened.select('.lb184-banner').hidden).toBe(true);
   const superseded = await launch(() => newer, undefined, saved);
-  expect(superseded.select('.lb149-banner').hidden).toBe(true);
+  expect(superseded.select('.lb184-banner [data-title]').textContent).toBe('Update installed');
+  superseded.select('[data-dismiss]').click();
+  expect(superseded.select('.lb184-banner [data-title]').textContent).toBe('Update available');
 });
 
 it('can silence in-app notifications without disabling the real updater', async () => {
   const game = await launch(() => newer);
   game.select('[data-notifications]').click();
-  expect(game.select('.lb-update-banner').hidden).toBe(true);
+  expect(game.select('.lb184-banner').hidden).toBe(true);
   expect(game.select('[data-get]').hidden).toBe(false);
   game.select('[data-check]').click();
   await settle();
   expect(checks(game.invoke)).toHaveLength(2);
   game.select('.lb149-settings [data-shell]').click();
-  expect(game.select('dialog[open]').getAttribute('aria-label')).toBe('Update diagnostics');
+  expect(game.select('dialog[open]').getAttribute('aria-label')).toBe('Update logs');
 });
 
-it('keeps version mirrors in sync and requires a stable Windows-compatible version', async () => {
-  expect(stableVersion((await readVersions()).config.version)).toBe(true);
+it('validates desktop and web version mirrors separately and requires stable versions', async () => {
+  const files = await readVersions();
+  expect(stableVersion(files.config.version)).toBe(true);
+  expect(files.npm.version).toBe(files.lock.version);
   expect(stableVersion('3.10.0')).toBe(true);
   for (const invalid of ['01.2.3', '3.10', '3.10.0-beta', '65536.0.0']) expect(stableVersion(invalid)).toBe(false);
 });

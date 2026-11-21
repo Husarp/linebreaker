@@ -49,7 +49,6 @@ it('drifts image wallpapers only, pauses when hidden, and honors both motion con
     const { animations, preference } = motion;
     const mode = w.document.getElementById('setting-theme-background');
     const toggle = w.document.getElementById('setting-moving-background');
-    const canvas = w.document.getElementById('bg-canvas');
     const setHidden = hidden => {
       Object.defineProperty(w.document, 'hidden', { configurable: true, value: hidden });
       w.document.dispatchEvent(new w.Event('visibilitychange'));
@@ -61,7 +60,7 @@ it('drifts image wallpapers only, pauses when hidden, and honors both motion con
 
     w.openSettings();
     expect(toggle.checked).toBe(true);
-    expect(canvas.hidden).toBe(true);
+    expect(w.document.querySelector('#bg-canvas, #slider-heavybg, #setting-bg-block-motion')).toBeNull();
     const first = animations[0];
     expect(first.options.duration).toBeGreaterThanOrEqual(18000);
     expect(first.options.duration).toBeLessThan(28000);
@@ -85,12 +84,10 @@ it('drifts image wallpapers only, pauses when hidden, and honors both motion con
     preference.dispatchEvent(new w.Event('change'));
     expect(animations.at(-1).playState).toBe('idle');
     setMode('plain');
-    expect(canvas.hidden).toBe(false);
     preference.matches = false;
     preference.dispatchEvent(new w.Event('change'));
     expect(animations).toHaveLength(3);
     setMode('image');
-    expect(canvas.hidden).toBe(true);
     expect(animations.at(-1).playState).toBe('running');
   } finally { close(); }
 });

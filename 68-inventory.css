@@ -48,7 +48,8 @@
 .lb-inventory-item[data-equipped="true"] .lb-inventory-state { color: var(--inventory-equipped); }
 .lb-inventory-item[data-owned="false"] { --bb-item-face: var(--bb-panel); }
 .lb-inventory-item[data-owned="false"] :is(.lb-inventory-state, .lb-inventory-name, .lb-inventory-detail) { color: var(--inventory-locked); }
-.lb-inventory-item[data-owned="false"] canvas { filter: grayscale(1); opacity: .6; }
+.lb-inventory-item[data-owned="false"] .lb-inventory-preview { opacity: .55; }
+.lb-inventory-item[data-owned="false"] .lb-inventory-grid-preview { filter: grayscale(1); opacity: .6; }
 .lb-inventory-item .lb-inventory-state { flex: none; }
 .lb-inventory-item .lb-inventory-name { color: var(--bb-ink); }
 .lb-inventory-item :is(.lb-inventory-detail, .lb-inventory-progress) { color: var(--bb-muted); }

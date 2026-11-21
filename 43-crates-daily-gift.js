@@ -11,7 +11,7 @@
         { parts: 10, universal: 5, booster: '2xp_game', boosters: 3 },
     ];
     const rankTiers = ['common', 'rare', 'rare', 'epic', 'epic', 'legendary', 'legendary', 'legendary', 'mythic'];
-    const dailyTiers = { 6: 'common', 9: 'rare', 12: 'epic' };
+    const dailyTiers = { 6: 'common', 9: 'rare', 12: 'mythic' };
     const weeklyTiers = { 60: 'rare', 90: 'epic', 120: 'legendary', 150: 'mythic' };
     const rollbackTolerance = 10 * 60_000;
 
@@ -224,7 +224,7 @@
     }
 
     function mountDailyGift({ button, getSave, ready, save, grant, onClose, claimAfterPaint }) {
-        const text = button.querySelector('.lb43-gift-status');
+        const text = document.getElementById(button.getAttribute('aria-describedby'));
         const isOpen = () => Boolean(document.getElementById('daily-gift-overlay'));
         let clockCheckpoint;
         function refresh() {
@@ -233,7 +233,7 @@
             button.dataset.status = status;
             button.setAttribute('aria-disabled', String(status !== 'available'));
             text.textContent = {
-                available: 'Claim free crate', claimed: 'Claimed today',
+                available: 'Gift ready', claimed: 'Claimed',
                 'clock-blocked': 'Check system clock', loading: 'Checking save…',
             }[status];
             return state;

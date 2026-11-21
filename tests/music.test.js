@@ -37,6 +37,33 @@ function observeMusic(win, active = new Set()) {
   return { sources, active };
 }
 
+it('updates the menu music widget on its interval only while music is playing', async () => {
+  const refreshes = [];
+  const { w, api, close } = await loadGame(true, null, null, synthCatalog, null, win => {
+    const setInterval = win.setInterval;
+    win.setInterval = (callback, period) => {
+      if (period === 500) refreshes.push(callback);
+      return setInterval(callback, period);
+    };
+  });
+  try {
+    await resetMusicAfterBoot(w);
+    observeMusic(w);
+    await api.startMusic();
+    expect(refreshes).toHaveLength(1);
+    const title = w.document.getElementById('mw-title');
+    const track = title.textContent;
+    expect(api._getPlaylist('menu')).toContain(track);
+    title.textContent = 'unchanged';
+    refreshes[0]();
+    expect(title.textContent).toBe(track);
+    w.musicWidgetPause();
+    title.textContent = 'unchanged';
+    refreshes[0]();
+    expect(title.textContent).toBe('unchanged');
+  } finally { close(); }
+});
+
 it('lets only the latest catalog request or source completion start music', async () => {
   let sendCatalog;
   const catalog = new Promise(resolve => { sendCatalog = resolve; });
@@ -67,6 +94,67 @@ it('lets only the latest catalog request or source completion start music', asyn
     expect(sources).toHaveLength(3);
     expect([...active]).toEqual([sources[2]]);
     expect(api._getPlaylist('action')).toContain(w.document.getElementById('mw-title').textContent);
+  } finally { close(); }
+});
+
+it('disconnects a lingering Fernlight output before any replacement can play', async () => {
+  const { w, api, close } = await loadGame(true, null, null, synthCatalog);
+  try {
+    await resetMusicAfterBoot(w);
+    const connected = new Set();
+    const sources = [];
+    const createGain = w.AudioContext.prototype.createGain;
+    vi.spyOn(w.AudioContext.prototype, 'createGain').mockImplementation(function () {
+      const gain = createGain.call(this);
+      gain.connect = () => connected.add(gain);
+      gain.disconnect = () => connected.delete(gain);
+      return gain;
+    });
+    const audible = () => sources.filter(source => source.playing && connected.has(source.output) && source.output.gain.value > 0);
+    vi.spyOn(w.LBMusicSynth, 'createSource').mockImplementation((context, { synth }) => {
+      const source = {
+        connect(output) { this.output = output; },
+        start() { expect(audible()).toEqual([]); this.playing = true; },
+        resume() { this.start(); },
+        pause() { this.playing = false; },
+        stop() {
+          if (synth === w.LBMusicSynth.getTrack('fernlight')) return;
+          this.playing = false;
+        }
+      };
+      sources.push(source);
+      return source;
+    });
+    let hidden = false;
+    Object.defineProperty(w.document, 'hidden', { get: () => hidden });
+    const setHidden = value => {
+      hidden = value;
+      w.document.dispatchEvent(new w.Event('visibilitychange'));
+    };
+    api.setup();
+    await api.startMusic();
+    expect(audible()).toEqual([sources.at(-1)]);
+    await api.switchMusicMode('game');
+    await api.switchMusicMode('menu');
+    w.openPlaylistPanel();
+    w.playTrackInPlaylist('Fernlight');
+    const fernlight = sources.at(-1);
+    w.closePlaylistPanel();
+    expect(audible()).toEqual([fernlight]);
+    setHidden(true);
+    expect(audible()).toEqual([]);
+    setHidden(false);
+    expect(audible()).toEqual([fernlight]);
+    w.musicWidgetNext();
+    expect(fernlight.playing).toBe(true);
+    expect(audible()).toEqual([sources.at(-1)]);
+    w.playTrackInPlaylist('Fernlight');
+    const ending = sources.at(-1);
+    ending.onended();
+    ending.onended();
+    expect(ending.playing).toBe(true);
+    expect(audible()).toEqual([sources.at(-1)]);
+    expect(audible()).not.toContain(ending);
   } finally { close(); }
 });
 
@@ -110,6 +198,38 @@ it('does not resume a widget-paused track on foregrounding or revive it after pa
     expect(sources).toHaveLength(1);
     expect(active.size).toBe(0);
   } finally { close(); }
+});
+
+it('keeps the player pause through a game, menu return, and reload until Play is pressed', async () => {
+  const first = await loadGame(true, null, null, synthCatalog);
+  let saved;
+  try {
+    await resetMusicAfterBoot(first.w);
+    const { active } = observeMusic(first.w);
+    first.api.setup();
+    await first.api.startMusic();
+    expect(active.size).toBe(1);
+    first.w.musicWidgetPause();
+    await first.api.switchMusicMode('game');
+    await first.api.switchMusicMode('menu');
+    first.w.document.dispatchEvent(new first.w.Event('visibilitychange'));
+    expect(active.size).toBe(0);
+    saved = JSON.parse(first.w.localStorage.getItem('linebreaker_settings'));
+    expect(saved.musicPaused).toBe(true);
+  } finally { first.close(); }
+  const reopened = await loadGame(true, null, null, synthCatalog, saved);
+  try {
+    await resetMusicAfterBoot(reopened.w);
+    const { active } = observeMusic(reopened.w);
+    reopened.api.setup();
+    await reopened.api.startMusic();
+    expect(active.size).toBe(0);
+    const playlist = reopened.w.document.getElementById('pl-mw-pause');
+    expect(playlist.getAttribute('aria-label')).toBe('Play music');
+    reopened.w.musicWidgetPause();
+    await vi.waitFor(() => expect(active.size).toBe(1));
+    expect(JSON.parse(reopened.w.localStorage.getItem('linebreaker_settings')).musicPaused).toBe(false);
+  } finally { reopened.close(); }
 });
 
 it.each(['visibilitychange', 'pagehide', 'native pause'])('silences all output on %s and only resumes music', async trigger => {

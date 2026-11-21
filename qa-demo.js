@@ -86,22 +86,32 @@
                 hide(id);
             }
         });
-        const settings = window.openSettings;
-        const inventory = tab => { window.openInventory(); window.inventoryTab(tab); };
+        const settings = tab => window.openSettings(false, tab);
+        const inventory = tab => window.openInventory(tab);
         const stats = tab => { window.openStats(); click(`[data-stats-tab="${tab}"]`); };
-        const missions = tab => { window.openMissions(); return window.renderMissionsOverlay(tab); };
+        const missions = tab => window.openMissions(tab);
         const closeMissions = () => { window._mqChangeMode = false; window.closeMissions(); };
         const play = mode => { window.openModeSelect(); click(`#mode-select-overlay [data-mode="${mode}"]`); };
 
         add('menu', () => {});
         for (const mode of ['normal', 'fun']) screen(mode === 'normal' ? 'play' : 'play-fun', 'mode-select-overlay', () => play(mode), window.closeModeSelect);
-        screen('settings', 'settings-overlay', settings, window.closeSettings);
+        for (const tab of ['game', 'controls', 'audio', 'display', 'updates', 'about']) {
+            screen(tab === 'game' ? 'settings' : `settings-${tab}`, 'settings-overlay', () => settings(tab), window.closeSettings);
+        }
+        add('whats-new-notice', () => window.LBUpdateTools.showReleaseNotice(window.BUNDLE.version, null, { preview: true }), () => {
+            window.LBUpdateTools.notices('installed', []);
+            document.querySelector('dialog[data-release-notes]')?.close();
+        });
         for (const tab of ['blocks', 'colors', 'other']) screen(tab === 'blocks' ? 'inventory' : `inventory-${tab}`, 'inventory-overlay', () => inventory(tab), window.closeInventory);
         for (const tab of ['general', 'leaderboard', 'pinned', 'highscores']) screen(tab === 'general' ? 'stats' : tab, 'stats-overlay', () => stats(tab), window.closeStats);
         for (const tab of ['daily', 'weekly']) screen(tab === 'daily' ? 'missions' : 'missions-weekly', 'missions-overlay', () => missions(tab), closeMissions);
-        screen('mission-confirm', 'missions-overlay', () => { missions('daily'); window._changeMission(1, false); }, () => {
+        screen('mission-confirm', 'missions-overlay', async () => {
+            await missions('daily');
+            window._toggleChangeMode();
+            const mission = document.querySelector('.mq-change-overlay')?.closest('[data-mission-slot]');
+            if (mission) window._changeMission(Number(mission.dataset.missionSlot), false);
+        }, () => {
             byId('mq-confirm-cancel').click();
-            byId('mq-confirm-overlay').firstElementChild.dispatchEvent(new Event('animationend'));
             closeMissions();
         });
         screen('season-pass', 'missions-overlay', () => missions('season'), closeMissions);
@@ -129,14 +139,14 @@
         add('universal-parts', window.openUseUniversalPart, () => remove('uni-modal-overlay'));
         add('universal-exchange', window.openExchangeUniversalParts, () => remove('uni-xch-overlay'));
         add('booster-exchange', () => window._openExchangeModal('1.25x_game', '1.5x_game', 'booster'), () => remove('exc-modal-overlay'));
-        screen('inventory-sfx', 'inventory-overlay', () => { inventory('other'); click('[data-sfx-preview="retro"]'); }, () => {
+        screen('inventory-sfx', 'inventory-overlay', async () => { await inventory('other'); click('[data-sfx-preview="retro"]'); }, () => {
             remove('sfx-inv-preview');
             window.closeInventory();
         });
         add('daily-gift', dailyGift, () => remove('daily-gift-overlay'));
         add('level-crate', levelCrate, closeLevelCrate);
         add('level-up', levelUp, () => remove('level-up-popup-overlay'));
-        screen('mission-crate', 'missions-overlay', () => { missions('daily'); window._claimMissionMilestone(6, false); }, () => {
+        screen('mission-crate', 'missions-overlay', async () => { await missions('daily'); window._claimMissionMilestone(6, false); }, () => {
             document.querySelector('.lb-reward-overlay[aria-label="Earned rewards"]')?.remove();
             closeMissions();
         });
@@ -146,6 +156,11 @@
             if (button.matches('[onclick*="startExportProcess"], [onclick*="file-import-input"]')) button.disabled = true;
         }
         document.title += ' · QA Demo';
+        if (query.has('cutout')) {
+            const root = document.documentElement;
+            root.dataset.lbQaCutout = '';
+            root.style.setProperty('--safe-area-inset-top', '40px');
+        }
         let active;
         let queue = Promise.resolve();
         window.__LB_QA = {

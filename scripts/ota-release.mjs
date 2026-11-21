@@ -1,6 +1,7 @@
 import fs from 'node:fs'; import path from 'node:path'; import crypto from 'node:crypto';
 import {config, resolvePath} from './ota-config.mjs';
 import {root, versionPattern, buildWeb, inventory, ensureKeys, embedded, deltaFiles} from './ota-bundle.mjs';
+import {assertMatchingWeb, stagedApkWeb} from './ota-consistency.mjs';
 const args = process.argv.slice(2); const version = args.shift();
 const usage = 'Usage: npm run android:ota:bundle -- <version> --kind fix|feature --message "text" [--min-shell N] [--block 1.0.1,...]';
 try {
@@ -25,12 +26,14 @@ try {
   const baseline = embedded();
   if (version.split('.').map(Number).reduce((c,v,i) => c || Math.sign(v - Number(baseline.version.split('.')[i])), 0) <= 0) throw new Error('Release must exceed embedded version');
   const signingKey = ensureKeys();
+  const apks = stagedApkWeb().filter(entry => entry.manifest.version === version);
   const work = path.join(root,'.local','release-web',version); fs.rmSync(work,{recursive:true,force:true});
-  const releasedAt = Date.now();
+  const releasedAt = apks[0]?.manifest.releasedAt || Date.now();
   buildWeb(work, version, opts['--message'], releasedAt);
   const files = inventory(work);
   const manifest = {schema:1,version,minShellApi,releasedAt,expiresAt:releasedAt + 365*24*60*60*1000,
     kind:opts['--kind'],message:opts['--message'],blocked,files};
+  for (const {apk, manifest: baked} of apks) assertMatchingWeb(baked, manifest, apk);
   const payload = Buffer.from(JSON.stringify(manifest));
   const signature = crypto.sign(null,payload,signingKey);
   const baselineRoot = path.dirname(resolvePath(config.bundle.baselineDir));

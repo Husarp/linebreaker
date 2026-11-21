@@ -36,8 +36,8 @@ it('selects compressed portrait and landscape artwork for all ten built-in theme
   expect(art.backgroundMode('invalid')).toBe('image');
 });
 
-it('keeps the existing gradient and falling-block setting when switching art modes', async () => {
-  const { w, close } = await loadGame(true, null, null, { theme: 'ocean', bgBlockMotion: 'falling' });
+it('keeps the existing gradient when switching art modes', async () => {
+  const { w, close } = await loadGame(true, null, null, { theme: 'ocean', bgBlockMotion: 'falling', heavyBg: 3 });
   try {
     const background = w.document.querySelector('.bg-gradient');
     const gradient = background.style.background;
@@ -58,7 +58,9 @@ it('keeps the existing gradient and falling-block setting when switching art mod
     selectMode('plain');
     expect(artLayers()).toEqual(['', '']);
     expect(background.style.background).toBe(gradient);
-    expect(stored()).toMatchObject({ theme: 'ocean', themeBackground: 'plain', bgBlockMotion: 'falling' });
+    expect(stored()).toMatchObject({ theme: 'ocean', themeBackground: 'plain' });
+    expect(stored()).not.toHaveProperty('bgBlockMotion');
+    expect(stored()).not.toHaveProperty('heavyBg');
     w.applyTheme('default');
     expect(artLayers()).toEqual(['', '']);
     selectMode('image');

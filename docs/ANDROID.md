@@ -88,12 +88,16 @@ The native game defers writing during trial startup until the bundle is accepted
 
 ## Release Preparation
 
+Before publishing, run the full phone browser sweep documented in [QA demo screens](QA-SCREENS.md) and resolve any errors.
+
 Use the **existing** `~/.keystores/linebreaker/release.jks` (alias `linebreaker`) and `ota-private.pem`. Never generate or replace them. Gradle reads the external `signing.properties` only for a release build (`storePassword`, `keyPassword`), or uses `LINEBREAKER_ANDROID_STORE_PASSWORD` and `LINEBREAKER_ANDROID_KEY_PASSWORD` supplied by a secret manager. Never put either password or private key in the checkout, release assets, or logs. Only `keys/public-key.b64` is packaged. Confirm the first release code exceeds any privately distributed same-ID, same-certificate builds.
 
 1. Before the first signed build, run `npm run android:release:audit`, then `npm run android:ota:freeze-baseline`. Archive the exact frozen `.local/ota-baseline/1.0.0` externally. Do not regenerate it after distributing the APK. Restore all supported APK web archives before signing future bundles; this includes any built-in web version introduced by a newer shell. Once distributed, an archived version is immutable; advance `build.webVersion` to embed different bytes.
 2. Set independent APK `build.versionCode` (strictly increasing), `build.versionName`, `build.webVersion`, `shellApi` and `minShellApi` in `ota.config.json`. Bump `shellApi` for new required native functionality; keep the bridge additive and `minShellApi` no higher than the embedding shell. Run `npm run android:release` only when ready to produce an APK. Verify the certificate with the SDK's `apksigner verify --print-certs`. The standalone output is `android/app/build/releases/Linebreaker-X.Y.Z.apk`; matching shell inputs are staged in `dist/apk/`.
 3. Prepare a signed shell channel set with `npm run android:ota:shell -- <versionCode>`. For a web-only release, use `npm run android:ota:bundle -- X.Y.Z --kind fix --message "Release notes"` (or `--kind feature`; optional `--min-shell N` and `--block X.Y.Z,...`). This writes a signed manifest and payloads under `dist/`, not an APK. Never publish intentionally broken acceptance fixtures to these channels.
 4. Only after device acceptance, publish the standalone versioned APK in the stable release and explicitly publish prepared OTA assets with `npm run android:ota:publish -- bundle X.Y.Z` or `npm run android:ota:publish -- shell <versionCode>`. The publisher uploads payloads before replacing signed metadata, keeps older payloads for in-flight downloads, and updates the fixed channel's title and notes from the signed release. Preserve both platforms' fallback assets and Windows `latest.json` on stable Latest. Allow for GitHub propagation delays.
+
+When releasing the same web version in both channels, prepare the web bundle first, then build the APK from the same checkout, then prepare the shell channel. The APK build uses the prepared bundle's web release notes and timestamp so `version.js` matches byte for byte. Preparing or publishing either channel rejects a locally staged counterpart with the same web version but different files. These checks use the JDK's `jar` via `JAVA_HOME` or `PATH` to read APKs.
 
 ### Check failures
 

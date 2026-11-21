@@ -1,4 +1,4 @@
-.lb149-dialog, .lb149-banner, .lb149-settings {
+.lb149-dialog, .lb184-banner, .lb149-settings {
     color: var(--text, #eee);
     font: 500 .875rem/1.5 var(--font-body, sans-serif);
 }
@@ -35,30 +35,41 @@
 .lb149-dialog textarea::-webkit-scrollbar-thumb { background: var(--bb-edge); }
 .lb149-choice { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: .8rem; }
 .lb149-settings [hidden] { display: none; }
-.lb149-check-status { display: flex; align-items: center; gap: .25rem; }
 .lb149-dialog ul { padding-inline-start: 1.25rem; }
 .lb149-dialog li + li { margin-top: .5em; }
-.lb149-choice select { color: inherit; background: var(--bb-well); border: 1px solid var(--bb-edge); border-radius: var(--bb-cap); padding: .35rem; }
-.lb149-settings .lb149-choice select { min-width: 0; max-width: 54%; text-overflow: ellipsis; }
-:is(.lb149-dialog, .lb149-settings) input[type="url"] { flex: 1 1 12rem; min-width: 0; padding: .55rem; border: 1px solid var(--bb-edge); border-radius: var(--bb-cap); color: inherit; background: var(--bb-well); }
+.lb149-dialog input[type="url"] { display: block; width: 100%; margin-bottom: .65rem; padding: .55rem; border: 1px solid var(--bb-edge); border-radius: var(--bb-cap); color: inherit; background: var(--bb-well); }
 .lb149-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-block: .45rem; }
-.lb149-banner {
-    position: absolute;
-    z-index: 2;
-    inset: auto max(.75rem, var(--lb-safe-right)) max(.75rem, var(--lb-safe-bottom)) auto;
-    max-width: calc(100% - 1.5rem);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: .4rem;
-    padding: .45rem .6rem;
-}
-.lb149-banner[hidden] { display: none; }
-.lb149-banner small { flex-basis: 100%; color: var(--bb-muted); }
-.lb149-check-notice {
+.lb184-banner {
     position: fixed;
-    z-index: 1000;
-    max-width: calc(100% - max(.75rem, var(--lb-safe-right)) - max(.75rem, var(--lb-safe-left)));
+    z-index: 1250;
+    inset: calc(var(--lb-safe-top, 0px) + 80px) max(.75rem, var(--lb-safe-right, 0px)) auto max(.75rem, var(--lb-safe-left, 0px));
+    width: auto;
+    max-width: 28rem;
+    margin-inline: auto;
+    padding: .65rem .45rem .65rem .8rem;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) 44px;
+    align-items: start;
+    gap: .65rem;
+    touch-action: none;
 }
-.lb149-check-notice [role="status"] { font-family: var(--bb-font-pixel); }
+.lb184-banner[hidden], .lb184-banner [hidden] { display: none; }
+.lb184-notice-icon { width: 20px; margin-top: .3rem; fill: none; stroke: var(--accent-bright); stroke-width: 2; }
+.lb184-banner [data-title] { display: block; color: var(--accent-bright); font: 400 .58rem/1.6 var(--bb-font-pixel); }
+.lb184-banner [data-detail] { margin: .25rem 0; }
+.lb184-banner [data-detail]:empty, .lb184-banner [data-actions]:empty, .lb184-banner .lb184-status:has([data-percent]:empty) { display: none; }
+.lb184-banner [data-actions] { margin-bottom: 0; }
+.lb184-banner [data-dismiss] { padding: 0; border: 0; box-shadow: none; background: transparent; }
+.lb184-banner progress, .lb184-status-slot progress { width: 100%; height: .65rem; }
+.lb184-status-slot { min-height: 2.25rem; max-width: 26rem; }
+.lb184-status { font-variant-numeric: tabular-nums; }
+.lb184-status [data-percent] { display: inline-block; width: 4ch; text-align: end; }
+.lb149-settings .lb184-secondary { font-size: .75rem; background: transparent; box-shadow: none; }
+.lb184-toolbar svg { width: 20px; height: 20px; }
+.lb149-choice:has(.lb184-segments) { align-items: flex-start; flex-direction: column; gap: .35rem; margin-block: .7rem; }
+.lb184-segments { display: flex; flex-wrap: wrap; gap: .25rem; }
+.lb184-segments .lb-block-tab { font-size: .75rem; padding-inline: .55rem; }
 [data-update-version][tabindex="0"] { cursor: pointer; user-select: none; -webkit-touch-callout: none; }
+#settings-whats-new h3 { margin: .65rem 0 .35rem; font: 400 .65rem/1.4 var(--bb-font-pixel); }
+#settings-whats-new p { margin: .35rem 0 .75rem; white-space: pre-line; line-height: 1.5; }
+.lb149-note-history { margin-top: .75rem; }

@@ -52,7 +52,7 @@
         return counts;
     }
     function cleanSettings(value) {
-        const { bgStyle, actionMusicMode, classicColors, ...settings } = object(value) ? value : {};
+        const { bgStyle, bgBlockMotion, heavyBg, actionMusicMode, classicColors, ...settings } = object(value) ? value : {};
         return settings;
     }
     const legacyListens = 'legacy:unattributed';
@@ -65,7 +65,7 @@
         return { total, mostPlayed };
     }
     function missionProgress(quest, weekly = false) {
-        if (!object(quest) || typeof quest.id !== 'string' || !safeKey(quest.id)) return null;
+        if (!object(quest) || typeof quest.id !== 'string' || !safeKey(quest.id) || quest.id === 'parachute_catcher') return null;
         const progress = {
             id: quest.id,
             target: number(quest.target),
@@ -89,7 +89,8 @@
         return score;
     }
     function cleanAchievements(value) {
-        return Object.fromEntries(entries(value).filter(([key]) => key !== '\u0074etris_lines' || !Object.hasOwn(value, 'i_piece_lines')).map(([key, entry]) => {
+        return Object.fromEntries(entries(value).filter(([key]) => key !== 'parachute_catcher'
+            && (key !== '\u0074etris_lines' || !Object.hasOwn(value, 'i_piece_lines'))).map(([key, entry]) => {
             const achievement = { unlocked: entry?.unlocked === true, unlockedAt: date(entry?.unlockedAt) };
             if (typeof entry?.tier === 'number') achievement.tier = Math.floor(number(entry.tier, 0, 100));
             if (object(entry?.tierDates)) achievement.tierDates = Object.fromEntries(entries(entry.tierDates).filter(([tier]) => /^[1-9]\d?$/.test(tier)).map(([tier, when]) => [tier, date(when)]).filter(([, when]) => when));
@@ -195,7 +196,7 @@
         for (const k of scoreKeys) out[k] = list(data[k]).filter(object).map(cleanScore);
         out.leaderboard.sort((first, second) => (second.score || 0) - (first.score || 0));
         out.stats = { ...defaults.stats };
-        for (const k of ['_lastSkin', 'bestBlocksIn60s', 'bestDailyXP', 'bestEarnedXP', 'bestFunScore', 'bestHighPlacer', 'bestIPieceLines', 'bestLineStreak', 'bestLoyalPiece', 'bestMaxSpeed', 'bestMirrorScore', 'bestSpeedrunnerTime', 'bestSurvivalTime', 'blockTypeUsage', 'dailyStreak', 'dailyXPAmount', 'dailyXPDate', 'funGamesPlayed', 'gamesAborted', 'gamesPlayed', 'highStackBlocks', 'highestDailyStreak', 'lastPlayDate', 'luckySevenCount', 'maxCombo', 'menuIdleTime', 'muteCount', 'nearMissCount', 'noLineStreak', 'noSpinBlocks', 'parachuteDropsCaught', 'pinnedCount', 'playHistory', 'rareItemsFromDailyBox', 'rulesOpened', 'sameSkinStreak', 'seenTitleAnims', 'singleLineClears', 'songPlayCounts', 'surgeonLines', 'tSpinTriples', 'totalBlocksPlaced', 'totalBoostersUsed', 'totalLinesCleared', 'totalQuads', 'totalRotations', 'totalScore', 'totalTimePlayed']) if (Object.hasOwn(data.stats || {}, k)) out.stats[k] = data.stats[k];
+        for (const k of ['_lastSkin', 'bestBlocksIn60s', 'bestDailyXP', 'bestEarnedXP', 'bestFunScore', 'bestHighPlacer', 'bestIPieceLines', 'bestLineStreak', 'bestLoyalPiece', 'bestMaxSpeed', 'bestMirrorScore', 'bestSpeedrunnerTime', 'bestSurvivalTime', 'blockTypeUsage', 'dailyStreak', 'dailyXPAmount', 'dailyXPDate', 'funGamesPlayed', 'gamesAborted', 'gamesPlayed', 'highStackBlocks', 'highestDailyStreak', 'lastPlayDate', 'luckySevenCount', 'maxCombo', 'menuIdleTime', 'muteCount', 'nearMissCount', 'noLineStreak', 'noSpinBlocks', 'pinnedCount', 'playHistory', 'rareItemsFromDailyBox', 'rulesOpened', 'sameSkinStreak', 'seenTitleAnims', 'singleLineClears', 'songPlayCounts', 'surgeonLines', 'tSpinTriples', 'totalBlocksPlaced', 'totalBoostersUsed', 'totalLinesCleared', 'totalQuads', 'totalRotations', 'totalScore', 'totalTimePlayed']) if (Object.hasOwn(data.stats || {}, k)) out.stats[k] = data.stats[k];
         for (const [k, v] of Object.entries(out.stats)) {
             if (['lastPlayDate','dailyXPDate'].includes(k)) out.stats[k] = date(v);
             else if (k === '_lastSkin') out.stats[k] = string(v);
@@ -212,7 +213,7 @@
             else out.stats[k] = number(v);
         }
         out.achievements = cleanAchievements(data.achievements);
-        out.pendingAchievementClaims = list(data.pendingAchievementClaims).filter(claim => object(claim) && typeof claim.id === 'string' && safeKey(claim.id)).map(claim => ({
+        out.pendingAchievementClaims = list(data.pendingAchievementClaims).filter(claim => object(claim) && typeof claim.id === 'string' && safeKey(claim.id) && claim.id !== 'parachute_catcher').map(claim => ({
             id: achievementId(claim.id), name: string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common', xp: number(claim.xp, 0, 100000),
             ...(claim.tierNum ? { tierNum: Math.floor(number(claim.tierNum, 0, 100)) } : {}),
         }));

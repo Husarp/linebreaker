@@ -52,6 +52,8 @@
 
 .lb105-level-emblem > * { grid-area: 1 / 1; }
 
+.lb105-level-value { color: var(--bb-ink); font: 400 .6rem/1.5 var(--bb-font-pixel); }
+
 .lb105-level-emblem svg {
     width: 100%;
     fill: color-mix(in srgb, currentColor 24%, var(--bb-well));
@@ -62,9 +64,8 @@
 }
 
 .lb105-level-emblem span {
-    color: var(--bb-ink);
-    font: 400 clamp(12px, 2dvh, 17px)/1 var(--bb-font-pixel);
-    text-shadow: 2px 2px var(--bb-well);
+    color: inherit;
+    font: 400 clamp(8px, 1.625dvh, 13px)/1 var(--bb-font-pixel);
 }
 
 .lb105-level-rank {

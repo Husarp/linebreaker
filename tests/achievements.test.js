@@ -26,19 +26,19 @@ describe('achievement screen', () => {
     game.w.openAchievements();
     expect(query('#ach-counter').textContent).toBe('0% complete');
     expect(sectionCount('BASIC')).toBe('0 of 119');
-    expect(sectionCount('SECRET')).toBe('0 of 59');
+    expect(sectionCount('SECRET')).toBe('0 of 58');
 
     game.api.setup({ save: { achievements: { collector: { tier: 2 }, sec_nice: { unlocked: true } } } });
     game.w.openAchievements();
     expect(query('#ach-counter').textContent).toBe('2% complete');
-    expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 59');
+    expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 58');
     expect(sectionCount('BASIC')).toBe('2 of 119');
-    expect(sectionCount('SECRET')).toBe('1 of 59');
+    expect(sectionCount('SECRET')).toBe('1 of 58');
 
     game.api.setup({ save: { achievements: { collector: { tier: 2 } } } });
     game.w.openAchievements();
     expect(query('#ach-counter').textContent).toBe('2% complete');
-    expect(query('#ach-secret-counter').textContent).toBe('Secrets 0 of 59');
+    expect(query('#ach-secret-counter').textContent).toBe('Secrets 0 of 58');
   });
 
   it('combines the category and status filters without changing completion totals', () => {
@@ -49,16 +49,16 @@ describe('achievement screen', () => {
     filter('unlocked');
     expect(sectionNamed('BASIC')).toBeUndefined();
     expect(badges('SECRET').map(hover)).toEqual([expect.stringContaining('Nice')]);
-    expect(sectionCount('SECRET')).toBe('1 of 59');
+    expect(sectionCount('SECRET')).toBe('1 of 58');
     filter('locked');
-    expect(badges('SECRET')).toHaveLength(58);
+    expect(badges('SECRET')).toHaveLength(57);
     expect(badges('SECRET').every(badge => hover(badge).startsWith('???'))).toBe(true);
 
     select('#ach-category', 'basic');
     expect(sectionNamed('SECRET')).toBeUndefined();
     expect(sectionCount('BASIC')).toBe('2 of 119');
     expect(query('#ach-counter').textContent).toBe('2% complete');
-    expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 59');
+    expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 58');
   });
 
   it('sorts by badge rarity, progress, or latest saved unlock date', () => {
@@ -115,7 +115,7 @@ describe('achievement screen', () => {
     game.w.devUnlockAllAchievements();
     game.w.openAchievements('unlocked');
     const earned = [...badges('BASIC'), ...badges('SECRET')];
-    expect(earned).toHaveLength(97);
+    expect(earned).toHaveLength(96);
     for (const badge of earned) {
       const icon = badge.querySelector('.ach-card-icon');
       expect(icon.querySelector('path[d], use[href]')).not.toBeNull();

@@ -1,3 +1,17 @@
+html[data-lb-qa-cutout]::after {
+    content: '';
+    position: fixed;
+    z-index: 10000;
+    top: 6px;
+    left: 50%;
+    width: 72px;
+    height: 28px;
+    transform: translateX(-50%);
+    border-radius: 14px;
+    background: #000;
+    pointer-events: none;
+}
+
 #stats-overlay:not(.anim-in-right, .anim-out-right),
 #mode-select-overlay:not(.anim-in-up, .anim-out-down) {
     animation: none;
@@ -51,7 +65,6 @@
 #uni-modal-list { padding-inline-end: 4px; }
 
 @supports (animation-timeline: scroll(self block)) and (animation-range: 0px 16px) {
-    #inventory-overlay > .lb-inventory-content,
     #playlist-panel-content {
         animation: lb-scroll-fade-start linear both, lb-scroll-fade-end linear both !important;
         animation-timeline: scroll(self block), scroll(self block) !important;

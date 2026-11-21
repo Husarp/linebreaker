@@ -5,18 +5,19 @@
   if (!ota || !bundle?.version) return;
   const startup = window.LBStartup;
   const bounded = startup?.bounded || ((label, action) => action());
-  const { startupUpgrade, attachVersion, dialog, size, showNotes, copy, newer } = window.LBUpdateTools;
+  const { startupUpgrade, attachVersion, dialog, size, setReleaseNotes, showReleaseNotice, copy, newer,
+    notices, queueNotice, getLabel, githubIcon, statusMarkup, setStatus, showNotes } = window.LBUpdateTools;
   const defaults = { smallFixes: true, majorUpdates: false, shellUpdates: true, wifiLimitMb: 20, mobileLimitMb: 5, checkFrequency: '6h' };
   const fields = [
     ['smallFixes', 'Automatically install small fixes'],
     ['majorUpdates', 'Automatically install big fixes and new versions'],
-    ['shellUpdates', 'Automatically install shell updates'],
+    ['shellUpdates', 'Automatically install app updates'],
     ['wifiLimitMb', 'Wi-Fi download limit', [[5, '5 MiB'], [20, '20 MiB'], [50, '50 MiB'], [100, '100 MiB'], [-1, 'No limit']]],
     ['mobileLimitMb', 'Mobile download limit', [[0, 'Wi-Fi only'], [5, '5 MiB'], [20, '20 MiB'], [50, '50 MiB'], [-1, 'Any network, no limit']]],
     ['checkFrequency', 'Check frequency', [['open', 'When opened'], ['1h', 'Every hour'], ['6h', 'Every 6 hours'], ['24h', 'Every day'], ['manual', 'Manual only']]],
   ];
   const menu = document.getElementById('menu-overlay');
-  const settingsHost = document.querySelector('#settings-overlay .settings-section')?.parentElement;
+  const settingsHost = document.getElementById('settings-updates');
   if (!menu || !settingsHost) return;
   const makeButton = (label, action, primary = false) => {
     const button = document.createElement('button');
@@ -28,46 +29,27 @@
   };
   const section = document.createElement('section');
   section.className = 'settings-section lb-block-panel lb149-settings';
-  section.innerHTML = `<h2 class="lb-block-section-title">Updates</h2><p data-update-version></p><p data-shell-version></p>
+  section.innerHTML = `<h2 class="lb-block-section-title">Updates</h2><div class="lb149-actions lb184-toolbar" data-section-actions></div>
+    <p data-update-version></p><div class="lb184-status-slot">${statusMarkup}</div>
+    <div class="lb149-actions" data-secondary></div>
     <label class="lb149-choice">Automatic update checks <span class="lb-block-switch"><input type="checkbox" role="switch" data-auto disabled><span class="toggle-slider"></span></span></label>
     <div data-policy></div><p>Metered Wi-Fi counts as mobile. Limits apply to automatic downloads.</p>
-    <form data-address><label for="lb154-update-address">Bundle update address</label><div class="lb149-actions"><input id="lb154-update-address" type="url" required><button class="lb-block-btn">Save address</button></div></form>
-    <label class="lb149-choice" hidden>Android update notifications <span class="lb-block-switch"><input type="checkbox" role="switch" data-notifications disabled><span class="toggle-slider"></span></span></label>
-    <p data-feedback role="status"></p><div class="lb149-check-status"><p data-check-status role="status"></p></div><p data-status role="status"></p><div class="lb149-actions" data-section-actions></div>`;
-  const updateMessage = text => (text || '').replace(/Can't check for updates — connection blocked \(firewall\?\)/g, 'Could not check for updates');
+    <label class="lb149-choice" hidden>Android notifications while away <span class="lb-block-switch"><input type="checkbox" role="switch" data-notifications disabled><span class="toggle-slider"></span></span></label>
+    <p data-feedback role="status"></p>`;
   const checkHelp = dialog('Update check help', `<ul>
     <li>On public Wi-Fi, sign in to the network first, or try mobile data.</li>
     <li>If the server refuses requests or is busy, wait and retry. If needed, try a network that allows GitHub and its download servers.</li>
-    <li>Check your device date and time and verify the bundle update address.</li>
+    <li>Check your device date and time, then try again.</li>
     </ul><div class="lb149-actions"><button type="button" class="lb-block-btn" data-close>Close</button></div>`);
-  function checkHelpButton() {
-    const button = makeButton('', () => { if (!checkHelp.open) checkHelp.showModal(); });
-    button.className = 'lb-info-btn';
-    button.setAttribute('aria-label', 'Update check help');
-    return button;
-  }
-  const settingsCheckHelp = checkHelpButton();
-  settingsCheckHelp.hidden = true;
-  section.querySelector('.lb149-check-status').append(settingsCheckHelp);
-  const banner = document.createElement('aside');
-  banner.className = 'lb-block-panel lb149-banner';
-  banner.hidden = true;
-  menu.append(banner);
-  const checkNotice = document.createElement('aside');
-  checkNotice.className = 'lb-block-panel lb149-banner lb149-check-notice';
-  checkNotice.hidden = true;
-  document.body.append(checkNotice);
-  settingsHost.append(section);
-  const diagnostics = dialog('Update diagnostics', `<dl data-versions></dl><p data-state role="status"></p>
+  settingsHost.prepend(section);
+  const diagnostics = dialog('Update logs', `<dl data-versions></dl><p data-state role="status"></p>
     <label class="lb149-choice">Automatic updates <span class="lb-block-switch"><input type="checkbox" role="switch" data-auto><span class="toggle-slider"></span></span></label>
     <div class="lb149-actions" data-actions></div>
-    <form data-address><label for="lb149-url">Bundle update address</label><div class="lb149-actions"><input id="lb149-url" type="url" required><button class="lb-block-btn">Save address</button></div></form>
+    <label for="lb149-url">Update address</label><input id="lb149-url" data-address type="url" readonly>
     <label for="lb149-android-log">Update log</label><textarea id="lb149-android-log" readonly></textarea>
     <div class="lb149-actions" data-log-actions><button class="lb-block-btn" data-close>Close</button></div><p data-feedback role="status"></p>`);
   const preferences = dialog('Update settings', '<div data-form></div><p data-feedback role="status"></p><div class="lb149-actions"></div>');
-  let state, ready = false, safety, refreshing, notice, shellUpgrade, settingsBusy = false, restartToken;
-  let bannerKey;
-  const clearBanner = () => { banner.hidden = true; bannerKey = undefined; };
+  let state, ready = false, safety, refreshing, notice, shellUpgrade, settingsBusy = false;
   const canInterrupt = () => ready && window.linebreakerCanInterrupt?.() === true && !settingsBusy;
   const syncSafety = () => {
     if (!ready) return Promise.resolve();
@@ -85,23 +67,24 @@
   overlays.observe(document.body, { childList: true });
   const transferPanel = document.getElementById('transfer-overlay');
   if (transferPanel) overlays.observe(transferPanel, { attributes: true, attributeFilter: ['class'] });
-  const status = value => { section.querySelector('[data-status]').textContent = value; };
+  const status = (value, percent) => setStatus(section, value, percent);
+  let eventId = 0;
+  const message = (title, text, actions) => queueNotice('android-message', { key: `android-message:${++eventId}`, title, text, actions });
   const unavailable = error => {
     console.warn('Android updater startup:', error);
-    status('Updater unavailable. Open GitHub for a standalone APK.');
-    banner.textContent = 'Android could not confirm startup. Saving is paused until you restart the app.';
-    banner.hidden = false;
+    status('Updates unavailable');
+    message('Please restart Linebreaker', 'Saving is paused until you restart the app.');
   };
   const feedback = (panel, value) => { panel.querySelector('[data-feedback]').textContent = value; };
   const guarded = async action => {
     await bounded('Save flush before update', () => window.flushLinebreakerSave?.());
-    if (!canInterrupt()) { status('Finish the current activity before updating.'); return; }
+    if (!canInterrupt()) { message('Finish playing first', 'You can install the update after returning to the menu.'); return; }
     await syncSafety();
     if (canInterrupt()) await action();
   };
   const run = async action => {
     try { await action(); await refresh(); }
-    catch { status('Update action failed. Try again or open GitHub.'); }
+    catch (error) { console.warn('Android update action failed:', error); message('Could not update', 'Try again from Settings → Updates.', [['Details', openShell]]); }
   };
   const openGitHub = () => ota.openReleases();
   const check = () => run(() => ota.check());
@@ -114,7 +97,6 @@
   };
   const automatic = [section, diagnostics].map(panel => panel.querySelector('[data-auto]'));
   const policy = policyControls(section.querySelector('[data-policy]'));
-  const addressForms = [section, diagnostics].map(panel => panel.querySelector('[data-address]'));
   let savingPolicy = false;
   function renderPolicy(current) {
     if (!current || savingPolicy) return;
@@ -122,21 +104,17 @@
     if (frequency !== 'manual') localStorage.setItem('lb149:checkFrequency', frequency);
     for (const input of automatic) { input.checked = frequency !== 'manual'; input.disabled = false; }
     for (const field of policy) field.set(current[field.key]);
-    for (const form of addressForms) {
-      const input = form.querySelector('input');
-      if (!input.dataset.edited) input.value = current.url || '';
-    }
+    diagnostics.querySelector('[data-address]').value = current.url || '';
   }
   async function updatePolicy(patch, panel, success = '') {
     if (savingPolicy || !state?.updateSettings) return;
     savingPolicy = true;
-    const controls = [...automatic, ...policy.map(field => field.control), ...addressForms.flatMap(form => [...form.elements])];
+    const controls = [...automatic, ...policy.flatMap(field => field.controls)];
     controls.forEach(control => { control.disabled = true; });
     try {
       state.updateSettings = await ota.setUpdateSettings(patch);
       feedback(panel, success);
-      if (patch.url) addressForms.forEach(form => { delete form.querySelector('input').dataset.edited; });
-    } catch { feedback(panel, patch.url ? 'Could not save the update address. Use an HTTPS URL.' : 'Could not save update settings.'); }
+    } catch { feedback(panel, 'Could not save update settings.'); }
     finally {
       savingPolicy = false;
       controls.forEach(control => { control.disabled = false; });
@@ -147,14 +125,9 @@
   automatic.forEach((input, index) => { input.onchange = () => updatePolicy({
     checkFrequency: input.checked ? (localStorage.getItem('lb149:checkFrequency') || '6h') : 'manual',
   }, index ? diagnostics : section); });
-  for (const field of policy) field.control.onchange = () => updatePolicy({ [field.key]: field.value() }, section);
-  addressForms.forEach((form, index) => {
-    const input = form.querySelector('input');
-    input.oninput = () => { input.dataset.edited = '1'; };
-    form.onsubmit = event => { event.preventDefault(); return updatePolicy({ url: input.value.trim() }, index ? diagnostics : section, 'Update address saved.'); };
-  });
+  for (const field of policy) field.change = () => updatePolicy({ [field.key]: field.value() }, section);
   diagnostics.querySelector('[data-actions]').append(
-    makeButton('Check now', check),
+    makeButton('Check for updates', check),
     makeButton('Restart', () => run(restart)),
     makeButton('Reset to built-in version', () => run(() => guarded(() => ota.confirmReset()))),
   );
@@ -165,25 +138,19 @@
     }),
     makeButton('Clear', async () => { await ota.clearUpdateLog(); logField.value = ''; feedback(diagnostics, 'Log cleared.'); }),
   );
-  const retry = makeButton('CHECK NOW', check);
+  const retry = makeButton('Check for updates', check);
   async function showCheckNotice(current) {
     if (!ready || document.hidden || !current.updateChecks?.noticePending) return;
     const { message } = await bounded('Checking Android update notice', () => ota.claimCheckNotice({ token: current.token })).catch(() => ({}));
     if (!message) return;
-    const title = document.createElement('span');
-    title.setAttribute('role', 'status');
-    checkNotice.replaceChildren(title,
-      makeButton('Retry', () => { checkNotice.hidden = true; void check(); }, true),
-      makeButton('Dismiss', () => { checkNotice.hidden = true; }), checkHelpButton());
-    checkNotice.hidden = false;
-    title.textContent = updateMessage(message);
-    setTimeout(() => { checkNotice.hidden = true; }, 15000);
+    queueNotice('android-check', { key: `android-check:${++eventId}`, title: 'Could not check for updates',
+      text: 'Check your connection and try again.', actions: [['Retry', check], ['Details', () => checkHelp.showModal()]] });
   }
   let currentAction;
-  let notify = () => {};
-  const getUpdate = makeButton('GET UPDATE', () => currentAction && run(currentAction), true);
+  let releaseInfo = [];
+  const getUpdate = makeButton('', () => currentAction && run(currentAction), true);
+  getUpdate.dataset.get = '';
   getUpdate.hidden = true;
-  const notesButton = makeButton("What's new", () => showNotes(notice?.to || bundle.version, notice ? notice.notes : bundle.message, openGitHub));
   const setupButton = makeButton('Finish update setup', () => openSettings(false));
   setupButton.hidden = true;
   const openShell = () => {
@@ -191,33 +158,49 @@
     diagnostics.showModal();
     void refresh().catch(() => {});
   };
-  section.querySelector('[data-section-actions]').append(
-    retry,
-    getUpdate,
-    setupButton,
-    notesButton,
-    makeButton('Open app shell', openShell),
-    makeButton('GitHub', () => run(openGitHub)),
-  );
+  const github = makeButton('', () => run(openGitHub));
+  github.classList.add('lb-block-btn--icon');
+  github.setAttribute('aria-label', 'GitHub releases');
+  github.innerHTML = githubIcon;
+  section.querySelector('[data-section-actions]').append(retry, getUpdate,
+    makeButton("What's new", () => showNotes(...releaseInfo, openGitHub)), github);
+  const shellButton = makeButton('Open app shell', () => typeof ota.settings === 'function' ? run(() => ota.settings()) : openShell());
+  shellButton.classList.add('lb184-secondary');
+  section.querySelector('[data-secondary]').append(shellButton, setupButton);
 
   function policyControls(container) {
     return fields.map(([key, label, choices]) => {
-      const row = document.createElement('label');
+      const row = document.createElement(choices ? 'div' : 'label');
       row.className = 'lb149-choice';
       row.append(label);
-      const control = document.createElement(choices ? 'select' : 'input');
+      const control = document.createElement(choices ? 'div' : 'input');
+      let selected;
+      const field = { key, controls: [], set(value) {
+        if (!choices) { control.checked = value; return; }
+        selected = value;
+        field.controls.forEach((button, index) => button.setAttribute('aria-pressed', String(choices[index][0] === value)));
+      }, value: () => choices ? selected : control.checked };
       if (choices) {
-        for (const [value, text] of choices) control.append(new Option(text, value));
+        control.className = 'lb184-segments lb-block-tabs';
+        control.setAttribute('role', 'group');
+        control.setAttribute('aria-label', label);
+        for (const [value, text] of choices) {
+          const button = makeButton(text, () => { field.set(value); field.change?.(); });
+          button.classList.add('lb-block-tab');
+          field.controls.push(button);
+          control.append(button);
+        }
         row.append(control);
       } else {
         const wrapper = document.createElement('span'); wrapper.className = 'lb-block-switch';
         const track = document.createElement('span'); track.className = 'toggle-slider';
         control.type = 'checkbox'; control.setAttribute('role', 'switch');
+        field.controls.push(control);
+        control.onchange = () => field.change?.();
         wrapper.append(control, track); row.append(wrapper);
       }
       container.append(row);
-      return { key, control, set(value) { if (choices) control.value = value; else control.checked = value; },
-        value: () => choices ? key.endsWith('Mb') ? Number(control.value) : control.value : control.checked };
+      return field;
     });
   }
 
@@ -262,26 +245,17 @@
   }
   preferences.addEventListener('close', () => { settingsBusy = false; void syncSafety(); });
 
-  function offer(current, includeDismissed = false) {
-    if (current.trial || !canInterrupt()) return null;
+  function offers(current) {
+    if (current.trial) return [];
     const web = current.available, shell = current.shellReady || current.shellAvailable;
-    if (notice && [web?.version, current.staged?.version, current.webDownloadVersion].some(version => newer(version, notice.to))) notice = null;
-    if (notice && shell && (shell.versionCode > current.runningShellVersionCode || newer(shell.version, current.shellVersion))) notice = null;
-    if (current.rolledBack && !includeDismissed) {
-      const { from, to } = current.rolledBack;
-      const key = `rollback:${from}:${to}`;
-      if (!localStorage.getItem(`lb149:${key}`)) return { key, text: `Version ${from} didn't start. You're back on ${to}.` };
-    }
-    const items = [
-      current.shellReady && { key: `shell-ready:${shell.versionCode}`, text: `App update ${shell.version} ready`, dates: shell, label: 'Install', close: true, action: () => guarded(() => ota.installShell()) },
-      current.staged && { key: `staged:${current.staged.version}`, text: `Fixes downloaded (${current.staged.version})`, dates: current.staged, label: 'Restart', close: true, action: restart },
-      current.shellAvailable && { key: `shell:${shell.versionCode}`, text: `App update ${shell.version} · ${size(shell.size)}`, dates: shell, label: 'Update', action: () => ota.downloadShell() },
-      web && { key: `web:${web.version}`, text: web.needsShell ? `Version ${web.version} needs an app update first` : `Update ${web.version} · ${size(web.size)}`, dates: web, label: web.needsShell ? undefined : 'Update', action: () => ota.download() },
+    const rollback = current.rolledBack;
+    return [
+      rollback && { key: `rollback:${rollback.from}:${rollback.to}`, title: 'Previous version restored', text: `Version ${rollback.from} could not start. You’re back on ${rollback.to}.` },
+      current.shellReady && { key: `shell-ready:${shell.versionCode}`, title: 'App update ready', text: `Version ${shell.version} is ready to install.`, label: getLabel(shell.version, true), action: () => guarded(() => ota.installShell()) },
+      current.staged && { key: `staged:${current.staged.version}`, title: 'Update ready', text: 'Restart Linebreaker to finish updating.', label: getLabel(current.staged.version, true), action: restart },
+      !current.shellReady && shell && { key: `shell:${shell.versionCode}`, title: 'App update available', text: `Version ${shell.version} · ${size(shell.size)}`, label: getLabel(shell.version), action: () => ota.downloadShell({ downloadOnly: true }) },
+      !current.staged && web && { key: `web:${web.version}`, title: 'Update available', text: web.needsShell ? `Install the app update first to get version ${web.version}.` : `Version ${web.version} · ${size(web.size)}`, label: getLabel(web.version), action: web.needsShell ? undefined : () => ota.download() },
     ].filter(Boolean);
-    if (includeDismissed) return items.find(item => item.action) || null;
-    if (items.length) return items.find(item => !localStorage.getItem(`lb149:${item.key}`)) || null;
-    if (notice) return { key: `notes:${notice.to}`, label: `What's new in ${notice.to} ›`, action: () => showNotes(notice.to, notice.notes, openGitHub) };
-    return null;
   }
 
   function dateRows(dates) {
@@ -295,14 +269,14 @@
     const system = plugins?.LocalNotifications;
     if (!preferences || !system) return;
     const key = 'linebreaker-update-notifications';
-    const channelId = 'linebreaker-updates';
-    const ids = { web: 15401, shell: 15402, installed: 15403 };
     const input = section.querySelector('[data-notifications]');
     input.closest('label').hidden = false;
-    const createChannel = () => system.createChannel({ id: channelId, name: 'Linebreaker updates', importance: 3 });
-    let sending = false;
     const readPreference = () => bounded('Reading update notification preference', () => preferences.get({ key }));
     const checkPermission = () => bounded('Checking update notification permission', () => system.checkPermissions());
+    const clearSystemNotices = () => system.removeDeliveredNotifications?.({ notifications: [701, 15401, 15402, 15403].map(id => ({ id })) });
+    const clearForeground = () => { if (!document.hidden) void Promise.resolve(clearSystemNotices()).catch(() => {}); };
+    document.addEventListener('visibilitychange', clearForeground);
+    clearForeground();
     input.checked = (await readPreference()).value === 'on';
     input.disabled = false;
     input.onchange = async () => {
@@ -317,53 +291,31 @@
             feedback(section, 'Allow Linebreaker notifications in Android Settings.');
             return;
           }
-          await bounded('Creating update notification channel', createChannel);
         }
         await bounded('Saving update notification preference', () => preferences.set({ key, value: enable ? 'on' : 'off' }));
         feedback(section, '');
-        if (enable) notify(state);
-        else await bounded('Cancelling update notifications', () => system.cancel({ notifications: Object.values(ids).map(id => ({ id })) }));
+        if (!enable) await clearSystemNotices();
       } catch {
         input.checked = (await readPreference().catch(() => ({}))).value === 'on';
         feedback(section, 'Could not change Android update notifications.');
       } finally { input.disabled = false; }
     };
-    notify = current => {
-      if (!current || !input.checked || sending || current.trial) return;
-      const web = current.staged || current.available;
-      const shell = current.shellReady || current.shellAvailable;
-      const notices = [
-        ['web', web?.version, `Linebreaker update ${web?.version} available`, 'Open Linebreaker to see the update.'],
-        ['shell', shell?.versionCode, `Linebreaker app update ${shell?.version} available`, 'Open Linebreaker to see the app update.'],
-        ['installed', current.updated?.to === bundle.version ? current.token : null, `Linebreaker updated to ${bundle.version}`, "Open Linebreaker to see what's new."],
-      ].filter(([type, token]) => token && localStorage.getItem(`lb154:notification:${type}`) !== String(token));
-      if (!notices.length) return;
-      sending = true;
-      void (async () => {
-        if ((await checkPermission()).display !== 'granted' || !input.checked) return;
-        await bounded('Creating update notification channel', createChannel);
-        if (!input.checked) return;
-        await bounded('Scheduling update notifications', () => system.schedule({ notifications: notices.map(([type, , title, body]) => ({ id: ids[type], title, body, channelId })) }));
-        for (const [type, token] of notices) localStorage.setItem(`lb154:notification:${type}`, token);
-      })().catch(error => console.warn('Update notifications unavailable:', error)).finally(() => { sending = false; });
-    };
-    notify(state);
   }
 
   function render(current) {
-    const busy = current.webDownloadVersion || current.shellDownloading;
-    const transfer = current.webDownloadVersion ? current.webTransfer : current.shellTransfer;
-    const progress = busy && transfer?.total ? ` · ${Math.floor(100 * transfer.done / transfer.total)}% · ${size(transfer.done)} / ${size(transfer.total)} · ${size(transfer.speed)}/s` : '';
-    status(updateMessage(`${current.status} · ${current.shellStatus}${progress}`));
-    const checkSummary = updateMessage(current.updateChecks?.summary);
-    section.querySelector('[data-check-status]').textContent = checkSummary;
-    settingsCheckHelp.hidden = !current.updateChecks?.failed;
-    retry.textContent = current.updateChecks?.failed ? 'Retry' : 'CHECK NOW';
-    diagnostics.querySelector('[data-state]').textContent = `${current.trial ? 'Trial' : busy ? 'Downloading' : current.staged || current.shellReady ? 'Ready' : 'No staged update'}: ${section.querySelector('[data-status]').textContent}${checkSummary ? ` · ${checkSummary}` : ''}`;
+    const webDownloading = current.webDownloadVersion && current.busy !== false;
+    const busy = webDownloading || current.shellDownloading;
+    const transfer = webDownloading ? current.webTransfer : current.shellTransfer;
+    const percent = busy ? (transfer?.total ? 100 * transfer.done / transfer.total : null) : undefined;
+    const items = offers(current);
+    const action = items.find(item => item.action);
+    const failure = [current.status, current.shellStatus].find(value => /^(Download failed|(?:Shell )?Update processing failed|Install failed|App install failed|Restart failed|Could not apply)|Not enough storage/i.test(value));
+    status(busy ? 'Downloading' : failure ? 'Could not update' : current.staged || current.shellReady ? 'Ready to install'
+      : current.updateChecks?.failed ? 'Could not check for updates' : items.some(item => item.label) ? 'Update available'
+      : current.busy ? 'Checking for updates…' : 'No update ready', percent);
+    diagnostics.querySelector('[data-state]').textContent = [current.status, current.shellStatus, current.updateChecks?.summary].filter(Boolean).join(' · ');
     renderPolicy(current.updateSettings);
-    section.querySelector('[data-shell-version]').textContent = `App shell ${current.shellVersion}`;
     setupButton.hidden = current.updateSettings?.setupAnswered !== false;
-    notify(current);
     const versions = diagnostics.querySelector('[data-versions]');
     const rows = [['Shell', current.shellVersion], ['Web', bundle.version], ['Shell API', current.shellApi],
       ...dateRows(current.shellTimestamps).map(([field, value]) => [`Shell ${field.toLowerCase()}`, value]),
@@ -377,37 +329,25 @@
         term.textContent = name; description.textContent = value; versions.append(term, description);
       }
     }
-    if (ready && current.autoRestart && current.staged && !current.busy && canInterrupt() && !document.hidden && restartToken !== current.token) {
-      restartToken = current.token;
-      void run(restart);
-    }
-    const item = busy && !canInterrupt() ? null : offer(current);
-    currentAction = !busy && offer(current, true)?.action;
+    const releaseVersion = newer(current.shellVersion, bundle.version) ? current.shellVersion : bundle.version;
+    const releaseText = (notice?.to === releaseVersion ? notice.notes : null) || (releaseVersion === bundle.version
+      ? current.updated?.to === bundle.version && current.updated.notes || bundle.message : current.shellNotes);
+    setReleaseNotes(releaseVersion, releaseText, openGitHub);
+    releaseInfo = [releaseVersion, releaseText];
+    currentAction = !busy && action?.action;
     getUpdate.hidden = !currentAction;
-    if (!item && busy && canInterrupt()) {
-      if (bannerKey !== 'download') banner.replaceChildren(document.createElement('span'));
-      banner.firstChild.textContent = `Downloading update${progress}`;
-      bannerKey = 'download'; banner.hidden = false; return;
-    }
-    if (!item) { clearBanner(); return; }
-    if (bannerKey === item.key) return;
-    bannerKey = item.key;
-    banner.replaceChildren(); banner.hidden = false;
-    if (item.text) { const text = document.createElement('span'); text.textContent = item.text; banner.append(text); }
-    if (item.label) banner.append(makeButton(item.label, () => run(item.action), true));
-    if (item.text) {
-      const dismiss = makeButton(item.close ? '✕' : item.key.startsWith('rollback:') ? 'Dismiss' : 'Later', () => {
-        localStorage.setItem(`lb149:${item.key}`, '1'); clearBanner();
-      });
-      if (item.close) dismiss.setAttribute('aria-label', 'Dismiss update');
-      banner.append(dismiss);
-    }
-    const dates = dateRows(item.dates);
-    if (dates.length) {
-      const detail = document.createElement('small');
-      detail.textContent = dates.map(([label, value]) => `${label}: ${value}`).join(' · ');
-      banner.append(detail);
-    }
+    getUpdate.textContent = action?.label || '';
+    notices('android-state', !ready ? [] : busy ? [{
+      key: `download:${current.webDownloadVersion || 'app'}`, title: 'Downloading update', text: 'You can keep playing.', percent,
+    }] : [failure && { key: `android-error:${failure}`, title: 'Could not update', text: 'Try again from Settings → Updates.', actions: [['Details', openShell]] },
+      ...items.filter(item => !localStorage.getItem(`lb149:${item.key}`)).map(item => ({ ...item,
+        actions: item.action ? [[item.label, () => run(item.action)]] : [['Details', openShell]],
+        dismiss: () => localStorage.setItem(`lb149:${item.key}`, '1'),
+      }))]);
+    if (ready) showReleaseNotice(releaseVersion, releaseText, {
+      upgraded: notice?.to === releaseVersion,
+      fallback: openGitHub,
+    });
   }
   function refresh() {
     if (!refreshing) refreshing = bounded('Reading Android update state', () => ota.getState()).then(current => {

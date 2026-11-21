@@ -22,15 +22,11 @@
                 <header class="sp-header">
                     <div><span id="sp-season"></span><h1 id="sp-title">Season Pass</h1></div>
                     <div class="sp-days"><strong id="sp-days"></strong><span id="sp-dates"></span></div>
-                </header>
-                <div class="sp-points">
-                    <div><h2 id="sp-points-title">Season points</h2><p>Claim daily and weekly mission points to earn season points.</p></div>
-                    <div class="sp-meter">
+                    <div class="sp-meter" hidden>
                         <span id="sp-progress-text"></span>
-                        <progress class="lb-block-progress" aria-labelledby="sp-points-title" aria-describedby="sp-progress-text" max="1" value="0"></progress>
-                        <p id="sp-next"></p>
+                        <progress class="lb-block-progress" aria-label="Season points to next stage" aria-describedby="sp-progress-text" max="1" value="0"></progress>
                     </div>
-                </div>
+                </header>
                 <p id="sp-notice" class="sp-notice" role="status" hidden></p>
                 <div class="sp-track-header">
                     <div><h2>Free reward track</h2><p>Stages open when their day arrives and you have enough points.</p></div>
@@ -92,26 +88,24 @@
             find('#sp-dates').textContent = period.id ? `Started ${date.format(period.start)} (UTC)` : '';
             notice.hidden = !blocked;
             notice.textContent = blocked ? `Season claims are paused. Check your device date and time. Claims resume at ${clockDate.format(seasonBlockedUntil || period.start)} or later.` : '';
-            const maximum = config?.stages.at(-1).points;
-            const progressBar = find('progress');
-            progressBar.hidden = !config;
-            progressBar.max = maximum || 1;
-            progressBar.value = Math.min(season.points, progressBar.max);
-            find('#sp-progress-text').textContent = maximum ? `${points.format(season.points)} / ${points.format(maximum)} points` : `${points.format(season.points)} points`;
+            find('.sp-meter').hidden = !config;
             track.hidden = !config;
             if (!config) return;
 
             const stages = config.stages.map(stage => ({ ...stage, status: stageStatus(stage, state) }));
             const next = stages.find(stage => stage.status !== 'claimed');
-            const remaining = next ? Math.max(0, next.points - season.points) : 0;
+            const progressBar = find('progress');
+            const previousThreshold = next ? stages[next.day - 2]?.points ?? 0 : 0;
+            progressBar.hidden = !next;
+            if (next) {
+                progressBar.max = next.points - previousThreshold;
+                progressBar.value = Math.max(0, Math.min(season.points - previousThreshold, progressBar.max));
+            }
+            find('#sp-progress-text').textContent = next
+                ? `${points.format(progressBar.value)} / ${points.format(progressBar.max)} to Stage ${next.day}`
+                : 'All 30 rewards claimed';
             jump.hidden = !next;
             jump.textContent = next ? `Go to stage ${next.day}` : '';
-            const nextDetail = !next ? 'All 30 rewards claimed'
-                : blocked ? 'Claims paused'
-                : next.status === 'claimable' ? `Stage ${next.day} ready to claim`
-                : next.status === 'future' ? `Stage ${next.day} opens on Day ${next.day}${remaining ? ` · ${points.format(remaining)} pts to go` : ''}`
-                : `${points.format(remaining)} more pts to Stage ${next.day}`;
-            find('#sp-next').textContent = nextDetail;
 
             const focused = document.activeElement?.closest('.sp-card')?.dataset.stage;
             const progressBetween = (from, to) => Math.max(0, Math.min(1, (season.points - from) / (to - from)));
@@ -137,9 +131,7 @@
                     card.setAttribute('aria-current', 'step');
                 }
                 card.innerHTML = `<span class="sp-step" aria-hidden="true"></span><h3></h3>
-                    ${tier === 'exclusive'
-                        ? '<img class="sp-reward-icon" src="assets/ui/41-season-pass-exclusive.webp" alt="" width="64" height="46">'
-                        : '<svg class="sp-reward-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z M3 8l9 5 9-5m-9 5v8M7.5 5.5l9 5"/></svg>'}
+                    <img class="sp-reward-icon" src="assets/ui/crates/${tier === 'exclusive' ? 'mythic' : tier}.png" alt="" width="64" height="46" decoding="async">
                     <p class="sp-tier"></p><p class="sp-threshold"></p><p class="sp-state"></p>`;
                 card.querySelector('h3').textContent = `Stage ${day}`;
                 card.querySelector('.sp-tier').textContent = tier === 'exclusive' ? 'Exclusive skin' : `${title(tier)} reward`;

@@ -10,7 +10,8 @@ const importedTrack = {
 };
 const ownedThemes = ['ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura'];
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8')
+  .replace('function fillScreenAfterPaint(overlay, fill) {', 'function fillScreenAfterPaint(overlay, fill) { return fill();');
 let page;
 let window;
 let document;
@@ -71,7 +72,7 @@ it('renders imported scores, dates and pinned notes as literal text', () => {
     expect(container.querySelector('[data-render-probe]')).toBeNull();
   }
   expect(document.querySelector('#pinned-list .lb-details-row').textContent).toContain(markup);
-  document.querySelector('#lb-list .lb-stats-podium-place').dispatchEvent(new window.MouseEvent('mouseenter'));
+  document.querySelector('#lb-list .lb-stats-podium-place').click();
   expect(document.querySelector('#lb-tooltip-global').textContent).toContain(markup);
   expect(document.querySelector('#lb-tooltip-global [data-render-probe]')).toBeNull();
 });

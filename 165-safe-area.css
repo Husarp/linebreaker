@@ -4,32 +4,22 @@
     --lb-bar-right: max(12px, var(--lb-safe-right));
 }
 
-body::after,
-body > :is([aria-modal="true"]:not(dialog, [data-lb-bar-screen]),
-    .lb-exchange-overlay, .lb102-sfx-overlay, #mq-confirm-overlay, #pal-edit-modal, #palette-view-modal, #start-animation-overlay)::before {
-    content: '';
-    position: fixed;
-    inset: 0 0 auto;
-    height: var(--lb-safe-top);
-    background: var(--bb-panel);
-    pointer-events: none;
-    z-index: 1200;
+.overlay[data-lb-bar-screen], #mode-select-overlay, #go-overlay, .lb-run-overlay, #start-animation-overlay {
+    background: linear-gradient(transparent var(--lb-safe-top), var(--lb-screen-surface, var(--bb-page)) 0) !important;
+    backdrop-filter: none;
 }
-body:has([data-lb-bar-screen]:not(.hidden))::after { display: none; }
-dialog::backdrop {
-    background-image: linear-gradient(var(--bb-panel), var(--bb-panel)) !important;
-    background-size: 100% var(--lb-safe-top) !important;
-    background-repeat: no-repeat !important;
+#missions-overlay { --lb-screen-surface: #050510; }
+#tutorial-overlay, .lb-run-overlay, #start-animation-overlay { --lb-screen-surface: var(--surface-0); }
+#mode-select-overlay, #achievements-overlay { --lb-screen-surface: rgba(0, 0, 0, .85); }
+@supports (color: color-mix(in srgb, black, white)) {
+    #mode-select-overlay { --lb-screen-surface: color-mix(in srgb, var(--bb-page) 72%, #000b); }
 }
+#mode-select-overlay, #go-overlay { padding-top: max(24px, var(--lb-safe-top)); }
 
-.overlay[data-lb-bar-screen] {
-    padding-top: 0;
-    background-image: linear-gradient(var(--bb-panel), var(--bb-panel)) !important;
-    background-size: 100% var(--lb-safe-top);
-    background-repeat: no-repeat;
-}
+.overlay[data-lb-bar-screen] { padding-top: 0; }
 .overlay > [data-lb-topbar] {
     --lb-bar-pad: 8px;
+    --lb-topbar-surface: linear-gradient(rgba(0, 0, 0, .25) var(--lb-safe-top), var(--bb-panel) 0);
     flex-shrink: 0;
     min-height: var(--lb-safe-top);
     padding-top: calc(var(--lb-bar-pad) + var(--lb-safe-top)) !important;
@@ -97,14 +87,6 @@ dialog::backdrop {
 [data-lb-cutout] :is(.mq89-header, .lb-playlist-topbar)[data-lb-topbar] > .lb-topbar-crumb { grid-area: 1 / 1 / 2 / -1; }
 [data-lb-cutout="left"] :is(.mq89-header, .lb-playlist-topbar) > .lb-topbar-crumb { margin-right: calc(100vw - var(--lb-cut-start) - var(--lb-bar-right)); }
 [data-lb-cutout="right"] :is(.mq89-header, .lb-playlist-topbar) > .lb-topbar-crumb { margin-left: calc(var(--lb-cut-end) - var(--lb-bar-left)); }
-[data-lb-cutout] .mq89-header:has(#mq-countdown:not([hidden])) .lb-topbar-title { align-self: start; }
-[data-lb-cutout] .mq89-header #mq-countdown {
-    position: absolute;
-    top: calc(max(var(--lb-bar-pad), var(--lb-system-top, 0px)) + 20px);
-    right: var(--lb-bar-right);
-    grid-area: auto;
-}
-[data-lb-cutout="left"] .mq89-header #mq-countdown { right: calc(100% - var(--lb-cut-start)); }
 [data-lb-cutout] .mq89-header .mq89-tabs { grid-area: 2 / 1 / 3 / -1; }
 [data-lb-cutout] .lb-playlist-topbar .lb-playlist-player { grid-area: 2 / 1 / 3 / -1; }
 

@@ -14,6 +14,15 @@
 
 .mq-ms-crate { width: 32px; height: 32px; object-fit: contain; }
 .mq-ms-crate--locked { filter: grayscale(1) brightness(.65); }
+#missions-overlay .mq-change-toggle.btn-secondary:not(:disabled) {
+    --bb-button-edge: #4597ec;
+    --bb-button-face: #17467a;
+    --bb-button-hover: #205b9b;
+    --bb-button-pressed: #12365c;
+    --bb-button-ink: #fff;
+}
+.mq-change-overlay { width: 100%; border: 0; background: transparent; }
+.mq-change-overlay:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: -3px; }
 .mq-ms-claim-btn:hover .mq-ms-crate { filter: brightness(1.2); }
 .mq-ms-claim-btn:focus-visible { outline: var(--focus-width) solid var(--accent-bright); outline-offset: -2px; }
 .mq-ms-claimed {
@@ -42,13 +51,16 @@
 #mq-countdown:not([hidden]) {
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 8px;
-    border: 1px solid var(--bb-edge);
+    gap: 6px;
+    width: max-content;
+    margin: -2px auto 7px;
+    padding: 5px 11px 7px;
+    border: 1px solid #69796d;
+    border-radius: 6px;
     background: var(--bb-panel);
-    box-shadow: inset 0 -2px var(--bb-well);
+    box-shadow: inset 0 2px #ffffff1e, inset 0 -4px #0007, 0 2px #0e100e;
     color: var(--bb-muted);
-    font: 650 .65rem/1.2 var(--font-body);
+    font: 650 10px/1.2 var(--font-body);
     white-space: nowrap;
 }
 
@@ -111,6 +123,48 @@
     font: .55rem 'JetBrains Mono', monospace;
 }
 
+.mq-card {
+    border-radius: 4px 13px 4px 13px;
+    box-shadow: 2px 2px #0f120f, inset 0 1px #fff2;
+}
+
+.mq-card .mq-mini-well {
+    border: 1px solid color-mix(in srgb, var(--mq-tier) 55%, var(--bb-edge));
+    border-radius: var(--bb-badge-radius);
+    box-shadow: inset 0 2px 2px #000a;
+    border-spacing: 1px;
+}
+
+.mq-mini-well td.mq-mini-well-filled {
+    background: var(--mq-tier);
+    box-shadow: inset 0 1px #fff8, inset 0 -1px #0006;
+}
+
+.mq-card-meter {
+    border-radius: 4px;
+    background: var(--bb-well);
+    box-shadow: inset 0 2px 2px #000a;
+}
+
+.mq-card-meter > div {
+    border-radius: 2px;
+    box-shadow: inset 0 1px #fff9, inset 0 -2px #0005;
+}
+
+.mq-card-action--claim {
+    display: flex;
+    justify-content: flex-end;
+}
+
+#missions-overlay .mq-card-action--claim .mq-pts-claim-btn {
+    --target: 28px;
+    --lb122-cap-lip: 2px;
+    min-height: var(--target);
+    padding: 2px 8px !important;
+    font: 400 .65rem/1 var(--bb-font-pixel);
+    white-space: nowrap;
+}
+
 @media (orientation: portrait) and (max-width: 600px) {
     #missions-overlay:has(#mq-mission-view:not([hidden])) { overflow: hidden !important; }
     #missions-overlay:has(#mq-mission-view:not([hidden])) .mq89-header {
@@ -160,8 +214,6 @@
     .mq-card .mq-pts { font-size: .6rem; }
     .mq-card-action { grid-column: 1 / -1; }
     .mq-card-action--percent, .mq-card--ready .mq-card-progress { display: none; }
-    .mq-card-action > div { margin-top: 0 !important; }
-    .mq-card-action .mq-pts-claim-btn { width: 100%; padding-inline: 4px !important; }
     .mq-card-progress {
         grid-column: 1 / -1;
         gap: 5px;
@@ -188,12 +240,4 @@
 
 @media (max-width: 420px) {
     .mq89-header.lb-block-topbar .lb-topbar-title { white-space: nowrap; }
-    .mq89-header #mq-countdown > span {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0 !important;
-        overflow: hidden;
-        clip-path: inset(50%);
-    }
 }

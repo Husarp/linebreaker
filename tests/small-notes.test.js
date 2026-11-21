@@ -11,58 +11,6 @@ afterEach(() => game?.close());
 
 const cappedParts = () => Object.fromEntries(api.partsItems().map(({ key }) => [key, api.partCost(key)]));
 
-it('keeps spinning by default and advances falling pieces by elapsed time and discrete quarter turns', () => {
-  window.openSettings();
-  const select = document.getElementById('setting-bg-block-motion');
-  expect(select.value).toBe('spinning');
-  select.value = 'falling';
-  select.dispatchEvent(new window.Event('change'));
-  expect(JSON.parse(window.localStorage.getItem('linebreaker_settings')).bgBlockMotion).toBe('falling');
-
-  window.Math.random = () => 0;
-  const block = api.makeBgBlock(true);
-  const initial = { ...block };
-  expect(block.turnInterval).toBeGreaterThanOrEqual(16000);
-  api.moveBgBlock(block, block.turnInterval - 40);
-  expect(block.rot).toBe(0);
-  api.moveBgBlock(block, 40);
-  expect(block.rot).toBe(Math.PI / 2);
-  api.moveBgBlock(initial, initial.turnInterval);
-  expect(block.y).toBeCloseTo(initial.y);
-  expect(block.x).toBe(initial.x);
-  const spinning = api.makeBgBlock(false);
-  api.moveBgBlock(spinning, 40);
-  expect(spinning.rot).not.toBe(0);
-
-  window.Math.random = () => 0.5;
-  expect(api.makeBgBlock(true).turnInterval).toBe(0);
-});
-
-it('animates ambient blocks only with the Plain background outside an active game', async () => {
-  const drawsAmbientBlocks = () => {
-    game.calls.length = 0;
-    game.advance(16);
-    return game.calls.some(([method]) => method === 'rotate');
-  };
-  const select = document.getElementById('setting-theme-background');
-  const setBackground = value => {
-    select.value = value;
-    select.dispatchEvent(new window.Event('change'));
-  };
-  expect(drawsAmbientBlocks()).toBe(false);
-  setBackground('plain');
-  expect(drawsAmbientBlocks()).toBe(true);
-  const app = document.getElementById('app');
-  app.classList.add('active-game');
-  await Promise.resolve();
-  expect(drawsAmbientBlocks()).toBe(false);
-  app.classList.remove('active-game');
-  await Promise.resolve();
-  expect(drawsAmbientBlocks()).toBe(true);
-  setBackground('image');
-  expect(drawsAmbientBlocks()).toBe(false);
-});
-
 it('converts owned parts and formats both singular and grouped conversions', () => {
   api.setup({ save: { ownedSkins: ['retro'] } });
   expect(api.grantRewardPart('retro')).toBe(true);
@@ -83,20 +31,6 @@ it('shows grouped converted parts in a level box while escaping reward text', ()
   expect(card.querySelector('.lb64-reward-desc').textContent).toBe('From duplicate Retro<b> parts');
   expect(card.querySelector('.lb-reward-rarity').textContent).toBe(reward.rarity);
   expect(card.querySelector('b')).toBeNull();
-});
-
-it('shows the conversion when collecting an airdrop', () => {
-  api.setup({ save: { parts: cappedParts() } });
-  window.onSettingChange('themeBackground', 'plain');
-  window.Math.random = () => 0.5;
-  document.getElementById('menu-overlay').classList.remove('hidden');
-  api.spawnSpecialBlock();
-  for (let frame = 0; frame < 31; frame++) game.advance(100);
-  document.body.dispatchEvent(new window.MouseEvent('click', { bubbles: true, clientX: window.innerWidth / 2, clientY: 14 }));
-  const conversion = document.querySelector('s');
-  expect(conversion?.textContent).toMatch(/^\+1 part \(.+\)$/);
-  expect(conversion.parentElement.textContent).toContain('→ +0.2 universal parts');
-  expect(api.save.universalParts).toBe(0.2);
 });
 
 it('shows mission milestone conversions and restores pending level milestone conversions from save', () => {
