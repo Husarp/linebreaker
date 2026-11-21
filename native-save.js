@@ -22,6 +22,12 @@
                 if (primaryError) throw primaryError;
                 return null;
             },
+            async backupSchema(json, version) {
+                if (!Number.isSafeInteger(version) || version < 0) throw Error('Invalid backup schema version');
+                JSON.parse(json);
+                const path = `save.schema-${version}.bak`;
+                if (await read(path) === null) await filesystem.writeFile({ ...options, path, data: json });
+            },
             async write(json) {
                 JSON.parse(json);
                 await filesystem.writeFile({ ...options, path: 'save.tmp', data: json });
@@ -34,5 +40,16 @@
             }
         };
     }
-    root.LBNativeSave = { createFilesystemSave };
+    const schemaOf = data => Number.isSafeInteger(data?.schemaVersion) && data.schemaVersion >= 0 ? data.schemaVersion : 0;
+    async function prepareLoadedSave(json, supportedVersion, backupSchema) {
+        const data = json === null ? null : JSON.parse(json);
+        const version = schemaOf(data);
+        if (version > supportedVersion) return { data, readOnly: 'This save comes from a newer version.' };
+        if (data && version < supportedVersion && backupSchema) {
+            try { await backupSchema(json, version); }
+            catch { return { data, readOnly: 'A backup could not be made before migrating this save.' }; }
+        }
+        return { data, readOnly: null };
+    }
+    root.LBNativeSave = { createFilesystemSave, prepareLoadedSave, schemaOf };
 })(globalThis);

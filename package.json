@@ -6,10 +6,14 @@
   "scripts": {
     "test": "vitest run",
     "build:web": "node scripts/build-web.mjs",
-    "android:sync": "npm run build:web && cap sync android",
+    "android:sync": "node scripts/ota-prepare-android.mjs",
     "android:open": "cap open android",
     "android:release:audit": "node scripts/android-release.mjs --audit",
     "android:release": "node scripts/android-release.mjs --build",
+    "android:ota:freeze-baseline": "node scripts/ota-prepare-android.mjs --freeze-baseline",
+    "android:ota:bundle": "node scripts/ota-release.mjs",
+    "android:ota:shell": "node scripts/ota-release-shell.mjs",
+    "android:ota:publish": "node scripts/ota-publish.mjs",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build --target x86_64-pc-windows-msvc --ci",
     "desktop:release": "node scripts/release-desktop.mjs"

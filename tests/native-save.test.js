@@ -38,3 +38,24 @@ it('preserves primary and backup when promotion fails', async () => {
  expect(files.get('save.json')).toBe('{"totalXP":4}');
  expect(files.get('save.bak')).toBe('{"totalXP":4}');
 });
+
+it('backs up the exact older schema before migration and never replaces the backup', async () => {
+ const json = '{"schemaVersion":0,"totalXP":4,"legacyField":true}';
+ const { adapter, files } = setup({ 'save.json': json });
+ const prepared = await globalThis.LBNativeSave.prepareLoadedSave(json, 1, adapter.backupSchema);
+ expect(prepared.readOnly).toBe(null);
+ expect(files.get('save.schema-0.bak')).toBe(json);
+ await adapter.backupSchema('{"schemaVersion":0,"totalXP":5}', 0);
+ expect(files.get('save.schema-0.bak')).toBe(json);
+ expect(files.get('save.json')).toBe(json);
+});
+
+it('treats a newer schema or failed migration backup as read-only', async () => {
+ const backup = vi.fn(async () => { throw Error('Disk full'); });
+ const future = '{"schemaVersion":2,"newData":{"score":4}}';
+ const { data, readOnly } = await globalThis.LBNativeSave.prepareLoadedSave(future, 1, backup);
+ expect(data).toEqual(JSON.parse(future));
+ expect(readOnly).toContain('newer version');
+ expect(backup).not.toHaveBeenCalled();
+ expect((await globalThis.LBNativeSave.prepareLoadedSave('{"schemaVersion":0}', 1, backup)).readOnly).toContain('backup');
+});

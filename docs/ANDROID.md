@@ -12,8 +12,7 @@ generated in android/app/src/main/res. Replace them before release.
 
 ## Development
 
-Run npm install, then npm run android:sync (build:web followed by cap sync android).
-npm run android:open opens Android Studio. build:web recreates dist-web/ from
+Run `npm ci`, then `npm run android:sync` to build the web bundle, generate Capacitor configuration, sync native plugins, and prepare the built-in manifest and public key. `npm run android:open` opens Android Studio. `npm run build:web` recreates `dist-web/` from
 the game, desktop/native adapters, touch.js/css, ui/tokens.css, all bundled fonts
 (including Inter), and the original synth soundtrack, not local MP3s. Both Capacitor
 and Tauri use this single build:web output. See [Music](MUSIC.md) for audio packaging.
@@ -21,10 +20,9 @@ and Tauri use this single build:web output. See [Music](MUSIC.md) for audio pack
 Set ANDROID_HOME=/home/coder/android-sdk here, or set sdk.dir in the ignored
 android/local.properties. Keep local paths, build outputs and signing keys out
 of Git. The generated Gradle wrapper uses Gradle 8.14.3 with AGP 8.13.0;
-Capacitor 8 targets SDK 36. JDK 21 is installed at
+Capacitor 8 targets SDK 36. The OTA shell minimum is **Android 8 / API 26** for the reference Java APIs; API 24–25 are not verified or supported by this port. Confirm that floor before release. JDK 21 is installed at
 `~/.local/jdk/jdk-21.0.13+9`; Java 25 fails with Unsupported class file major
-version 69. Verify with `npm run android:sync`, `npm test`, and in android/:
-`JAVA_HOME=~/.local/jdk/jdk-21.0.13+9 ./gradlew help`. No APK is produced.
+version 69. Verify with `npm test` and `./android/gradlew -p android --no-daemon --max-workers=2 :core:test :app:compileDebugKotlin` after syncing. These checks do not package an APK or use release passwords.
 
 ## Playable input and storage
 
@@ -64,61 +62,29 @@ alarms aren't allowed; the app doesn't prompt for exact-alarm access.
 - Device verification of Back ordering, portrait lock, system-bar gestures,
   suspend/resume and screen-awake behavior. This shell is not device-validated.
 
-## GitHub Sideload Release
+## Android Updates
 
-Follow `/home/coder/code/projects/APP-STANDARDS.md`, sections 2–4. Set the
-release version in `src-tauri/tauri.conf.json`; Gradle uses that value for
-`versionName` and derives `versionCode = major * 1,000,000 + minor * 1,000 + patch`.
-Use a stable `X.Y.Z` with minor and patch below 1000. The code must exceed the
-previously distributed APK's code. If releasing desktop too, follow its version
-sync steps in `docs/DESKTOP.md`.
+The first public APK already includes OTA; there is no legacy updater transition. `ota.config.json` is authoritative for Android identity, versions, paths, and the fixed `Husarp/linebreaker` GitHub channels:
 
-Install JDK 21 and configure the SDK as described under Development. Set:
+- `channel/manifest.json`: signed web inventory and content-addressed changed files. Verified overlays leave the Capacitor HTTPS localhost origin and game saves untouched.
+- `shell-channel/shell.json`: signed metadata for a versioned APK. Android also verifies the same installed package/certificate and a higher `versionCode` before installing.
+- Normal `vX.Y.Z` releases remain the fallback for fresh installs and recovery. Neither channel becomes GitHub **Latest** or replaces Windows `latest.json`.
 
-| Environment variable | Value |
-| --- | --- |
-| `LINEBREAKER_RELEASE_REPO` | Actual public GitHub `owner/repo` (required for release; no placeholder is used). |
-| `LINEBREAKER_ANDROID_KEYSTORE` | Absolute path to the release keystore; defaults to `~/.android-keys/linebreaker.jks`. |
-| `LINEBREAKER_ANDROID_KEY_ALIAS` | Existing release key alias. |
-| `LINEBREAKER_ANDROID_STORE_PASSWORD` | Keystore password. |
-| `LINEBREAKER_ANDROID_KEY_PASSWORD` | Key password. |
+Settings → Android updates includes manual check, GitHub fallback and update policy. Recommended policy checks every six hours, auto-downloads small fixes and shell updates, asks for big fixes/features, and caps automatic downloads at 20 MiB on Wi-Fi and 5 MiB on mobile. Metered Wi-Fi counts as mobile. Manual mode disables automatic checks, including critical discovery. Android background work is best effort; lock, Doze, or force-stop can delay it. Neither a WebView restart nor an APK install should interrupt a live/paused run or a pending save. The app may need its own **Install unknown apps** permission and OS confirmation; silent installation is not guaranteed. Update notification permission is optional and independent of game reminders.
 
-Supply passwords via your environment/secret manager, not files or command-line
-arguments in the checkout. Keep the key and its backup outside Git, and use the
-same signing key for every update. A debug-signed install cannot be upgraded
-with the release APK. Gradle release builds fail if signing configuration is
-missing or the resolved keystore is inside the checkout. Debug builds and
-`./gradlew help` need no release secrets; without `LINEBREAKER_RELEASE_REPO`,
-debug builds do not contact GitHub.
+Long-press the version in Settings or Credits for diagnostics. Quote the **shell version, web version and shell API** in reports. Use **Check now**, **Restart**, the timestamped log (Copy/Clear), and the automatic-check switch. **Reset to built-in version** removes only downloaded web updates, reopens update setup and keeps the save. Startup recovery can roll back a trial offline. “What's new ›” only appears in the first session after an update; a newer offer replaces it.
 
-1. Run `npm run android:release:audit` and review `git ls-files` for private
-   notes, builds, logs, test data, or unlicensed assets. The audit runs without
-   generating an APK. Complete the launcher asset and device checks above.
-2. When ready to make an APK, run `npm run android:release`. It audits tracked
-   files, runs tests, syncs without locally present music, builds the signed
-   release, and puts `Linebreaker-X.Y.Z.apk` in `android/app/build/releases/`.
-   Use the SDK's `apksigner verify --print-certs` to confirm the expected signer.
-3. Create a stable GitHub release tagged `vX.Y.Z` (or `X.Y.Z`), with a neutral
-   patch-release title. Upload the versioned APK and mark the release **Latest**.
-   Keep exactly one Android APK on the Latest release, including when carrying
-   desktop assets; the updater selects by `.apk` suffix, not a fixed filename.
-   Publishing and tagging are manual.
-4. On a phone with an older release signed by the same key, confirm the banner,
-   save retention, download size/speed, first-time permission and automatic
-   handoff on return, Android's confirmation, launch after upgrade, and cache
-   cleanup. Also test denied permission, canceled install, offline check, and
-   retry. These device checks are not covered by `gradlew help` or the JS suite.
+The native game defers writing during trial startup until the bundle is accepted. Android keeps a versioned backup before upgrading an older save schema; a newer save or failed backup opens read-only. Keep future trial migrations additive. Android backup/device transfer excludes updater overlays and installer state, not saves.
 
-The app checks GitHub at launch and on return, at most once per five minutes
-including manual checks. The menu banner stays dismissed until a fresh start.
-Settings shows the current version, automatic-check switch, CHECK NOW, GITHUB,
-and GET UPDATE when available. Automatic failures stay silent; a manual check
-times out after about ten seconds. The app downloads the APK over HTTPS into
-its private cache, reports progress and speed, and launches Android's installer
-after any required permission grant. Android still asks the user to confirm.
-On failure, TRY AGAIN and GITHUB are offered without opening the browser.
-The next installed version removes the old APK from the update cache.
+## Release Preparation
 
-This is a sideload build, **not** a Google Play build. Before creating a Play
-variant, exclude `REQUEST_INSTALL_PACKAGES`, the updater plugin and UI, and use
-Play-managed updates, signing, listing, and release testing.
+Use the **existing** `~/.keystores/linebreaker/release.jks` (alias `linebreaker`) and `ota-private.pem`. Never generate or replace them. Gradle reads the external `signing.properties` only for a release build (`storePassword`, `keyPassword`), or uses `LINEBREAKER_ANDROID_STORE_PASSWORD` and `LINEBREAKER_ANDROID_KEY_PASSWORD` supplied by a secret manager. Never put either password or private key in the checkout, release assets, or logs. Only `keys/public-key.b64` is packaged. Confirm the first release code exceeds any privately distributed same-ID, same-certificate builds.
+
+1. Before the first signed build, run `npm run android:release:audit`, then `npm run android:ota:freeze-baseline`. Archive the exact frozen `.local/ota-baseline/0.1.0` externally. Do not regenerate it after distributing the APK. Restore all supported APK web archives before signing future bundles; this includes any built-in web version introduced by a newer shell. An already archived version is immutable; advance `build.webVersion` to embed different bytes.
+2. Set independent APK `build.versionCode` (strictly increasing), `build.versionName`, `build.webVersion`, `shellApi` and `minShellApi` in `ota.config.json`. Bump `shellApi` for new required native functionality; keep the bridge additive and `minShellApi` no higher than the embedding shell. Run `npm run android:release` only when ready to produce an APK. Verify the certificate with the SDK's `apksigner verify --print-certs`. The standalone output is `android/app/build/releases/Linebreaker-X.Y.Z.apk`; matching shell inputs are staged in `dist/apk/`.
+3. Prepare a signed shell channel set with `npm run android:ota:shell -- <versionCode>`. For a web-only release, use `npm run android:ota:bundle -- X.Y.Z --kind fix --message "Release notes"` (or `--kind feature`; optional `--min-shell N` and `--block X.Y.Z,...`). This writes a signed manifest and payloads under `dist/`, not an APK. Never publish intentionally broken acceptance fixtures to these channels.
+4. Only after device acceptance, publish the standalone versioned APK in the stable release and explicitly publish prepared OTA assets with `npm run android:ota:publish -- bundle X.Y.Z` or `npm run android:ota:publish -- shell <versionCode>`. The publisher uploads payloads before replacing signed metadata and keeps older payloads for in-flight downloads. Preserve both platforms' fallback assets and Windows `latest.json` on stable Latest. Allow for GitHub propagation delays.
+
+**Physical-phone gate:** Verify fresh signed install and same-certificate shell upgrade; routing/origin, restored saves, and play/paused/save interruption guards; setup, manual/automatic schedules, Doze/lock/metered limits; signed delta transfer, resume, invalid hash/signature, offline and low storage; trial timeout/Wait/two-failure recovery, stale token rejection, signed blocking and reset with untouched saves; min-shell waiting and overlays across APK upgrades (including removed/reverted files); unknown-app denial/grant, OS confirmation cancel/retry, process death, notification opt-out, and one-session notes. Test the hidden screen and fullscreen/safe-area behavior on the phone.
+
+This is a sideload build, **not** a Google Play build. A Play variant must exclude self-install permissions and updater behavior and use Play-managed updates.

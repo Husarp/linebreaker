@@ -12,23 +12,22 @@ F11 toggles fullscreen. Desktop saves use the existing serialized queue and live
 
 The custom NSIS template stages the package and runs the same Linebreaker-themed setup window for install, update, and removal. The window uses the game's palette and embedded Orbitron/Inter fonts. Manual setup asks before closing a running game, then copies files, registers the app, and creates shortcuts on a worker thread. It shows a determinate progress bar and expandable details. At the end, **Run Linebreaker now** is selected by default. Failed changes are rolled back where possible and the old version is restarted; the window stays open with details and **TRY AGAIN**. If Windows prevents recovery, the log identifies the error and the backup folders are kept.
 
-On Windows, the app checks GitHub at launch and on return, at most once every five minutes per session. Use **Settings → Desktop updates** for opt-out, **CHECK NOW**, **GITHUB**, and **GET UPDATE**. Dismissing the main-menu banner hides it until restart. The app displays the update size, amount downloaded, and transfer speed; failures offer **TRY AGAIN** and **GITHUB** without automatically opening the browser. Tauri's updater verifies the download signature before the app writes the versioned Setup.exe to its cache and runs it. The app flushes pending saves and exits; setup shows progress only, restarts the game, and closes. The game removes the temporary installer after restart.
+On Windows, the app checks GitHub at launch and on return, at most once every five minutes per session unless you select **CHECK NOW**. Use **Settings → Desktop updates** for opt-out, manual checks, **GITHUB**, and **GET UPDATE**. Dismissal applies to the offered version, not future updates. The app displays size, amount downloaded, and transfer speed; failures offer **TRY AGAIN** and **GITHUB** without automatically opening the browser. Tauri verifies the download signature before the app writes the versioned Setup.exe to its cache and runs it. The app flushes pending saves and exits; setup shows progress only, restarts the game, and closes. The game removes the temporary installer after restart.
 
 ## Windows release
 
 Build on Windows x64 with Node.js LTS, stable Rust (`x86_64-pc-windows-msvc`), the Visual Studio C++ Build Tools/Windows SDK, .NET Framework 4.8 and its in-box C# compiler, Python 3 (`py`), and `py -3 -m pip install fonttools brotli` to convert the bundled Inter font. The build machine needs WebView2 for the smoke test. Tauri fetches NSIS and the WebView2 bootstrapper on first bundle; a machine without WebView2 needs internet access during installation.
 
-Create or confirm the GitHub release repository. `Husarp/linebreaker` is a **placeholder**: set the real `/releases/latest/download/latest.json` endpoint in `src-tauri/tauri.conf.json` and set the matching `/releases*` URL scope in `src-tauri/capabilities/default.json`.
+Windows uses `Husarp/linebreaker`'s stable `/releases/latest/download/latest.json` and the matching release-page opener scope. The Android `channel` and `shell-channel` prereleases are separate. Windows does not apply web bundles, so shell API, OTA trial/rollback and reset to built-in are not applicable. To diagnose updates, long-press the version in Settings or Credits and quote the shell version. The screen offers **Check now**, **Restart**, automatic checks, and a timestamped log with speed, Copy and Clear. “What's new ›” appears for one session after upgrading and disappears when a newer update is available.
 
-Keep the signing pair outside the repository. For example, in PowerShell:
+Use the **existing** Tauri updater signing pair. The public key is already pinned in `src-tauri/tauri.conf.json`. Restore the private key and password from secure storage to an external location with restricted permissions. For example, in PowerShell (do not echo either value):
 
 ```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.linebreaker-keys"
-npx tauri signer generate -w "$env:USERPROFILE\.linebreaker-keys\updater.key"
-$env:TAURI_SIGNING_PRIVATE_KEY = "$env:USERPROFILE\.linebreaker-keys\updater.key"
+$env:TAURI_SIGNING_PRIVATE_KEY = "$env:USERPROFILE\.keystores\linebreaker\tauri-updater.key"
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = (Get-Content -Raw "$env:USERPROFILE\.keystores\linebreaker\tauri-updater.password").TrimEnd("`r", "`n")
 ```
 
-Back up the private key and set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` via a secret if needed. Put only the generated **public** key into `plugins.updater.pubkey`. These signatures are for the Tauri updater, not Windows Authenticode. Do not rotate the updater key without a migration for installed versions.
+The release script passes these variables through to Tauri. Alternatively, inject the password from a secret manager and remove both variables from the shell after the build. Do not generate or rotate the updater key for this release. These signatures are for the Tauri updater, not Windows Authenticode.
 
 1. Run `npm ci`, then `npm run desktop:release -- X.Y.Z --notes-file release-notes.md` (notes are optional). This synchronizes the Tauri, Cargo, and npm version files from the supplied version, refreshes `Cargo.lock`, checks tracked files for common release exclusions, and runs `cargo check` and `npm test`. The build rejects version mismatches. Before NSIS bundling, the already-built release app opens its packaged WebView with isolated data and must report the expected version within 30 seconds. To build the current version without staging release assets, use `npm run desktop:build`.
 2. Review `git ls-files` for private saves, notes, drafts, logs, test builds, or signing material not covered by the automated exclusions. Review the version and lockfile changes. Tag the intended source as `vX.Y.Z` before publishing.

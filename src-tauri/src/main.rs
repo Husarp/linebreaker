@@ -67,7 +67,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![load_save, write_save, desktop_update::desktop_smoke_ready,
             desktop_update::desktop_update_info, desktop_update::check_desktop_update,
-            desktop_update::download_desktop_update, desktop_update::install_desktop_update])
+            desktop_update::download_desktop_update, desktop_update::install_desktop_update, desktop_update::restart_desktop])
         .run(tauri::generate_context!())
         .expect("Failed to run Linebreaker");
 }

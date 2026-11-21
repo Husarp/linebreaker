@@ -27,6 +27,14 @@ node_modules/
 
 # Capacitor generated web assets and Android local/build state
 dist-web/
+dist/
+.local/
+android/.kotlin/
+capacitor.config.json
+android/app/src/main/assets/embedded-manifest.json
+android/app/src/main/assets/public-key.b64
+*.pem
+signing.properties
 android/local.properties
 android/.gradle/
 android/**/build/

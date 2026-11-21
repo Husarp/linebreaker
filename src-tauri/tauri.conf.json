@@ -32,7 +32,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "PLACEHOLDER_REPLACE_WITH_PUBLIC_UPDATER_KEY_BEFORE_RELEASE",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZEMzI3MUFFMjI1ODMxNzgKUldSNE1WZ2lybkV5L1JUNS9kbWlnUlZ1Si9MdnNjalBucGxUK1FTWTRHZDZ3ZElKaDJuZnJPelgK",
       "endpoints": ["https://github.com/Husarp/linebreaker/releases/latest/download/latest.json"]
     }
   }

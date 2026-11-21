@@ -689,6 +689,7 @@
     const _desktopSave = !!_nativeAdapter;
     let _desktopLoadPromise = null;
     let _desktopSaveReady = false;
+    let _readOnlyRawSave = null;
     let fileHandle = null;
 
     async function openIDB() {
@@ -757,12 +758,25 @@
         } catch { return null; }
     }
     let _saveWritePromise = null;
-    if (_desktopSave) window.flushLinebreakerSave = () => _saveWritePromise;
+    window.flushLinebreakerSave = () => _saveWritePromise;
+    window.linebreakerCanInterrupt = () => !_gameInProgress && !_saveWritePromise && _saveFileDebounceId === null
+        && !document.querySelector('#pal-edit-modal, .lb-reward-overlay, #transfer-overlay:not(.hidden)');
+    let _otaSavePaused = !!window.LBAndroidUpdates;
+    let _otaSettingsDirty = false;
     let _pendingSaveJSON = null;
+    window.resumeLinebreakerOtaWrites = () => {
+        _otaSavePaused = false;
+        if (_otaSettingsDirty) { _otaSettingsDirty = false; persistSettings(); }
+        return flushPendingSave();
+    };
     function writeSaveFile(data) {
-        if (_qaDemo) return Promise.resolve();
+        if (_qaDemo || _readOnlyRawSave) return Promise.resolve();
         if (_desktopSave && !_desktopSaveReady) return Promise.resolve();
         _pendingSaveJSON = JSON.stringify(LBSave.serializeSave(data, WEEKLY_MISSION_POOL), null, 2);
+        return flushPendingSave();
+    }
+    function flushPendingSave() {
+        if (_otaSavePaused || _pendingSaveJSON === null) return _saveWritePromise || Promise.resolve();
         if (!_saveWritePromise) {
             _saveWritePromise = (async () => {
                 while (_pendingSaveJSON !== null) {
@@ -780,7 +794,8 @@
                         }
                     } catch(e) { console.error('Save failed:', e); }
                 }
-            })().finally(() => { _saveWritePromise = null; });
+            })().finally(() => { _saveWritePromise = null; window.LBAndroidUpdates?.syncSafety(); });
+            window.LBAndroidUpdates?.syncSafety();
         }
         return _saveWritePromise;
     }
@@ -811,14 +826,21 @@
         settings.keyBindings = LBControls.normalizeBindings(settings.keyBindings);
     }
     function persistSettings() {
-        if (!_qaDemo) localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
+        if (_qaDemo || _readOnlyRawSave) return;
+        if (_otaSavePaused) { _otaSettingsDirty = true; return; }
+        localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
     }
     function saveSettings() { persistSettings(); saveDataToFile(); }
     let _saveFileDebounceId = null;
     function saveSettingsDebounced() {
         persistSettings();
         clearTimeout(_saveFileDebounceId);
-        _saveFileDebounceId = setTimeout(saveDataToFile, 600);
+        _saveFileDebounceId = setTimeout(() => {
+            _saveFileDebounceId = null;
+            saveDataToFile();
+            window.LBAndroidUpdates?.syncSafety();
+        }, 600);
+        window.LBAndroidUpdates?.syncSafety();
     }
 
     function applyFontSize(size) {
@@ -2351,15 +2373,19 @@
 
         if (_desktopSave) {
             // One boot read even if the loading-screen failsafe fires concurrently.
-            _desktopLoadPromise ||= _nativeAdapter.load();
+            _desktopLoadPromise ||= _nativeAdapter.load().then(json =>
+                LBNativeSave.prepareLoadedSave(json, LBSave.version, _nativeAdapter.backupSchema));
             try {
-                const json = await _desktopLoadPromise;
-                const { skinSettingsChanged } = applyLoadedData(json === null ? null : JSON.parse(json));
+                const { data, readOnly } = await _desktopLoadPromise;
+                _readOnlyRawSave = readOnly ? data : null;
+                const { skinSettingsChanged } = applyLoadedData(data, !readOnly);
                 _desktopSaveReady = true;
                 if (skinSettingsChanged) saveDataToFile();
                 checkAchievementsOnLoad();
                 if (overlay) overlay.classList.add('hidden');
                 randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
+                if (readOnly) customAlert(`${readOnly} Your original save is unchanged. You can export it from Save Transfer.`, 'SAVE IS READ-ONLY');
+                signalUpdateReady();
             } catch (e) {
                 // Do not start with defaults and overwrite an unreadable desktop save.
                 console.error('Native save load failed:', e);
@@ -2374,6 +2400,7 @@
             checkAchievementsOnLoad();
             if (overlay) overlay.classList.add('hidden');
             randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
+            signalUpdateReady();
             return;
         }
 
@@ -2456,6 +2483,11 @@
             };
         }
         overlay.classList.remove('hidden');
+    }
+
+    function signalUpdateReady() {
+        window.linebreakerReadyForUpdates = true;
+        window.dispatchEvent(new Event('linebreaker-update-ready'));
     }
 
     function saveDataToFile() {
@@ -4352,6 +4384,7 @@
         settingsBack.focus({ preventScroll: true });
     }
     async function resetAllProgress() {
+        if (_readOnlyRawSave) { customAlert('This version cannot change your save.', 'SAVE IS READ-ONLY'); return; }
         const phrase = 'RESET MY PROGRESS';
         const overlay = document.createElement('div');
         const opener = document.activeElement;
@@ -4589,7 +4622,8 @@
     async function startExportProcess() {
         if (_qaDemo) return;
         try {
-            const saveFile = _encSave(JSON.stringify({ version: 3, data: LBSave.serializeSave({ ...saveData, _settings: settings }, WEEKLY_MISSION_POOL) }, null, 2));
+            const data = _readOnlyRawSave || LBSave.serializeSave({ ...saveData, _settings: settings }, WEEKLY_MISSION_POOL);
+            const saveFile = _encSave(JSON.stringify({ version: 3, data }, null, 2));
             downloadFile('Linebreaker_Save.lbsave', saveFile);
             customAlert('Save file (.lbsave) downloaded. Your progress was NOT reset.', 'EXPORT SUCCESS', false);
         } catch(e) {
@@ -4599,6 +4633,7 @@
 
     function handleFileImport(event) {
         if (_qaDemo) return;
+        if (_readOnlyRawSave) { customAlert('This version cannot replace your save.', 'SAVE IS READ-ONLY'); event.target.value = ''; return; }
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
@@ -4609,7 +4644,9 @@
                 const parsed = JSON.parse(raw);
                 importedData = parsed.data || parsed;
             } catch(err) {}
-            if (importedData && typeof importedData.totalXP === 'number') {
+            if (LBNativeSave.schemaOf(importedData) > LBSave.version) {
+                customAlert('This save requires a newer version of Linebreaker.', 'SAVE IMPORT');
+            } else if (importedData && typeof importedData.totalXP === 'number') {
                 const confirmed = await customConfirm("Importing will <b>OVERWRITE</b> your current progress. Proceed?");
                 if (!confirmed) { document.getElementById('file-import-input').value = ''; return; }
                 const { skinNotice } = applyLoadedData(importedData, false);
@@ -8451,6 +8488,7 @@
         resetHeldInputs();
         document.getElementById('pause-overlay').classList.add('hidden');
         _gameInProgress = true;
+        window.LBAndroidUpdates?.syncSafety();
         // advanced mode removed
         clearInterval(_playBtnInterval);
         // Reset mode-specific vars

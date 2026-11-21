@@ -9,7 +9,6 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="preload" href="assets/fonts/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="ui/tokens.css">
-    <link rel="stylesheet" href="android-update.css">
     <link rel="stylesheet" href="ui/update.css">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="touch.css">
@@ -66,6 +65,7 @@
     <link rel="stylesheet" href="135-halo.css">
     <link rel="stylesheet" href="138-fixes.css">
     <link rel="stylesheet" href="143-achievements.css">
+    <link rel="stylesheet" href="149-ota.css">
 </head>
 <body>
 
@@ -1088,7 +1088,7 @@
         <div class="lb-block-panel lb80-credits-edition">
             <strong>LINEBREAKER</strong>
             <span>RPG Edition</span>
-            <span class="lb80-credits-version">Version 1.26.0</span>
+            <span class="lb80-credits-version" data-update-version>Version 1.26.0</span>
         </div>
         <section class="lb-block-card lb80-credits-card" aria-labelledby="credits-team">
             <h2 class="lb-block-section-title" id="credits-team">Created by</h2>
@@ -1128,10 +1128,12 @@
 <script src="42-line-clear.js"></script>
 <script src="41-season-pass-ui.js"></script>
 <script src="qa-demo.js"></script>
+<script src="version.js"></script>
+<script src="update-tools.js"></script>
+<script src="ota-android.js"></script>
 <script src="app.js"></script>
 <script src="touch.js"></script>
 <script src="desktop.js"></script>
-<script src="android-update.js"></script>
 <script src="update-ui.js"></script>
 </body>
 </html>
