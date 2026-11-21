@@ -1,6 +1,8 @@
 # Linebreaker desktop (Tauri 2)
 
-Run `npm ci` and `npm run desktop:dev` from the repository. The shared `npm run build:web` step copies the static game, fonts, and desktop scripts into ignored `dist-web/`. Do not distribute third-party music without permission. The cyan L-mino and generated icons are placeholders; after replacing `src-tauri/icon.svg`, run `npx tauri icon src-tauri/icon.svg`.
+Run `npm ci` and `npm run desktop:dev` from the repository. The shared `npm run build:web` step copies the static game, fonts, and desktop scripts into ignored `dist-web/`. Do not distribute third-party music without permission.
+
+The master app icon is `assets/ui/app-icon-1024.png`. Run `npx tauri icon assets/ui/app-icon-1024.png --output <staging-directory>` to regenerate the desktop and iOS sizes. Android uses the full artwork in legacy launcher icons; don't copy Tauri's generated adaptive resources over them.
 
 F11 toggles fullscreen. Desktop saves use the existing serialized queue and live in `%APPDATA%\com.husarp.linebreaker`, not in the installation folder. Writes sync and rename a temporary file and keep `save.bak`. If both copies are unreadable the app blocks writes; back up the directory before attempting recovery.
 

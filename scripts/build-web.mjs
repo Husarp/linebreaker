@@ -11,7 +11,7 @@ for (const tracks of Object.values(catalogue)) {
 await rm('dist-web', { recursive: true, force: true });
 await mkdir('dist-web/assets', { recursive: true });
 await mkdir('dist-web/ui', { recursive: true });
-for (const file of (await readdir('.')).filter(f => f === 'index.html' || /\.(js|css)$/.test(f))) {
+for (const file of (await readdir('.')).filter(f => f === 'index.html' || f === 'manifest.webmanifest' || /\.(js|css)$/.test(f))) {
   await cp(file, 'dist-web/' + file);
 }
 await cp('ui', 'dist-web/ui', { recursive: true });
