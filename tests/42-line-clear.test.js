@@ -1,5 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import '../42-line-clear.js';
+import '../41-season-pass.js';
 import { loadGame } from './loader.js';
 
 const { MAX_PARTICLES, normalizeMode, resolve, description, rowFrame, createParticles, particleFrame, create } = globalThis.LBLineClear;
@@ -8,7 +10,24 @@ const skinNames = {
   'golden-dragon': 'Gold Leaf',
   'obsidian-carved': 'Obsidian Shards',
   'aztec-gold': 'Stepped Gold Dust',
+  'aztec': 'Temple Steps',
+  'brushed-metal': 'Grinder Sparks',
+  'gem-gloss': 'Facet Scatter',
+  'jelly-candy': 'Candy Splat',
+  'lava-glass': 'Molten Fracture',
+  'neon-pixel': 'Neon Flicker',
+  'pixel-16bit': 'Pixel Dissolve',
+  'porcelain': 'Glaze Crack',
+  'soft-clay': 'Clay Squash',
+  'bubble': 'Bubble Pop',
+  'season-prism': 'Prism Split',
 };
+const newShapes = {
+  aztec: 'step', 'brushed-metal': 'spark', 'gem-gloss': 'facet', 'jelly-candy': 'drop', 'lava-glass': 'shard',
+  'neon-pixel': 'dash', 'pixel-16bit': 'square', porcelain: 'shard', 'soft-clay': 'crumb', bubble: 'ring', 'season-prism': 'prism',
+};
+const manifest = JSON.parse(readFileSync(new URL('../assets/skins/skins.json', import.meta.url), 'utf8'));
+const seasonSkin = globalThis.LBSeason.exclusiveSkin.key;
 const board = Array.from({ length: 22 }, () => Array(10).fill(1));
 const colors = [null, '#44ccff'];
 const burst = (effect, rows = [21], duration = 150) => createParticles(effect, rows, board, colors, duration, () => .5);
@@ -16,6 +35,8 @@ let game;
 afterEach(() => game?.close());
 
 it('uses one subtle fallback and only selects registered effects in Skin mode', () => {
+  expect(Object.keys(skinNames).sort()).toEqual([...manifest.map(skin => skin.key), seasonSkin, 'bubble'].sort());
+  expect(new Set(Object.values(skinNames)).size).toBe(Object.keys(skinNames).length);
   for (const [skin, name] of Object.entries(skinNames)) {
     expect(resolve(skin)).toBe('subtle');
     expect(resolve(skin, 'default')).toBe('subtle');
@@ -27,6 +48,31 @@ it('uses one subtle fallback and only selects registered effects in Skin mode', 
     expect(description(skin)).toBe('');
   }
   expect(normalizeMode('invalid')).toBe('default');
+});
+
+it.each(Object.entries(newShapes))('%s draws its material burst within the visual time budget', (skin, shape) => {
+  for (const duration of [50, 150, 300]) {
+    const particles = burst(skin, [21], duration);
+    expect(particles[0].shape).toBe(shape);
+    const end = Math.max(...particles.map(particle => particle.delay + particle.life));
+    expect(end).toBeGreaterThanOrEqual(300);
+    expect(end).toBeLessThanOrEqual(500);
+  }
+
+  const ctx = Object.fromEntries(['save', 'restore', 'beginPath', 'rect', 'clip', 'fillRect', 'moveTo', 'lineTo',
+    'closePath', 'fill', 'stroke', 'translate', 'rotate', 'scale', 'ellipse', 'arc'].map(method => [method, vi.fn()]));
+  const effect = create();
+  effect.start({ skin, mode: 'skin', rows: [21], board, colors, duration: 150 });
+  effect.advance(90);
+  expect(effect.drawRow(ctx, 21, board[21], 30, vi.fn())).toBe(true);
+  effect.finish();
+  ctx.save.mockClear();
+  effect.drawParticles(ctx, 30);
+  expect(ctx.save).toHaveBeenCalled();
+  effect.advance(500);
+  ctx.save.mockClear();
+  effect.drawParticles(ctx, 30);
+  expect(ctx.save).not.toHaveBeenCalled();
 });
 
 it.each([50, 100, 150, 200, 300])('fades up and dissolves within the %ims row timing', duration => {
@@ -127,6 +173,7 @@ it('persists the effect setting and describes custom effects on inventory cards'
   expect(JSON.parse(window.localStorage.getItem('tetrisRPG_settings')).lineClearEffect).toBe('skin');
   window.openSettings();
   expect(setting.value).toBe('skin');
+  game.api.setup({ save: { ownedSkins: ['retro', seasonSkin] } });
   window.openInventory();
   for (const [skin, name] of Object.entries(skinNames)) {
     const detail = window.document.querySelector(`[data-item-key="${skin}"] .lb-inventory-detail`);
