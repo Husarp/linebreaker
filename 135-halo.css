@@ -1,0 +1,37 @@
+.lb105-level-emblem .lb135-halo-emblem {
+    fill: none;
+    stroke: none;
+    filter: none;
+}
+
+.lb135-halo-emblem .lb135-emblem-face {
+    fill: url(#lb135-emblem-surface);
+    stroke: color-mix(in srgb, currentColor 58%, black);
+    stroke-width: 6.4;
+}
+
+.lb135-surface-start { stop-color: color-mix(in srgb, currentColor 58%, black); }
+.lb135-surface-end { stop-color: color-mix(in srgb, currentColor 17%, black); }
+
+.lb135-halo-emblem .lb135-emblem-rim,
+.lb135-halo-emblem .lb135-emblem-highlight,
+.lb135-halo-emblem .lb135-emblem-inner {
+    transform-origin: 150px 150px;
+    transform: scale(.92);
+    stroke: currentColor;
+}
+
+.lb135-halo-emblem .lb135-emblem-rim {
+    stroke-width: 21.7;
+    filter: drop-shadow(0 0 20px currentColor);
+}
+
+.lb135-halo-emblem .lb135-emblem-highlight {
+    stroke: color-mix(in srgb, currentColor 31%, white);
+    stroke-width: 4.6;
+}
+
+.lb135-halo-emblem .lb135-emblem-inner {
+    transform: scale(.68);
+    stroke-width: 5.6;
+}

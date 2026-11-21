@@ -6572,12 +6572,6 @@
         }
         return result;
     }
-    function _isLightHex(hex) {
-        if (!hex || hex[0] !== '#' || hex.length < 7) return false;
-        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-        return (0.299*r + 0.587*g + 0.114*b) > 160;
-    }
-
     // --- Area-proportional fill LUTs for all rank shapes ---
     // For each shape, LUT[i] gives the height fraction h (0..1, bottom-up) such that
     // the area below h equals i% of the total shape area.
@@ -6688,98 +6682,132 @@
         return lut;
     }
 
-    function _drawMiniShape(ctx, sx, sy, r, shape, fillLevel, color, orbitAngle) {
-        // Convert hex color to rgb components for rgba() usage (canvas needs proper rgba, not 8-char hex)
-        const _cr = parseInt(color.slice(1,3),16), _cg = parseInt(color.slice(3,5),16), _cb = parseInt(color.slice(5,7),16);
-        function buildPath() {
-            ctx.beginPath();
-            if (!shape || shape.sides === 0) {
-                ctx.arc(sx, sy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2);
-            } else if (shape.rounded) {
-                // Rounded polygon
-                const pts = getShapePoints(sx, sy, r, shape);
-                const n = pts.length;
-                const cr = r * 0.30;
-                for (let i = 0; i < n; i++) {
-                    const prev = pts[(i + n - 1) % n];
-                    const curr = pts[i];
-                    const next = pts[(i + 1) % n];
-                    const dx1 = curr[0] - prev[0], dy1 = curr[1] - prev[1];
-                    const len1 = Math.hypot(dx1, dy1);
-                    const dx2 = next[0] - curr[0], dy2 = next[1] - curr[1];
-                    const ax = curr[0] - cr * dx1/len1, ay = curr[1] - cr * dy1/len1;
-                    const bx = curr[0] + cr * dx2/Math.hypot(dx2, dy2), by = curr[1] + cr * dy2/Math.hypot(dx2, dy2);
-                    if (i === 0) ctx.moveTo(ax, ay);
-                    else ctx.lineTo(ax, ay);
-                    ctx.arcTo(curr[0], curr[1], bx, by, cr);
-                }
-                ctx.closePath();
-            } else {
-                const pts = getShapePoints(sx, sy, r, shape);
-                ctx.moveTo(pts[0][0], pts[0][1]);
-                for (let j = 1; j < pts.length; j++) ctx.lineTo(pts[j][0], pts[j][1]);
-                ctx.closePath();
+    function _traceMiniShape(ctx, sx, sy, r, shape) {
+        ctx.beginPath();
+        if (!shape || shape.sides === 0) {
+            ctx.arc(sx, sy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2);
+        } else if (shape.rounded) {
+            // Rounded polygon
+            const pts = getShapePoints(sx, sy, r, shape);
+            const n = pts.length;
+            const cr = r * 0.30;
+            for (let i = 0; i < n; i++) {
+                const prev = pts[(i + n - 1) % n];
+                const curr = pts[i];
+                const next = pts[(i + 1) % n];
+                const dx1 = curr[0] - prev[0], dy1 = curr[1] - prev[1];
+                const len1 = Math.hypot(dx1, dy1);
+                const dx2 = next[0] - curr[0], dy2 = next[1] - curr[1];
+                const ax = curr[0] - cr * dx1/len1, ay = curr[1] - cr * dy1/len1;
+                const bx = curr[0] + cr * dx2/Math.hypot(dx2, dy2), by = curr[1] + cr * dy2/Math.hypot(dx2, dy2);
+                if (i === 0) ctx.moveTo(ax, ay);
+                else ctx.lineTo(ax, ay);
+                ctx.arcTo(curr[0], curr[1], bx, by, cr);
             }
+            ctx.closePath();
+        } else {
+            const pts = getShapePoints(sx, sy, r, shape);
+            ctx.moveTo(pts[0][0], pts[0][1]);
+            for (let j = 1; j < pts.length; j++) ctx.lineTo(pts[j][0], pts[j][1]);
+            ctx.closePath();
         }
-        ctx.save();
-        // Dim background with slight color tint
-        buildPath(); ctx.fillStyle = `rgba(${_cr},${_cg},${_cb},0.08)`; ctx.fill();
-        // Aquarium fill — sweeps in the orbit tangent direction
-        if (fillLevel > 0) {
-            ctx.save();
-            buildPath(); ctx.clip();
-            const oA = orbitAngle !== undefined ? orbitAngle : -Math.PI / 2;
-            ctx.save();
-            ctx.translate(sx, sy);
-            ctx.rotate(Math.PI + oA);
-            const rEff = Math.max(1, r - 2.5); // for gradient endpoints (visual quality)
-            const rFill = r + 4; // fill rect oversized so clip handles shape; 100% fill covers shape fully
-            // Area-proportional correction using shape-specific LUT (accounts for fill rotation + rFill scale)
-            const corrFL = _getShapeFillLUT(shape, oA, r, rFill)[Math.min(100, Math.round(fillLevel * 100))];
-            // Gradient fill — saturated, matching rank gem color
-            const _fillBright = 0.15;
-            const _fr = Math.min(255, Math.round(_cr + (255 - _cr) * _fillBright));
-            const _fg = Math.min(255, Math.round(_cg + (255 - _cg) * _fillBright));
-            const _fb = Math.min(255, Math.round(_cb + (255 - _cb) * _fillBright));
-            const grad = ctx.createLinearGradient(0, rEff, 0, rEff - corrFL * 2 * rEff);
-            grad.addColorStop(0, `rgba(${_fr},${_fg},${_fb},0.95)`);
-            grad.addColorStop(1, `rgba(${Math.min(255,_fr+30)},${Math.min(255,_fg+30)},${Math.min(255,_fb+30)},0.85)`);
-            ctx.fillStyle = grad;
-            const fillHeight = corrFL * 2 * rFill;
-            ctx.fillRect(-rFill * 2, rFill - fillHeight, rFill * 4, fillHeight + 2);
-            ctx.restore();
-            ctx.restore();
-        }
-        // Bronze matte iron overlay — cool gray diffuse shading, no specular
-        if (color.toLowerCase() === '#e8922a') {
-            ctx.save();
-            buildPath(); ctx.clip();
-            const lin = ctx.createLinearGradient(sx - r, sy - r, sx + r, sy + r);
-            lin.addColorStop(0,   'rgba(210, 210, 220, 0.38)');
-            lin.addColorStop(0.4, 'rgba(160, 155, 165, 0.12)');
-            lin.addColorStop(0.65,'rgba( 60,  55,  65, 0.08)');
-            lin.addColorStop(1,   'rgba( 15,  10,  20, 0.50)');
-            ctx.fillStyle = lin;
+    }
+
+    const _haloSprites = new Map();
+
+    function _badgeTone(color, amount) {
+        const target = amount < 0 ? 0 : 255;
+        const channels = color.slice(1).match(/../g).map(hex => parseInt(hex, 16));
+        return `rgb(${channels.map(channel => Math.round(channel + (target - channel) * Math.abs(amount))).join(',')})`;
+    }
+
+    function _makeBadgeSprite(size, paint) {
+        const sprite = document.createElement('canvas');
+        sprite.width = sprite.height = Math.ceil(size * rankCanvas.width / 300);
+        const ctx = sprite.getContext('2d');
+        const scale = sprite.width / size;
+        ctx.scale(scale, scale);
+        ctx.lineJoin = 'round';
+        paint(ctx, scale);
+        return sprite;
+    }
+
+    function _getHaloSprites(r, shape, color) {
+        if (_haloSprites.has(color)) return _haloSprites.get(color);
+        const extent = r + 12;
+        const size = extent * 2;
+        const muted = _badgeTone(color, -.42);
+        const empty = _makeBadgeSprite(size, ctx => {
+            _traceMiniShape(ctx, extent, extent, r, shape);
+            ctx.fillStyle = '#181c20';
             ctx.fill();
-            ctx.restore();
+            ctx.strokeStyle = muted;
+            ctx.lineWidth = 1.35;
+            ctx.stroke();
+        });
+        const filled = _makeBadgeSprite(size, (ctx, scale) => {
+            _traceMiniShape(ctx, extent, extent, r, shape);
+            const surface = ctx.createLinearGradient(extent - r, extent - r, extent - r * .5, extent + r);
+            surface.addColorStop(0, muted);
+            surface.addColorStop(1, _badgeTone(color, -.83));
+            ctx.fillStyle = surface;
+            ctx.fill();
+
+            _traceMiniShape(ctx, extent, extent, r * .92, shape);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 4.2;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 8 * scale;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = _badgeTone(color, .69);
+            ctx.lineWidth = .9;
+            ctx.stroke();
+
+            _traceMiniShape(ctx, extent, extent, r * .68, shape);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = .8;
+            ctx.stroke();
+        });
+        const sprites = { empty, filled, extent, size, edge: _badgeTone(color, .35) };
+        _haloSprites.set(color, sprites);
+        return sprites;
+    }
+
+    function _drawMiniShape(ctx, sx, sy, r, shape, fillLevel, color, orbitAngle) {
+        const { empty, filled, extent, size, edge } = _getHaloSprites(r, shape, color);
+        ctx.drawImage(empty, sx - extent, sy - extent, size, size);
+        if (fillLevel <= 0) return;
+        if (fillLevel >= 1) {
+            ctx.drawImage(filled, sx - extent, sy - extent, size, size);
+            return;
         }
-        // Outer glow
-        const glowAlpha = 0.18 + fillLevel * 0.35;
-        buildPath();
-        ctx.lineWidth = 5;
-        ctx.strokeStyle = `rgba(${_cr},${_cg},${_cb},${glowAlpha.toFixed(2)})`;
-        ctx.shadowColor = `rgba(${_cr},${_cg},${_cb},0.9)`;
-        ctx.shadowBlur = fillLevel > 0 ? 10 : 4;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        // Sharp inner outline
-        const blend = 0.45;
-        const or = Math.round(_cr + (255 - _cr) * blend);
-        const og = Math.round(_cg + (255 - _cg) * blend);
-        const ob = Math.round(_cb + (255 - _cb) * blend);
-        buildPath();
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = `rgba(${or},${og},${ob},${(0.45 + fillLevel * 0.55).toFixed(2)})`;
+
+        const rotation = Math.PI + orbitAngle;
+        const rFill = r + 4;
+        const corrFL = _getShapeFillLUT(shape, orbitAngle, r, rFill)[Math.min(100, Math.round(fillLevel * 100))];
+        const cut = rFill - corrFL * 2 * rFill;
+        const reach = extent * Math.SQRT2;
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(rotation);
+        ctx.beginPath();
+        ctx.rect(-reach, cut, 2 * reach, reach - cut);
+        ctx.clip();
+        ctx.rotate(-rotation);
+        ctx.drawImage(filled, -extent, -extent, size, size);
+        ctx.restore();
+
+        ctx.save();
+        _traceMiniShape(ctx, sx, sy, r, shape);
+        ctx.clip();
+        ctx.translate(sx, sy);
+        ctx.rotate(rotation);
+        ctx.beginPath();
+        ctx.moveTo(-reach, cut);
+        ctx.lineTo(reach, cut);
+        ctx.strokeStyle = edge;
+        ctx.lineWidth = 1.4;
         ctx.stroke();
         ctx.restore();
     }
@@ -6815,6 +6843,19 @@
         }
     }
 
+    function _traceCelestiteShield(ctx) {
+        ctx.beginPath();
+        ctx.moveTo(150, 30);
+        ctx.lineTo(250, 75);
+        ctx.lineTo(250, 170);
+        ctx.quadraticCurveTo(250, 248, 150, 275);
+        ctx.quadraticCurveTo(50, 248, 50, 170);
+        ctx.lineTo(50, 75);
+        ctx.closePath();
+    }
+
+    let _celestiteHalo;
+
     function _drawBadgeCanvas(displayLevel, displayPercent, info, xpLabel, xpProgress) {
         const ctx = rankCtx;
         const w = 300, h = 300; // CSS pixel dimensions (canvas is DPR-scaled internally)
@@ -6832,7 +6873,6 @@
         ctx.clearRect(0, 0, w, h);
 
         if (info.isCelestite || info.isLegend) {
-            const sc = CELESTITE_RANK.c;
             const pct = displayPercent || 0;
             const t = _badgeTime;
             // Cycle outline color: white → gold → light blue
@@ -6844,31 +6884,12 @@
             const _r2 = parseInt(_cB2.slice(1,3),16), _g2 = parseInt(_cB2.slice(3,5),16), _b2 = parseInt(_cB2.slice(5,7),16);
             const gold = `rgb(${Math.round(_r1+(_r2-_r1)*_cf)},${Math.round(_g1+(_g2-_g1)*_cf)},${Math.round(_b1+(_b2-_b1)*_cf)})`;
 
-            // Shield path
-            const shieldPath = new Path2D();
-            shieldPath.moveTo(150, 30);
-            shieldPath.lineTo(250, 75);
-            shieldPath.lineTo(250, 170);
-            shieldPath.quadraticCurveTo(250, 248, 150, 275);
-            shieldPath.quadraticCurveTo(50, 248, 50, 170);
-            shieldPath.lineTo(50, 75);
-            shieldPath.closePath();
-
-            // Inner shield path
-            const innerPath = new Path2D();
-            innerPath.moveTo(150, 50);
-            innerPath.lineTo(230, 88);
-            innerPath.lineTo(230, 168);
-            innerPath.quadraticCurveTo(230, 232, 150, 255);
-            innerPath.quadraticCurveTo(70, 232, 70, 168);
-            innerPath.lineTo(70, 88);
-            innerPath.closePath();
-
             // --- AURORA FILL (color slowly shifts hue) ---
             const fillTop = 275 - (275 - 30) * pct;
             const hueShift = t * 0.005;
             ctx.save();
-            ctx.clip(shieldPath);
+            _traceCelestiteShield(ctx);
+            ctx.clip();
             // Aurora: 3 vertical color bands that slowly shift
             const auroraGrad = ctx.createLinearGradient(40, 0, 260, 0);
             const h1 = (190 + Math.sin(hueShift) * 30) % 360;
@@ -6889,15 +6910,31 @@
             ctx.globalCompositeOperation = 'source-over';
             ctx.restore();
 
-            // --- OUTLINE: gold ---
+            _celestiteHalo ??= _makeBadgeSprite(300, (halo, scale) => {
+                _traceCelestiteShield(halo);
+                halo.fillStyle = '#181c20';
+                halo.fill();
+                halo.strokeStyle = CELESTITE_RANK.c;
+                halo.lineWidth = 4.2;
+                halo.shadowColor = CELESTITE_RANK.c;
+                halo.shadowBlur = 12 * scale;
+                halo.stroke();
+            });
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.drawImage(_celestiteHalo, 0, 0, w, h);
+            ctx.restore();
             ctx.strokeStyle = gold;
             ctx.lineWidth = 2.5;
-            ctx.globalAlpha = 0.45;
-            ctx.stroke(shieldPath);
-
-            ctx.lineWidth = 1;
-            ctx.globalAlpha = 0.2;
-            ctx.stroke(innerPath);
+            ctx.stroke();
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(.8, .8);
+            ctx.translate(-cx, -cy);
+            _traceCelestiteShield(ctx);
+            ctx.lineWidth = 1.4;
+            ctx.stroke();
+            ctx.restore();
 
             // --- SPARKLES: multiple, random positions, different sizes, grow/shrink ---
             const _shieldPts = [
@@ -6964,7 +7001,6 @@
             const _shapeIdx = (shapeLevel - groupStart) % 10;
             const romanNum = _toRoman(_shapeIdx + 1);
             if (fill >= 1 && romanNum) {
-                const _lightRank = _isLightHex(rankColor);
                 ctx.save();
                 // Adaptive font size: shrink if text is too wide for the shape
                 // For star shapes the inner area is smaller, use tighter maxW
@@ -6983,9 +7019,7 @@
                 const m = ctx.measureText(romanNum);
                 const drawY = sy + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
                 ctx.globalAlpha = 0.95;
-                ctx.shadowColor = _lightRank ? 'rgba(0,0,0,0.5)' : rankColor;
-                ctx.shadowBlur = 8;
-                ctx.fillStyle = _lightRank ? '#111111' : '#ffffff';
+                ctx.fillStyle = '#fff9e7';
                 ctx.fillText(romanNum, sx, drawY);
                 ctx.restore();
             }
@@ -8870,7 +8904,19 @@
             <header class="lb105-level-header">
                 <h2 id="lb105-level-title">Level up!</h2>
                 <div class="lb105-level-emblem">
-                    <svg viewBox="0 0 300 300" aria-hidden="true">${emblem}</svg>
+                    <svg class="lb135-halo-emblem" viewBox="0 0 300 300" aria-hidden="true">
+                        <defs>
+                            <g id="lb135-emblem-shape">${emblem}</g>
+                            <linearGradient id="lb135-emblem-surface" x2="25%" y2="100%">
+                                <stop class="lb135-surface-start"/>
+                                <stop class="lb135-surface-end" offset="100%"/>
+                            </linearGradient>
+                        </defs>
+                        <use class="lb135-emblem-face" href="#lb135-emblem-shape"/>
+                        <use class="lb135-emblem-rim" href="#lb135-emblem-shape"/>
+                        <use class="lb135-emblem-highlight" href="#lb135-emblem-shape"/>
+                        <use class="lb135-emblem-inner" href="#lb135-emblem-shape"/>
+                    </svg>
                     <span aria-label="Level ${level}">${level}</span>
                 </div>
                 <strong class="lb105-level-rank">${name}</strong>

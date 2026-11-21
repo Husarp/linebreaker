@@ -24,10 +24,38 @@ it('paints ten Gold badge shapes even when the menu first renders in a backgroun
   game.api.drawRankBadge();
 
   expect(badgeText()).toEqual(['GOLD', 'IX']);
-  const shapeOrigins = game.calls.slice(firstCall)
-    .filter(([method]) => method === 'moveTo')
-    .map(([, x, y]) => `${x},${y}`);
+  const blits = game.calls.slice(firstCall).filter(([method]) => method === 'drawImage');
+  const emptyBadge = blits[0][1];
+  const shapeOrigins = blits.filter(([, sprite]) => sprite === emptyBadge).map(([, , x, y]) => `${x},${y}`);
   expect(new Set(shapeOrigins).size).toBe(10);
+});
+
+it('draws the cached Halo glow and thin inner line on filled Gold badges', () => {
+  const canvasPrototype = game.w.HTMLCanvasElement.prototype;
+  const getContext = canvasPrototype.getContext;
+  const spriteStrokes = new Map();
+  canvasPrototype.getContext = function (...args) {
+    const ctx = getContext.apply(this, args);
+    const strokes = [];
+    spriteStrokes.set(this, strokes);
+    ctx.stroke = () => strokes.push({width: ctx.lineWidth, blur: ctx.shadowBlur, color: ctx.strokeStyle});
+    return ctx;
+  };
+  game.api.setSave({...game.api.save, totalXP: 37000});
+  const firstCall = game.calls.length;
+  game.api.drawRankBadge();
+
+  const blits = game.calls.slice(firstCall).filter(([method]) => method === 'drawImage');
+  const emptyBadge = blits[0][1];
+  const filledBadge = blits[1][1];
+  expect(spriteStrokes.get(emptyBadge)).toEqual([{width: 1.35, blur: expect.any(Function), color: 'rgb(148,125,0)'}]);
+  expect(spriteStrokes.get(filledBadge)).toEqual([
+    {width: 4.2, blur: 8, color: '#ffd700'},
+    {width: .9, blur: 0, color: 'rgb(255,243,176)'},
+    {width: .8, blur: 0, color: '#ffd700'},
+  ]);
+  game.api.drawRankBadge();
+  expect(spriteStrokes.size).toBe(2);
 });
 
 it.each([
