@@ -8,24 +8,82 @@ afterEach(() => game?.close());
 describe('achievement screen', () => {
   const query = selector => game.w.document.querySelector(selector);
   const filter = tab => query(`[data-achtab="${tab}"]`).click();
+  const select = (selector, value) => {
+    const control = query(selector);
+    control.value = value;
+    control.dispatchEvent(new game.w.Event('change', { bubbles: true }));
+  };
   const sections = () => [...query('#ach-list').children].filter(section => section.querySelector('svg'));
   const sectionNamed = name => sections().find(section => section.firstElementChild.firstElementChild.textContent === name);
+  const sectionCount = name => sectionNamed(name).querySelector('.ach-count-label').textContent;
   const badges = name => [...sectionNamed(name).lastElementChild.children];
   const hover = badge => {
     badge.dispatchEvent(new game.w.MouseEvent('mouseenter'));
     return query('#ach-tip').textContent;
   };
 
-  it('counts unlocked tiers and secret badges in the overall and section counters', () => {
+  it('counts every earned tier and excludes secrets from the completion numerator and denominator', () => {
     game.w.openAchievements();
-    const counter = query('#ach-counter').textContent;
-    const totals = sections().map(section => section.firstElementChild.lastElementChild.textContent);
-    expect(counter).toMatch(/^0 \/ \d+$/);
+    expect(query('#ach-counter').textContent).toBe('0% complete');
+    expect(sectionCount('BASIC')).toBe('0 of 119');
+    expect(sectionCount('SECRET')).toBe('0 of 59');
+
     game.api.setup({ save: { achievements: { collector: { tier: 2 }, sec_nice: { unlocked: true } } } });
     game.w.openAchievements();
-    expect(query('#ach-counter').textContent).toBe(counter.replace(/^0 /, '3 '));
-    expect(sectionNamed('BASIC').firstElementChild.lastElementChild.textContent).toBe(totals[0].replace(/^0\//, '2/'));
-    expect(sectionNamed('SECRET').firstElementChild.lastElementChild.textContent).toBe(totals[1].replace(/^0\//, '1/'));
+    expect(query('#ach-counter').textContent).toBe('2% complete');
+    expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 59');
+    expect(sectionCount('BASIC')).toBe('2 of 119');
+    expect(sectionCount('SECRET')).toBe('1 of 59');
+
+    game.api.setup({ save: { achievements: { collector: { tier: 2 } } } });
+    game.w.openAchievements();
+    expect(query('#ach-counter').textContent).toBe('2% complete');
+    expect(query('#ach-secret-counter').textContent).toBe('Secrets 0 of 59');
+  });
+
+  it('combines the category and status filters without changing completion totals', () => {
+    game.api.setup({ save: { achievements: { collector: { tier: 2 }, sec_nice: { unlocked: true } } } });
+    game.w.openAchievements();
+    expect([...query('#ach-category').options].map(option => option.value)).toEqual(['all', 'basic', 'secret']);
+    select('#ach-category', 'secret');
+    filter('unlocked');
+    expect(sectionNamed('BASIC')).toBeUndefined();
+    expect(badges('SECRET').map(hover)).toEqual([expect.stringContaining('Nice')]);
+    expect(sectionCount('SECRET')).toBe('1 of 59');
+    filter('locked');
+    expect(badges('SECRET')).toHaveLength(58);
+    expect(badges('SECRET').every(badge => hover(badge).startsWith('???'))).toBe(true);
+
+    select('#ach-category', 'basic');
+    expect(sectionNamed('SECRET')).toBeUndefined();
+    expect(sectionCount('BASIC')).toBe('2 of 119');
+    expect(query('#ach-counter').textContent).toBe('2% complete');
+    expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 59');
+  });
+
+  it('sorts by badge rarity, progress, or latest saved unlock date', () => {
+    game.api.setup({ save: { highscore: 800, achievements: {
+      score: { tier: 1, tierDates: { 1: '01.02.2026' } },
+      games: { tier: 2, tierDates: { 1: '2026-02-02', 2: '2026-01-31' } },
+      sec_nice: { unlocked: true, unlockedAt: '31.01.2026' },
+      sec_symmetric_board: { unlocked: true, unlockedAt: '2026-02-01' },
+    } } });
+    game.w.openAchievements();
+    select('#ach-sort', 'rarity');
+    expect(hover(badges('BASIC')[0])).toContain('LEGENDARY');
+    filter('locked');
+    const rarityOrder = badges('BASIC').map(hover);
+    select('#ach-sort', 'progress');
+    const progressOrder = badges('BASIC').map(hover);
+    expect(progressOrder.findIndex(text => text.includes('Next: High Roller')))
+      .toBeLessThan(rarityOrder.findIndex(text => text.includes('Next: High Roller')));
+
+    filter('unlocked');
+    select('#ach-sort', 'recent');
+    expect(badges('BASIC').map(hover)).toEqual([expect.stringContaining('On the Board'), expect.stringContaining('Hooked')]);
+    expect(badges('SECRET').map(hover)).toEqual([expect.stringContaining('Mirror Universe'), expect.stringContaining('Nice')]);
+    select('#ach-sort', 'default');
+    expect(hover(badges('BASIC')[0])).toContain('Hooked');
   });
 
   it('shows the earned tier and the next locked tier, with unlocked badges sorted first by rarity', () => {
