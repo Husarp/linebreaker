@@ -63,6 +63,7 @@
     <link rel="stylesheet" href="125-hud-phone.css">
     <link rel="stylesheet" href="135-halo.css">
     <link rel="stylesheet" href="138-fixes.css">
+    <link rel="stylesheet" href="143-achievements.css">
 </head>
 <body>
 
@@ -1011,23 +1012,37 @@
 </div>
 
 <!-- ACHIEVEMENTS OVERLAY -->
-<div id="achievements-overlay" class="overlay hidden" style="z-index: 1003; justify-content: flex-start; padding: 0; overflow-y: auto; align-items: stretch;">
+<div id="achievements-overlay" class="overlay hidden" style="z-index: 1003; justify-content: flex-start; padding: 0; overflow: hidden; align-items: stretch;">
     <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding-block:14px; flex-shrink:0; position:sticky; top:0; z-index:1;">
         <div class="lb-topbar-crumb">
             <button type="button" class="btn-back lb-block-back" onclick="window.closeAchievements()"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg>Menu</button>
             <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
             <h1 class="lb-topbar-title"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4H4v5c0 1.65 1.35 3 3 3"/><path d="M17 4h3v5c0 1.65-1.35 3-3 3"/><path d="M7 12c0 2.76 2.24 5 5 5s5-2.24 5-5V4H7v8z"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="9 21 12 21 15 21"/></svg>ACHIEVEMENTS</h1>
         </div>
-        <span id="ach-counter" style="margin-left:6px; font-size:0.65rem; color:#888;"></span>
+        <div class="ach-summary" role="group" aria-label="Achievement completion">
+            <span class="ach-count-label" id="ach-counter"></span>
+            <span class="ach-count-label" id="ach-secret-counter"></span>
+        </div>
     </div>
-    <div style="width:100%; max-width:640px; margin:0 auto; padding:16px 20px;">
-        <!-- Tabs -->
-        <div style="display:flex; gap:6px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
-            <button class="lb-block-btn lb-block-tab" data-achtab="all" aria-pressed="true">ALL</button>
-            <button class="lb-block-btn lb-block-tab" data-achtab="unlocked" aria-pressed="false">UNLOCKED</button>
-            <button class="lb-block-btn lb-block-tab" data-achtab="locked" aria-pressed="false">LOCKED</button>
-            <label style="margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;" title="Show unlock dates on hover">
-                <span style="font-size:0.55rem;color:#555;">Dates</span>
+    <div class="lb-scroll-fade">
+      <div class="ach-content">
+        <div class="ach-toolbar">
+            <div class="ach-status" role="group" aria-label="Unlock status">
+                <button class="lb-block-btn lb-block-tab" data-achtab="all" aria-pressed="true">ALL</button>
+                <button class="lb-block-btn lb-block-tab" data-achtab="unlocked" aria-pressed="false">UNLOCKED</button>
+                <button class="lb-block-btn lb-block-tab" data-achtab="locked" aria-pressed="false">LOCKED</button>
+            </div>
+            <select class="ach-select" id="ach-category" aria-label="Achievement category">
+                <option value="all">All categories</option>
+            </select>
+            <select class="ach-select" id="ach-sort" aria-label="Sort achievements">
+                <option value="default">Sort: Default</option>
+                <option value="rarity">Rarity</option>
+                <option value="progress">Progress</option>
+                <option value="recent">Recently unlocked</option>
+            </select>
+            <label class="ach-dates" title="Show unlock dates on hover">
+                <span>Dates</span>
                 <span class="toggle">
                     <input type="checkbox" role="switch" id="ach-dates-toggle">
                     <span class="toggle-slider"></span>
@@ -1036,6 +1051,7 @@
         </div>
         <!-- Achievement list rendered by JS -->
         <div id="ach-list"></div>
+      </div>
     </div>
 </div>
 

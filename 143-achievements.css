@@ -1,0 +1,117 @@
+#achievements-overlay > .lb-scroll-fade { flex: 1 1 0; }
+
+.ach-content {
+    width: 100%;
+    max-width: 640px;
+    margin-inline: auto;
+    padding: 16px 20px;
+}
+
+.ach-toolbar,
+.ach-status,
+.ach-summary,
+.ach-section-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ach-toolbar {
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.ach-select {
+    box-sizing: border-box;
+    min-height: var(--target);
+    max-width: 100%;
+    padding: 0 4px 3px 8px;
+    border: var(--bb-stroke) solid var(--bb-edge);
+    border-radius: var(--bb-cap);
+    background: var(--bb-face);
+    color: var(--bb-ink);
+    color-scheme: dark;
+    box-shadow: var(--bb-cap-shadow);
+    font: 650 12px/1.25 var(--font-body);
+    cursor: pointer;
+}
+
+.ach-select:hover { background: var(--bb-hover); }
+.ach-select:focus-visible {
+    outline: var(--focus-width) solid var(--accent-bright);
+    outline-offset: var(--focus-offset);
+}
+
+.ach-dates {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-inline-start: auto;
+    min-height: var(--target);
+    color: var(--bb-muted);
+    font: 650 12px/1.25 var(--font-body);
+    cursor: pointer;
+}
+
+.ach-count-label {
+    padding: 3px 6px;
+    border: 1px solid var(--bb-edge);
+    border-radius: var(--bb-badge-radius);
+    background: var(--bb-well);
+    color: var(--bb-muted);
+    font: 650 11px/1.2 var(--font-body);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+#ach-counter { color: var(--accent-bright); }
+
+.ach-section-head { margin-bottom: 12px; }
+.ach-section-head h2 {
+    margin: 0;
+    color: var(--bb-muted);
+    font: 750 12px/1.25 var(--font-body);
+    letter-spacing: var(--tracking);
+}
+
+.ach-section-rule {
+    flex: 1;
+    height: 1px;
+    background: var(--bb-edge);
+}
+
+.ach-empty {
+    padding: 24px;
+    border: 1px solid var(--bb-edge);
+    border-radius: var(--bb-cap);
+    background: var(--bb-well);
+    color: var(--bb-muted);
+    text-align: center;
+    font: 650 12px/1.25 var(--font-body);
+}
+
+@media (min-width: 640px) {
+    .ach-toolbar,
+    .ach-status { gap: 4px; }
+
+    .ach-select { padding-inline: 4px 2px; }
+
+    #achievements-overlay .ach-status .lb-block-tab { padding-inline: 7px !important; }
+}
+
+@media (max-width: 580px) {
+    .ach-toolbar {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        justify-items: start;
+    }
+
+    .ach-summary {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    #ach-category { padding-inline: 4px 2px; }
+    .ach-dates { justify-self: end; }
+}
