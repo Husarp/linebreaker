@@ -10,6 +10,7 @@ import android.net.Uri
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
 import android.app.KeyguardManager
+import android.os.Build
 import android.os.PowerManager
 import android.os.SystemClock
 import android.webkit.*
@@ -23,6 +24,8 @@ import android.view.ViewGroup
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -37,6 +40,7 @@ class MainActivity : BridgeActivity() {
     private var resumed = false
     private var recoveryDialog: AlertDialog? = null
     private var loadingOverlay: View? = null
+    private var safeArea = Insets.NONE
     private val recoveryTick = Runnable { refreshRecovery() }
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) { refreshRecovery() }
@@ -110,8 +114,9 @@ class MainActivity : BridgeActivity() {
         }
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        hideSystemBars()
         val web = bridge.webView
+        setupEdgeToEdge(web)
+        hideSystemBars()
         // Keep Capacitor routing and browser features while catching failures independently of bundle JS.
         web.webChromeClient = object : BridgeWebChromeClient(bridge) {
             override fun onConsoleMessage(message: ConsoleMessage): Boolean {
@@ -121,6 +126,10 @@ class MainActivity : BridgeActivity() {
             }
         }
         bridge.setWebViewClient(object : BridgeWebViewClient(bridge) {
+            override fun onPageCommitVisible(view: WebView, url: String) {
+                super.onPageCommitVisible(view, url)
+                injectSafeArea(view)
+            }
             private fun required(request: WebResourceRequest) = request.isForMainFrame ||
                 (request.url.host == "localhost" && updater.engine.hasPath(request.url.path.orEmpty().trimStart('/')))
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
@@ -150,6 +159,40 @@ class MainActivity : BridgeActivity() {
         webFrame.addView(loadingOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         updater.onChange = { if (!isFinishing) { refreshRecovery(); refreshDebugSettings?.invoke(); if (updater.foreground) updater.shell.presentRequestedAndroidUi(this); showNativeMessages() } }
         updater.onToast = { text -> if (!isFinishing) Toast.makeText(this, text, Toast.LENGTH_LONG).show() }
+    }
+    private fun setupEdgeToEdge(web: WebView) {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= 28) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = if (Build.VERSION.SDK_INT >= 30)
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                else WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+        if (Build.VERSION.SDK_INT >= 29) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
+        val decor = window.decorView
+        ViewCompat.setOnApplyWindowInsetsListener(decor) { view, insets ->
+            safeArea = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val keyboardOverlays = (window.attributes.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST) ==
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+            val keyboard = if (keyboardOverlays) 0 else insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            view.setPadding(0, 0, 0, keyboard)
+            injectSafeArea(web)
+            WindowInsetsCompat.Builder(insets).setInsets(WindowInsetsCompat.Type.ime(), Insets.NONE)
+                .setVisible(WindowInsetsCompat.Type.ime(), false).build()
+        }
+        ViewCompat.requestApplyInsets(decor)
+    }
+    private fun injectSafeArea(web: WebView) {
+        val density = resources.displayMetrics.density
+        val rules = listOf("top" to safeArea.top, "right" to safeArea.right, "bottom" to safeArea.bottom, "left" to safeArea.left)
+            .joinToString("") { (edge, px) -> "style.setProperty('--safe-area-inset-$edge','${px / density}px');" }
+        web.evaluateJavascript("(function(){var style=document.documentElement && document.documentElement.style;if(style){$rules}})()", null)
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
@@ -183,7 +226,7 @@ class MainActivity : BridgeActivity() {
     }
     private var afterNotificationPermission: (() -> Unit)? = null
     fun installWithNotificationPermission(action: () -> Unit) {
-        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+        if (ShellUpdatedNotification.enabled(this) && Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
             !getPreferences(Context.MODE_PRIVATE).getBoolean("notificationAsked",false)) {
             getPreferences(Context.MODE_PRIVATE).edit().putBoolean("notificationAsked",true).apply()

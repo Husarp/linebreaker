@@ -10,7 +10,7 @@ const windows = [];
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const defaults = { setupAnswered: true, smallFixes: true, majorUpdates: false, shellUpdates: true, wifiLimitMb: 20, mobileLimitMb: 5, checkFrequency: '6h' };
 
-async function boot({ platform = 'android', native = {}, version = '0.1.1', safe = true, saved = {} } = {}) {
+async function boot({ platform = 'android', native = {}, version = '0.1.1', safe = true, saved = {}, plugins = {} } = {}) {
   const { window } = new JSDOM('<main id="menu-overlay"></main><div id="settings-overlay"><section class="settings-section"></section></div><span data-update-version></span>', {
     url: 'https://localhost/', runScripts: 'outside-only', pretendToBeVisual: true,
   });
@@ -30,9 +30,9 @@ async function boot({ platform = 'android', native = {}, version = '0.1.1', safe
     info: vi.fn(async () => state), getState: vi.fn(async () => state),
     setSafeToInterrupt: vi.fn(async () => {}), appReady: vi.fn(async () => ({ accepted: true })),
     setUpdateSettings: vi.fn(async partial => Object.assign(state.updateSettings, partial)),
-    download: vi.fn(async () => {}), restart: vi.fn(async () => {}),
+    download: vi.fn(async () => {}), restart: vi.fn(async () => {}), check: vi.fn(async () => {}),
   };
-  window.Capacitor = { getPlatform: () => platform, Plugins: { Ota: ota } };
+  window.Capacitor = { getPlatform: () => platform, Plugins: { Ota: ota, ...plugins } };
   window.BUNDLE = { version };
   window.eval(tools);
   window.eval(source);
@@ -102,6 +102,53 @@ it('shows update setup before acknowledging ready and saves the recommended poli
   await flush();
   expect(game.ota.setUpdateSettings).toHaveBeenCalledWith(defaults);
   expect(game.ota.setSafeToInterrupt).toHaveBeenLastCalledWith({ safe: true });
+});
+
+it('exposes Android policy and shell actions directly in the Updates section', async () => {
+  const game = await boot();
+  await game.restoreSave();
+  await game.ready();
+  const section = game.get('.lb149-settings');
+  expect(section.querySelector('h2').textContent).toBe('Updates');
+  section.querySelector('[data-auto]').click();
+  await flush();
+  expect(game.ota.setUpdateSettings).toHaveBeenLastCalledWith({ checkFrequency: 'manual' });
+  const mobile = [...section.querySelectorAll('select')].find(select => select.labels[0].textContent.includes('Mobile download limit'));
+  mobile.value = '0';
+  mobile.dispatchEvent(new game.window.Event('change'));
+  await flush();
+  expect(game.ota.setUpdateSettings).toHaveBeenLastCalledWith({ mobileLimitMb: 0 });
+  game.click('CHECK NOW');
+  expect(game.ota.check).toHaveBeenCalledOnce();
+  game.click('Open app shell');
+  expect(game.get('dialog[open]').getAttribute('aria-label')).toBe('Update diagnostics');
+});
+
+it('opts into Android update notices, reports available and installed once, and cancels only its own IDs', async () => {
+  const preferences = { get: vi.fn(async () => ({ value: null })), set: vi.fn(async () => {}) };
+  let display = 'prompt';
+  const system = {
+    checkPermissions: vi.fn(async () => ({ display })), requestPermissions: vi.fn(async () => ({ display: (display = 'granted') })),
+    createChannel: vi.fn(async () => {}), schedule: vi.fn(async () => {}), cancel: vi.fn(async () => {}),
+  };
+  const game = await boot({ native: { available: { version: '0.1.2', size: 500 }, updated: { to: '0.1.1' } },
+    plugins: { Preferences: preferences, LocalNotifications: system } });
+  await game.restoreSave();
+  await game.ready();
+  expect(system.requestPermissions).not.toHaveBeenCalled();
+  const input = game.get('[data-notifications]');
+  input.click();
+  await flush();
+  expect(system.requestPermissions).toHaveBeenCalledOnce();
+  expect(system.schedule.mock.calls[0][0].notifications.map(({ title }) => title)).toEqual([
+    'Linebreaker update 0.1.2 available', 'Linebreaker updated to 0.1.1',
+  ]);
+  await game.redraw();
+  expect(system.schedule).toHaveBeenCalledOnce();
+  input.click();
+  await flush();
+  expect(preferences.set).toHaveBeenLastCalledWith({ key: 'linebreaker-update-notifications', value: 'off' });
+  expect(system.cancel).toHaveBeenCalledWith({ notifications: [{ id: 15401 }, { id: 15402 }, { id: 15403 }] });
 });
 
 it('defers offers and explicit auto-restart while a game or save is active', async () => {

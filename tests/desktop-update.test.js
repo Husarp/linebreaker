@@ -112,8 +112,22 @@ it('shows release notes for one Windows startup and suppresses them when a newer
   expect(upgraded.select('[data-notes]').textContent).toBe('<b>New</b>');
   const reopened = await launch(() => null, 'off', Object.fromEntries(Object.entries(upgraded.window.localStorage)));
   expect(reopened.select('.lb149-banner').hidden).toBe(true);
+  reopened.select('[data-open-notes]').click();
+  expect(reopened.select('[data-notes]').textContent).toBe('<b>New</b>');
   const superseded = await launch(() => newer, undefined, saved);
   expect(superseded.select('.lb149-banner').hidden).toBe(true);
+});
+
+it('can silence in-app notifications without disabling the real updater', async () => {
+  const game = await launch(() => newer);
+  game.select('[data-notifications]').click();
+  expect(game.select('.lb-update-banner').hidden).toBe(true);
+  expect(game.select('[data-get]').hidden).toBe(false);
+  game.select('[data-check]').click();
+  await settle();
+  expect(checks(game.invoke)).toHaveLength(2);
+  game.select('.lb149-settings [data-shell]').click();
+  expect(game.select('dialog[open]').getAttribute('aria-label')).toBe('Update diagnostics');
 });
 
 it('keeps version mirrors in sync and requires a stable Windows-compatible version', async () => {

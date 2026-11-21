@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Linebreaker</title>
+    <script src="boot.js"></script>
     <link rel="icon" type="image/png" sizes="32x32" href="assets/ui/favicon.png">
     <link rel="apple-touch-icon" sizes="180x180" href="assets/ui/app-icon-180.png">
     <link rel="manifest" href="manifest.webmanifest">
@@ -84,7 +85,11 @@
         </div>
         <div id="ls-title">LINEBREAKER</div>
         <div id="ls-bar-wrap"><div id="ls-bar"></div></div>
-        <div id="ls-status">Loading…</div>
+        <div id="ls-status" role="status">Loading…</div>
+        <div id="ls-actions" hidden>
+            <button class="lb-block-btn" type="button" id="ls-continue" hidden>Tap to continue</button>
+            <button class="lb-block-btn" type="button" id="ls-restart">Restart</button>
+        </div>
     </div>
 </div>
 
@@ -1093,7 +1098,7 @@
         <div class="lb-block-panel lb80-credits-edition">
             <strong>LINEBREAKER</strong>
             <span>RPG Edition</span>
-            <span class="lb80-credits-version" data-update-version>Version 1.0.0</span>
+            <span class="lb80-credits-version" data-update-version>Version 1.0.1</span>
         </div>
         <section class="lb-block-card lb80-credits-card" aria-labelledby="credits-team">
             <h2 class="lb-block-section-title" id="credits-team">Created by</h2>

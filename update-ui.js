@@ -20,11 +20,14 @@
 
   const section = document.createElement('section');
   section.className = 'settings-section lb-block-panel lb149-settings';
-  section.innerHTML = `<h2 class="lb-block-section-title">Desktop updates</h2><p data-update-version></p>
+  section.innerHTML = `<h2 class="lb-block-section-title">Updates</h2><p data-update-version></p>
     <label class="lb149-choice">Automatic update checks <span class="lb-block-switch"><input type="checkbox" role="switch" data-auto><span class="toggle-slider"></span></span></label>
+    <label class="lb149-choice">In-app update notifications <span class="lb-block-switch"><input type="checkbox" role="switch" data-notifications><span class="toggle-slider"></span></span></label>
     <div class="lb-actions">
       <button class="lb-btn" data-check>CHECK NOW</button>
       <button class="lb-btn lb-btn--primary" data-get hidden>GET UPDATE</button>
+      <button class="lb-btn" data-open-notes>What's new</button>
+      <button class="lb-btn" data-shell>Open app shell</button>
       <button class="lb-btn lb-btn--ghost" data-github>GITHUB</button>
     </div><p data-result role="status"></p>`;
   settings.append(section);
@@ -75,19 +78,31 @@
   let whatsNew = startupUpgrade(localStorage, 'lb149:desktop', config.version);
   const notesVersion = localStorage.getItem(`${notesKey}:version`);
   const notes = notesVersion === config.version ? localStorage.getItem(notesKey) : null;
-  if (notesVersion === config.version || newer(config.version, notesVersion)) {
+  if (newer(config.version, notesVersion)) {
     localStorage.removeItem(`${notesKey}:version`);
     localStorage.removeItem(notesKey);
   }
   notesButton.textContent = `What's new in ${config.version} ›`;
   notesButton.onclick = () => showNotes(config.version, notes, () => section.querySelector('[data-github]').click());
-  const showWhatsNew = () => { notesBanner.hidden = notesButton.hidden = !whatsNew; };
+  section.querySelector('[data-open-notes]').onclick = notesButton.onclick;
+  const notifications = section.querySelector('[data-notifications]');
+  notifications.checked = localStorage.getItem('desktop-update-notifications') !== 'off';
+  notifications.onchange = () => {
+    localStorage.setItem('desktop-update-notifications', notifications.checked ? 'on' : 'off');
+    renderNotices();
+  };
+  const renderNotices = () => {
+    banner.hidden = !notifications.checked || !update || !!localStorage.getItem(`lb149:desktop-dismiss:${update.version}`);
+    notesBanner.hidden = notesButton.hidden = !notifications.checked || !whatsNew;
+  };
   function log(text) {
     const rows = `${new Date().toISOString()} · ${text}\n${localStorage.getItem(logKey) || ''}`.split('\n').slice(0, 120).join('\n');
     localStorage.setItem(logKey, rows);
     if (document.activeElement !== logField) logField.value = rows;
   }
-  attachVersion(config.version, () => { logField.value = localStorage.getItem(logKey) || ''; diagnostics.showModal(); });
+  const openShell = () => { logField.value = localStorage.getItem(logKey) || ''; diagnostics.showModal(); };
+  attachVersion(config.version, openShell);
+  section.querySelector('[data-shell]').onclick = openShell;
   diagnostics.querySelector('[data-check]').onclick = () => check(true);
   diagnostics.querySelector('[data-restart]').onclick = async () => {
     await window.flushLinebreakerSave?.();
@@ -144,7 +159,6 @@
           update = await invoke('check_desktop_update');
           outcome = update ? `Update ${update.version} is available.` : 'Linebreaker is up to date.';
           getButton.hidden = !update;
-          banner.hidden = !update || !!localStorage.getItem(`lb149:desktop-dismiss:${update.version}`);
           if (update && newer(update.version, config.version)) whatsNew = null;
           if (update) banner.querySelector('[data-available]').textContent = `Update ${update.version}`;
         } catch {
@@ -155,7 +169,7 @@
       })().finally(() => { checking = null; });
     }
     if (checking) await checking;
-    showWhatsNew();
+    renderNotices();
     if (manual) result.textContent = outcome;
   }
 
@@ -207,5 +221,5 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void check(); });
   debugState.textContent = 'No staged update';
   if (auto.checked) await check();
-  else showWhatsNew();
+  else renderNotices();
 })().catch(error => console.error('Desktop updates unavailable', error));

@@ -14,12 +14,16 @@ import com.husarp.linebreaker.BuildConfig
 import com.husarp.linebreaker.R
 
 object ShellUpdatedNotification {
+    fun enabled(context: Context) = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE)
+        .getString("linebreaker-update-notifications", null) == "on"
+
     fun postIfRequested(context: Context) {
         val prefs=context.getSharedPreferences("shell-install",Context.MODE_PRIVATE)
         val target=prefs.getInt("notifyTarget",-1)
         // Consume independently of installer callbacks/session cleanup; never repeat on a later replacement.
         if (!prefs.edit().remove("notifyTarget").commit()) return
         if (!shellUpdatedNoticeRequested(target,BuildConfig.VERSION_CODE)) return
+        if (!enabled(context)) return
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager=context.getSystemService(NotificationManager::class.java)
         if (!manager.areNotificationsEnabled()) return

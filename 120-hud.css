@@ -2,7 +2,7 @@
     --hud-gap: clamp(8px, 1.45vw, 18px);
     --hud-scaled-height: calc(646px * var(--game-scale) / .7);
     --hud-fit-height: calc((100vw - 320px) / var(--hud-board-ratio, .5));
-    --hud-height: min(var(--hud-scaled-height), var(--hud-fit-height), calc(100dvh - 36px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+    --hud-height: min(var(--hud-scaled-height), var(--hud-fit-height), calc(100dvh - 36px - var(--lb-safe-top) - var(--lb-safe-bottom)));
     display: grid;
     grid-template-columns: clamp(106px, 13vw, 138px) auto clamp(106px, 13vw, 138px);
     grid-template-rows: repeat(2, min(84px, 16dvh)) min(72px, 14dvh) min(60px, 12dvh) auto;
@@ -129,7 +129,7 @@
     box-shadow: 0 0 0 1px #141b20, 0 18px 44px #03060bb5;
 }
 
-.lb-touch #app.active-game { --hud-height: min(var(--hud-scaled-height), var(--hud-fit-height), calc(100dvh - 100px - env(safe-area-inset-bottom))); }
+.lb-touch #app.active-game { --hud-height: min(var(--hud-scaled-height), var(--hud-fit-height), calc(100dvh - 100px - var(--lb-safe-top) - var(--lb-safe-bottom))); }
 .lb-touch #app.active-game #game-wrapper { height: var(--hud-height); }
 .lb-touch #app.active-game .lb-touch-controls { grid-column: 1 / -1; padding: 0; }
 
@@ -137,15 +137,15 @@
     #app.active-game,
     .lb-touch #app.active-game {
         --hud-touch-space: 0px;
-        --hud-well-height: max(100px, calc(100dvh - 134px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--hud-touch-space)));
-        --hud-width: min(calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)), calc(var(--hud-well-height) * var(--hud-board-ratio, .5)));
+        --hud-well-height: max(100px, calc(100dvh - 134px - var(--lb-safe-top) - var(--lb-safe-bottom) - var(--hud-touch-space)));
+        --hud-width: min(calc(100vw - 24px - var(--lb-safe-left) - var(--lb-safe-right)), calc(var(--hud-well-height) * var(--hud-board-ratio, .5)));
         --hud-column: calc((var(--hud-width) - 18px) / 11);
         grid-template-columns: repeat(2, calc(3 * var(--hud-column))) repeat(2, calc(2.5 * var(--hud-column)));
         grid-template-rows: 52px 46px auto;
         grid-template-areas: 'hold score lines pause' 'next speed speed time' 'board board board board';
         gap: 6px;
         width: 100%;
-        padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+        padding: max(8px, var(--lb-safe-top)) max(12px, var(--lb-safe-right)) max(8px, var(--lb-safe-bottom)) max(12px, var(--lb-safe-left));
         justify-content: center;
         align-content: start;
     }

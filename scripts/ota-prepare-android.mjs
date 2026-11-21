@@ -42,7 +42,8 @@ if (!isBaseline || !fs.existsSync(baseline)) {
 }
 
 const webDir = path.relative(root, source).split(path.sep).join('/');
-fs.writeFileSync(path.join(root, 'capacitor.config.json'), JSON.stringify({ appId: config.appId, appName: config.appName, webDir }, null, 2) + '\n');
+fs.writeFileSync(path.join(root, 'capacitor.config.json'), JSON.stringify({ appId: config.appId, appName: config.appName, webDir,
+  plugins: { SystemBars: { insetsHandling: 'disable', hidden: true, style: 'DARK' } } }, null, 2) + '\n');
 const cap = spawnSync(process.execPath, [path.join(root, 'node_modules/@capacitor/cli/bin/capacitor'), 'sync', 'android'], { cwd: root, stdio: 'inherit' });
 if (cap.error || cap.status !== 0) throw cap.error || new Error('Capacitor sync failed');
 const assets = path.join(root, 'android/app/src/main/assets');

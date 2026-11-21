@@ -4,10 +4,10 @@
 @media (orientation: portrait) and (max-width: 600px) {
     #app.active-game,
     .lb-touch #app.active-game {
-        --hud-top: max(12px, env(safe-area-inset-top));
-        --hud-bottom: max(12px, env(safe-area-inset-bottom));
-        --hud-left: max(12px, env(safe-area-inset-left));
-        --hud-right: max(12px, env(safe-area-inset-right));
+        --hud-top: max(12px, var(--lb-safe-top));
+        --hud-bottom: max(12px, var(--lb-safe-bottom));
+        --hud-left: max(12px, var(--lb-safe-left));
+        --hud-right: max(12px, var(--lb-safe-right));
         --hud-gap: 8px;
         --hud-preview-row: 56px;
         --hud-stat-row: 52px;
