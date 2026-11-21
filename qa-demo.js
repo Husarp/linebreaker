@@ -52,7 +52,7 @@
             menuPlaylist: ['Glass Harbor', 'Fernlight', 'Paper Orbits'],
             gamePlaylist: ['Copper Relay', 'Vector Bloom'],
             actionPlaylist: ['Redline Echo'],
-            _settings: { skin: 'aztec', optHold: true, musicMuted: true, musicVol: 0 },
+            _settings: { skin: 'aztec', optHold: true },
         };
     }
 

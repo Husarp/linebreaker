@@ -3633,7 +3633,7 @@
         document.querySelectorAll('[data-vstab]').forEach(b => b.classList.toggle('active', b.dataset.vstab === tab));
         document.querySelectorAll('[data-vstab-content]').forEach(p => p.classList.toggle('hidden', p.dataset.vstabContent !== tab));
     }
-    let _prevMusicVol = 60, _prevSfxVol = 50;
+    let _prevMusicVol = defaultSettings.musicVol;
     let _sfxMuted = settings.sfxMuted || false;
     const _SVG_PIX_VOL = `<svg viewBox="0 0 16 16" width="14" height="14" shape-rendering="crispEdges"><rect fill="currentColor" x="0" y="6" width="4" height="4"/><rect fill="currentColor" x="4" y="4" width="2" height="8"/><rect fill="currentColor" x="6" y="2" width="2" height="12"/><rect fill="currentColor" x="10" y="5" width="2" height="6"/><rect fill="currentColor" x="13" y="3" width="2" height="10"/></svg>`;
     const _SVG_PIX_MUTED = `<svg viewBox="0 0 16 16" width="14" height="14" shape-rendering="crispEdges"><rect fill="currentColor" x="0" y="6" width="4" height="4"/><rect fill="currentColor" x="4" y="4" width="2" height="8"/><rect fill="currentColor" x="6" y="2" width="2" height="12"/><rect fill="currentColor" x="10" y="4" width="2" height="2"/><rect fill="currentColor" x="12" y="6" width="2" height="2"/><rect fill="currentColor" x="14" y="8" width="2" height="2"/><rect fill="currentColor" x="12" y="10" width="2" height="2"/><rect fill="currentColor" x="10" y="12" width="2" height="2"/></svg>`;
@@ -3659,7 +3659,13 @@
         const svgVol = isPix ? _SVG_PIX_VOL : _SVG_VOL;
         const svgMuted = isPix ? _SVG_PIX_MUTED : _SVG_MUTED;
         if (type === 'music') {
-            settings.musicMuted = !settings.musicMuted;
+            if (settings.musicVol === 0) {
+                settings.musicVol = _prevMusicVol;
+                settings.musicMuted = false;
+                syncMusicVolumeControl();
+            } else {
+                settings.musicMuted = !settings.musicMuted;
+            }
             syncMusicGain();
             syncMusicMuteButtons();
             saveSettings();
@@ -4185,6 +4191,13 @@
     }
 
     // --- UI CONTROL HELPERS ---
+    function syncMusicVolumeControl() {
+        const value = settings.musicVol;
+        document.getElementById('setting-music-vol').value = value;
+        document.getElementById('setting-music-val').innerText = value + '%';
+        _cPillSync('music', value);
+    }
+
     function _cPillSync(id, value) {
         const v = Math.max(0, Math.min(100, parseFloat(value)));
         const fill = document.getElementById(id + '-pill-fill');
@@ -4247,11 +4260,10 @@
         controlsEditor.render();
         _reminders?.render();
         _musicFollowsSpeedToggle.checked = settings.musicFollowsSpeed !== false;
-        const mv = settings.musicVol, sv = settings.sfxVol;
-        document.getElementById('setting-music-vol').value = mv;
+        const sv = settings.sfxVol;
+        syncMusicVolumeControl();
         document.getElementById('setting-sfx-vol').value = sv;
-        _cPillSync('music', mv); _cPillSync('sfx', sv);
-        const mvEl0 = document.getElementById('setting-music-val'); if (mvEl0) mvEl0.innerText = mv + '%';
+        _cPillSync('sfx', sv);
         const svEl0 = document.getElementById('setting-sfx-val'); if (svEl0) svEl0.innerText = sv + '%';
         const isPix = settings.stylePack === 'pixel';
         syncMusicMuteButtons();
@@ -4426,9 +4438,9 @@
             settings.showSpeedUp = value === true;
             saveSettings(); return;
         } else if (key === 'musicVol') {
+            if (settings.musicVol > 0) _prevMusicVol = settings.musicVol;
             settings.musicVol = parseInt(value);
-            _cPillSync('music', value);
-            const mvEl = document.getElementById('setting-music-val'); if (mvEl) mvEl.innerText = value + '%';
+            syncMusicVolumeControl();
             syncMusicGain();
             syncMusicMuteButtons();
             saveSettingsDebounced(); return;

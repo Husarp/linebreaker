@@ -140,13 +140,14 @@ it('keeps the music volume and mute independent of run fades and settings edits'
     const [volume, fade, effects] = gains;
     expect(volume.connect).toHaveBeenCalledWith(fade);
     expect(volume.gain.value).toBeCloseTo(0.06);
-    expect(w.document.getElementById('mw-mute').getAttribute('aria-label')).toBe('Mute music');
+    const muteButton = w.document.getElementById('mw-mute');
+    expect(muteButton.getAttribute('aria-label')).toBe('Mute music');
     await api.switchMusicMode('game');
     expect(fade.gain.linearRampToValueAtTime).toHaveBeenCalledWith(1, 1.5);
     expect(volume.gain.linearRampToValueAtTime).not.toHaveBeenCalled();
     w.toggleMute('music');
     expect(volume.gain.value).toBe(0);
-    expect(w.document.getElementById('mw-mute').getAttribute('aria-label')).toBe('Unmute music');
+    expect(muteButton.getAttribute('aria-label')).toBe('Unmute music');
     w.onSettingChange('musicVol', '75');
     expect(volume.gain.value).toBe(0);
     expect(effects.gain.value).toBeCloseTo(0.2);
@@ -155,6 +156,16 @@ it('keeps the music volume and mute independent of run fades and settings edits'
     expect(volume.gain.value).toBeCloseTo(0.15);
     w.document.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyM', repeat: true }));
     expect(volume.gain.value).toBeCloseTo(0.15);
+    for (const explicitlyMuted of [false, true]) {
+      if (explicitlyMuted) w.toggleMute('music');
+      w.onSettingChange('musicVol', '0');
+      expect(muteButton.getAttribute('aria-label')).toBe('Unmute music');
+      expect(volume.gain.value).toBe(0);
+      w.toggleMute('music');
+      expect(muteButton.getAttribute('aria-label')).toBe('Mute music');
+      expect(volume.gain.value).toBeCloseTo(0.15);
+      expect(w.document.getElementById('setting-music-vol').value).toBe('75');
+    }
   } finally { close(); }
 });
 

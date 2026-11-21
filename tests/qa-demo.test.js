@@ -40,6 +40,7 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
   const visible = id => expect(get(id)?.classList.contains('hidden')).toBe(false);
   expect(qa).toBeDefined();
   visible('menu-overlay');
+  expect(get('mw-mute').getAttribute('aria-label')).toBe('Mute music');
   expect(get('file-setup-overlay').classList.contains('hidden')).toBe(true);
   expect(api.save).toMatchObject({ totalXP: 64000, stats: { gamesPlayed: 12 }, universalParts: 13 });
   expect(api.save.ownedSkins).toContain('aztec');
