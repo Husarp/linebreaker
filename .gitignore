@@ -7,6 +7,8 @@ AGENTS.md
 
 # Private: plans, design work, changelog, personal save (kept in the Vault)
 design/
+/docs/DESIGN.md
+/docs/MISSIONS-TOUCHUPS.md
 CHANGELOG.md
 *_save.json
 *.lbsave
@@ -52,6 +54,7 @@ src-tauri/target/
 src-tauri/gen/
 src-tauri/installer/generated/
 release/windows/
+release/android/
 *.exe
 *.msi
 *.key

@@ -1,0 +1,47 @@
+name: Windows release build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version (X.Y.Z)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 'lts/*'
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+          architecture: x64
+      - name: Set up Rust and Python build dependencies
+        run: |
+          rustup toolchain install stable-x86_64-pc-windows-msvc --profile minimal
+          rustup override set stable-x86_64-pc-windows-msvc
+          py -3 -m pip install fonttools brotli
+      - run: npm ci
+      - name: Build signed installer
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run desktop:release -- "$env:RELEASE_VERSION"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Linebreaker-Windows-${{ inputs.version }}
+          if-no-files-found: error
+          path: |
+            release/windows/${{ inputs.version }}/LinebreakerSetup-${{ inputs.version }}.exe
+            release/windows/${{ inputs.version }}/LinebreakerSetup-${{ inputs.version }}.exe.sig
+            release/windows/${{ inputs.version }}/latest.json
