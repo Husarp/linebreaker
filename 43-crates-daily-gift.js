@@ -223,7 +223,7 @@
         bindReveal(preOpen, rewards, grid, rarity);
     }
 
-    function mountDailyGift({ button, getSave, ready, save, grant, onClose }) {
+    function mountDailyGift({ button, getSave, ready, save, grant, onClose, claimAfterPaint }) {
         const text = button.querySelector('.lb43-gift-status');
         const isOpen = () => Boolean(document.getElementById('daily-gift-overlay'));
         let clockCheckpoint;
@@ -238,23 +238,29 @@
             }[status];
             return state;
         }
-        button.addEventListener('click', () => {
+        function claim() {
             if (!ready() || button.closest('.hidden') || document.querySelector('.lb-reward-overlay')) return;
             const state = refresh();
             if (state.status !== 'available') return;
-            const data = getSave();
-            const rarity = rollRarity();
-            const plan = giftContents(rarity, state.streak);
-            data.lastDailyGift = state.day;
-            data.dailyGiftStreak = state.streak;
-            const cards = grant(plan);
-            save();
-            refresh();
-            showDailyGift(rarity, state.streak, cards, () => {
-                button.focus({ preventScroll: true });
-                onClose();
+            return claimAfterPaint(button, () => {
+                if (!ready() || document.querySelector('.lb-reward-overlay')) return;
+                const state = refresh();
+                if (state.status !== 'available') return;
+                const data = getSave();
+                const rarity = rollRarity();
+                const plan = giftContents(rarity, state.streak);
+                data.lastDailyGift = state.day;
+                data.dailyGiftStreak = state.streak;
+                const cards = grant(plan);
+                save();
+                refresh();
+                showDailyGift(rarity, state.streak, cards, () => {
+                    button.focus({ preventScroll: true });
+                    onClose();
+                });
             });
-        });
+        }
+        button.addEventListener('click', claim);
         function checkpoint() {
             if (ready()) {
                 const data = getSave();
@@ -271,7 +277,7 @@
         document.addEventListener('visibilitychange', checkpoint);
         window.addEventListener('focus', checkpoint);
         button.addEventListener('focus', refresh);
-        return { refresh, isOpen };
+        return { refresh, isOpen, claim };
     }
 
     window.LBCrates = Object.freeze({ giftStatus, observeTime, rollRarity, giftContents, levelRarity, missionRarity, grantDailyGift, rewardGrid, bindReveal, mountDailyGift });

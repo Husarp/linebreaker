@@ -6,7 +6,6 @@
 
 #daily-gift-overlay .mq-streak-flame { line-height: 1; }
 
-#main-title .lb122-logo { width: clamp(218px, 62vw, 272px); }
 #start-wordmark.lb122-logo { width: min(82vw, 640px); }
 
 #season-pass-overlay .sp-card[data-reached]:not([data-state="claimed"]) .sp-step {

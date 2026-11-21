@@ -35,9 +35,11 @@
 .lb149-dialog textarea::-webkit-scrollbar-thumb { background: var(--bb-edge); }
 .lb149-choice { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: .8rem; }
 .lb149-settings [hidden] { display: none; }
-.lb149-settings details { margin-block: .5rem; }
-.lb149-settings summary { min-height: 44px; align-content: center; cursor: pointer; }
+.lb149-check-status { display: flex; align-items: center; gap: .25rem; }
+.lb149-dialog ul { padding-inline-start: 1.25rem; }
+.lb149-dialog li + li { margin-top: .5em; }
 .lb149-choice select { color: inherit; background: var(--bb-well); border: 1px solid var(--bb-edge); border-radius: var(--bb-cap); padding: .35rem; }
+.lb149-settings .lb149-choice select { min-width: 0; max-width: 54%; text-overflow: ellipsis; }
 :is(.lb149-dialog, .lb149-settings) input[type="url"] { flex: 1 1 12rem; min-width: 0; padding: .55rem; border: 1px solid var(--bb-edge); border-radius: var(--bb-cap); color: inherit; background: var(--bb-well); }
 .lb149-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-block: .45rem; }
 .lb149-banner {

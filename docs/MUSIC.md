@@ -28,6 +28,10 @@ Menu tracks shuffle without immediate repeats. Below speed level 5, gameplay dra
 
 The synth uses amplitude envelopes, waveform compensation, and per-score trim for a consistent mix. Kick uses a pitch sweep; snare and hats share a filtered noise buffer. A timer schedules a short window against `AudioContext.currentTime`; playback is independent of rendering frames and stops scheduling when paused or stopped.
 
+Menu and gameplay share one music player. It releases the old source before starting the next one, pauses in the background, and retries blocked audio on a user interaction. If a recording fails to load or play, the player logs the failure and falls back to a built-in score. The playlist uses blue checks for Menu, green checks for Game (including Intense), and a pixel equalizer that stays still when music is paused, muted, or reduced motion is enabled.
+
+When the page is hidden or the native app pauses, recorded and synthesized music pause, and sound effects are discarded rather than replayed on return. Achievements still unlock and remain claimable, but their background sounds and popups are skipped.
+
 ## Build or add recorded audio
 
 `npm run build:web` is release-safe by default. It stages `assets/music.release.json` as `dist-web/assets/music.json` and never copies MP3s. Android and desktop use the same default build.

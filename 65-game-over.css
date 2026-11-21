@@ -25,10 +25,13 @@
 #go-overlay .go-panel {
     width: min(480px, 100%);
     padding: 12px;
-    border-radius: var(--bb-frame);
+    border: 0 !important;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
-#go-overlay :is(#go-boost-row, #go-achievements-new) { background: var(--bb-panel) !important; }
+#go-overlay :is(#go-boost-row, #go-achievements-new) { border-top: 1px solid var(--bb-edge) !important; }
 
 .go-stats {
     display: grid;
@@ -45,10 +48,6 @@
     gap: 4px;
     min-height: 60px;
     padding: 8px 4px;
-    border: 1px solid var(--bb-edge);
-    border-radius: var(--bb-cap);
-    background: var(--bb-well);
-    box-shadow: inset 0 2px #0008;
 }
 
 .go-tile--score, .go-tile--best, .go-fun .go-tile { grid-column: span 3; }
@@ -58,26 +57,23 @@
 .go-tile--score dd, .go-tile--best dd { font-size: clamp(1.35rem, 5vw, 2rem); }
 .go-tile--score dd, #go-total-xp { color: var(--accent-bright); }
 
-#go-record-bonus { margin: 10px 0 0; color: var(--bb-muted); font-size: var(--text-sm); }
-#go-mission-row { width: 100%; margin-top: 8px; }
-
 .go-section-title { margin: 0; font: 750 var(--text-sm)/1.25 var(--font-body); text-align: left; }
 .go-boost-heading { display: flex; align-items: center; justify-content: space-between; }
 .go-reward-list { display: grid; gap: 6px; padding: 0; margin: 8px 0 0; list-style: none; }
 .go-boost-list { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; }
 
-#go-overlay #go-boost-row .lb-block-reward {
+#go-overlay .go-boost-list .lb-block-btn {
+    position: relative;
     display: grid;
     justify-content: stretch;
+    justify-items: center;
     width: 100%;
     height: 100%;
     gap: 2px;
     padding: 8px 4px !important;
-    border-color: var(--bb-frame-edge) !important;
-    border-bottom-width: 4px !important;
-    box-shadow: var(--bb-cap-shadow) !important;
 }
 
+.go-boost-list .lb-block-reward-amount { --bb-frame-edge: var(--bb-edge); }
 .go-boost-list .lb-booster-token { width: 38px; height: 38px; }
 .go-boost-list strong { white-space: nowrap; }
 .go-boost-list small, .go-ach-card small { display: block; color: var(--bb-muted); font-size: var(--text-xs); text-transform: capitalize; }
@@ -87,10 +83,6 @@
     align-items: center;
     gap: 8px;
     padding: 5px 8px;
-    border: 1px solid var(--bb-edge);
-    border-inline-start: 3px solid var(--go-rarity, var(--bb-rarity-common));
-    border-radius: var(--bb-cap);
-    background: var(--bb-well);
     font-size: var(--text-sm);
     text-align: left;
 }
@@ -99,7 +91,7 @@
 .go-ach-card[data-rarity="epic"] { --go-rarity: var(--bb-rarity-epic); }
 .go-ach-card[data-rarity="legendary"] { --go-rarity: var(--bb-rarity-legendary); }
 .go-ach-card[data-rarity="mythic"] { --go-rarity: var(--bb-rarity-mythic); }
-.go-ach-icon { display: grid; place-items: center; width: 32px; height: 32px; flex: none; }
+.go-ach-icon { display: grid; place-items: center; width: 32px; height: 32px; flex: none; color: var(--go-rarity, var(--bb-rarity-common)); }
 
 .go-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 #go-overlay .go-actions .lb-block-btn { min-width: 88px; }

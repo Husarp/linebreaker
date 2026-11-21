@@ -18,7 +18,6 @@
     }
 }
 
-.lb122-menu-heading { position: relative; }
 #main-title { margin: 0 0 5px; }
 #lb122-logo-button {
     display: block;
@@ -29,12 +28,14 @@
     cursor: pointer;
 }
 .lb122-logo { display: block; height: auto; }
-#main-title .lb122-logo { width: clamp(230px, 66vw, 282px); }
+#main-title .lb122-logo { width: min(76vw, 320px); }
+#lb122-logo-button:active .lb122-logo { filter: brightness(1.24); }
 .lb122-menu-heading #splash-quote {
-    inset: calc(100% + 3px) 0 auto auto;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    position: static;
+    padding-block-end: 5px;
+    text-align: center;
+    white-space: normal;
+    animation: none;
 }
 
 #menu-xp-bar-wrap {
@@ -52,7 +53,8 @@
     border: 0;
     border-radius: var(--bb-cap);
     background: none;
-    cursor: help;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
 }
 :is(#lb122-xp-trigger, #lb122-logo-button):focus-visible {
     outline: 2px solid var(--accent-bright);
@@ -66,11 +68,12 @@
     transform: translateX(-50%);
     display: grid;
     gap: 4px;
-    width: min(250px, 80vw);
-    padding: 9px 12px;
+    width: max-content;
+    max-width: min(250px, 80vw);
+    padding: 5px 8px;
+    pointer-events: none;
     color: var(--bb-muted);
-    text-align: start;
-    font: 500 13px/1.4 var(--font-body);
+    font: 650 12px/1.4 var(--font-body);
 }
 #lb122-xp-tooltip[hidden] { display: none; }
 #lb122-xp-progress { color: var(--accent-bright); }

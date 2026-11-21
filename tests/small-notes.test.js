@@ -87,11 +87,12 @@ it('shows grouped converted parts in a level box while escaping reward text', ()
 
 it('shows the conversion when collecting an airdrop', () => {
   api.setup({ save: { parts: cappedParts() } });
+  window.onSettingChange('themeBackground', 'plain');
   window.Math.random = () => 0.5;
   document.getElementById('menu-overlay').classList.remove('hidden');
   api.spawnSpecialBlock();
   for (let frame = 0; frame < 31; frame++) game.advance(100);
-  document.dispatchEvent(new window.MouseEvent('click', { clientX: window.innerWidth / 2, clientY: 14 }));
+  document.body.dispatchEvent(new window.MouseEvent('click', { bubbles: true, clientX: window.innerWidth / 2, clientY: 14 }));
   const conversion = document.querySelector('s');
   expect(conversion?.textContent).toMatch(/^\+1 part \(.+\)$/);
   expect(conversion.parentElement.textContent).toContain('→ +0.2 universal parts');

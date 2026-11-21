@@ -80,7 +80,7 @@
         }
 
         function swatches(colors) {
-            return colors.map(hex => `<button type="button" class="lb-btn lb-btn--ghost lb-color-swatch" data-color="${hex}" aria-label="Use ${hex}" title="${hex}" style="--swatch:${hex}"></button>`).join('');
+            return colors.map(hex => `<button type="button" class="lb-btn lb-btn--ghost lb-color-swatch" data-color="${hex}" aria-label="Use ${hex}" data-control-tip="${hex}" style="--swatch:${hex}"></button>`).join('');
         }
 
         dialog.innerHTML = `<div class="lb-color-content lb-scroll-fade">

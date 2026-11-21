@@ -70,7 +70,8 @@ describe('achievement screen', () => {
     } } });
     game.w.openAchievements();
     select('#ach-sort', 'rarity');
-    expect(hover(badges('BASIC')[0])).toContain('LEGENDARY');
+    expect(hover(badges('BASIC')[0])).toContain('Hooked');
+    expect(badges('BASIC').slice(0, 3).map(badge => badge.dataset.state)).toEqual(['unlocked', 'unlocked', 'locked']);
     filter('locked');
     const rarityOrder = badges('BASIC').map(hover);
     select('#ach-sort', 'progress');
@@ -84,6 +85,94 @@ describe('achievement screen', () => {
     expect(badges('SECRET').map(hover)).toEqual([expect.stringContaining('Mirror Universe'), expect.stringContaining('Nice')]);
     select('#ach-sort', 'default');
     expect(hover(badges('BASIC')[0])).toContain('Hooked');
+  });
+
+  it('reuses one question-mark graphic until secrets unlock and draws a full progress outline only for the earned badge', () => {
+    const icon = badge => badge.querySelector('.ach-card-icon').innerHTML;
+    game.w.openAchievements('locked');
+    const allSecretIcons = new Set(badges('SECRET').map(icon));
+    expect(allSecretIcons.size).toBe(1);
+
+    game.api.setup({ save: { achievements: { sec_nice: { unlocked: true } } } });
+    game.w.openAchievements();
+    const [nice, mystery] = badges('SECRET');
+    expect(hover(nice)).toContain('Nice');
+    expect(allSecretIcons.has(icon(nice))).toBe(false);
+    expect(allSecretIcons.has(icon(mystery))).toBe(true);
+    expect(nice.querySelector('.ach-card-progress path').hasAttribute('stroke-dasharray')).toBe(false);
+    expect(mystery.querySelector('.ach-card-progress')).toBeNull();
+  });
+
+  it('provides artwork for every achievement without using text or placeholder glyphs for earned badges', async () => {
+    game.close();
+    game = await loadGame(true, null, null, undefined, null, window => window.history.replaceState(null, '', '?dev'));
+    game.api.setup();
+    game.w.devLockAllAchievements();
+    game.w.openAchievements('locked');
+    const mystery = badges('SECRET')[0].querySelector('.ach-card-icon').innerHTML;
+    const lockedBasic = new Map(badges('BASIC').map(badge => [badge.dataset.achId, badge.querySelector('.ach-card-icon').innerHTML]));
+
+    game.w.devUnlockAllAchievements();
+    game.w.openAchievements('unlocked');
+    const earned = [...badges('BASIC'), ...badges('SECRET')];
+    expect(earned).toHaveLength(97);
+    for (const badge of earned) {
+      const icon = badge.querySelector('.ach-card-icon');
+      expect(icon.querySelector('path[d], use[href]')).not.toBeNull();
+      expect(icon.querySelector('text')).toBeNull();
+      expect(icon.innerHTML).not.toBe(mystery);
+      if (lockedBasic.has(badge.dataset.achId)) expect(icon.innerHTML).toBe(lockedBasic.get(badge.dataset.achId));
+    }
+  });
+
+  it('anchors to the glyph instead of the tap, clamps to the screen and flips below near the top', () => {
+    game.w.openAchievements();
+    const badge = badges('BASIC')[0];
+    const tip = query('#ach-tip');
+    const icon = badge.querySelector('.ach-card-icon');
+    Object.defineProperties(tip, { offsetWidth: { value: 284 }, offsetHeight: { value: 140 } });
+    icon.getBoundingClientRect = () => ({ left: 16, width: 30, top: 415, bottom: 445 });
+    const tap = (clientX, clientY) => badge.dispatchEvent(new game.w.MouseEvent('click', { bubbles: true, detail: 1, clientX, clientY }));
+    tap(9, 411);
+    expect(tip.hidden).toBe(false);
+    expect(badge.getAttribute('aria-describedby')).toBe('ach-tip');
+    expect([tip.style.left, tip.style.top]).toEqual(['10px', '267px']);
+    tap(47, 447);
+    expect([tip.style.left, tip.style.top]).toEqual(['10px', '267px']);
+    icon.getBoundingClientRect = () => ({ left: game.w.innerWidth - 43, width: 30, top: 100, bottom: 130 });
+    tap(8, 8);
+    expect([tip.style.left, tip.style.top]).toEqual([`${game.w.innerWidth - 294}px`, '138px']);
+  });
+
+  it('dismisses on nested scroll, page wheel, drag, outside tap, tab change, and back', () => {
+    game.w.openAchievements();
+    const tip = query('#ach-tip');
+    const badge = badges('BASIC')[0];
+    const show = () => { badge.click(); expect(tip.hidden).toBe(false); };
+    const pointer = (type, clientY) => badge.dispatchEvent(new game.w.MouseEvent(type, { bubbles: true, clientY }));
+
+    show();
+    query('#ach-list').dispatchEvent(new game.w.Event('scroll'));
+    expect(tip.hidden).toBe(true);
+    expect(badge.hasAttribute('aria-describedby')).toBe(false);
+    show();
+    game.w.dispatchEvent(new game.w.Event('wheel'));
+    expect(tip.hidden).toBe(true);
+    show();
+    pointer('pointerdown', 200);
+    pointer('pointermove', 230);
+    pointer('pointerup', 230);
+    badge.dispatchEvent(new game.w.MouseEvent('click', { bubbles: true, detail: 1 }));
+    expect(tip.hidden).toBe(true);
+    show();
+    query('#ach-counter').click();
+    expect(tip.hidden).toBe(true);
+    show();
+    filter('locked');
+    expect(tip.hidden).toBe(true);
+    badges('BASIC')[0].click();
+    game.w.closeAchievements();
+    expect(tip.hidden).toBe(true);
   });
 
   it('shows the earned tier and the next locked tier, with unlocked badges sorted first by rarity', () => {
@@ -142,11 +231,18 @@ describe('achievement screen', () => {
     }
     expect(rareReward.querySelector('button').getAttribute('aria-label')).toBe('Claim Mirror Universe');
     expect(game.api.save.totalXP).toBe(0);
-    [...query('#ach-list').querySelectorAll('button')].find(button => button.textContent === 'CLAIM').click();
+    const claim = [...query('#ach-list').querySelectorAll('button')].find(button => button.textContent === 'CLAIM');
+    claim.click();
+    claim.click();
+    expect(claim.getAttribute('aria-busy')).toBe('true');
+    game.advance(16);
+    expect(game.api.save.totalXP).toBe(0);
+    game.advance(16);
     expect(game.api.save.totalXP).toBe(500);
     expect(game.api.save.pendingAchievementClaims.map(claim => claim.id)).toEqual(['games', 'sec_symmetric_board']);
     filter('locked');
     [...query('#ach-list').querySelectorAll('button')].find(button => button.textContent === 'CLAIM ALL').click();
+    game.advance(100);
     expect(game.api.save.totalXP).toBe(2000);
     expect(game.api.save.pendingAchievementClaims).toEqual([]);
     expect(query('#ach-list').textContent).not.toContain('PENDING REWARDS');

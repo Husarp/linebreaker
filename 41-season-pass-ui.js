@@ -15,7 +15,7 @@
         return `${Math.floor(remaining / hour)} h ${Math.floor(remaining % hour / minute)} m left`;
     }
 
-    function mount({ getSave, save, partName, boosterName, inventory, grant }) {
+    function mount({ getSave, save, partName, boosterName, inventory, grant, claimAfterPaint }) {
         const screen = document.getElementById('season-pass-overlay');
         screen.innerHTML = `
             <div class="sp-shell">
@@ -270,15 +270,18 @@
             }
             const button = event.target.closest('[data-sp-day]');
             if (!button || !isOpen() || !config) return;
-            const currentSave = getSave();
             const day = Number(button.dataset.spDay);
-            const result = claimStage(currentSave, config, day, Date.now(), inventory());
-            storeState(currentSave, result);
-            if (result.reward) {
-                (result.reward.contents || [result.reward]).forEach(grant);
-                announcement.textContent = `Stage ${day} claimed: ${rewardLabel(result.reward)}`;
-            }
-            refresh(true);
+            claimAfterPaint(button, () => {
+                if (!isOpen()) return;
+                const currentSave = getSave();
+                const result = claimStage(currentSave, config, day, Date.now(), inventory());
+                storeState(currentSave, result);
+                if (result.reward) {
+                    (result.reward.contents || [result.reward]).forEach(grant);
+                    announcement.textContent = `Stage ${day} claimed: ${rewardLabel(result.reward)}`;
+                }
+                refresh(true);
+            });
         });
         return { open, close };
     }

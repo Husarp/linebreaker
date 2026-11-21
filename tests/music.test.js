@@ -12,6 +12,296 @@ const original = JSON.parse(readFileSync(new URL('../assets/music.release.json',
 const local = JSON.parse(readFileSync(new URL('../assets/music.json', import.meta.url), 'utf8'));
 const { getTrack, createSource } = globalThis.LBMusicSynth;
 
+const synthCatalog = async () => ({ ok: true, json: async () => original });
+
+async function resetMusicAfterBoot(win) {
+  await vi.waitFor(() => expect(win.document.getElementById('loading-screen').dataset.dismissed).toBe('1'));
+  win.dispatchEvent(new win.PageTransitionEvent('pagehide'));
+  win.dispatchEvent(new win.PageTransitionEvent('pageshow'));
+}
+
+function observeMusic(win, active = new Set()) {
+  const sources = [];
+  const start = source => {
+    expect(active.size).toBe(0);
+    active.add(source);
+  };
+  vi.spyOn(win.LBMusicSynth, 'createSource').mockImplementation(() => {
+    const source = {
+      connect: vi.fn(), start: vi.fn(() => start(source)), resume: vi.fn(() => start(source)),
+      pause: vi.fn(() => active.delete(source)), stop: vi.fn(() => active.delete(source))
+    };
+    sources.push(source);
+    return source;
+  });
+  return { sources, active };
+}
+
+it('lets only the latest catalog request or source completion start music', async () => {
+  let sendCatalog;
+  const catalog = new Promise(resolve => { sendCatalog = resolve; });
+  const { w, api, close } = await loadGame(true, null, null, async path => path === 'assets/music.json'
+    ? catalog : { ok: true, json: async () => [] });
+  try {
+    await resetMusicAfterBoot(w);
+    const { sources, active } = observeMusic(w);
+    w.Math.random = () => 0.75;
+    api.setup();
+    const menu = api.startMusic();
+    const game = api.switchMusicMode('game');
+    const nextMenu = api.switchMusicMode('menu');
+    sendCatalog(await synthCatalog());
+    await Promise.all([menu, game, nextMenu]);
+    expect(sources).toHaveLength(1);
+    expect(api._getPlaylist('menu')).toContain(w.document.getElementById('mw-title').textContent);
+    const staleEnd = sources[0].onended;
+    await api.switchMusicMode('game');
+    expect(sources[0].stop).toHaveBeenCalledOnce();
+    staleEnd();
+    expect(sources).toHaveLength(2);
+
+    api.setup({ speed: 5 });
+    const gameEnd = sources[1].onended;
+    gameEnd();
+    gameEnd();
+    expect(sources).toHaveLength(3);
+    expect([...active]).toEqual([sources[2]]);
+    expect(api._getPlaylist('action')).toContain(w.document.getElementById('mw-title').textContent);
+  } finally { close(); }
+});
+
+it('does not resume a widget-paused track on foregrounding or revive it after pagehide', async () => {
+  const { w, api, close } = await loadGame(true, null, null, synthCatalog);
+  try {
+    await resetMusicAfterBoot(w);
+    let hidden = false;
+    Object.defineProperty(w.document, 'hidden', { get: () => hidden });
+    const visibility = value => {
+      hidden = value;
+      w.document.dispatchEvent(new w.Event('visibilitychange'));
+    };
+    const { sources, active } = observeMusic(w);
+    api.setup();
+    await api.startMusic();
+    const [track] = sources;
+    const panel = w.document.getElementById('playlist-panel-content');
+    w.openPlaylistPanel();
+    await Promise.resolve();
+    expect(panel.querySelectorAll('[aria-current] .lb-playlist-equalizer i')).toHaveLength(3);
+    expect(panel.hasAttribute('data-playing')).toBe(true);
+    visibility(true);
+    expect(track.pause).toHaveBeenCalledOnce();
+    expect(panel.hasAttribute('data-playing')).toBe(false);
+    visibility(false);
+    expect(track.resume).toHaveBeenCalledOnce();
+    w.musicWidgetPause();
+    visibility(true);
+    visibility(false);
+    expect(track.resume).toHaveBeenCalledOnce();
+    expect(panel.hasAttribute('data-playing')).toBe(false);
+    w.musicWidgetPause();
+    expect(track.resume).toHaveBeenCalledTimes(2);
+    expect(panel.hasAttribute('data-playing')).toBe(true);
+
+    const pendingSwitch = api.switchMusicMode('game');
+    w.dispatchEvent(new w.PageTransitionEvent('pagehide'));
+    await pendingSwitch;
+    track.onended();
+    expect(sources).toHaveLength(1);
+    expect(active.size).toBe(0);
+  } finally { close(); }
+});
+
+it.each(['visibilitychange', 'pagehide', 'native pause'])('silences all output on %s and only resumes music', async trigger => {
+  const handlers = new Map();
+  const capacitor = trigger === 'native pause' ? { isNativePlatform: () => true, Plugins: {
+    App: { async addListener(name, listener) { handlers.set(name, listener); } },
+    Filesystem: { async readFile() { return { data: '{"totalXP":0}' }; } }
+  } } : null;
+  const { w, api, close } = await loadGame(true, null, capacitor, synthCatalog);
+  try {
+    await resetMusicAfterBoot(w);
+    let hidden = false;
+    Object.defineProperty(w.document, 'hidden', { get: () => hidden });
+    const visibility = value => {
+      hidden = value;
+      w.document.dispatchEvent(new w.Event('visibilitychange'));
+    };
+    const createGain = w.AudioContext.prototype.createGain;
+    const gains = [];
+    vi.spyOn(w.AudioContext.prototype, 'createGain').mockImplementation(function () {
+      const node = createGain.call(this);
+      gains.push(node);
+      vi.spyOn(node, 'disconnect');
+      return node;
+    });
+    const sfx = vi.spyOn(w.AudioContext.prototype, 'createOscillator');
+    const { sources, active } = observeMusic(w);
+    const button = w.document.body.appendChild(w.document.createElement('button'));
+    api.setup();
+    await api.startMusic();
+    const [musicGain, , originalSfxGain] = gains;
+    const [track] = sources;
+    button.click();
+    expect(sfx).toHaveBeenCalled();
+    sfx.mockClear();
+
+    if (trigger === 'visibilitychange') visibility(true);
+    else if (trigger === 'pagehide') w.dispatchEvent(new w.PageTransitionEvent('pagehide', { persisted: true }));
+    else handlers.get('pause')();
+    expect(track.pause).toHaveBeenCalledOnce();
+    expect(active.size).toBe(0);
+    expect(musicGain.gain.value).toBe(0);
+    expect(originalSfxGain.disconnect).toHaveBeenCalledOnce();
+    button.click();
+    expect(sfx).not.toHaveBeenCalled();
+
+    if (trigger === 'pagehide') {
+      visibility(false);
+      expect(track.resume).not.toHaveBeenCalled();
+      visibility(true);
+      w.dispatchEvent(new w.PageTransitionEvent('pageshow', { persisted: true }));
+    } else if (trigger === 'native pause') {
+      handlers.get('appStateChange')({ isActive: false });
+      handlers.get('appStateChange')({ isActive: true });
+      expect(track.resume).not.toHaveBeenCalled();
+      visibility(true);
+      handlers.get('resume')();
+    }
+    expect(track.resume).not.toHaveBeenCalled();
+    expect(sfx).not.toHaveBeenCalled();
+    visibility(false);
+    expect(track.resume).toHaveBeenCalledOnce();
+    expect(musicGain.gain.value).toBeGreaterThan(0);
+    expect(sfx).not.toHaveBeenCalled();
+    button.click();
+    expect(sfx).toHaveBeenCalled();
+  } finally { close(); }
+});
+
+it('unlocks the idle achievement in the background without playing its sound or showing its popup', async () => {
+  let idleCheck, now;
+  const { w, api, close } = await loadGame(true, null, null, synthCatalog, null, win => {
+    now = win.Date.now();
+    win.Date.now = () => now;
+    const setInterval = win.setInterval;
+    win.setInterval = (fn, delay) => {
+      if (delay === 30000) idleCheck = fn;
+      return setInterval(fn, delay);
+    };
+  });
+  try {
+    await resetMusicAfterBoot(w);
+    observeMusic(w);
+    api.setup();
+    await api.startMusic();
+    const sfx = vi.spyOn(w.AudioContext.prototype, 'createOscillator');
+    const bodyChildren = w.document.body.childElementCount;
+    let hidden = true;
+    Object.defineProperty(w.document, 'hidden', { get: () => hidden });
+    w.document.dispatchEvent(new w.Event('visibilitychange'));
+    now += 15 * 60 * 1000;
+    idleCheck();
+    expect(api.save.achievements.afk.unlocked).toBe(true);
+    expect(api.save.pendingAchievementClaims).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'afk' })]));
+    expect(w.document.body.childElementCount).toBe(bodyChildren);
+    expect(sfx).not.toHaveBeenCalled();
+    hidden = false;
+    w.document.dispatchEvent(new w.Event('visibilitychange'));
+    expect(sfx).not.toHaveBeenCalled();
+  } finally { close(); }
+});
+
+it('disconnects a failed recording before starting synth and ignores stale media events', async () => {
+  const media = [], requests = [];
+  const active = new Set();
+  const fetch = async (path, options) => options?.method === 'HEAD' ? { ok: true } : {
+    ok: true, json: async () => path.endsWith('music.release.json') ? original : local
+  };
+  const { w, api, close } = await loadGame(true, null, null, fetch, null, win => {
+    win.Audio = function () {
+      const audio = win.document.createElement('audio');
+      audio.play = vi.fn(() => new Promise((resolve, reject) => { requests.push({ resolve, reject }); }));
+      audio.pause = vi.fn();
+      audio.load = vi.fn();
+      media.push(audio);
+      return audio;
+    };
+    win.AudioContext.prototype.createMediaElementSource = audio => ({
+      connect() { expect(active.size).toBe(0); active.add(audio); },
+      disconnect() { active.delete(audio); }
+    });
+  });
+  try {
+    await resetMusicAfterBoot(w);
+    media.length = requests.length = 0;
+    const warn = vi.spyOn(w.console, 'warn').mockImplementation(() => {});
+    vi.spyOn(w.console, 'info').mockImplementation(() => {});
+    const { sources } = observeMusic(w, active);
+    api.setup({ save: { menuPlaylist: ['Rest Area'] } });
+    await api.startMusic();
+    requests[0].reject(new w.DOMException('Gesture required', 'NotAllowedError'));
+    await Promise.resolve();
+    expect(warn).toHaveBeenCalledOnce();
+    expect(media[0].pause).toHaveBeenCalledOnce();
+    expect(media[0].hasAttribute('src')).toBe(false);
+    expect([...active]).toEqual([sources[0]]);
+    w.playTrackInPlaylist('Rest Area');
+    await api.switchMusicMode('game');
+    media[1].onerror();
+    media[1].onloadedmetadata();
+    media[1].onended();
+    requests[1].reject(new Error('Delayed rejection'));
+    await Promise.resolve();
+    expect(warn).toHaveBeenCalledOnce();
+    expect([...active]).toEqual([sources[1]]);
+  } finally { close(); }
+});
+
+it('unlocks a previously blocked context without replacing the source or restoring stale volume', async () => {
+  let context, volume;
+  const { w, api, close } = await loadGame(true, null, null, synthCatalog, { musicVol: 50, musicMuted: true }, win => {
+    const Base = win.AudioContext;
+    win.AudioContext = class extends Base {
+      constructor() { super(); context = this; volume = null; this.state = 'suspended'; }
+      createGain() { const node = super.createGain(); volume ||= node.gain; return node; }
+      resume = vi.fn(() => new Promise(() => {}));
+    };
+  });
+  try {
+    await resetMusicAfterBoot(w);
+    const { sources } = observeMusic(w);
+    api.setup();
+    await api.startMusic();
+    expect(context.resume).toHaveBeenCalledOnce();
+    expect(volume.value).toBe(0);
+    context.resume.mockImplementation(() => { context.state = 'running'; return Promise.resolve(); });
+    w.LBInput.unlockAudio();
+    expect(context.resume).toHaveBeenCalledTimes(2);
+    expect(volume.value).toBe(0);
+    w.toggleMute('music');
+    expect(volume.value).toBeCloseTo(0.1);
+    expect(sources).toHaveLength(1);
+    expect(sources[0].start).toHaveBeenCalledOnce();
+  } finally { close(); }
+});
+
+it('still plays a built-in score when both catalogs fail to load', async () => {
+  let warn;
+  const { w, api, close } = await loadGame(true, null, null, async () => ({ ok: false, status: 503 }), null, win => {
+    warn = vi.spyOn(win.console, 'warn').mockImplementation(() => {});
+  });
+  try {
+    await resetMusicAfterBoot(w);
+    const { sources } = observeMusic(w);
+    api.setup();
+    await api.startMusic();
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(sources[0].start).toHaveBeenCalledOnce();
+    expect(w.document.getElementById('mw-title').textContent).toBe('Glass Harbor');
+  } finally { close(); }
+});
+
 it('defines ten distinct, layered score loops with the requested lengths', () => {
   expect(Object.values(original).map(tracks => tracks.length)).toEqual([4, 4, 2]);
   const melodies = new Set();

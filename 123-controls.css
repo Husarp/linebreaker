@@ -34,7 +34,10 @@
 #go-overlay :is(.result-pin, #go-xp-row .go-icon) { --action-tint: var(--bb-rarity-legendary); }
 #go-overlay .go-stat-rows .go-icon,
 #go-overlay #go-xp-row .go-icon { color: color-mix(in srgb, var(--action-tint) 78%, white); }
-#go-overlay .go-actions > .lb-block-btn { padding-block-end: 10px !important; }
+#go-overlay .go-actions > .lb-block-btn {
+    padding-block: 6px !important;
+    border-bottom-color: color-mix(in srgb, var(--action-tint) 22%, #080911) !important;
+}
 
 #pal-edit-modal .lb-palette-tool { padding: 0 0 4px !important; }
 

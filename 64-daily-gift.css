@@ -46,9 +46,6 @@
     gap: 12px;
     margin: 10px 0 12px;
     padding: 5px 10px;
-    border: 2px solid var(--bb-edge);
-    border-radius: var(--bb-cap);
-    background: var(--bb-well);
     color: var(--accent-bright);
 }
 
@@ -65,13 +62,18 @@
     gap: 8px !important;
     justify-items: center;
     margin: 12px 0 16px;
+    border-top: 1px solid var(--bb-edge);
+    padding-top: 8px;
 }
 
-.lb64-rewards > .lb-block-reward {
+:is(#level-up-popup-overlay, #level-box-overlay, #daily-gift-overlay, .lb64-mission-crate) .lb64-rewards > .lb-block-reward {
     width: 100%;
     max-width: 160px;
     gap: 4px;
-    padding: 34px 6px 8px !important;
+    padding: 26px 6px 8px !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
 .lb64-rewards .lb-block-reward img { width: 52px; height: 48px; }
@@ -80,10 +82,6 @@
 .lb64-rewards .lb-reward-rarity { margin: 0; color: var(--bb-frame-edge); }
 
 .lb64-reward-tag {
-    padding: 2px 5px;
-    border: 1px solid var(--bb-edge);
-    border-radius: var(--radius-pill);
-    background: var(--bb-well);
     color: var(--accent-bright);
     font: 700 11px/1.25 var(--font-body);
 }

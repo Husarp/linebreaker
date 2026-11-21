@@ -188,7 +188,7 @@
     let _specialBlockLastSpawn = 0;
 
     function _spawnSpecialBlock() {
-        if (_specialBlock) return;
+        if (_specialBlock || LBArtPack.backgroundMode(settings.themeBackground) !== 'plain') return;
         _specialBlockLastSpawn = Date.now();
         const falling = settings.bgBlockMotion === 'falling';
         _specialBlock = {
@@ -314,16 +314,17 @@
 
     let _bgFrame = null, _bgTime = null;
     const _bgApp = document.getElementById('app');
-    function _bgVisible() { return !document.hidden && !_bgApp.classList.contains('active-game'); }
+    function _bgVisible() {
+        return !document.hidden && !_bgApp.classList.contains('active-game')
+            && LBArtPack.backgroundMode(settings.themeBackground) === 'plain';
+    }
     function bgLoop(now) {
         _bgFrame = null;
         if (!_bgVisible()) { _bgTime = null; return; }
         const dt = _bgTime === null ? 0 : Math.min(100, now - _bgTime);
         _bgTime = now;
         bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
-        if (LBArtPack.backgroundMode(settings.themeBackground) === 'plain') {
-            bgBlocks.forEach(b => { b.update(dt); b.draw(); });
-        }
+        bgBlocks.forEach(b => { b.update(dt); b.draw(); });
         _updateSpecialBlock(dt);
         _drawSpecialBlock();
         _bgFrame = requestAnimationFrame(bgLoop);
@@ -336,7 +337,6 @@
     }
     new MutationObserver(_syncBgLoop).observe(_bgApp, { attributes:true, attributeFilter:['class'] });
     document.addEventListener('visibilitychange', _syncBgLoop);
-    _syncBgLoop();
 
     const _SPLASH_QUOTES = [
         "100% gravity!",
@@ -433,20 +433,24 @@
     const logoButton = document.getElementById('lb122-logo-button');
     const logo = logoButton.querySelector('img');
     const logoEffects = [
-        { transform: 'scale(1.11)' },
-        { transform: 'scale(.9)', filter: 'brightness(1.6)' },
-        { filter: 'hue-rotate(100deg)' },
-        { transform: 'translateY(5px) scale(1.04)' },
-        { transform: 'rotate(-4deg)' },
-        { filter: 'drop-shadow(4px 0 #ff3fb5) drop-shadow(-4px 0 #00eaff)' },
+        [{ transform: 'scale(1.08)' }],
+        [{ transform: 'scale(.93)', filter: 'brightness(1.6)' }],
+        [{ filter: 'brightness(1) hue-rotate(100deg)' }],
+        [{ transform: 'translateY(5px) scale(1.04)' }],
+        [{ transform: 'rotate(-4deg)' }, { transform: 'rotate(3deg)' }, { transform: 'rotate(-1deg)' }],
+        [{ filter: 'brightness(1) drop-shadow(4px 0 #ff3fb5) drop-shadow(-4px 0 #00eaff)' }],
     ];
-    let logoClickTime = -Infinity;
-    let logoEffectIndex = 0;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    let logoEffectIndex = -1;
+    let logoAnimation;
     logoButton.addEventListener('click', () => {
-        const now = Date.now();
-        if (now - logoClickTime < 2000) return;
-        logoClickTime = now;
         logoEffectIndex = (logoEffectIndex + 1) % logoEffects.length;
+        logoAnimation?.cancel();
+        logoAnimation = reducedMotion?.matches
+            ? logo.animate?.([{ filter: 'brightness(1.5)' }, { filter: 'brightness(1.5)' }], 180)
+            : logo.animate?.([{ filter: 'brightness(1.24)', transform: 'none' }, ...logoEffects[logoEffectIndex],
+                { filter: 'none', transform: 'none' }]
+                .map(frame => ({ easing: 'ease-in-out', ...frame })), { duration: 1200 });
         const seenEffects = saveData.stats.seenTitleAnims ??= [];
         if (!seenEffects.includes(logoEffectIndex)) {
             seenEffects.push(logoEffectIndex);
@@ -456,55 +460,184 @@
             unlockAchievement('logo_click');
             saveDataToFile();
         }
-        if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-            logo.animate?.([{}, logoEffects[logoEffectIndex], {}], { duration: 480, easing: 'ease-in-out' });
-        }
     });
+
+    let activeInfo;
+    let infoPointer;
+    let infoDragged = false;
+
+    function closeInfo(anchor) {
+        if (!activeInfo || (anchor && activeInfo.anchor !== anchor)) return;
+        const { dismiss } = activeInfo;
+        activeInfo = undefined;
+        dismiss();
+    }
+
+    function keepInfo(anchor, panel, dismiss) {
+        if (activeInfo?.anchor !== anchor || activeInfo.panel !== panel) closeInfo();
+        activeInfo = { anchor, panel, dismiss };
+    }
+
+    function positionInfo(panel, anchor) {
+        const bounds = anchor.getBoundingClientRect();
+        const margin = 10, gap = 8;
+        const width = panel.offsetWidth, height = panel.offsetHeight;
+        const spaceAbove = bounds.top - gap - margin;
+        const spaceBelow = window.innerHeight - bounds.bottom - gap - margin;
+        const above = height <= spaceAbove || (height > spaceBelow && spaceAbove >= spaceBelow);
+        const left = bounds.left + (bounds.width - width) / 2;
+        const top = above ? bounds.top - height - gap : bounds.bottom + gap;
+        panel.style.left = `${Math.max(margin, Math.min(left, window.innerWidth - width - margin))}px`;
+        panel.style.top = `${Math.max(margin, Math.min(top, window.innerHeight - height - margin))}px`;
+    }
+
+    function infoPanel(id) {
+        let panel = document.getElementById(id);
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = id;
+            panel.className = 'lb-floating-tip lb-block-panel';
+            panel.setAttribute('role', 'tooltip');
+            panel.hidden = true;
+            document.body.appendChild(panel);
+        }
+        return panel;
+    }
+
+    function showInfo(panel, anchor, { position = anchor, dismiss = () => { panel.hidden = true; } } = {}) {
+        keepInfo(anchor, panel, dismiss);
+        panel.hidden = false;
+        positionInfo(panel, position);
+    }
+
+    function bindInfoPreview(anchor, show, { tap = false } = {}) {
+        anchor.addEventListener('mouseenter', () => { if (!infoPointer || !infoDragged) show(); });
+        anchor.addEventListener('mouseleave', () => { if (!anchor.matches(':focus-visible')) closeInfo(anchor); });
+        anchor.addEventListener('focusin', event => { if (event.target.matches(':focus-visible')) show(); });
+        anchor.addEventListener('focusout', event => { if (!anchor.contains(event.relatedTarget)) closeInfo(anchor); });
+        if (tap) anchor.addEventListener('click', event => { if (!infoDragged || !event.detail) show(); });
+    }
+
+    function closeInfoOutside(event) {
+        if (activeInfo && !activeInfo.anchor.contains(event.target) && !activeInfo.panel.contains(event.target)) closeInfo();
+    }
+
+    document.addEventListener('pointerdown', event => {
+        if (event.isPrimary === false) return;
+        infoPointer = event;
+        infoDragged = false;
+        closeInfoOutside(event);
+    }, true);
+    document.addEventListener('pointermove', event => {
+        if (!infoPointer || event.pointerId !== infoPointer.pointerId) return;
+        if (Math.hypot(event.clientX - infoPointer.clientX, event.clientY - infoPointer.clientY) < 6) return;
+        infoDragged = true;
+        closeInfo();
+    }, { capture: true, passive: true });
+    document.addEventListener('pointerup', () => { infoPointer = undefined; }, true);
+    document.addEventListener('pointercancel', () => {
+        infoPointer = undefined;
+        infoDragged = true;
+        closeInfo();
+    }, true);
+    document.addEventListener('click', closeInfoOutside, true);
+    document.addEventListener('scroll', () => closeInfo(), { capture: true, passive: true });
+    window.addEventListener('scroll', () => closeInfo(), { passive: true });
+    window.addEventListener('wheel', () => closeInfo(), { capture: true, passive: true });
+    for (const event of ['resize', 'popstate', 'pagehide', 'blur']) window.addEventListener(event, () => closeInfo());
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') closeInfo(); }, true);
+
+    function showControlInfo(anchor) {
+        const panel = infoPanel('control-info-tip');
+        panel.textContent = anchor.dataset.controlTip;
+        showInfo(panel, anchor);
+    }
+
+    document.addEventListener('pointerover', event => {
+        const anchor = event.target.closest?.('[data-control-tip]');
+        if (anchor && event.pointerType !== 'touch' && !(infoPointer && infoDragged) && !anchor.contains(event.relatedTarget)) showControlInfo(anchor);
+    });
+    document.addEventListener('pointerout', event => {
+        const anchor = event.target.closest?.('[data-control-tip]');
+        if (anchor && !anchor.contains(event.relatedTarget) && !anchor.matches(':focus-visible')) closeInfo(anchor);
+    });
+    document.addEventListener('focusin', event => {
+        const anchor = event.target.closest?.('[data-control-tip]');
+        if (anchor && event.target.matches(':focus-visible')) showControlInfo(anchor);
+    });
+    document.addEventListener('focusout', event => {
+        const anchor = event.target.closest?.('[data-control-tip]');
+        if (anchor && !anchor.contains(event.relatedTarget)) closeInfo(anchor);
+    });
+    document.addEventListener('click', event => {
+        if (activeInfo?.panel.id === 'control-info-tip' && activeInfo.anchor.contains(event.target)) closeInfo();
+    }, true);
+
+    for (const source of document.querySelectorAll('#settings-overlay .settings-tip')) {
+        const row = source.closest('.settings-row');
+        bindInfoPreview(row, () => {
+            const panel = infoPanel('settings-info-tip');
+            panel.textContent = source.textContent;
+            showInfo(panel, row);
+        });
+    }
+    for (const details of document.querySelectorAll('details.lb-block-info')) {
+        const summary = details.querySelector('summary');
+        const source = details.querySelector('.lb-block-tooltip');
+        summary.addEventListener('click', event => {
+            event.preventDefault();
+            if (details.open) return closeInfo(summary);
+            if (infoDragged && event.detail) return;
+            const panel = infoPanel('disclosure-info-tip');
+            panel.textContent = source.textContent;
+            summary.setAttribute('aria-describedby', panel.id);
+            details.open = true;
+            showInfo(panel, summary, { dismiss: () => {
+                panel.hidden = true;
+                details.open = false;
+                summary.removeAttribute('aria-describedby');
+            } });
+        });
+    }
 
     const xpTrigger = document.getElementById('lb122-xp-trigger');
     const xpTooltip = document.getElementById('lb122-xp-tooltip');
     const xpProgress = document.getElementById('lb122-xp-progress');
+    const xpHelp = document.getElementById('lb122-xp-help');
     const xpBar = document.getElementById('menu-xp-bar-wrap');
-    let xpTooltipPinned = false;
-    function showXpTooltip() {
+    let xpTooltipTimer;
+    function showXpTooltip(showHelp) {
         const info = getLevelInfo(saveData.totalXP);
-        xpProgress.textContent = info.isCelestite
-            ? `${(saveData.totalXP || 0).toLocaleString()} total XP`
-            : `${Math.floor(info.currentXP).toLocaleString()} / ${info.neededXP.toLocaleString()} XP`;
+        xpProgress.textContent = `${(info.percent * 100).toFixed(1)}% · ${Math.floor(info.currentXP).toLocaleString()} / ${info.neededXP.toLocaleString()} XP`;
+        xpHelp.hidden = !showHelp;
+        keepInfo(xpBar, xpTooltip, hideXpTooltip);
         xpTooltip.hidden = false;
     }
     function hideXpTooltip() {
-        xpTooltipPinned = false;
+        clearTimeout(xpTooltipTimer);
+        xpTooltipTimer = undefined;
         xpTooltip.hidden = true;
     }
     xpBar.addEventListener('pointerenter', event => {
-        if (event.pointerType !== 'touch') showXpTooltip();
+        if (event.pointerType !== 'touch' && (!infoPointer || !infoDragged) && xpTooltipTimer === undefined) showXpTooltip(true);
     });
     xpBar.addEventListener('pointerleave', () => {
-        if (!xpTooltipPinned && !xpTrigger.matches(':focus-visible')) hideXpTooltip();
+        if (xpTooltipTimer === undefined && !xpTrigger.matches(':focus-visible')) closeInfo(xpBar);
     });
     xpTrigger.addEventListener('focus', () => {
-        if (xpTrigger.matches(':focus-visible')) showXpTooltip();
+        if (xpTrigger.matches(':focus-visible')) showXpTooltip(true);
     });
-    xpTrigger.addEventListener('blur', hideXpTooltip);
-    xpTrigger.addEventListener('click', () => {
-        if (xpTooltipPinned) hideXpTooltip();
-        else {
-            xpTooltipPinned = true;
-            showXpTooltip();
-        }
-    });
-    xpTrigger.addEventListener('keydown', event => {
-        if (event.key !== 'Escape' || xpTooltip.hidden) return;
-        event.stopPropagation();
-        hideXpTooltip();
-    });
-    document.addEventListener('pointerdown', event => {
-        if (!xpBar.contains(event.target)) hideXpTooltip();
+    xpTrigger.addEventListener('blur', () => closeInfo(xpBar));
+    xpTrigger.addEventListener('click', event => {
+        if (infoDragged && event.detail) return;
+        clearTimeout(xpTooltipTimer);
+        showXpTooltip(false);
+        xpTooltipTimer = setTimeout(() => closeInfo(xpBar), 3000);
     });
     // afk achievement setup is deferred (see after variable declarations)
 
     function _animateOut(el, animClass, onDone) {
+        closeInfo();
         if (!el || el.classList.contains('hidden')) { onDone && onDone(); return; }
         el.classList.remove('anim-in-right', 'anim-in-left', 'anim-in-up', 'anim-in-down');
         el.classList.add(animClass);
@@ -518,6 +651,7 @@
         el.addEventListener('animationend', _done);
     }
     function _animateIn(el, animClass) {
+        closeInfo();
         if (!el) return;
         el.classList.remove(animClass);
         void el.offsetWidth;
@@ -858,14 +992,59 @@
     const defaultSettings = { musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: DEFAULT_BLOCK_SKIN, fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', heavyBg: 1, hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
     Object.assign(defaultSettings, { bgBlockMotion: 'spinning', showRunMissions: false, musicFollowsSpeed: true, showSpeedUp: true });
     defaultSettings.themeBackground = 'image';
+    defaultSettings.movingBackground = true;
     defaultSettings.lineClearEffect = 'default';
     let settings = { ...defaultSettings };
     const _themeBackgroundSelect = document.getElementById('setting-theme-background');
+    const _movingBackgroundToggle = document.getElementById('setting-moving-background');
+    const wallpaper = document.querySelector('.lb-wallpaper');
+    let wallpaperAnimation;
+    function driftWallpaper(from) {
+        const to = `translate(${Math.random() * 4 - 2}%, ${Math.random() * 4 - 2}%)`;
+        const previous = wallpaperAnimation;
+        const animation = wallpaper.animate([{ transform: from }, { transform: to }], {
+            duration: 18000 + Math.random() * 10000,
+            easing: 'ease-in-out',
+            fill: 'both',
+        });
+        wallpaperAnimation = animation;
+        previous?.cancel();
+        animation.onfinish = () => {
+            if (wallpaperAnimation !== animation) return;
+            driftWallpaper(to);
+            if (document.hidden) wallpaperAnimation.pause();
+        };
+    }
+    function syncWallpaper() {
+        const enabled = settings.movingBackground !== false && !reducedMotion?.matches
+            && Boolean(LBArtPack.themeBackground(settings.theme, settings.themeBackground))
+            && typeof wallpaper.animate === 'function';
+        wallpaper.classList.toggle('lb-wallpaper--moving', enabled);
+        if (!enabled) {
+            wallpaperAnimation?.cancel();
+            wallpaperAnimation = undefined;
+        } else if (document.hidden) {
+            if (wallpaperAnimation?.playState === 'running') wallpaperAnimation.pause();
+        } else if (!wallpaperAnimation) {
+            driftWallpaper('translate(0%, 0%)');
+        } else if (wallpaperAnimation.playState === 'paused') {
+            wallpaperAnimation.play();
+        }
+    }
+    function syncBackground() {
+        bgCanvas.hidden = LBArtPack.backgroundMode(settings.themeBackground) !== 'plain';
+        if (bgCanvas.hidden) _specialBlock = null;
+        _syncBgLoop();
+        syncWallpaper();
+    }
+    document.addEventListener('visibilitychange', syncWallpaper);
+    reducedMotion?.addEventListener?.('change', syncWallpaper);
     const _lineClearEffectSelect = document.getElementById('setting-line-clear-effect');
     const _bgBlockMotionSelect = document.getElementById('setting-bg-block-motion');
     const _runMissionsSelect = document.getElementById('setting-run-missions');
     const _musicFollowsSpeedToggle = document.getElementById('setting-music-follows-speed');
     _themeBackgroundSelect.addEventListener('change', () => onSettingChange('themeBackground', _themeBackgroundSelect.value));
+    _movingBackgroundToggle.addEventListener('change', () => onSettingChange('movingBackground', _movingBackgroundToggle.checked));
     _bgBlockMotionSelect.addEventListener('change', () => onSettingChange('bgBlockMotion', _bgBlockMotionSelect.value));
     _runMissionsSelect.addEventListener('change', () => onSettingChange('showRunMissions', _runMissionsSelect.value === 'on'));
     _musicFollowsSpeedToggle.addEventListener('change', () => onSettingChange('musicFollowsSpeed', _musicFollowsSpeedToggle.checked));
@@ -983,7 +1162,6 @@
     };
     const _SVG_GIFT = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v10H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>`;
     const _SVG_STATS = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-4"/></svg>`;
-    const _SVG_SETTINGS = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 3px currentColor);"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
     const _SVG_ACHIEVEMENTS = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4H4v5c0 1.65 1.35 3 3 3"/><path d="M17 4h3v5c0 1.65-1.35 3-3 3"/><path d="M7 12c0 2.76 2.24 5 5 5s5-2.24 5-5V4H7v8z"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="9 21 12 21 15 21"/></svg>`;
     const _SVG_INVENTORY = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a4 4 0 014-4h8a4 4 0 014 4v9a2 2 0 01-2 2H6a2 2 0 01-2-2v-9z"/><path d="M9 6V5a3 3 0 016 0v1"/><line x1="9" y1="14" x2="15" y2="14"/></svg>`;
     const _SVG_TIMER = `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:2px"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 15.5"/><path d="M9 2h6"/></svg>`;
@@ -991,7 +1169,7 @@
         modern: {
             name: 'Modern', desc: 'SVG icons · Square buttons', btnRadius: '4px', free: true,
             font: "Tahoma, Arial, sans-serif",
-            icons: { gift: _SVG_GIFT, stats: _SVG_STATS, settings: _SVG_SETTINGS, achievements: _SVG_ACHIEVEMENTS, inventory: _SVG_INVENTORY },
+            icons: { gift: _SVG_GIFT, stats: _SVG_STATS, achievements: _SVG_ACHIEVEMENTS, inventory: _SVG_INVENTORY },
         },
     };
     const FREE_THEMES = ['default'];
@@ -1042,6 +1220,7 @@
             playBtn.style.background = ''; // let CSS animation handle it
         }
         settings.theme = name;
+        syncBackground();
         if (persist) saveSettings();
         // Re-render theme list if inventory is open
         const ownedThemeContainer = document.getElementById('owned-theme-btns');
@@ -1120,27 +1299,23 @@
     }
     let _blockPreviewActiveSwatch = null;
     window._showBlockPreview = function(el, pieceIdx, color) {
-        window._hideBlockPreview();
-        const rect = el.getBoundingClientRect();
+        if (infoPointer && infoDragged) return;
+        const piece = BASE_PIECES[pieceIdx + 1];
         const oldC = COLORS[pieceIdx + 1];
         COLORS[pieceIdx + 1] = color;
-        const imgSrc = _renderPieceToImg(BASE_PIECES[pieceIdx + 1], pieceIdx + 1, BLOCK);
+        const imgSrc = _renderPieceToImg(piece, pieceIdx + 1, BLOCK);
         COLORS[pieceIdx + 1] = oldC;
 
-        const tip = document.createElement('div');
-        tip.id = 'block-preview-tip';
-        tip.style.cssText = 'position:fixed;z-index:99999;background:rgba(5,5,20,0.97);border:1px solid color-mix(in srgb, var(--primary) 30%, transparent);border-radius:8px;padding:8px;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.6);';
-        tip.innerHTML = '<img src="' + imgSrc + '" style="image-rendering:pixelated;display:block;">';
-
-        tip.style.left = (rect.left + rect.width / 2 - 60) + 'px';
-        tip.style.top = (rect.top - BLOCK * 4 - 20) + 'px';
-        document.body.appendChild(tip);
+        const tip = infoPanel('block-preview-tip');
+        tip.innerHTML = `<img src="${imgSrc}" alt="Piece preview" width="${piece[0].length * BLOCK}" height="${piece.length * BLOCK}">`;
+        showInfo(tip, el, { dismiss: () => {
+            tip.hidden = true;
+            _blockPreviewActiveSwatch = null;
+        } });
         _blockPreviewActiveSwatch = el;
     };
     window._hideBlockPreview = function() {
-        const existing = document.getElementById('block-preview-tip');
-        if (existing) existing.remove();
-        _blockPreviewActiveSwatch = null;
+        if (_blockPreviewActiveSwatch) closeInfo(_blockPreviewActiveSwatch);
     };
     // Mobile: toggle block preview on tap
     window._toggleBlockPreview = function(el, pieceIdx, color) {
@@ -1175,8 +1350,8 @@
                     <div style="background:${c}" aria-hidden="true"></div>
                 </div>
                 <input type="text" id="pe-c${i}-hex" aria-label="${lbl} piece hex color" value="${c}" maxlength="7" autocomplete="off" spellcheck="false" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
-                <button type="button" class="lb-block-btn lb-block-btn--icon lb-palette-tool" onclick="window._palEditEyedrop(${i})" aria-label="Eyedropper for ${lbl}" title="Eyedropper">${_SVG_EYEDROPPER}</button>
-                <button type="button" class="lb-block-btn lb-block-btn--icon lb-palette-tool" onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb-palette-tool" onclick="window._palEditEyedrop(${i})" aria-label="Eyedropper for ${lbl}" data-control-tip="Eyedropper">${_SVG_EYEDROPPER}</button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb-palette-tool" onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" data-control-tip="Copy hex">${_SVG_COPY}</button>
             </div>`;
         });
 
@@ -1189,7 +1364,7 @@
             <div id="pe-preview-row" aria-hidden="true"></div>
             <div class="lb-palette-actions">
                 <button class="lb-block-btn lb-block-btn--primary" onclick="window._palEditApply()">Apply</button>
-                <button class="lb-block-btn" onclick="window._palEditReset()" title="Reset to default colors">Reset</button>
+                <button class="lb-block-btn" onclick="window._palEditReset()" aria-label="Reset to default colors" data-control-tip="Reset to default colors">Reset</button>
                 <button class="lb-block-btn" onclick="this.closest('.lb-palette-window').remove()">Cancel</button>
             </div>
         </div>`;
@@ -1268,7 +1443,7 @@
             const c = displayColors[i] || '#ffffff';
             rowsHtml += `<div class="lb-palette-view-row">
                 ${_swatchHtml(i, c, true)}
-                <button class="lb-block-btn lb-block-btn--icon" onclick="navigator.clipboard?.writeText('${c}');_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" title="Copy hex">${_SVG_COPY}</button>
+                <button class="lb-block-btn lb-block-btn--icon" onclick="navigator.clipboard?.writeText('${c}');_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" data-control-tip="Copy hex">${_SVG_COPY}</button>
             </div>`;
         });
 
@@ -1353,39 +1528,76 @@
     }
 
     let audioCtx = null, masterGain = null, musicFadeGain = null, sfxGain = null, musicPlaying = false;
+    let _audioResumePending = null;
+    let _audioPageHidden = false, _audioAppActive = true, _audioAppPaused = false;
     // All SFX are now fully synthesized — no file loading needed
     const _sfxBuffers = {};
 
+    function _audioInForeground() {
+        return !document.hidden && !_audioPageHidden && _audioAppActive && !_audioAppPaused;
+    }
+
     function syncMusicGain() {
-        if (masterGain) masterGain.gain.value = settings.musicMuted ? 0 : settings.musicVol / 100 * 0.2;
+        if (masterGain) masterGain.gain.value = settings.musicMuted || !_audioInForeground() ? 0 : settings.musicVol / 100 * 0.2;
+        _syncPlaylistEqualizer();
+    }
+
+    function _syncSfxOutput() {
+        if (!_audioInForeground()) {
+            sfxGain?.disconnect();
+            sfxGain = null;
+        } else if (audioCtx && !sfxGain) {
+            sfxGain = audioCtx.createGain();
+            sfxGain.gain.value = _sfxMuted ? 0 : settings.sfxVol / 100 * 0.4;
+            sfxGain.connect(audioCtx.destination);
+        }
     }
 
     function fadeMusic(target, duration, from = musicFadeGain?.gain.value) {
         if (!musicFadeGain) return;
         const time = audioCtx.currentTime;
         musicFadeGain.gain.cancelScheduledValues(time);
-        musicFadeGain.gain.setValueAtTime(from, time);
-        musicFadeGain.gain.linearRampToValueAtTime(target, time + duration);
+        musicFadeGain.gain.setValueAtTime(duration > 0 ? from : target, time);
+        if (duration > 0) musicFadeGain.gain.linearRampToValueAtTime(target, time + duration);
     }
 
     function initAudio() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioCtx.addEventListener?.('statechange', _syncPlaylistEqualizer);
             masterGain = audioCtx.createGain();
             syncMusicGain();
             musicFadeGain = audioCtx.createGain();
             musicFadeGain.gain.value = 1;
             masterGain.connect(musicFadeGain);
             musicFadeGain.connect(audioCtx.destination);
-            sfxGain = audioCtx.createGain();
-            sfxGain.gain.value = _sfxMuted ? 0 : settings.sfxVol / 100 * 0.4;
-            sfxGain.connect(audioCtx.destination);
+            _syncSfxOutput();
             // All SFX synthesized — no files to load
         }
     }
 
+    function _unlockAudio(gesture = false) {
+        try {
+            initAudio();
+            if (!_audioInForeground()) return;
+            const context = audioCtx;
+            if (context.state === 'running' || (!gesture && _audioResumePending?.context === context)) return;
+            const pending = { context };
+            _audioResumePending = pending;
+            void context.resume().catch(error => {
+                if (audioCtx === context) console.warn('Audio resume failed:', error);
+            }).finally(() => {
+                if (_audioResumePending === pending) _audioResumePending = null;
+                if (audioCtx === context) _syncPlaylistEqualizer();
+            });
+        } catch (error) {
+            _audioResumePending = null;
+            console.warn('Audio unavailable:', error);
+        }
+    }
+
     function playSFX(type) {
-        if (!audioCtx || settings.sfxVol === 0) return;
+        if (!_audioInForeground() || !sfxGain || settings.sfxVol === 0) return;
         if (settings.sfxPack === 'cyber') { _playSFX_B(type); return; }
         if (settings.sfxPack === 'retro') { _playSFX_C(type); return; }
         if (settings.sfxPack === 'zen') { _playSFX_D(type); return; }
@@ -2008,12 +2220,11 @@
         }
     }
 
-    let _menuSourceNode = null;
+    let _activeMusic = null, _musicRevision = 0;
     let _currentMode = 'menu';
     let _menuFileNames = [];
     let _currentMenuTrackIdx = 0;
     let _gameFileNames = [];
-    let _gameSourceNode = null;
     let _actionFileNames = [];
     let _musicCatalogPromise;
     let _nowPlayingName = '';
@@ -2022,48 +2233,179 @@
     let _trackPauseOffset = 0;
     let _trackDuration = 0;
     let _musicPaused = false;
+    let _runMusicPaused = false;
     const _runMusicTempo = LBMusicTempo.createRunTempo();
     let _widgetIntervalId = null;
     const _trackPool = new Map();
+    const _failedMusicFiles = new Set();
+    const _playlistContent = document.getElementById('playlist-panel-content');
     let _settingsTrackPollId = null;
     let _menuShuffleQueue = []; // queue-based no-repeat playback
     function _createMusicSource(descriptor) {
         if (descriptor.synth) return window.LBMusicSynth.createSource(audioCtx, descriptor);
         const media = new Audio(); media.preload = 'metadata';
-        media.src = descriptor.url;
         const node = audioCtx.createMediaElementSource(media);
-        let stopped = false, paused = false;
+        let stopped = false, paused = true, attempt = 0, deadline, offset = 0;
+        function seek() {
+            if (offset > 0 && media.readyState >= 1) {
+                media.currentTime = Math.min(offset, Math.max(0, (media.duration || Infinity) - 0.1));
+                offset = 0;
+            }
+        }
+        function fail(error) {
+            clearTimeout(deadline);
+            if (!stopped) source.onerror?.(error);
+        }
         const source = {
             onended: null,
+            onerror: null,
+            playing: false,
+            get position() { return offset || media.currentTime; },
             connect(target) { node.connect(target); },
-            start(when=0, offset=0) {
-                const ready = () => {
-                    if (stopped) return;
-                    if (Number.isFinite(media.duration)) {
-                        descriptor.duration=media.duration;
-                        if (_menuSourceNode === source || _gameSourceNode === source) {
-                            _trackDuration=media.duration;
-                            _currentTrackDuration30s=media.duration;
-                        }
-                    }
-                    media.currentTime=Math.max(0,Math.min(offset,Math.max(0,(media.duration||Infinity)-0.1)));
-                    if (!paused) media.play().catch(error => { if (!stopped) console.error('Music playback failed:',error); });
-                };
-                if (media.readyState >= 1) ready();
-                else media.addEventListener('loadedmetadata',ready,{once:true});
+            start(when, position = 0) {
+                if (stopped) return;
+                offset = position;
+                media.src = descriptor.url;
+                source.resume();
             },
-            pause() { paused=true; media.pause(); },
+            pause() {
+                paused = true;
+                clearTimeout(deadline);
+                source.playing = false;
+                media.pause();
+            },
             resume() {
-                paused=false;
-                if (!stopped && media.readyState>=1) media.play().catch(error => console.error('Music resume failed:',error));
+                if (stopped || !paused) return;
+                paused = false;
+                const request = ++attempt;
+                const reject = error => { if (!paused && request === attempt) fail(error); };
+                seek();
+                deadline = setTimeout(() => reject(new Error('Timed out starting audio')), 8000);
+                void media.play().catch(reject);
             },
             stop() {
-                stopped=true; media.pause(); media.removeAttribute('src'); media.load(); node.disconnect();
+                stopped = true;
+                node.disconnect();
+                source.pause();
+                media.removeAttribute('src');
+                media.load();
             }
         };
-        media.onended=() => { node.disconnect(); if (!stopped && source.onended) source.onended(); };
-        media.onerror=() => { if (!stopped) console.error('Music load failed:',descriptor?.url); };
+        media.onloadedmetadata = () => {
+            if (_activeMusic?.source !== source) return;
+            if (Number.isFinite(media.duration)) _trackDuration = _currentTrackDuration30s = descriptor.duration = media.duration;
+            try { seek(); } catch (error) { fail(error); }
+        };
+        media.onplaying = () => {
+            if (stopped || paused) return;
+            clearTimeout(deadline);
+            source.playing = true;
+            _syncPlaylistEqualizer();
+        };
+        media.onwaiting = () => {
+            if (stopped || paused || !source.playing) return;
+            source.playing = false;
+            deadline = setTimeout(() => fail(new Error('Audio stopped buffering')), 8000);
+            _syncPlaylistEqualizer();
+        };
+        media.onended = () => { if (!stopped) source.onended?.(); };
+        media.onerror = () => fail(media.error || new Error('Audio could not load'));
         return source;
+    }
+
+    function _releaseMusicSource() {
+        const previous = _activeMusic;
+        _activeMusic = null;
+        try { previous?.source.stop(); } catch (error) { console.warn('Music stop failed:', error); }
+    }
+
+    function _musicPosition() {
+        const active = _activeMusic;
+        return active?.source.position ?? (_trackPauseOffset + (active?.playing ? audioCtx.currentTime - _trackStartTime : 0));
+    }
+
+    function _syncMusicPlayback(retryAudio = false) {
+        const active = _activeMusic;
+        const shouldPlay = _audioInForeground() && !_musicPaused && !(_currentMode === 'game' && _runMusicPaused);
+        if (shouldPlay && audioCtx && audioCtx.state !== 'running' && musicPlaying) _unlockAudio(retryAudio);
+        if (active && active.playing !== shouldPlay) {
+            try {
+                if (shouldPlay) {
+                    _trackStartTime = audioCtx.currentTime;
+                    active.playing = true;
+                    if (active.started) active.source.resume();
+                    else {
+                        active.started = true;
+                        active.source.start(0, _trackPauseOffset);
+                    }
+                } else {
+                    _trackPauseOffset = _musicPosition();
+                    active.playing = false;
+                    active.source.pause();
+                }
+            } catch (error) { active.fail(error); }
+        }
+        _syncPlaylistEqualizer();
+    }
+
+    function _syncAudioLifecycle() {
+        _syncSfxOutput();
+        syncMusicGain();
+        _syncMusicPlayback(_audioInForeground());
+    }
+
+    function _selectMusicTracks(group) {
+        const playlist = _getPlaylist(group);
+        const enabled = playlist.filter(name => !_failedMusicFiles.has(name));
+        if (enabled.length || (group === 'action' && !playlist.length)) return enabled;
+        return _fallbackMusicTracks(group);
+    }
+
+    function _fallbackMusicTracks(group) {
+        const defaults = group === 'menu' ? _menuFileNames : group === 'action' ? _actionFileNames : _gameFileNames;
+        const synthOnly = names => names.filter(name => _trackPool.get(name)?.buf.synth);
+        const enabled = synthOnly(_getPlaylist(group));
+        return enabled.length ? enabled : synthOnly(defaults);
+    }
+
+    function _replaceMusicSource(name, group, offset, onEnded, tempo) {
+        _releaseMusicSource();
+        const entry = _trackPool.get(name);
+        const failed = error => {
+            console.warn(`Music playback failed (${name}${entry.buf.url ? ': ' + entry.buf.url : ''}):`, error);
+            _releaseMusicSource();
+            if (entry.buf.url) {
+                _failedMusicFiles.add(name);
+                const fallback = _fallbackMusicTracks(group)[0] || (group === 'action' && _fallbackMusicTracks('game')[0]);
+                if (fallback) {
+                    console.info(`Music fallback: ${fallback}`);
+                    _replaceMusicSource(fallback, group, 0, onEnded, tempo);
+                    return;
+                }
+            }
+            updateNowPlaying('');
+        };
+        let source;
+        try {
+            source = _createMusicSource(entry.buf);
+            const active = { source, started: false, playing: false, fail: error => { if (_activeMusic === active) failed(error); } };
+            _activeMusic = active;
+            source.connect(masterGain);
+            if (tempo !== undefined) source.setTempo?.(tempo);
+            source.onerror = active.fail;
+            source.onended = () => {
+                if (_activeMusic !== active) return;
+                _releaseMusicSource();
+                if (!_musicPaused) onEnded();
+            };
+            _trackPauseOffset = Math.max(0, Math.min(offset, (entry.buf.duration || Infinity) - 0.1));
+            _trackDuration = entry.buf.duration;
+        } catch (error) {
+            failed(error);
+            return;
+        }
+        updateNowPlaying(name, entry.artist);
+        _syncMusicPlayback();
     }
     function _fillMenuQueue(playlist, currentName) {
         const copy = [...playlist];
@@ -2076,88 +2418,52 @@
         _menuShuffleQueue.push(...copy);
     }
     function _playMenuFileTrack(idx) {
-        const playlist = _getPlaylist('menu');
+        const playlist = _selectMusicTracks('menu');
         if (!playlist.length) return;
         const realIdx = ((idx % playlist.length) + playlist.length) % playlist.length;
         _currentMenuTrackIdx = realIdx;
         _playMenuTrack(playlist[realIdx]);
     }
     function _playMenuTrack(name, offset = 0) {
-        const entry = _trackPool.get(name);
-        if (!musicPlaying || !audioCtx || !entry) return;
-        _menuSourceNode?.stop();
+        if (_currentMode !== 'menu' || !musicPlaying || !audioCtx || !_trackPool.has(name)) return;
         _musicPaused = false;
-        _trackPauseOffset = Math.max(0, Math.min(offset, (entry.buf.duration || Infinity) - 0.1));
-        const src = _createMusicSource(entry.buf);
-        src.connect(masterGain);
-        src.onended = () => {
-            if (!musicPlaying || _currentMode !== 'menu' || _musicPaused) return;
-            const pl = _getPlaylist('menu');
+        _replaceMusicSource(name, 'menu', offset, () => {
+            const pl = _selectMusicTracks('menu');
             _menuShuffleQueue = _menuShuffleQueue.filter(track => pl.includes(track));
-            if (!_menuShuffleQueue.length) _fillMenuQueue(pl, name);
+            if (!_menuShuffleQueue.length) _fillMenuQueue(pl, _nowPlayingName);
             const nextName = _menuShuffleQueue.shift();
             const nextIdx = pl.indexOf(nextName);
             _playMenuFileTrack(nextIdx >= 0 ? nextIdx : 0);
-        };
-        _trackStartTime = audioCtx.currentTime;
-        _trackDuration = entry.buf.duration;
-        _menuSourceNode = src;
-        src.start(0, _trackPauseOffset);
-        updateNowPlaying(name, entry.artist);
-        if (!document.getElementById('playlist-overlay')?.classList.contains('hidden')) _renderPlaylistPanel();
+        });
     }
     function _syncGameMusicTempo() {
         if (_currentMode !== 'game') return;
         const tempo = _runMusicTempo.update(speedLevel, settings.musicFollowsSpeed);
-        _gameSourceNode?.setTempo?.(tempo);
+        _activeMusic?.source.setTempo?.(tempo);
     }
     function _startGameMusicForCurrentSpeed(continuing = false) {
         if (!musicPlaying || !audioCtx || _currentMode !== 'game') return;
-        const game = _getPlaylist('game');
-        const intense = _getPlaylist('action');
-        const playlist = intense.length && (!game.length || LBMusicTempo.isIntenseSpeed(speedLevel) || Math.random() < 0.38) ? intense : game;
+        const game = _selectMusicTracks('game');
+        const intense = _selectMusicTracks('action');
+        const useIntense = intense.length && (!game.length || LBMusicTempo.isIntenseSpeed(speedLevel) || Math.random() < 0.38);
+        const playlist = useIntense ? intense : game;
         if (!playlist.length) return;
         const choices = playlist.length > 1 ? playlist.filter(name => name !== _nowPlayingName) : playlist;
         const name = choices[Math.floor(Math.random() * choices.length)];
-        const entry = _trackPool.get(name);
-        _gameSourceNode?.stop();
-        const src = _createMusicSource(entry.buf);
-        src.connect(masterGain);
-        src.onended = () => {
-            if (_gameSourceNode === src) _startGameMusicForCurrentSpeed(true);
-        };
-        _gameSourceNode = src;
-        _trackStartTime = audioCtx.currentTime;
-        _trackDuration = entry.buf.duration;
-        if (continuing) _syncGameMusicTempo();
-        src.start();
+        const tempo = continuing ? _runMusicTempo.update(speedLevel, settings.musicFollowsSpeed) : undefined;
+        _replaceMusicSource(name, useIntense ? 'action' : 'game', 0, () => _startGameMusicForCurrentSpeed(true), tempo);
         if (!continuing) _syncGameMusicTempo();
-        updateNowPlaying(name, entry.artist);
-    }
-    async function _startMenuMusic() {
-        await _initTrackCatalog();
-        if (_currentMode !== 'menu' || !musicPlaying || _menuSourceNode || _musicPaused) return;
-        const pl = _getPlaylist('menu');
-        _menuShuffleQueue = [];
-        _fillMenuQueue(pl, '');
-        _playMenuFileTrack(pl.indexOf(_menuShuffleQueue.shift()));
     }
     function startMusic(mode = 'menu') {
         if (musicPlaying) return;
-        try {
-            initAudio();
-            if (audioCtx.state === 'suspended') void audioCtx.resume().catch(error => console.warn('Audio suspended:', error));
-        } catch (error) {
-            console.warn('Audio unavailable:', error);
-            return;
-        }
         musicPlaying = true;
+        _unlockAudio();
         syncMusicMuteButtons();
-        switchMusicMode(mode);
+        return switchMusicMode(mode);
     }
     function _stopMusicSources() {
-        if (_menuSourceNode) { try { _menuSourceNode.stop(); } catch(e) {} _menuSourceNode = null; }
-        if (_gameSourceNode) { try { _gameSourceNode.stop(); } catch(e) {} _gameSourceNode = null; }
+        _musicRevision++;
+        _releaseMusicSource();
         _musicPaused = false;
         _trackPauseOffset = _trackStartTime = _trackDuration = 0;
     }
@@ -2165,30 +2471,37 @@
         _stopMusicSources();
         _runMusicTempo.reset();
         _currentMode = mode;
+        if (mode === 'menu') _runMusicPaused = false;
         _menuShuffleQueue = [];
         updateNowPlaying('');
-        if (!musicPlaying || !audioCtx) return;
+        if (!musicPlaying) return;
+        if (mode === 'menu') fadeMusic(1, 0);
+        const revision = _musicRevision;
+        await _initTrackCatalog();
+        if (revision !== _musicRevision || !musicPlaying || !audioCtx || _activeMusic || _musicPaused) return;
         if (mode === 'menu') {
-            _startMenuMusic();
+            const playlist = _selectMusicTracks('menu');
+            _fillMenuQueue(playlist, '');
+            _playMenuFileTrack(playlist.indexOf(_menuShuffleQueue.shift()));
         } else {
-            await _initTrackCatalog();
-            if (_currentMode !== 'game' || !musicPlaying || _gameSourceNode) return;
-            _startGameMusicForCurrentSpeed();
             fadeMusic(1, 1.5, 0);
+            _startGameMusicForCurrentSpeed();
         }
     }
     function stopMusic() {
         musicPlaying = false;
         _stopMusicSources();
-        if (audioCtx) { audioCtx.close().catch(()=>{}); audioCtx = null; masterGain = null; musicFadeGain = null; sfxGain = null; }
+        updateNowPlaying('');
+        if (audioCtx) { void audioCtx.close().catch(error => console.warn('Audio close failed:', error)); audioCtx = null; masterGain = null; musicFadeGain = null; sfxGain = null; }
+        _audioResumePending = null;
     }
     function pauseMusic() {
-        [_menuSourceNode,_gameSourceNode].forEach(source=>source?.pause());
-        if (audioCtx && audioCtx.state==='running') audioCtx.suspend();
+        _runMusicPaused = true;
+        _syncMusicPlayback();
     }
     function resumeMusic() {
-        if (audioCtx && audioCtx.state==='suspended') audioCtx.resume();
-        [_menuSourceNode,_gameSourceNode].forEach(source=>source?.resume());
+        _runMusicPaused = false;
+        _syncMusicPlayback();
     }
     // === END MUSIC SYSTEM ===
 
@@ -2222,13 +2535,19 @@
         try {
             return await startupWait(`Music catalog ${path}`, async () => {
                 const response = await fetch(path);
-                return response.ok ? (await response.json()) || {} : {};
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const catalog = await response.json();
+                return catalog && typeof catalog === 'object' ? catalog : {};
             });
-        } catch (error) { return {}; }
+        } catch (error) {
+            console.warn(`Music catalog could not load (${path}):`, error);
+            return {};
+        }
     }
 
     async function _registerTracks(tracks) {
         const names = await Promise.all(tracks.map(async track => {
+            if (!track) return null;
             const synth = window.LBMusicSynth?.getTrack(track.synth);
             let buf;
             if (synth) buf = { synth, duration: synth.duration };
@@ -2237,7 +2556,7 @@
                 try {
                     const response = await startupWait('Checking optional audio', () => fetch(url, { method: 'HEAD' }));
                     if (response.ok && !response.headers?.get('content-type')?.startsWith('text/html')) buf = { url, duration: 0 };
-                } catch (error) {}
+                } catch (error) { console.warn(`Music file could not be checked (${url}):`, error); }
             }
             if (!buf) return null;
             const name = track.title || track.file?.replace(/\.mp3$/i, '');
@@ -2250,13 +2569,20 @@
     function _initTrackCatalog() {
         return _musicCatalogPromise ||= (async () => {
             const local = await _readMusicCatalog('assets/music.json');
-            const hasSynth = Object.values(local).some(tracks => Array.isArray(tracks) && tracks.some(track => track.synth));
+            const hasSynth = Object.values(local).some(tracks => Array.isArray(tracks) && tracks.some(track => track?.synth));
             const original = hasSynth ? {} : await _readMusicCatalog('assets/music.release.json');
+            const tracks = (catalog, group) => Array.isArray(catalog[group]) ? catalog[group] : [];
             [_menuFileNames, _gameFileNames, _actionFileNames] = await Promise.all([
-                _registerTracks([...(original.menu || []), ...(local.menu || [])]),
-                _registerTracks([...(original.game || []), ...(local.game || [])]),
-                _registerTracks([...(original.intense || []), ...(local.intense || []), ...(local.action || [])])
+                _registerTracks([...tracks(original, 'menu'), ...tracks(local, 'menu')]),
+                _registerTracks([...tracks(original, 'game'), ...tracks(local, 'game')]),
+                _registerTracks([...tracks(original, 'intense'), ...tracks(local, 'intense'), ...tracks(local, 'action')])
             ]);
+            if (!_menuFileNames.some(name => _trackPool.get(name).buf.synth)) {
+                _menuFileNames.push(...await _registerTracks([{ synth: 'glass-harbor', title: 'Glass Harbor' }]));
+            }
+            if (!_gameFileNames.some(name => _trackPool.get(name).buf.synth)) {
+                _gameFileNames.push(...await _registerTracks([{ synth: 'copper-relay', title: 'Copper Relay' }]));
+            }
         })();
     }
 
@@ -2290,7 +2616,7 @@
                 },
                 dailyGift() {
                     saveData.lastDailyGift = _qaDemo.previousDate();
-                    document.getElementById('lb43-daily-gift').click();
+                    return dailyGift.claim();
                 },
             });
             randomizePlayButton(); drawRankBadge(); _checkGlowNotifications(); startMusic('menu');
@@ -2585,6 +2911,32 @@
         seasonPass.observe(saveData);
         LBCrates.observeTime(saveData);
         return writeSaveFile({ ...saveData, _settings: { ...settings } });
+    }
+
+    let pendingClaim = false;
+    function _claimAfterPaint(button, claim) {
+        if (pendingClaim || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
+        pendingClaim = true;
+        button.setAttribute('aria-busy', 'true');
+        const profile = saveData;
+        return new Promise((resolve, reject) => {
+            let frame;
+            const finish = () => {
+                cancelAnimationFrame(frame);
+                clearTimeout(fallback);
+                try {
+                    if (profile === saveData && !_gameInProgress && button.isConnected && !button.closest('[hidden], .hidden, .anim-out-left, .anim-out-right')) claim();
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                } finally {
+                    pendingClaim = false;
+                    button.removeAttribute('aria-busy');
+                }
+            };
+            const fallback = setTimeout(finish, 100);
+            frame = requestAnimationFrame(() => { frame = requestAnimationFrame(finish); });
+        });
     }
 
     const BOOSTER_INFO = {
@@ -3073,7 +3425,7 @@
                 setTimeout(() => _checkMilestoneBoxes(), 400);
             }
         };
-        rewardsDiv.addEventListener('click', e => { if (e.target.id === 'lb-claim-btn') claim(); });
+        rewardsDiv.querySelector('button').addEventListener('click', event => _claimAfterPaint(event.currentTarget, claim));
     }
     function _generateLevelBoxRewards() {
         const rewards = [];
@@ -3226,8 +3578,7 @@
             _populateVisualCustomize();
         };
 
-        // Use event delegation for claim button since it's added via innerHTML
-        rewardsDiv.addEventListener('click', e => { if (e.target.id === 'lb-claim-btn') claim(); });
+        rewardsDiv.querySelector('button').addEventListener('click', event => _claimAfterPaint(event.currentTarget, claim));
     }
 
     function devSetXP() { devSetXPorLevel(); }
@@ -3465,9 +3816,34 @@
         const collected = ownedSkins + ownedThemes + ownedGrid + ownedPal + ownedSfx + Number(!!saveData.ghostColorUnlocked);
         const total = (_devMode ? 17 : 8) + Object.keys(THEMES).length + Object.keys(GRID_STYLES).length + Object.keys(BLOCK_PALETTES).length + 6;
         stat('items-collected', `${collected} / ${total}`);
-        _renderActivityCalendar(null);
+        _renderActivityCalendar(document.getElementById('stat-activity-calendar').dataset.calYear || 'recent');
     }
-    function _renderActivityCalendar(year) {
+    function _activityDaysThatFit(container) {
+        if (!container.clientWidth) return 14;
+        const style = getComputedStyle(container);
+        const inset = parseFloat(style.getPropertyValue('--recent-inset')) || 4;
+        const width = container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 2 * (inset + 1);
+        const cell = parseFloat(style.getPropertyValue('--recent-cell')) || 18;
+        const gap = parseFloat(style.getPropertyValue('--recent-gap')) || 3;
+        return Math.max(1, Math.floor((width + gap) / (cell + gap)));
+    }
+    const activityCalendar = document.getElementById('stat-activity-calendar');
+    const resizeActivityCalendar = () => {
+        if (!activityCalendar.clientWidth || !activityCalendar.dataset.calYear) return;
+        const days = _activityDaysThatFit(activityCalendar);
+        const recentButton = activityCalendar.querySelector('button[data-cal-year="recent"]');
+        if (activityCalendar.dataset.calYear !== 'recent') recentButton.textContent = `Last ${days} days`;
+        else if (Number(activityCalendar.dataset.calDays) !== days) {
+            const focused = activityCalendar.contains(document.activeElement);
+            _renderActivityCalendar('recent');
+            if (focused) activityCalendar.querySelector('button[data-cal-year="recent"]').focus({ preventScroll: true });
+        }
+    };
+    const activityCalendarObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(resizeActivityCalendar) : null;
+    activityCalendarObserver?.observe(activityCalendar);
+    window.addEventListener('resize', resizeActivityCalendar);
+
+    function _renderActivityCalendar(mode) {
         const container = document.getElementById('stat-activity-calendar');
         const history = { ...saveData.stats.playHistory };
         const entriesByDate = new Map();
@@ -3484,14 +3860,15 @@
         const todayKey = LBSave.localDate(today);
         const currentYear = today.getFullYear();
         const years = [...new Set([currentYear, ...Object.keys(history).map(key => Number(key.split('-')[0]))])].sort((left, right) => left - right);
-        year ??= Number(container.dataset.calYear) || currentYear;
-        if (!years.includes(year)) year = currentYear;
-        container.dataset.calYear = year;
+        const year = Number(mode);
+        const recent = !years.includes(year);
+        container.dataset.calYear = recent ? 'recent' : year;
 
-        const firstDay = new Date(year, 0, 1);
+        const days = recent ? _activityDaysThatFit(container) : (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 86400000;
+        container.dataset.calDays = days;
+        const firstDay = recent ? new Date(currentYear, today.getMonth(), today.getDate() - days + 1) : new Date(year, 0, 1);
         const offset = (firstDay.getDay() + 6) % 7;
-        const daysInYear = Math.round((new Date(year, 11, 31) - firstDay) / 86400000) + 1;
-        const weeks = Math.ceil((offset + daysInYear) / 7);
+        const weeks = recent ? days : Math.ceil((offset + days) / 7);
         const dateFormat = new Intl.DateTimeFormat('en', { dateStyle: 'full' });
         const monthFormat = new Intl.DateTimeFormat('en', { month: 'short' });
         const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -3499,12 +3876,12 @@
         const months = [];
         const separators = [];
         let selectedIndex = 0;
-        for (let index = 0; index < daysInYear; index++) {
-            const date = new Date(year, 0, index + 1);
+        for (let index = 0; index < days; index++) {
+            const date = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + index);
             const key = LBSave.localDate(date);
-            const week = Math.floor((offset + index) / 7);
-            const weekday = (offset + index) % 7;
-            if (date.getDate() === 1) {
+            const week = recent ? index : Math.floor((offset + index) / 7);
+            const weekday = recent ? 0 : (offset + index) % 7;
+            if (!recent && date.getDate() === 1) {
                 months.push({ label: monthFormat.format(date), start: week, end: week });
                 if (index > 0) {
                     const edge = week * 7;
@@ -3512,7 +3889,7 @@
                     separators.push(step ? `M${edge + 7} 0V${step}H${edge}V49` : `M${edge} 0V49`);
                 }
             }
-            months.at(-1).end = week;
+            if (!recent) months.at(-1).end = week;
             if (key === todayKey) selectedIndex = index;
             const count = history[key] || 0;
             const level = count >= 8 ? 4 : count >= 5 ? 3 : count >= 2 ? 2 : count > 0 ? 1 : 0;
@@ -3520,17 +3897,18 @@
         }
 
         container.innerHTML = `<div class="lb-stats-chart-toolbar">
-                <div class="lb-actions lb-stats-years" role="group" aria-label="Activity year">
-                    ${years.map(value => `<button class="lb-block-btn lb-block-tab" type="button" data-cal-year="${value}" aria-pressed="${value === year}">${value}</button>`).join('')}
+                <div class="lb-actions lb-stats-years" role="group" aria-label="Activity range">
+                    <button class="lb-block-btn lb-block-tab" type="button" data-cal-year="recent" aria-pressed="${recent}">Last ${recent ? days : _activityDaysThatFit(container)} days</button>
+                    ${years.map(value => `<button class="lb-block-btn lb-block-tab" type="button" data-cal-year="${value}" aria-pressed="${!recent && value === year}">${value}</button>`).join('')}
                 </div>
             </div>
-            <div class="lb-stats-chart">
-                <div id="cal-day-labels" aria-hidden="true">${dayLabels.map(label => `<span>${label}</span>`).join('')}</div>
-                <div class="lb-stats-calendar-scroll" role="region" aria-label="Activity calendar" tabindex="0">
+            <div class="lb-stats-chart${recent ? ' lb-stats-chart--recent' : ''}">
+                ${recent ? '' : `<div id="cal-day-labels" aria-hidden="true">${dayLabels.map(label => `<span>${label}</span>`).join('')}</div>`}
+                <div class="lb-stats-calendar-scroll" role="region" aria-label="Activity calendar" ${recent ? '' : 'tabindex="0"'}>
                     <div class="lb-stats-calendar" style="--calendar-weeks:${weeks}">
-                        <div id="cal-month-row" aria-hidden="true">${months.map(({ label, start, end }) => `<span style="grid-column:${start + 1}/${end + 2}">${label}</span>`).join('')}</div>
-                        <div id="cal-grid" role="group" aria-label="${year} daily activity">
-                            <svg class="lb-stats-month-edges" aria-hidden="true" viewBox="0 0 ${weeks * 7} 49" preserveAspectRatio="none"><path d="${separators.join(' ')}" vector-effect="non-scaling-stroke"/></svg>
+                        ${recent ? '' : `<div id="cal-month-row" aria-hidden="true">${months.map(({ label, start, end }) => `<span style="grid-column:${start + 1}/${end + 2}">${label}</span>`).join('')}</div>`}
+                        <div id="cal-grid" role="group" aria-label="${recent ? `Last ${days} days` : year} daily activity">
+                            ${recent ? '' : `<svg class="lb-stats-month-edges" aria-hidden="true" viewBox="0 0 ${weeks * 7} 49" preserveAspectRatio="none"><path d="${separators.join(' ')}" vector-effect="non-scaling-stroke"/></svg>`}
                             ${cells.map(({ key, week, weekday, level, label }, index) => `<button type="button" class="lb-stats-day" style="grid-area:${weekday + 1}/${week + 1}" data-cal-day="${index}" data-level="${level}" tabindex="${index === selectedIndex ? 0 : -1}" aria-pressed="${index === selectedIndex}" ${key === todayKey ? 'aria-current="date"' : ''} aria-label="${escapeHtml(label)}"></button>`).join('')}
                         </div>
                     </div>
@@ -3560,7 +3938,7 @@
 
         for (const button of container.querySelectorAll('button[data-cal-year]')) {
             button.addEventListener('click', () => {
-                _renderActivityCalendar(Number(button.dataset.calYear));
+                _renderActivityCalendar(button.dataset.calYear);
                 container.querySelector('.lb-stats-years [aria-pressed="true"]').focus({ preventScroll: true });
             });
         }
@@ -3578,6 +3956,7 @@
             showValue(index);
         };
         const revealDay = index => {
+            if (recent) return;
             const { left, right } = dayButtons[index].getBoundingClientRect();
             const bounds = scroller.getBoundingClientRect();
             if (left < bounds.left + 3) scroller.scrollLeft += left - bounds.left - 3;
@@ -3594,12 +3973,14 @@
             if (!event.target.matches('[data-cal-day]')) return;
             const index = Number(event.target.dataset.calDay);
             const weekday = cells[index].weekday;
-            const targets = { ArrowLeft: index - 7, ArrowRight: index + 7, ArrowUp: weekday === 0 ? index : index - 1, ArrowDown: weekday === 6 ? index : index + 1, Home: 0, End: daysInYear - 1 };
+            const step = recent ? 1 : 7;
+            const targets = { ArrowLeft: index - step, ArrowRight: index + step, Home: 0, End: days - 1 };
+            if (!recent) Object.assign(targets, { ArrowUp: weekday === 0 ? index : index - 1, ArrowDown: weekday === 6 ? index : index + 1 });
             if (!Object.hasOwn(targets, event.key)) return;
             event.preventDefault();
             event.stopPropagation();
             const next = targets[event.key];
-            if (next < 0 || next >= daysInYear || next === index) return;
+            if (next < 0 || next >= days || next === index) return;
             selectDay(next);
             dayButtons[next].focus({ preventScroll: true });
             revealDay(next);
@@ -3614,6 +3995,7 @@
     function statsLbTab(tab) {
         const selected = statsTabs.find(button => button.dataset.statsTab === tab);
         if (!selected) return;
+        closeInfo();
         const focusedTab = statsTabs.includes(document.activeElement);
         for (const button of statsTabs) {
             const active = button === selected;
@@ -3629,6 +4011,7 @@
     }
 
     function statsLeaderboardMode(mode) {
+        closeInfo();
         for (const button of document.querySelectorAll('#leaderboard-container [data-stats-board]')) {
             const active = button.dataset.statsBoard === mode;
             button.setAttribute('aria-pressed', active);
@@ -3711,7 +4094,30 @@
     function settingsTab(tab) { /* tabs removed — settings is a single scroll */ }
     let inventoryPreviewTimer;
     let inventoryPreviewColor = 1;
+    let inventoryPreviewPalette;
+    let inventoryActivePreview;
+    const inventoryStaticPreviews = new Map();
+
+    function _inventorySkinPreview(skin, label, active) {
+        const cached = active
+            ? inventoryActivePreview?.dataset.skin === skin && inventoryActivePreview
+            : inventoryStaticPreviews.get(skin);
+        if (cached) return cached;
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'lb-inventory-preview';
+        canvas.width = 144; canvas.height = 72;
+        canvas.dataset.skin = skin;
+        canvas.setAttribute('role', 'img');
+        canvas.setAttribute('aria-label', `${label} block preview`);
+        _drawSkinPreview(canvas, skin, active ? inventoryPreviewColor : 1);
+        if (active) inventoryActivePreview = canvas;
+        else inventoryStaticPreviews.set(skin, canvas);
+        return canvas;
+    }
+
     function inventoryTab(tab) {
+        closeInfo();
         const _invOv = document.getElementById('inventory-overlay');
         const _prevInvTab = _invOv ? _invOv._invTab : null;
         if (_invOv) _invOv._invTab = tab;
@@ -3728,11 +4134,9 @@
         clearInterval(inventoryPreviewTimer);
         if (tab === 'blocks' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
             inventoryPreviewTimer = setInterval(() => {
-                if (document.hidden || _invOv.classList.contains('hidden')) return;
+                if (document.hidden || _invOv.classList.contains('hidden') || !inventoryActivePreview?.isConnected) return;
                 inventoryPreviewColor = inventoryPreviewColor % (BASE_PIECES.length - 1) + 1;
-                document.querySelectorAll('#owned-skin-btns canvas').forEach(canvas => {
-                    _drawSkinPreview(canvas, canvas.parentElement.dataset.itemKey, inventoryPreviewColor);
-                });
+                _drawSkinPreview(inventoryActivePreview, inventoryActivePreview.dataset.skin, inventoryPreviewColor);
             }, 2500);
         }
         if (_prevInvTab && _prevInvTab !== tab) {
@@ -3754,6 +4158,7 @@
         tabs[next].focus();
     });
     function settingsVisualSubTab(tab) {
+        closeInfo();
         document.querySelectorAll('[data-vstab]').forEach(b => b.classList.toggle('active', b.dataset.vstab === tab));
         document.querySelectorAll('[data-vstab-content]').forEach(p => p.classList.toggle('hidden', p.dataset.vstabContent !== tab));
     }
@@ -3765,6 +4170,7 @@
     const _SVG_PIX_PLAY = `<svg viewBox="0 0 16 16" width="14" height="14" shape-rendering="crispEdges"><rect fill="currentColor" x="3" y="2" width="2" height="12"/><rect fill="currentColor" x="5" y="4" width="2" height="8"/><rect fill="currentColor" x="7" y="5" width="2" height="6"/><rect fill="currentColor" x="9" y="6" width="2" height="4"/><rect fill="currentColor" x="11" y="7" width="2" height="2"/></svg>`;
     const _SVG_VOL = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
     const _SVG_MUTED = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`;
+    const miniMusicIcon = icon => icon.replace('width="14" height="14"', 'width="11" height="11"');
     function syncMusicMuteButtons() {
         const muted = settings.musicMuted || settings.musicVol === 0;
         const pixel = settings.stylePack === 'pixel';
@@ -3772,8 +4178,7 @@
         for (const id of ['music-mute-btn', 'mw-mute', 'pl-mw-mute']) {
             const button = document.getElementById(id);
             if (!button) continue;
-            button.innerHTML = id === 'pl-mw-mute'
-                ? (muted ? _SVG_MUTED : _SVG_VOL).split('="14"').join('="11"') : icon;
+            button.innerHTML = id === 'pl-mw-mute' ? miniMusicIcon(icon) : icon;
             button.setAttribute('aria-label', muted ? 'Unmute music' : 'Mute music');
         }
     }
@@ -3792,6 +4197,7 @@
             }
             syncMusicGain();
             syncMusicMuteButtons();
+            if (!settings.musicMuted) _syncMusicPlayback();
             saveSettings();
             if (settings.musicMuted) {
                 // mute_jarvis tracking (5s min gap)
@@ -3932,15 +4338,16 @@
                     escapeHtml(LBLineClear.description(s)), s
                 );
             }).join('');
+            const previewPalette = [COLORS.join(','), settings.colorPalette, Boolean(saveData.customPaletteOverrides?.classic), window.devicePixelRatio].join('|');
+            if (inventoryPreviewPalette !== previewPalette) {
+                inventoryPreviewPalette = previewPalette;
+                inventoryStaticPreviews.clear();
+                inventoryActivePreview = null;
+            }
             ownedSkinContainer.innerHTML = rows;
             ownedSkinContainer.querySelectorAll('[data-item-key]').forEach(row => {
-                const canvas = document.createElement('canvas');
-                canvas.className = 'lb-inventory-preview';
-                canvas.width = 144; canvas.height = 72;
-                canvas.setAttribute('role', 'img');
-                canvas.setAttribute('aria-label', `${skinNames[row.dataset.itemKey]} block preview`);
-                row.querySelector('.lb-inventory-heading').after(canvas);
-                _drawSkinPreview(canvas, row.dataset.itemKey, inventoryPreviewColor);
+                const skin = row.dataset.itemKey;
+                row.querySelector('.lb-inventory-heading').after(_inventorySkinPreview(skin, skinNames[skin], skin === activeSkin));
             });
         }
 
@@ -4128,7 +4535,7 @@
         const uniRow = `<div class="lb-block-card lb-exchange-row lb-inventory-parts">
             <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
             <div class="lb-exchange-row-detail">
-                <strong class="lb-help-label">Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" title="About universal parts"></button></strong>
+                <strong class="lb-help-label">Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" data-control-tip="About universal parts"></button></strong>
                 <div class="lb-inventory-progress lb-inventory-universal-progress">
                     <progress class="lb-block-progress" aria-label="Progress toward one usable universal part" max="1" value="${Math.min(1, _uniVal)}"></progress>
                     <span>${Number(_uniVal.toFixed(1))} owned</span>
@@ -4173,7 +4580,7 @@
         container.innerHTML = `
             ${uniRow}
             <section class="lb-block-card lb-inventory-section lb-inventory-boosters">
-                <h2 class="lb-block-section-title lb-help-label">Boosters <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" title="About boosters"></button></h2>
+                <h2 class="lb-block-section-title lb-help-label">Boosters <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" data-control-tip="About boosters"></button></h2>
                 ${boosterHtml}
             </section>
             <section id="inventory-sfx-packs" class="lb-block-card lb-inventory-section lb82-sfx-packs">
@@ -4464,6 +4871,7 @@
         if (hbSlider) { hbSlider.value = hbV; _dStepsSync('heavybg-dtrack','',hbSlider,1,3); }
         const hbVal = document.getElementById('setting-heavybg-val'); if (hbVal) hbVal.innerText = ['','Light','Medium','Heavy'][hbV] || '';
         _themeBackgroundSelect.value = LBArtPack.backgroundMode(settings.themeBackground);
+        _movingBackgroundToggle.checked = settings.movingBackground !== false;
         _bgBlockMotionSelect.value = settings.bgBlockMotion === 'falling' ? 'falling' : 'spinning';
         _runMissionsSelect.value = settings.showRunMissions === true ? 'on' : 'off';
         settingsFromPause = fromPause;
@@ -4569,6 +4977,7 @@
             syncMusicVolumeControl();
             syncMusicGain();
             syncMusicMuteButtons();
+            if (settings.musicVol > 0 && !settings.musicMuted) _syncMusicPlayback();
             saveSettingsDebounced(); return;
         } else if (key === 'sfxVol') {
             settings.sfxVol = parseInt(value);
@@ -4603,6 +5012,10 @@
         } else if (key === 'themeBackground') {
             settings.themeBackground = LBArtPack.backgroundMode(value);
             LBArtPack.applyThemeBackground(document.querySelector('.bg-gradient'), settings.theme, settings.themeBackground);
+            syncBackground();
+        } else if (key === 'movingBackground') {
+            settings.movingBackground = value === true;
+            syncWallpaper();
         } else if (key === 'bgBlockMotion') {
             settings.bgBlockMotion = value === 'falling' ? 'falling' : 'spinning';
             _rebuildBgBlocks();
@@ -4797,27 +5210,23 @@
         drawPinnedScores();
     }
     function _showScorePinPopup(event, label, action) {
+        if (infoDragged && event.detail) return;
         let popup = document.getElementById('score-pin-popup');
         if (!popup) {
             popup = document.createElement('button');
+            popup.type = 'button';
             popup.id = 'score-pin-popup';
             popup.className = 'lb-block-btn';
             document.body.appendChild(popup);
-            document.addEventListener('click', (e) => { if (!popup.contains(e.target)) popup.style.display = 'none'; });
         }
         const trigger = event.currentTarget;
         const keyboard = event.detail === 0;
-        const bounds = trigger.getBoundingClientRect();
-        const left = keyboard ? bounds.left : event.clientX + 6;
-        const top = keyboard ? bounds.top : event.clientY - 36;
         popup.textContent = label;
-        popup.style.display = '';
-        popup.style.left = Math.max(8, Math.min(left, window.innerWidth - popup.offsetWidth - 8)) + 'px';
-        popup.style.top = Math.max(8, Math.min(top, window.innerHeight - popup.offsetHeight - 8)) + 'px';
         const dismiss = () => {
-            popup.style.display = 'none';
-            if (keyboard) (trigger.isConnected ? trigger : document.getElementById('pinned-container')).focus();
+            closeInfo(trigger);
+            if (keyboard) (trigger.isConnected ? trigger : document.getElementById('pinned-container')).focus({ preventScroll: true });
         };
+        showInfo(popup, trigger);
         popup.onclick = (e) => { e.stopPropagation(); action(); dismiss(); };
         popup.onkeydown = (e) => { if (e.key === 'Escape') { e.stopPropagation(); dismiss(); } };
         if (keyboard) popup.focus();
@@ -4919,7 +5328,7 @@
         const lb = saveData.leaderboard;
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
-        const tipEl = document.getElementById('lb-tooltip-global');
+        const tipEl = infoPanel('lb-tooltip-global');
 
         const podiumPanel = document.createElement('section');
         podiumPanel.className = 'lb-stats-podium-panel lb-stats-podium-original';
@@ -4929,8 +5338,7 @@
                 ev.stopPropagation();
                 _showScorePinPopup(ev, '📌 Pin this score', () => pinLeaderboardEntry(rank - 1));
             });
-            block.addEventListener('mouseenter', (ev) => {
-                if (!tipEl) return;
+            bindInfoPreview(block, () => {
                 let tipHtml = `<div class="lb-stats-podium-tip" data-place="${rank}">#${rank} ${medal} — ${escapeHtml(e.score.toLocaleString())} pts</div>`;
                 if (e.lines != null) {
                     tipHtml += `<div style="display:flex;flex-direction:column;gap:2px;">`;
@@ -4940,18 +5348,10 @@
                     if (e.maxCombo > 1) tipHtml += `<span>🔥 combo x${escapeHtml(e.maxCombo)}</span>`;
                     tipHtml += `</div>`;
                 }
-                tipHtml += `<div style="color:#555;font-size:0.6rem;margin-top:4px;">${escapeHtml(LBSave.displayDate(e.date, e.clock))}</div>`;
+                tipHtml += `<div>${escapeHtml(LBSave.displayDate(e.date, e.clock))}</div>`;
                 tipEl.innerHTML = tipHtml;
-                tipEl.style.display = 'block';
-                const tx = Math.min(ev.clientX + 14, window.innerWidth - 190);
-                tipEl.style.left = tx + 'px'; tipEl.style.top = (ev.clientY - 10) + 'px';
+                showInfo(tipEl, block);
             });
-            block.addEventListener('mousemove', (ev) => {
-                if (!tipEl) return;
-                const tx = Math.min(ev.clientX + 14, window.innerWidth - 190);
-                tipEl.style.left = tx + 'px'; tipEl.style.top = (ev.clientY - 10) + 'px';
-            });
-            block.addEventListener('mouseleave', () => { if (tipEl) tipEl.style.display = 'none'; });
         });
         podiumPanel.appendChild(podium);
         container.appendChild(podiumPanel);
@@ -5034,23 +5434,126 @@
     };
     const _ACH_XP = { common: 500, rare: 1000, epic: 2500, legendary: 5000, mythic: 10000 };
 
-    const _ACH_SVG = {
-        trophy:     `<path d="M7 3h10v7a5 5 0 01-10 0V3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 7H4a3 3 0 003 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M17 7h3a3 3 0 01-3 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="15" x2="12" y2="20" stroke="currentColor" stroke-width="1.5"/><path d="M8 20h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`,
-        controller: `<rect x="2" y="7" width="20" height="12" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="7" y1="11" x2="7" y2="16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="4.5" y1="13.5" x2="9.5" y2="13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="15.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="17.5" cy="13.5" r="1.2" fill="currentColor"/>`,
-        bolt:       `<polyline points="13 2 13 9 19 9 11 22 11 15 5 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
-        quad:       `<line x1="4" y1="5.5" x2="20" y2="5.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="4" y1="10" x2="20" y2="10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="4" y1="14.5" x2="20" y2="14.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="4" y1="19" x2="20" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>`,
-        smiley:     `<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="10.5" r="1.2" fill="currentColor"/><path d="M8 15 Q12 18.5 16 15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`,
-        stopwatch:  `<circle cx="12" cy="14" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><polyline points="12 10 12 14 15 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="9" y1="3" x2="15" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="3" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/>`,
-        turtle:     `<ellipse cx="12" cy="14" rx="7" ry="5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="7" y1="18" x2="5" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="17" y1="18" x2="19" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="5" y1="14" x2="2" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="19" y1="14" x2="22" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`,
-        mirror:     `<line x1="12" y1="3" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/><path d="M6 6h3v12H6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M18 6h-3v12h3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>`,
-        flame:      `<path d="M12 22c-4.5 0-8-3.5-8-8 0-3.5 2-6 4-8 0 3 2 4.5 3 5-1-3.5 1-6 3-8 0 3.5 3 5 3 8 1-1.5 1-4 0-5.5 2.5 2 4 5 4 8.5 0 4.5-3.5 8-9 8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>`,
+    const ACH_QUEST_PAGE = 'M4 2h16v2h2v18H2V4h2zM4 6v14h16V6z';
+    const ACH_QUEST_CHECK = 'M6 11h2v2h2v2h2v-2h2v-2h2V9h2v4h-2v2h-2v2h-4v-2H8v-2H6z';
+    const ACH_QUEST_HARD = 'M11 8h2v2h2v2h2v2h2v4H5v-4h2v-2h2v-2h2zm0 3v2H9v2h2v-1h2v1h2v-2h-2v-2z';
+    const ACH_QUEST_SECRET = 'M9 6h6v2h2v3h2v7H5v-7h2V8h2zm0 2v3h6V8zm2 5v3h2v-3z';
+    const ACH_CALENDAR = 'M6 2h2v2h8V2h2v2h4v18H2V4h4zM4 9v11h16V9z';
+    const ACH_QUAD = 'M2 3h20v3H2zm0 5h20v3H2zm0 5h20v3H2zm0 5h20v3H2z';
+    const ACH_PAUSE = 'M6 4h4v16H6zm8 0h4v16h-4z';
+    const ACH_PIXEL_ART = {
+        score: '#lb-metric-trophy',
+        games: '#lb-metric-gamepad',
+        speed: '#lb-run-icon-speed',
+        sec_symmetric_board: 'M11 2h2v20h-2zM3 6h4v3h2v9H3zm14 0h4v12h-6V9h2zM5 12v4h2v-4zm12 0v4h2v-4z',
+        sec_nice: 'M4 6h6v2H6v3h4v2h1v4h-1v2H4v-2H2V8h2zm0 7v4h5v-4zm10-7h6v2h2v9h-2v2h-6v-2h6v-3h-6v-2h-2V8h2zm0 2v4h6V8z',
+        sec_turtle: 'M6 6h9v2h3v4h2v-2h3v6h-5v2h-2v3h-3v-3H7v3H4v-3H2v-2H0v-2h3v-4h3zm2 2v3h5V8zm-2 5v2h3v-2zm7 0v2h3v-2z',
+        sec_palindrome: 'M5 6h3v2h2v4H8v2H6v2h4v2H4v-4h2v-2h2V8H5zm9 0h6v2h-4v2h2v2h2v6h-6v-2h4v-4h-4zM11 3h2v18h-2z',
+        sec_420: 'M6 22v-3h8v-2H9v-3h10v-2h-5V9H9V6h7V4h-5V1h8v3h2v4h-5v2h6v6h-5v3h2v3zM2 14h3v3H2zM3 6h3v3H3z',
+        survival: 'M10 2h4v2h5v2h3v8h-2v4h-3v2h-3v2h-4v-2H7v-2H4v-4H2V6h3V4h5zm1 5v4H7v2h4v4h2v-4h4v-2h-4V7z',
+        speed_placer: 'M2 5h8v2H2zm3 4h6v2H5zm-4 4h8v2H1zm11-7h4v4h-4zm5 0h4v4h-4zm0 5h4v4h-4zm-5 5h4v4h-4zm5 0h4v4h-4zM5 18h5v2H5z',
+        total_blocks: '#lb-metric-blocks',
+        total_lines: '#lb-run-icon-lines',
+        speedrunner: 'M12 2h6v2h-2v2h3v2h3v4h1v4h-1v3h-3v3H11v-3H8v-3H7v-4h1V9h3V6h3V4h-2zM10 12v5h2v2h6v-2h2v-5h-2V9h-6v3zm4-2h2v4h2v2h-4zM1 7h7v2H1zm0 5h4v2H1zm2 5h4v2H3z',
+        quad_count: ACH_QUAD,
+        combo_master: '#lb-metric-combo',
+        high_placer: 'M2 2h20v20H2zm2 2v16h16V4zm2 8h12v2H6zm0 4h3v2H6zm4 0h3v2h-3zm4 0h4v2h-4z',
+        booster_user: 'M8 2h8v3h-1v4h3v3h2v8h-2v2H6v-2H4v-8h2V9h3V5H8zm5 8h-2v4H8v2h3v4h2v-4h3v-2h-3z',
+        fun_score: 'M6 2h12v2h3v3h2v10h-2v3h-3v2H6v-2H3v-3H1V7h2V4h3zM6 8v3h3V8zm9 0v3h3V8zM6 14v2h2v2h8v-2h2v-2h-3v2H9v-2z',
+        i_piece_lines: 'M9 2h6v4H9zm0 5h6v4H9zm0 5h6v4H9zm0 5h6v4H9zM2 18h5v2H2zm15 0h5v2h-5z',
+        daily_streak: '#lb-metric-flame',
+        board_clear: 'M2 2h20v20H2zm2 2v16h16V4zm7 3h2v3h3v2h-3v3h-2v-3H8v-2h3zm-4 8h2v2H7zm9-1h2v2h-2z',
+        top_line: 'M2 3h20v19H2zm2 5v12h16V8zM4 5v1h2V5zm4 0v1h2V5zm4 0v1h2V5zm4 0v1h2V5zm-5 5h2v2h2v2h2v2h-4v3h-2v-3H7v-2h2v-2h2z',
+        level_101: 'M2 4h3v3h2v3h3V7h1V3h2v4h1v3h3V7h2V4h3v6h-2v9H4v-9H2zm4 13h12v-2H6zm5-5v2h2v-2z',
+        daily_rare: 'M2 8h3v-2h14v2h3v13H2zm2 6v5h16v-5h-6v3h-4v-3zM7 8v2h10V8zM11 1h2v3h-2zM3 3h2v2H3zm16 0h2v2h-2z',
+        sec_booster_waste: 'M7 2h9v3h-2v5h3v3h2v7h-2v2H5v-2H3v-7h2v-3h4V5H7zm0 11v3h3v-3zm3 3v3h3v-3zm3-3v3h3v-3zM20 3h2v6h-2zm0 8h2v2h-2z',
+        sec_no_rotate: 'M7 3h10v2h3v3h2v8h-2v3h-3v2H7v-2H4v-3H2V8h2V5h3zm1 3H7v3H5v6h2v3h9v-2h3v-2h-2v-2h-3v-2h-3V8H8zm4 0v2h3v2h3v2h1V9h-2V6z',
+        sec_equal_pieces: 'M11 3h2v3h8v2h-2v4h3v4h-2v2h-5v-2h-2v-4h3V8H8v4h3v4H9v2H4v-2H2v-4h3V8H3V6h8zm0 13h2v4h5v2H6v-2h5z',
+        sec_seven: 'M2 4h5v5H2zm7 0h6v5H9zm8 0h5v5h-5zM2 11h5v5H2zm7 0h6v5H9zm8 0h5v5h-5zM9 18h6v4H9z',
+        sec_early_bird: 'M11 2h2v3h-2zm6 2h2v3h-2zM5 4h2v3H5zm2 6h2V8h6v2h3v2h4v2h-4v4h-3v3H6v-3H3v-3H1v-2h6zm6 2v2h2v-2z',
+        sec_no_drop: 'M3 13h2v2h4v-2h8v-2h2V9h3v5h-2v3h-3v2H8v2H2v-4h2v-2H3zm5-9h5v2H8zm-3 4h5v2H5z',
+        sec_all_drop: 'M9 2h6v4H9zm0 6h6v5h4v2h-2v2h-2v2H9v-2H7v-2H5v-2h4zM3 20h18v3H3z',
+        sec_big_font: 'M3 3h7v2H5v5H3zm11 0h7v7h-2V5h-5zM3 14h2v5h5v2H3zm16 0h2v7h-7v-2h5zM7 7h10v3h-4v7h-2v-7H7z',
+        sec_exact_100: 'M6 5h12v2h3v3h2v4h-2v3h-3v2H6v-2H3v-3H1v-4h2V7h3zm3 6v2h2v2h3v-2h2v-2h2V9h-3v2h-2v2h-1v-2z',
+        sec_exact_level: 'M2 5h20v14H2zm3 3v8h14V8zm2 2h9v4H7zm10 0h1v4h-1zM8 21h8v2H8z',
+        sec_speedgames: 'M2 10h5v3H2zm2 5h5v3H4zm7-12h10v3h-7v3h6v2h2v7h-2v3H11v-3h8v-6h-8z',
+        surgeon: 'M19 2h4v4h-2v2h-2v2h-2v2h-2v-2h-2V8h2V6h2V4h2zM11 10h2v2h2v2h-2v2h-2v3H9v2H2v-4h2v-2h3v-2h4z',
+        pin_record: 'M7 2h10v3h-2v5h2v2h2v4h-6v6h-2v-6H5v-4h2v-2h2V5H7z',
+        daily_xp: ACH_CALENDAR + 'M12 10h2v3h3v2h-3v3h-2v-3H9v-2h3z',
+        rules_reader: 'M2 3h8v2h4V3h8v16h-8v2h-4v-2H2zm2 2v12h6V7H8V5zm12 0v2h-2v10h6V5zM5 8h4v2H5zm0 4h4v2H5zm10-4h4v2h-4zm0 4h4v2h-4z',
+        prosperity: 'M2 8h20v13H2zm2 2v9h16v-9zm0-6h16v2H4zm2-3h12v2H6zm6 10h2v2h3v2h-3v3h-2v-3H9v-2h3z',
+        music_listener: 'M7 3h10v2h3v4h2v11h-6v-8h3V9h-2V6H7v3H5v3h3v8H2V9h2V5h3z',
+        third_charm: 'M2 16h4v5H2zm6-4h4v9H8zm6-4h4v13h-4zm2-6h6v6h-2V6h-2V4h-2z',
+        risky_break: 'M10 2h4v3h2v4h2v4h2v4h2v5H2v-5h2v-4h2V9h2V5h2zm-2 9v7h3v-7zm5 0v7h3v-7z',
+        loser: 'M3 3h4v2h3v3h4V5h3V3h4v4h-2v3h-3v4h3v3h2v4h-4v-2h-3v-3h-4v3H7v2H3v-4h2v-3h3v-4H5V7H3z',
+        marathon: 'M3 2h3v20H3zm5 0h14v14H8zm2 2v3h3V4zm6 0v3h4V4zm-3 3v4h3V7zm-3 4v3h3v-3zm6 0v3h4v-3z',
+        lucky_day: 'M5 3h5v2h4V3h5v2h2v5h-2v4h2v5h-2v2h-5v-2h-2v3H7v-2h3v-3H5v-2H3v-5h2V8H3V5h2z',
+        mirror_score: 'M2 5h8v2H4v3h5v2h1v5H2v-2h6v-3H2zm12 0h8v7h-6v3h6v2h-8v-7h6V7h-6zM11 2h2v20h-2z',
+        loyal_piece: 'M2 3h20v19H2zm2 2v15h16V5zm3 3h3v3h3v3H7zm7 0h3v10h-3z',
+        logo_click: 'M3 4h11v3h-4v7H7V7H3zm12 5h5v2h2v5h-2v3h-4v2h-5v-5h2v-4h2zm1 4v4h3v-4zM3 16h2v2H3z',
+        mute_jarvis: 'M2 8h4V6h3V4h3v16H9v-2H6v-2H2zm12 1h2v2h3V9h2v3h-2v2h2v3h-2v-2h-3v2h-2v-3h2v-2h-2z',
+        save_transfer: 'M2 2h16v2h2v2h2v16H2zm4 2v5h11V4h-3v3h-2V4zm0 11v5h12v-5z',
+        pin_collector: 'M3 3h7v2H9v4h2v4H8v6H6v-6H2V9h2V5H3zm10 3h7v2h-1v4h3v4h-4v6h-2v-6h-4v-4h2V8h-1z',
+        exact_death: 'M5 4h14v2h3v5H2V6h3zm0 3v2h14V7zM5 14h2v6H5zm6 0h2v6h-2zm6 0h2v6h-2z',
+        skin_loyal: 'M2 4h20v16H2zm2 2v12h16V6zM6 8h4v3H6zm5 0h4v3h-4zm5 0h2v3h-2zM6 13h2v3H6zm3 0h4v3H9zm5 0h4v3h-4z',
+        fun_squared: 'M2 7h15v15H2zm3 3v3h2v-3zm7 0v3h2v-3zm-7 5v2h2v2h5v-2h2v-2h-3v2H8v-2zM8 2h14v14h-3V5H8z',
+        abort_mission: 'M2 2h11v4H6v12h7v4H2zM9 10h6V6h2v2h2v2h2v4h-2v2h-2v2h-2v-4H9z',
+        deja_vu: 'M2 5h11v9H2zm2 2v5h7V7zm11-2h7v9h-7zm2 2v5h3V7zM5 16h2v2h10v-2h2v4H5z',
+        streak_lost: 'M12 2h3v4h3v4h3v8h-3v3H6v-3H3v-5h3V8h3v3h3zm-3 12v3h2v2h2v-2h2v-3h-2v-2h-2v2z',
+        gift_ignore: 'M5 3h5v2h4V3h5v2h2v4h2v5h-2v8H3v-8H1V9h2V5h2zm0 2v4h5V7H8V5zm11 2h-2v2h5V5h-3zM5 14v6h5v-6zm9 0v6h5v-6z',
+        back_to_back: 'M2 3h20v7H2zm2 2v3h16V5zm-2 9h20v7H2zm2 2v3h16v-3zm4-5h8v2H8zM6 6h4v1H6zm8 0h4v1h-4zM6 17h4v1H6zm8 0h4v1h-4z',
+        afk: 'M2 3h20v14H2zm2 2v10h16V5zm4 13h8v2h3v2H5v-2h3zM9 7h7v2h-2v2h-2v1h4v2H9v-2h1v-2h2V9H9z',
+        parachute_catcher: 'M7 2h10v2h3v2h2v5h-4v2h-2v3h1v6H7v-6h1v-3H6v-2H2V6h2V4h3zm0 9v1h3v4h4v-4h3v-1z',
+        collector: 'M2 5h14v3h6v12H2zm2 4v9h16v-7H13V8H4zm3 3h3v3H7zm6 1h3v3h-3z',
+        pause_spam: ACH_PAUSE + 'M2 8h2v8H2zm18 0h2v8h-2z',
+        leaning_tower: 'M12 2h7v5h-7zm-2 6h7v5h-7zm-3 6h7v5H7zm-4 6h18v2H3z',
+        dry_spell: 'M3 14h5v6H3zm6-5h5v11H9zm6 3h6v8h-6zM3 21h18v2H3zM15 4h6v2h-6z',
+        double_satisfaction: 'M2 4h9v3H2zm0 4h9v3H2zm0 4h9v3H2zm0 4h9v3H2zm11-12h9v3h-9zm0 4h9v3h-9zm0 4h9v3h-9zm0 4h9v3h-9z',
+        one_at_a_time: 'M2 10h6v4H2zm14 0h6v4h-6zM11 4h2v5h-2zm0 11h2v5h-2zm-2-4h6v2H9z',
+        surgeons_streak: 'M2 18h20v3H2zm5-5h15v3H7zm5-5h10v3H12zm5-5h5v3h-5z',
+        spinner: 'M5 4h12V2h2v2h2v2h2v2h-2v2h-2v2h-2V8H7v2H5v6h2v2h11v3H5v-2H3v-3H1v-6h2V7h2zm5 7h5v5h-5z',
+        dizzy: 'M5 2h14v3h3v14h-3v3H5v-3H2V5h3zm0 3v14h14V5zm2 2h10v10H9v-6h5v2h-3v2h4V9H7z',
+        fav_track: 'M3 3h18v3h2v12h-3v3H4v-3H1V6h2zm2 6v4h2v2h2v2h2v-2h2v-2h2V9h-4v2H9V9zm12-2v8h3V7z',
+        clutch: 'M3 3h14v4h-5v6H8V7H3zm11 6h4v2h2v2h2v4h-2v2h-2v2H5v-3h12v-3h2v-2h-5zM2 14h4v2H2zm5 0h5v2H7z',
+        staircase: 'M2 16h5v-5h5V6h5V2h5v20H2zm2 2v2h16V4h-1v4h-5v5H9v5z',
+        indecisive: 'M5 4h2v4h10V4h2v2h2v2h2v3h-2v2h-2v2h-2v-4H7v4H5v-2H3v-2H1V8h2V6h2zm3 13h8v4H8z',
+        too_fast: 'M11 2h2v4h2v3h2v3h2v3h2v3h2v4H1v-4h2v-3h2v-3h2V9h2V6h2zm0 8v6h2v-6zm0 8v2h2v-2z',
+        the_2048: 'M2 2h20v20H2zm2 2v16h16V4zM6 6h5v3H8v1h3v1H6V8h3V7H6zm7 0h5v5h-5zm2 1v3h1V7zm-9 6h2v2h1v-2h2v5H9v-1H6zm7 0h5v5h-5zm2 1v1h1v-1zm0 2v1h1v-1z',
+        mq_first_easy: ACH_QUEST_PAGE + ACH_QUEST_CHECK,
+        mq_normal_10: ACH_QUEST_PAGE + 'M7 8h10v2h2v4h-2v2h-3v3l-2-1-2 1v-3H7v-2H5v-4h2zm3 2v4h4v-4z',
+        mq_hard_5: ACH_QUEST_PAGE + 'M7 8h8v2h2v3h-5v5H9v-5H6v-3h1z',
+        mq_secret_1: ACH_QUEST_PAGE + ACH_QUEST_SECRET,
+        mq_total_50: 'M8 1h8v3h3v3h3v10h-3v3h-3v3H8v-3H5v-3H2V7h3V4h3zm0 7v3h3V8zm5 0v3h3V8zM7 14v3h10v-3z',
+        mq_streak_7: ACH_CALENDAR + 'M7 11h10v3h-2v2h-2v3h-3v-3h2v-2h2v-1H7z',
+        mq_streak_30: ACH_CALENDAR + 'M6 11h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2zM6 14h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2zM6 17h3v2H6zm5 0h7v2h-7z',
+        mq_easy_quests: 'M5 2h17v18h-2V4H5zM2 5h16v17H2zm2 2v13h12V7zM6 12h2v2h2v-2h2v-2h2v4h-2v2H8v-2H6z',
+        mq_normal_quests: ACH_QUEST_PAGE + 'M5 9h14v3H5zm0 5h14v3H5z',
+        mq_hard_quests: ACH_QUEST_PAGE + ACH_QUEST_HARD,
+        mq_total_quests: 'M5 2h17v17h-2V4H5zM2 5h16v17H2zm2 2v13h12V7zm2 2h8v2H6zm0 4h8v2H6zm0 4h6v2H6z',
+        mq_secret_quests: 'M7 2h9v2h3v3h2v9h-3v2h-2v2h-5v-2H7v-2H4V7h2V4h1zm1 4v3H6v6h3v2h7v-2h2V9h-2V6zm2 4h5v4h-5zm-6 7h3v2H5v2H3v2H1v-4h1v-2z',
+        mq_daily_perfect: 'M11 1h2v3h-2zM3 4h3v3H3zm15 0h3v3h-3zM7 6h10v2h3v8h-3v3H7v-3H4V8h3zm0 5v2h2v2h4v-2h2v-2h2V9h-3v2h-2v2h-2v-2zm4 9h2v3h-2z',
+        mq_all_cleared: ACH_CALENDAR + ACH_QUEST_CHECK,
+        mq_no_easy_epic: ACH_QUEST_PAGE + 'M5 9h5v3H5zm9 0h5v3h-5zm-9 5h5v3H5zm9 0h5v3h-5z',
+        mq_no_easy_legendary: ACH_QUEST_PAGE + 'M5 15h3v3H5zm5-3h3v6h-3zm5-4h4v10h-4z',
+        mq_hard_they_said: 'M2 4h18v14h-2V6H2zm3 4h17v14H5zm2 2v10h13V10zm5 1h3v2h2v2h2v3H8v-3h2v-2h2z',
+        mq_lazy_lucky: ACH_QUEST_PAGE + 'M11 7h2v4h4v2h-4v4h-2v-4H7v-2h4zM16 16h2v2h-2z',
+        mq_barely: ACH_CALENDAR + 'M6 12h4v3h4v-3h4v2h-2v3H8v-3H6z',
+        mq_double_badge: 'M2 3h7v2h2v7H9v2H7v4H4v-4H2zm2 3v5h5V6zm9 3h7v2h2v7h-2v2h-2v3h-3v-3h-2zm2 3v5h5v-5z',
+        question: 'M7 3h10v2h3v8h-3v2h-3v2h-4v-4h3v-2h3V7H8v3H4V5h3zm3 16h4v4h-4z',
     };
+
+    function achievementIcon(id) {
+        const art = ACH_PIXEL_ART[id];
+        if (art.startsWith('#')) {
+            return `<use href="${art}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+        }
+        return `<path d="${art}" fill="currentColor" fill-rule="evenodd" shape-rendering="crispEdges"/>`;
+    }
 
     const ACHIEVEMENTS_DEF = [
         // ── TIERED ────────────────────────────────────────────────
         {
             id: 'score', cat: 'basic', name: 'High Score', type: 'tiered',
-            svgIcon: `<path d="M7 3h10v7a5 5 0 01-10 0V3z" fill="none" stroke="#FFD700" stroke-width="1.5" stroke-linejoin="round"/><path d="M5 4H3v4a3 3 0 003 3M19 4h2v4a3 3 0 01-3 3" fill="none" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="21" x2="16" y2="21" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round"/>`,
             counter: { path:'highscore', label:'Personal Best' },
             tiers: [
                 { rarity:'common',    name:'On the Board',  desc:'Reach a score of 500',    check: g => g.score >= 500,   progressDisplay:{ path:'highscore', target:500   } },
@@ -5062,7 +5565,6 @@
         },
         {
             id: 'games', cat: 'basic', name: 'Games Played', type: 'tiered',
-            svgIcon: _ACH_SVG.controller,
             counter: { path:'stats.gamesPlayed', label:'Games Played' },
             tiers: [
                 { rarity:'common',    name:'Newbie',     desc:'Play 10 games',    progress:{ path:'stats.gamesPlayed', target:10   } },
@@ -5074,7 +5576,6 @@
         },
         {
             id: 'speed', cat: 'basic', name: 'Throttle', type: 'tiered',
-            svgIcon: `<path transform="scale(0.75)" fill="currentColor" d="M15.999 1.129c-8.812 0-15.98 7.169-15.98 15.981 0 5.536 2.803 10.6 7.497 13.544 0.467 0.296 1.084 0.152 1.378-0.316s0.152-1.085-0.316-1.378c-1.691-1.061-3.095-2.439-4.17-4.027l1.048-0.605c0.478-0.276 0.643-0.887 0.366-1.366-0.277-0.48-0.889-0.642-1.366-0.366l-1.050 0.606c-0.763-1.579-1.228-3.306-1.353-5.107h1.113c0.552 0 1-0.448 1-1s-0.447-1-1-1h-1.108c0.132-1.834 0.618-3.572 1.393-5.143l1.005 0.58c0.157 0.091 0.329 0.134 0.499 0.134 0.346 0 0.681-0.179 0.867-0.5 0.277-0.479 0.112-1.090-0.366-1.366l-0.995-0.574c1.003-1.463 2.277-2.728 3.75-3.719l0.563 0.975c0.185 0.322 0.521 0.5 0.867 0.5 0.17 0 0.342-0.043 0.499-0.134 0.479-0.277 0.643-0.887 0.366-1.366l-0.561-0.971c1.542-0.744 3.24-1.208 5.030-1.338v1.246c0 0.553 0.447 1 1 1s1-0.447 1-1v-1.25c1.831 0.127 3.567 0.606 5.137 1.373l-0.543 0.939c-0.276 0.479-0.113 1.090 0.366 1.366 0.157 0.091 0.329 0.134 0.499 0.134 0.346 0 0.681-0.178 0.867-0.5l0.54-0.936c1.459 0.993 2.721 2.255 3.715 3.713l-0.936 0.541c-0.479 0.277-0.642 0.887-0.366 1.366 0.186 0.322 0.521 0.5 0.867 0.5 0.17 0 0.342-0.043 0.499-0.134l0.942-0.543c0.768 1.571 1.248 3.307 1.377 5.139h-1.098c-0.552 0-1 0.448-1 1s0.448 1 1 1h1.098c-0.127 1.777-0.581 3.482-1.328 5.041l-0.99-0.572c-0.477-0.276-1.091-0.111-1.366 0.366-0.276 0.479-0.113 1.090 0.366 1.366l0.993 0.573c-1.097 1.633-2.545 3.044-4.292 4.119-0.471 0.29-0.616 0.907-0.327 1.376 0.189 0.306 0.517 0.476 0.852 0.476 0.178 0 0.36-0.048 0.523-0.148 4.764-2.934 7.608-8.024 7.608-13.614 0-8.811-7.169-15.98-15.98-15.98zM23.378 13.992c0.478-0.277 0.642-0.887 0.366-1.366s-0.888-0.642-1.366-0.366l-5.432 3.136c-0.29-0.164-0.62-0.265-0.977-0.265-1.102 0-1.995 0.893-1.995 1.994 0 1.102 0.893 1.995 1.995 1.995s1.995-0.893 1.995-1.995c0-0.002-0-0.005-0-0.007z"/>`,
             counter: { path:'stats.bestMaxSpeed', label:'Best Speed (Normal)' },
             tiers: [
                 { rarity:'common',    name:'First Gear',  desc:'Reach speed 3 in Normal Mode',  check: g => g.maxSpeed >= 3  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:3  } },
@@ -5090,41 +5591,35 @@
             id: 'sec_symmetric_board', cat: 'secret', name: 'Mirror Universe', type: 'single',
             rarity: 'rare', clue: 'Balance is everything.',
             desc: 'Have at least 15 blocks arranged in a perfectly symmetric layout on the board (left–right mirror).',
-            svgIcon: `<line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2" stroke-linecap="round"/><rect x="3" y="6" width="4" height="4" rx="0.5" fill="currentColor" opacity="0.8"/><rect x="17" y="6" width="4" height="4" rx="0.5" fill="currentColor" opacity="0.8"/><rect x="6" y="12" width="4" height="4" rx="0.5" fill="currentColor" opacity="0.8"/><rect x="14" y="12" width="4" height="4" rx="0.5" fill="currentColor" opacity="0.8"/><rect x="3" y="17" width="4" height="4" rx="0.5" fill="currentColor" opacity="0.5"/><rect x="17" y="17" width="4" height="4" rx="0.5" fill="currentColor" opacity="0.5"/>`,
             check: g => g.boardSymmetric,
         },
         {
             id: 'sec_nice', cat: 'secret', name: 'Nice', type: 'single',
             rarity: 'epic', clue: 'Some numbers are... memorable.',
             desc: 'Finish a game where the score contains "69" (e.g. 169, 690, 6983…). Score must be ≥ 100.',
-            svgIcon: `<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="10" r="1.2" fill="currentColor"/><path d="M14 9.5c0.8-0.8 2.2-0.8 3 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7.5 15c1.5 2.5 6.5 2.5 8 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`,
             check: g => String(g.score).includes('69') && g.score >= 100,
         },
         {
             id: 'sec_turtle', cat: 'secret', name: 'Lazy Stack', type: 'single',
             rarity: 'common', clue: 'Plenty of pieces. Nothing to show for it.',
             desc: 'Place 80 pieces but score under 200.',
-            svgIcon: `<g transform="scale(0.046875)" fill="currentColor"><path d="M73.083,165.387c-3.182-2.652-7.91-2.225-10.565,0.956c-7.83,9.389-14.527,19.715-19.903,30.693c-1.823,3.723-0.327,8.306,3.437,10.037c3.703,1.703,8.733-0.778,10.036-3.438c4.85-9.902,10.89-19.216,17.952-27.683C76.692,172.77,76.265,168.041,73.083,165.387z"/><path d="M470.605,117.376c22.823,0,41.391-18.567,41.391-41.391c0-22.823-18.568-41.39-41.391-41.39s-41.39,18.567-41.39,41.39c0,15.412,8.473,28.874,21,35.998l-12.535,35.222c-3.346-0.938-7.022-1.515-11.03-1.515c-4.413,0-9.925,0.728-15.903,3.193L397.551,111.8c12.352-7.169,20.682-20.533,20.682-35.815c0-22.823-18.568-41.39-41.391-41.39s-41.391,18.567-41.391,41.39s18.568,41.391,41.391,41.391c2.24,0,4.437-0.185,6.581-0.529l14.284,40.137c-1.708,1.461-3.419,3.094-5.118,4.935c-11.226,12.153-17.432,26.705-18.445,43.253c-0.813,13.284-3.496,24.478-8.111,33.859c-30.619-91.293-126.738-145.883-222.146-123.09c-19.369,4.629-37.323,12.818-53.363,24.342c-3.365,2.416-4.133,7.104-1.715,10.469c2.416,3.364,7.105,4.133,10.469,1.715c14.449-10.381,30.631-17.76,48.097-21.934c45.001-10.755,91.498-3.338,130.921,20.879c38.613,23.719,65.916,60.774,77.127,104.57c-2.944,5.12-11.145,18.02-25.201,30.229c-21.583,18.746-47.12,27.966-76.02,27.477c2.563-14.609,2.136-29.67-1.347-44.247c-11.386-47.649-59.414-77.15-107.061-65.765c-18.857,4.506-34.827,16.084-44.974,32.602c-10.147,16.519-13.253,36-8.748,54.855c7.632,31.943,39.829,51.721,71.774,44.089c4.029-0.963,6.516-5.011,5.553-9.039c-0.963-4.03-5.011-6.516-9.039-5.553c-23.898,5.71-47.985-9.086-53.695-32.983c-3.575-14.957-1.109-30.412,6.94-43.516c8.048-13.103,20.718-22.289,35.677-25.862c39.602-9.464,78.237,15.385,88.983,54.659c5.025,18.363,5.025,86.374-62.016,102.847c-57.918,14.231-116.476-22.057-130.335-80.062c-4.63-19.372-5.031-39.021-1.195-58.398c0.804-4.064-1.838-8.01-5.902-8.814c-4.063-0.81-8.01,1.838-8.814,5.902c-4.258,21.509-3.814,43.311,1.32,64.797c8.293,34.704,30.614,62.444,59.504,78.688c-43.883,18.117-75.193,29.557-75.537,29.683c-0.36,0.132-17.704,7.241-15.001,28.587c1.436,11.339,10.298,20.505,21.475,22.889c3.517,0.75,87.2,18.353,181.959,18.355c70.365,0,128.527-9.781,172.869-29.071c28.731-12.498,52.016-29.185,69.21-49.595c19.58-23.239,31.377-51.301,35.059-83.367c0.298-2.476,2.896-25.007,2.414-53.319c-0.703-41.28-7.567-73.604-20.402-96.073c-0.575-1.006-4.879-8.956-11.607-12.179l13.128-36.887C466.415,117.215,468.492,117.376,470.605,117.376z M376.844,102.374c-14.574,0-26.388-11.814-26.388-26.388c0-14.573,11.814-26.387,26.388-26.387c14.574,0,26.388,11.814,26.388,26.387S391.418,102.374,376.844,102.374z M468.268,262.303c0.466,27.312-2.023,48.898-2.313,51.31c-3.345,29.124-13.986,54.51-31.631,75.453c-15.692,18.626-37.132,33.936-63.723,45.504c-42.443,18.463-98.59,27.825-166.899,27.825c-93.18-0.002-175.363-17.289-178.815-18.024c-5.081-1.083-9.003-5.265-9.762-10.405c-0.733-4.973,1.63-9.941,5.908-12.526c5.077-1.867,41.085-15.201,88.369-35.037c13.192,4.773,27.274,7.35,41.706,7.348c9.444-0.001,19.046-1.098,28.625-3.387c32.111-7.674,58.557-31.095,70.266-61.798c42.872,1.832,72.784-15.878,90.555-31.462c20.05-17.585,42.922-44.85,48.568-91.016c1.582-12.936,5.672-24.444,14.491-33.992c8.707-9.427,17.336-11.524,23.039-11.406c15.834,0.327,22.928,12.27,23.189,12.726C461.408,193.669,467.608,223.574,468.268,262.303z M444.218,75.986c-0.464-14.565,11.814-26.387,26.387-26.387c14.573,0,26.388,11.814,26.388,26.387s-11.814,26.388-26.388,26.388C468.166,102.374,444.985,100.093,444.218,75.986z"/><path d="M328.389,263.556c-3.492-24.092-14.072-45.671-31.449-64.138c-2.839-3.018-7.587-3.163-10.604-0.322c-3.016,2.838-3.161,7.586-0.322,10.604c15.224,16.181,24.486,35.025,27.526,56.01c0.542,3.736,3.748,6.426,7.414,6.426c0.358,0,0.721-0.025,1.086-0.079C326.141,271.461,328.983,267.657,328.389,263.556z"/><path d="M274.127,179.817c-16.016-11.176-29.364-16.054-29.925-16.256c-3.894-1.405-8.195,0.613-9.602,4.511c-1.406,3.898,0.614,8.196,4.511,9.602c0.118,0.043,12.026,4.395,26.43,14.446c1.307,0.913,2.805,1.351,4.286,1.351c2.368,0,4.7-1.119,6.158-3.211C278.357,186.865,277.524,182.188,274.127,179.817z"/><path d="M376.843,59.599c-9.034,0-16.386,7.351-16.386,16.387c0,9.034,7.351,16.386,16.386,16.386c9.035,0,16.387-7.35,16.387-16.386C393.229,66.95,385.878,59.599,376.843,59.599z"/><path d="M470.605,59.599c-9.034,0-16.386,7.351-16.386,16.387c0,9.034,7.351,16.386,16.386,16.386c9.035,0,16.387-7.35,16.387-16.386C486.992,66.95,479.64,59.599,470.605,59.599z"/></g>`,
             check: g => g.blocks >= 80 && g.score < 200,
         },
         {
             id: 'sec_palindrome', cat: 'secret', name: 'Look Backwards', type: 'single',
             rarity: 'rare', clue: 'Symmetry in numbers.',
             desc: 'End with a palindrome score.',
-            svgIcon: `<rect x="3" y="3" width="8" height="8" rx="1" fill="currentColor" opacity="0.7"/><rect x="13" y="3" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="13" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="13" width="8" height="8" rx="1" fill="currentColor" opacity="0.7"/>`,
             check: g => { const s = String(g.score); return s.length > 1 && s === s.split('').reverse().join(''); },
         },
         {
             id: 'sec_420', cat: 'secret', name: 'Smoke Break', type: 'single',
             rarity: 'common', clue: 'A legendary number lurks.',
             desc: 'Achieve a score of exactly 420.',
-            svgIcon: `<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" fill="none" stroke="#FF7700" stroke-width="1.5" stroke-linejoin="round"/><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" fill="#FF7700" opacity="0.2" stroke="none"/>`,
             check: g => g.score === 420,
         },
         // ── NEW VISIBLE TIERED ────────────────────────────────────────────────
         {
             id: 'survival', cat: 'basic', name: 'Survivor', type: 'tiered',
-            svgIcon: `<path d="M12 2l8 3v6c0 5-4 8.5-8 10-4-1.5-8-5-8-10V5l8-3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
             counter: { path:'stats.bestSurvivalTime', label:'Longest Game', fmt:'time' },
             tiers: [
                 { rarity:'common',    name:'Enduring',      desc:'Survive for 3 minutes',  check: g => g.time >= 180, progressDisplay:{ path:'stats.bestSurvivalTime', target:180 } },
@@ -5136,7 +5631,6 @@
         },
         {
             id: 'speed_placer', cat: 'basic', name: 'Rapid Fire', type: 'tiered',
-            svgIcon: `<line x1="5" y1="2" x2="5" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="2 7 5 11 8 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="15" cy="14" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><polyline points="15 10 15 14 18 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
             counter: { path:'stats.bestBlocksIn60s', label:'Best (pieces/60s)' },
             tiers: [
                 { rarity:'rare',      name:'Fast Fingers', desc:'Place 50 pieces in 60 seconds',  check: g => g.maxBlocksIn60s >= 50,  progressDisplay:{ path:'stats.bestBlocksIn60s', target:50  } },
@@ -5146,7 +5640,6 @@
         },
         {
             id: 'total_blocks', cat: 'basic', name: 'Builder', type: 'tiered',
-            svgIcon: `<g transform="scale(0.046875)"><rect x="16.568" y="367.165" fill="#F9D84E" width="68.409" height="68.409"/><rect x="16.568" y="418.472" fill="#FFC20D" width="68.409" height="17.102"/><rect x="16.568" y="367.165" fill="#FFC20D" width="17.102" height="68.409"/><rect x="84.977" y="367.165" fill="#F9D84E" width="68.409" height="68.409"/><rect x="84.977" y="418.472" fill="#FFC20D" width="68.409" height="17.102"/><rect x="84.977" y="367.165" fill="#FFC20D" width="17.102" height="68.409"/><rect x="84.977" y="298.756" fill="#F9D84E" width="68.409" height="68.409"/><rect x="84.977" y="350.063" fill="#FFC20D" width="68.409" height="17.102"/><rect x="84.977" y="298.756" fill="#FFC20D" width="17.102" height="68.409"/><rect x="16.568" y="298.756" fill="#F9D84E" width="68.409" height="68.409"/><rect x="16.568" y="350.063" fill="#FFC20D" width="68.409" height="17.102"/><rect x="16.568" y="298.756" fill="#FFC20D" width="17.102" height="68.409"/><rect x="16.568" y="435.574" fill="#B169BF" width="68.409" height="68.409"/><rect x="16.568" y="435.574" fill="#844A8F" width="17.102" height="68.409"/><rect x="16.568" y="486.881" fill="#844A8F" width="68.409" height="17.102"/><rect x="84.977" y="435.574" fill="#B169BF" width="68.409" height="68.409"/><rect x="84.977" y="435.574" fill="#844A8F" width="17.102" height="68.409"/><rect x="84.977" y="486.881" fill="#844A8F" width="68.409" height="17.102"/><rect x="153.386" y="435.574" fill="#B169BF" width="68.409" height="68.409"/><rect x="153.386" y="435.574" fill="#844A8F" width="17.102" height="68.409"/><rect x="153.386" y="486.881" fill="#844A8F" width="68.409" height="17.102"/><rect x="221.795" y="435.574" fill="#B169BF" width="68.409" height="68.409"/><rect x="221.795" y="435.574" fill="#844A8F" width="17.102" height="68.409"/><rect x="221.795" y="486.881" fill="#844A8F" width="68.409" height="17.102"/><rect x="221.795" y="367.165" fill="#FD5E95" width="68.409" height="68.409"/><rect x="221.795" y="418.472" fill="#D14D7B" width="68.409" height="17.102"/><rect x="221.795" y="367.165" fill="#D14D7B" width="17.102" height="68.409"/><rect x="290.205" y="367.165" fill="#FD5E95" width="68.409" height="68.409"/><rect x="290.205" y="418.472" fill="#D14D7B" width="68.409" height="17.102"/><rect x="290.205" y="367.165" fill="#D14D7B" width="17.102" height="68.409"/><rect x="290.205" y="435.574" fill="#FD5E95" width="68.409" height="68.409"/><rect x="290.205" y="486.881" fill="#D14D7B" width="68.409" height="17.102"/><rect x="290.205" y="435.574" fill="#D14D7B" width="17.102" height="68.409"/><rect x="358.614" y="435.574" fill="#FD5E95" width="68.409" height="68.409"/><rect x="358.614" y="486.881" fill="#D14D7B" width="68.409" height="17.102"/><rect x="358.614" y="435.574" fill="#D14D7B" width="17.102" height="68.409"/><rect x="256" y="8.017" fill="#FD5E95" width="68.409" height="68.409"/><rect x="256" y="59.324" fill="#D14D7B" width="68.409" height="17.102"/><rect x="256" y="8.017" fill="#D14D7B" width="17.102" height="68.409"/><rect x="324.409" y="8.017" fill="#FD5E95" width="68.409" height="68.409"/><rect x="324.409" y="59.324" fill="#D14D7B" width="68.409" height="17.102"/><rect x="324.409" y="8.017" fill="#D14D7B" width="17.102" height="68.409"/><rect x="324.409" y="76.426" fill="#FD5E95" width="68.409" height="68.409"/><rect x="324.409" y="127.733" fill="#D14D7B" width="68.409" height="17.102"/><rect x="324.409" y="76.426" fill="#D14D7B" width="17.102" height="68.409"/><rect x="392.818" y="76.426" fill="#FD5E95" width="68.409" height="68.409"/><rect x="392.818" y="127.733" fill="#D14D7B" width="68.409" height="17.102"/><rect x="392.818" y="76.426" fill="#D14D7B" width="17.102" height="68.409"/><rect x="358.614" y="367.165" fill="#7DBB34" width="68.409" height="68.409"/><rect x="358.614" y="418.472" fill="#60A333" width="68.409" height="17.102"/><rect x="358.614" y="367.165" fill="#60A333" width="17.102" height="68.409"/><rect x="427.023" y="367.165" fill="#7DBB34" width="68.409" height="68.409"/><rect x="427.023" y="418.472" fill="#60A333" width="68.409" height="17.102"/><rect x="427.023" y="367.165" fill="#60A333" width="17.102" height="68.409"/><rect x="427.023" y="435.574" fill="#7DBB34" width="68.409" height="68.409"/><rect x="427.023" y="486.881" fill="#60A333" width="68.409" height="17.102"/><rect x="427.023" y="435.574" fill="#60A333" width="17.102" height="68.409"/><rect x="358.614" y="298.756" fill="#7DBB34" width="68.409" height="68.409"/><rect x="358.614" y="350.063" fill="#60A333" width="68.409" height="17.102"/><rect x="358.614" y="298.756" fill="#60A333" width="17.102" height="68.409"/><rect x="153.386" y="127.733" fill="#45CAE0" width="68.409" height="68.409"/><rect x="153.386" y="179.04" fill="#0AADBF" width="68.409" height="17.102"/><rect x="153.386" y="127.733" fill="#0AADBF" width="17.102" height="68.409"/><rect x="153.386" y="196.142" fill="#45CAE0" width="68.409" height="68.409"/><rect x="153.386" y="247.449" fill="#0AADBF" width="68.409" height="17.102"/><rect x="153.386" y="196.142" fill="#0AADBF" width="17.102" height="68.409"/><rect x="221.795" y="196.142" fill="#45CAE0" width="68.409" height="68.409"/><rect x="221.795" y="247.449" fill="#0AADBF" width="68.409" height="17.102"/><rect x="221.795" y="196.142" fill="#0AADBF" width="17.102" height="68.409"/><rect x="153.386" y="264.551" fill="#45CAE0" width="68.409" height="68.409"/><rect x="153.386" y="315.858" fill="#0AADBF" width="68.409" height="17.102"/><rect x="153.386" y="264.551" fill="#0AADBF" width="17.102" height="68.409"/><path fill="#000000" d="M256,84.443h60.392v60.392c0,4.428,3.588,8.017,8.017,8.017h136.818c4.428,0,8.017-3.588,8.017-8.017V76.426c0-4.428-3.588-8.017-8.017-8.017h-60.392V8.017c0-4.428-3.588-8.017-8.017-8.017H256c-4.427,0-8.017,3.588-8.017,8.017v68.409C247.983,80.854,251.573,84.443,256,84.443z M332.426,84.443h52.376v52.376h-52.376V84.443z M453.211,136.818h-52.376V84.443h52.376V136.818z M384.802,68.409h-52.376V16.033h52.376V68.409z M264.017,16.033h52.376v52.376h-52.376V16.033z"/><path fill="#000000" d="M495.432,359.148H435.04v-60.392c0-4.428-3.588-8.017-8.017-8.017h-68.409c-4.428,0-8.017,3.588-8.017,8.017v60.392h-9.086c-4.428,0-8.017,3.588-8.017,8.017c0,4.428,3.588,8.017,8.017,8.017h9.086v52.376h-52.376v-52.376h9.086c4.428,0,8.017-3.588,8.017-8.017c0-4.428-3.588-8.017-8.017-8.017h-85.511c-4.427,0-8.017,3.588-8.017,8.017v60.392h-52.376v-86.58h60.392c4.427,0,8.017-3.588,8.017-8.017v-60.392h60.392c4.428,0,8.017-3.588,8.017-8.017v-68.409c0-4.428-3.588-8.017-8.017-8.017h-60.392v-60.392c0-4.428-3.589-8.017-8.017-8.017h-68.409c-4.427,0-8.017,3.588-8.017,8.017v17.102c0,4.428,3.589,8.017,8.017,8.017c4.427,0,8.017-3.588,8.017-8.017v-9.086h52.376v52.376h-52.376v-9.086c0-4.428-3.589-8.017-8.017-8.017c-4.427,0-8.017,3.588-8.017,8.017v111.699H67.875c-4.427,0-8.017,3.588-8.017,8.017s3.589,8.017,8.017,8.017h9.086v52.376H24.585v-52.376h9.086c4.427,0,8.017-3.588,8.017-8.017s-3.589-8.017-8.017-8.017H16.568c-4.427,0-8.017,3.588-8.017,8.017v205.228c0,4.428,3.589,8.017,8.017,8.017h478.864c4.428,0,8.017-3.588,8.017-8.017V367.165C503.449,362.737,499.861,359.148,495.432,359.148z M487.415,427.557H435.04v-52.376h52.376V427.557z M366.63,375.182h52.376v52.376H366.63V375.182z M366.63,306.772h52.376v52.376H366.63V306.772z M229.812,375.182h52.376v52.376h-52.376V375.182z M92.994,375.182h52.376v52.376H92.994V375.182z M213.779,324.944h-52.376v-52.376h52.376V324.944z M282.188,256.534h-52.376v-52.376h52.376V256.534z M213.779,204.159v52.376h-52.376v-52.376H213.779z M145.37,359.148H92.994v-52.376h52.376V359.148z M76.96,375.182v52.376H24.585v-52.376H76.96z M24.585,443.591H76.96v52.376H24.585V443.591z M92.994,443.591h52.376v52.376H92.994V443.591z M161.403,443.591h52.376v52.376h-52.376V443.591z M229.812,443.591h52.376v52.376h-52.376V443.591z M298.221,443.591h52.376v52.376h-52.376V443.591z M366.63,443.591h52.376v52.376H366.63V443.591z M487.415,495.967H435.04v-52.376h52.376V495.967z"/></g>`,
             counter: { path:'stats.totalBlocksPlaced', label:'Total Placed', unit:'pieces' },
             tiers: [
                 { rarity:'common',    name:'Bricklayer', desc:'Place 500 pieces total',     progress:{ path:'stats.totalBlocksPlaced', target:500   } },
@@ -5158,7 +5651,6 @@
         },
         {
             id: 'total_lines', cat: 'basic', name: 'Line Breaker', type: 'tiered',
-            svgIcon: `<line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="15" x2="21" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="1" stroke-dasharray="3 2" stroke-linecap="round"/>`,
             counter: { path:'stats.totalLinesCleared', label:'Total Cleared', unit:'lines' },
             tiers: [
                 { rarity:'common',    name:'Sweeper',     desc:'Clear 100 lines total',    progress:{ path:'stats.totalLinesCleared', target:100   } },
@@ -5170,7 +5662,6 @@
         },
         {
             id: 'speedrunner', cat: 'basic', name: 'Speedrunner', type: 'tiered',
-            svgIcon: `<circle cx="12" cy="14" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><polyline points="12 10 12 14 15 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><line x1="9" y1="3" x2="15" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="3" x2="12" y2="7" stroke="currentColor" stroke-width="1.5"/>`,
             counter: { path:'stats.bestSpeedrunnerTime', label:'Best Time (10 lines)', fmt:'time' },
             tiers: [
                 { rarity:'common',    name:'Runner',    desc:'Clear 10 lines in under 1 minute',   check: g => g.speedrunner <= 60,  progressDisplay:{ path:'stats.bestSpeedrunnerTime', target:60  } },
@@ -5181,7 +5672,6 @@
         },
         {
             id: 'quad_count', cat: 'basic', name: 'Four at Once', type: 'tiered',
-            svgIcon: `<rect x="2" y="3.5" width="20" height="3" rx="1" fill="currentColor" opacity="0.4"/><rect x="2" y="8.5" width="20" height="3" rx="1" fill="currentColor" opacity="0.6"/><rect x="2" y="13.5" width="20" height="3" rx="1" fill="currentColor" opacity="0.8"/><rect x="2" y="18.5" width="20" height="3" rx="1" fill="currentColor"/><line x1="3" y1="22" x2="21" y2="2" stroke="#ff3333" stroke-width="2" stroke-linecap="round"/>`,
             counter: { path:'stats.totalQuads', label:'Total Quads', unit:'clears' },
             tiers: [
                 { rarity:'common',    name:'Four and Done',    desc:'Clear 4 lines at once 10 times total',  progress:{ path:'stats.totalQuads', target:10  } },
@@ -5192,7 +5682,6 @@
         },
         {
             id: 'combo_master', cat: 'basic', name: 'Combo', type: 'tiered',
-            svgIcon: `<polyline points="3 20 7 16 11 18 15 10 19 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="15 6 19 6 19 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
             counter: { path:'stats.maxCombo', label:'Best Combo', fmt:'combo' },
             tiers: [
                 { rarity:'common',    name:'First Hits',        desc:'Reach combo ×5',  progress:{ path:'stats.maxCombo', target:5  } },
@@ -5203,7 +5692,6 @@
         },
         {
             id: 'high_placer', cat: 'basic', name: 'Floor Dweller', type: 'tiered',
-            svgIcon: `<rect x="2" y="2" width="20" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="5" y="15" width="4" height="4" fill="currentColor" opacity="0.7"/><rect x="10" y="13" width="4" height="6" fill="currentColor" opacity="0.7"/><rect x="15" y="16" width="4" height="3" fill="currentColor" opacity="0.7"/><line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="1" stroke-dasharray="3 2" opacity="0.4"/>`,
             counter: { path:'stats.bestHighPlacer', label:'Best (in one game)', unit:'pieces' },
             tiers: [
                 { rarity:'rare',      name:'Low Life',       desc:'Place 50 pieces fully in the bottom half (one game)',  check: g => g.highPlacer >= 50  },
@@ -5213,7 +5701,6 @@
         },
         {
             id: 'booster_user', cat: 'basic', name: 'Boosted', type: 'tiered',
-            svgIcon: `<path d="M7 17l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 11l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2"/>`,
             counter: { path:'stats.totalBoostersUsed', label:'Boosters Used' },
             tiers: [
                 { rarity:'common',    name:'All In',             desc:'Use 3 score boosters',  progress:{ path:'stats.totalBoostersUsed', target:3  } },
@@ -5224,7 +5711,6 @@
         },
         {
             id: 'fun_score', cat: 'basic', name: 'Fun Run', type: 'tiered',
-            svgIcon: `<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 14s1.5 2 4 2 4-2 4-2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="9" x2="9.01" y2="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="15" y1="9" x2="15.01" y2="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>`,
             counter: { path:'stats.bestFunScore', label:'Fun Mode Best' },
             tiers: [
                 { rarity:'common',    name:'Just for Fun',      desc:'Reach 500 score in Fun Mode',   check: g => g.mode === 'fun' && g.score >= 500,  progressDisplay:{ path:'stats.bestFunScore', target:500  } },
@@ -5235,7 +5721,6 @@
         },
         {
             id: 'i_piece_lines', cat: 'basic', name: 'I-Piece Devotion', type: 'tiered',
-            svgIcon: `<rect x="2" y="10" width="5" height="5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="10" width="5" height="5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="12" y="10" width="5" height="5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="17" y="10" width="5" height="5" fill="none" stroke="currentColor" stroke-width="1.5"/>`,
             counter: { path:'stats.bestIPieceLines', label:'Best (one game)', unit:'I-lines' },
             tiers: [
                 { rarity:'common', name:'Straight Shot',     desc:'Clear 2 lines using I-pieces in one game',  check: g => g.iPieceLines >= 2  },
@@ -5245,7 +5730,6 @@
         },
         {
             id: 'daily_streak', cat: 'basic', name: 'Day by Day', type: 'tiered',
-            svgIcon: `<rect x="3" y="4" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><text x="12" y="17" text-anchor="middle" font-size="7" fill="currentColor" font-family="sans-serif" font-weight="bold">🔥</text>`,
             counter: { path:'missions.streaks.bestDaily', label:'Best Streak', unit:'days' },
             tiers: [
                 { rarity:'common',    name:'Consistent', desc:'Keep a 3-day XP streak',  progress:{ path:'missions.streaks.daily', target:3  } },
@@ -5258,25 +5742,21 @@
         {
             id: 'board_clear', cat: 'basic', name: 'Clean Sweep', type: 'single',
             rarity: 'epic', desc: 'Clear the entire board — not a single block remains.',
-            svgIcon: `<rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="8" x2="21" y2="8" stroke="currentColor" stroke-width="1" opacity="0.3"/><line x1="3" y1="13" x2="21" y2="13" stroke="currentColor" stroke-width="1" opacity="0.3"/><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="1" opacity="0.3"/><line x1="8" y1="3" x2="8" y2="21" stroke="currentColor" stroke-width="1" opacity="0.3"/><line x1="13" y1="3" x2="13" y2="21" stroke="currentColor" stroke-width="1" opacity="0.3"/><line x1="18" y1="3" x2="18" y2="21" stroke="currentColor" stroke-width="1" opacity="0.3"/><path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
             check: g => g.boardCleared,
         },
         {
             id: 'top_line', cat: 'basic', name: 'Sky High', type: 'single',
             rarity: 'epic', desc: 'Clear the very top row of the board.',
-            svgIcon: `<rect x="3" y="3" width="18" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="3" width="18" height="4" rx="1" fill="currentColor" opacity="0.2"/><path d="M12 11v6M9 14l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="3" y1="21" x2="21" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`,
             check: g => g.clearedTopLine,
         },
         {
             id: 'level_101', cat: 'secret', name: 'Is This the End?', type: 'single',
             rarity: 'legendary', clue: 'What lies beyond the highest peak?',
             desc: 'Reach the highest rank.',
-            svgIcon: `<polygon points="12,2 15,9 22,9 16,13.5 18.5,21 12,16.5 5.5,21 8,13.5 2,9 9.5,9" fill="#7700cc" opacity="0.25"/><polygon points="12,2 15,9 22,9 16,13.5 18.5,21 12,16.5 5.5,21 8,13.5 2,9 9.5,9" fill="none" stroke="#ff0099" stroke-width="2.5" opacity="0.4"/><polygon points="12,2 15,9 22,9 16,13.5 18.5,21 12,16.5 5.5,21 8,13.5 2,9 9.5,9" fill="none" stroke="#ffd700" stroke-width="1.5"/><polygon points="12,6 13.5,10.5 18,10.5 14.5,13 15.5,17.5 12,15 8.5,17.5 9.5,13 6,10.5 10.5,10.5" fill="#ffd700" opacity="0.95"/><polygon points="12,6 13.5,10.5 18,10.5 14.5,13 15.5,17.5 12,15 8.5,17.5 9.5,13 6,10.5 10.5,10.5" fill="#ffffff" opacity="0.5"/>`,
             check: g => getLevelInfo(saveData.totalXP).isCelestite,
         },
         {
             id: 'daily_rare', cat: 'basic', name: 'Jackpot', type: 'tiered',
-            svgIcon: `<path d="M20 12v10H4V12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M22 7H2v5h20V7z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 22V7" stroke="currentColor" stroke-width="1.5"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" fill="none" stroke="currentColor" stroke-width="1.5"/>`,
             counter: { path:'stats.rareItemsFromDailyBox', label:'Total Rare Items' },
             tiers: [
                 { rarity:'common', name:'Lucky',   desc:'Get 10 rare+ items from any reward box', progress:{ path:'stats.rareItemsFromDailyBox', target:10 } },
@@ -5289,82 +5769,70 @@
             id: 'sec_booster_waste', cat: 'secret', name: 'That Was Dumb', type: 'single',
             rarity: 'common', clue: 'Sometimes the math just... doesn\'t work out.',
             desc: 'Use the 2x XP booster on a score under 100. Just to flex.',
-            svgIcon: `<g transform="scale(0.375)"><path d="M30.02,5c-8.18,0-14.81,6.63-14.81,14.81,0,5.56,3.12,10.66,8.07,13.19l8.05,6.25,10.43-10.41c1.99-2.59,3.07-5.76,3.07-9.03,0-8.18-6.63-14.81-14.81-14.81Z" fill="#f2d865"/><path d="M30.02,5c-.56,0-1.12,.03-1.66,.1,7.4,.83,13.15,7.1,13.15,14.71,0,3.27-1.08,6.44-3.07,9.03l-8.97,8.95,1.87,1.45,10.43-10.41c1.99-2.59,3.07-5.76,3.07-9.03,0-8.18-6.63-14.81-14.81-14.81h0Z" fill="#f2d865"/><path d="M14.44,33c-2.4,0-4.33,1.93-4.33,4.33s1.93,4.33,4.33,4.33v8.67c-2.4,0-4.33,1.94-4.33,4.34s1.93,4.33,4.33,4.33h20.3c1,0,1.93-.34,2.66-.91l-1.92-18.93-6.9-6.17H14.44Z" fill="#f2d865"/><path d="M26.04,50.33H14.45c-2.4,0-4.34-1.93-4.34-4.33s1.93-4.33,4.34-4.33h9.94l1.65,8.67Z" fill="#e9c03d"/><circle cx="39.08" cy="43.39" fill="#f5e680" r="14.81" transform="translate(-15.15 21.73) rotate(-26.22)"/><circle cx="39.08" cy="43.39" fill="#ebb680" r="8.12"/><circle cx="30.02" cy="19.81" fill="#ebb680" r="8.12" transform="translate(8.18 48.38) rotate(-86.02)"/><path d="M39.08,28.58c-.67,0-1.33,.05-1.99,.14,7.32,1.01,12.78,7.27,12.78,14.67,0,7.4-5.47,13.66-12.8,14.66,.67,.09,1.34,.14,2.01,.14,8.18,0,14.81-6.63,14.81-14.81s-6.63-14.81-14.81-14.81Z" fill="#f2d865"/><path d="M39.08,35.27c-.46,0-.9,.04-1.34,.11,3.85,.64,6.79,3.98,6.79,8.01s-2.94,7.37-6.79,8.01c.43,.07,.88,.11,1.34,.11,4.49,0,8.12-3.64,8.12-8.12s-3.63-8.12-8.12-8.12Z" fill="#e6a361"/><path d="M30.02,11.69c-.44,0-.87,.04-1.29,.1,3.87,.62,6.83,3.97,6.83,8.02s-2.96,7.4-6.83,8.02c.42,.07,.85,.1,1.29,.1,4.49,0,8.12-3.63,8.12-8.12s-3.64-8.12-8.12-8.12Z" fill="#e6a361"/><path d="M43.33,28.23c1.59-2.52,2.5-5.44,2.5-8.42,0-8.72-7.09-15.81-15.81-15.81s-15.81,7.09-15.81,15.81c0,4.81,2.17,9.22,5.79,12.19h-5.56c-2.94,0-5.33,2.39-5.33,5.33,0,1.79,.89,3.37,2.25,4.33-1.36,.97-2.25,2.55-2.25,4.33s.89,3.37,2.25,4.33c-1.35,.97-2.25,2.54-2.25,4.33,0,2.94,2.39,5.33,5.33,5.33h20.3c1.07,0,2.08-.35,2.95-.94,.46,.04,.91,.14,1.38,.14,8.72,0,15.81-7.09,15.81-15.81,0-7.24-4.91-13.29-11.56-15.15Zm-27.12-8.42c0-7.61,6.19-13.81,13.81-13.81s13.81,6.19,13.81,13.81c0,2.86-.93,5.66-2.59,7.99-.71-.1-1.42-.22-2.16-.22-4.23,0-8.07,1.7-10.91,4.42h-4.62c-4.53-2.4-7.34-7.04-7.34-12.19Zm-5.1,17.52c0-1.84,1.5-3.33,3.33-3.33h12c-1.44,1.94-2.46,4.19-2.89,6.67H14.44c-1.84,0-3.33-1.5-3.33-3.33Zm3.33,12c-1.84,0-3.33-1.5-3.33-3.33s1.5-3.33,3.33-3.33h8.91c-.01,.25-.07,.48-.07,.72,0,2.1,.43,4.11,1.18,5.94H14.44Zm0,8.67c-1.84,0-3.33-1.5-3.33-3.33s1.5-3.33,3.33-3.33h11.05c1.74,2.97,4.38,5.35,7.6,6.67H14.44Zm24.64-.8c-7.61,0-13.81-6.19-13.81-13.81s6.15-13.81,13.81-13.81,13.81,6.19,13.81,13.81-6.19,13.81-13.81,13.81Z"/><path d="M39.08,34.27c-5.03,0-9.12,4.09-9.12,9.12s4.09,9.12,9.12,9.12,9.12-4.09,9.12-9.12-4.09-9.12-9.12-9.12Zm0,16.24c-3.93,0-7.12-3.2-7.12-7.12s3.2-7.12,7.12-7.12,7.12,3.19,7.12,7.12-3.19,7.12-7.12,7.12Z"/><path d="M30.02,28.93c5.03,0,9.12-4.09,9.12-9.12s-4.09-9.12-9.12-9.12-9.12,4.09-9.12,9.12,4.09,9.12,9.12,9.12Zm0-16.24c3.93,0,7.12,3.2,7.12,7.12s-3.2,7.12-7.12,7.12-7.12-3.19-7.12-7.12,3.19-7.12,7.12-7.12Z"/><path d="M30.02,20.81c.4,0,.72,.32,.72,.72s-.32,.72-.72,.72c-.19,0-.37-.08-.51-.21-.39-.39-1.02-.39-1.41,0s-.39,1.02,0,1.41c.27,.27,.58,.46,.92,.6v.28c0,.55,.45,1,1,1s1-.45,1-1v-.29c1.01-.4,1.72-1.37,1.72-2.52,0-1.5-1.22-2.72-2.72-2.72-.4,0-.72-.32-.72-.72s.32-.72,.72-.72c.19,0,.38,.08,.51,.21,.39,.39,1.02,.39,1.41,0s.39-1.02,0-1.41c-.27-.27-.58-.46-.92-.6v-.28c0-.55-.45-1-1-1s-1,.45-1,1v.29c-1,.4-1.72,1.37-1.72,2.52,0,1.5,1.22,2.72,2.72,2.72Z"/><path d="M39.08,42.39c-.4,0-.72-.32-.72-.72s.32-.72,.72-.72c.19,0,.37,.07,.51,.21,.39,.39,1.02,.39,1.41,0s.39-1.02,0-1.41c-.27-.27-.58-.47-.92-.6v-.28c0-.55-.45-1-1-1s-1,.45-1,1v.29c-1,.4-1.72,1.37-1.72,2.52,0,1.5,1.22,2.72,2.72,2.72,.4,0,.72,.32,.72,.72s-.32,.72-.72,.72c-.19,0-.37-.08-.51-.21-.39-.39-1.02-.39-1.41,0s-.39,1.02,0,1.41c.27,.27,.58,.46,.92,.6v.28c0,.55,.45,1,1,1s1-.45,1-1v-.29c1-.4,1.72-1.37,1.72-2.52,0-1.5-1.22-2.72-2.72-2.72Z"/><circle cx="39.08" cy="31.92" r="1"/><circle cx="39.08" cy="54.85" r="1"/><circle cx="50.55" cy="43.39" r="1"/><circle cx="27.62" cy="43.39" r="1"/><path d="M47.9,35.99c.39-.39,.39-1.03,0-1.41-.39-.39-1.03-.39-1.41,0-.39,.39-.39,1.03,0,1.41s1.03,.39,1.41,0Z"/><path d="M30.27,50.79c-.39,.39-.39,1.03,0,1.41,.39,.39,1.03,.39,1.41,0,.39-.39,.39-1.03,0-1.41-.39-.39-1.03-.39-1.41,0Z"/><path d="M47.19,50.49c-.27,0-.52,.11-.71,.29-.39,.39-.39,1.03,0,1.41,.19,.19,.44,.29,.71,.29s.52-.11,.71-.29c.39-.39,.39-1.03,0-1.41-.19-.19-.44-.29-.71-.29Z"/><path d="M30.98,36.28c.26,0,.52-.11,.71-.29,.39-.39,.39-1.03,0-1.41-.19-.19-.44-.29-.71-.29s-.52,.11-.71,.29c-.39,.39-.39,1.03,0,1.41,.19,.19,.44,.29,.71,.29Z"/><circle cx="30.02" cy="8.34" r="1"/><circle cx="41.48" cy="19.81" r="1"/><circle cx="18.55" cy="19.81" r="1"/><path d="M38.83,12.41c.39-.39,.39-1.03,0-1.41-.39-.39-1.03-.39-1.41,0-.39,.39-.39,1.03,0,1.41s1.03,.39,1.41,0Z"/><path d="M21.2,27.21c-.39,.39-.39,1.03,0,1.41,.39,.39,1.03,.39,1.41,0,.39-.39,.39-1.03,0-1.41-.39-.39-1.03-.39-1.41,0Z"/><path d="M21.91,12.7c.27,0,.52-.11,.71-.29,.39-.39,.39-1.03,0-1.41-.19-.19-.44-.29-.71-.29s-.52,.11-.71,.29c-.39,.39-.39,1.03,0,1.41,.19,.19,.44,.29,.71,.29Z"/></g>`,
             check: () => false, // Unlocked directly in useScoreBooster
         },
         {
             id: 'sec_no_rotate', cat: 'secret', name: 'No Spin', type: 'single',
             rarity: 'rare', clue: 'Some pieces are perfect just the way they are.',
             desc: 'Place 100+ pieces in a single game without rotating once.',
-            svgIcon: `<rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 11V7a4 4 0 018 0v4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/>`,
             check: g => g.noRotate && g.blocks >= 100,
         },
         {
             id: 'sec_equal_pieces', cat: 'secret', name: 'Perfectly Balanced', type: 'single',
             rarity: 'epic', clue: 'All things in equal measure.',
             desc: 'Use all 7 piece types an equal number of times in one game (50+ pieces).',
-            svgIcon: `<path transform="scale(0.046875)" fill="currentColor" d="M500.609,322.275l-57.428-162.834c0.135,0.008,0.279,0.025,0.406,0.025c39.538,0.677,49.422-20.58,54.566-27.94c7.118-10.171-7.91-20.343-15.816-13.558c-7.906,6.775-29.264,21.011-70.386,2.024C374.874,102.875,309.87,73.098,271.92,67.399v-39c0-8.799-7.127-15.921-15.918-15.921c-8.795,0-15.922,7.122-15.922,15.921v39c-37.95,5.699-102.953,35.476-140.031,52.593c-41.121,18.987-62.48,4.751-70.386-2.024c-7.906-6.784-22.935,3.388-15.816,13.558c5.145,7.36,15.028,28.617,54.566,27.94c0.132,0,0.276-0.017,0.402-0.025L11.391,322.275H0c11.497,38.025,46.804,65.736,88.595,65.736c41.786,0,77.093-27.711,88.59-65.736h-11.386l-60.355-171.134c37.183-11.467,89.569-31.056,134.636-34.072v24.23h-8.507v267.748H218.37v23.858c-8.715,0-17.569,0-24.874,0c-23.354,0-22.663,32.969-22.663,32.969c-19.233,0-28.85,15.101-28.85,33.648h228.033c0-18.546-9.616-33.648-28.845-33.648c0,0,0.686-32.969-22.668-32.969c-7.305,0-16.159,0-24.874,0v-23.858h-13.203V141.3h-8.507v-24.23c45.072,3.015,97.457,22.604,134.64,34.072l-60.358,171.134h-11.387c11.496,38.025,46.804,65.736,88.59,65.736c41.79,0,77.098-27.711,88.594-65.736H500.609z M141.243,322.275H35.948L88.595,173L141.243,322.275z M370.758,322.275L423.41,173l52.643,149.275H370.758z"/>`,
             check: g => g.equalPieces,
         },
         {
             id: 'sec_seven', cat: 'secret', name: 'Seven of Seven', type: 'single',
             rarity: 'rare', clue: 'Patterns repeat... seventy-seven times.',
             desc: 'Receive all 7 piece types in 7 consecutive turns, 77 times total across all games.',
-            svgIcon: `<path transform="scale(1.71429)" fill="currentColor" d="m 12.324082,8.1685 -0.05633,0.1972 -0.211224,0.063 -0.213551,0.066 0.211224,0.061 0.211225,0.063 0.06098,0.2113 0.06098,0.2088 0.06575,-0.2112 0.06343,-0.2135 0.19947,-0.054 c 0.108,-0.03 0.190163,-0.063 0.178408,-0.073 -0.0094,-0.01 -0.08914,-0.035 -0.173633,-0.059 -0.08682,-0.021 -0.168979,-0.047 -0.183061,-0.056 -0.01408,-0.01 -0.04922,-0.096 -0.07739,-0.1925 -0.02816,-0.094 -0.05633,-0.1831 -0.06576,-0.1925 -0.0095,-0.01 -0.04004,0.07 -0.07053,0.1808 z M 1.483429,7.2203 C 1.413019,7.462 1.415349,7.455 1.382531,7.4668 c -0.01641,0 -0.110327,0.033 -0.206572,0.061 L 1,7.5818 1.197143,7.6428 c 0.110326,0.035 0.206571,0.078 0.218326,0.096 0.0094,0.019 0.04224,0.1126 0.07041,0.2089 l 0.05167,0.1761 0.05865,-0.1925 c 0.03282,-0.1057 0.07041,-0.2018 0.07984,-0.2112 0.01176,-0.01 0.105673,-0.045 0.211224,-0.078 L 2.079753,7.5811 1.892039,7.5271 C 1.788814,7.4961 1.694896,7.4641 1.680814,7.4521 1.669054,7.4401 1.629144,7.3418 1.596324,7.2362 L 1.535094,7.0437 1.483424,7.2197 Z M 5.623551,5.9365 C 5.316082,6.0398 4.952286,6.3379 4.839633,6.582 l -0.05633,0.122 -0.335633,0 -0.335632,0 L 3.75767,6.9834 C 2.929181,7.6359 2.497303,8.0935 2.236854,8.6004 2.023303,9.0182 1.955221,9.4241 2.030283,9.849 l 0.02584,0.1526 1.037388,0.01 1.037388,0 0.02584,-0.1338 C 4.245879,9.4248 4.457106,8.9484 4.757596,8.5188 4.921922,8.2841 4.940657,8.2466 4.978249,8.0636 5.104984,7.4557 5.464126,6.7586 5.949882,6.1743 6.083718,6.0147 6.118861,5.9607 6.095351,5.9467 6.029591,5.9087 5.7198,5.9047 5.623555,5.9347 Z M 12.432082,4.918 c -0.06808,0.075 -0.347388,0.2089 -0.521021,0.2511 -0.201796,0.049 -0.699428,0.052 -0.941143,0 L 10.798612,5.1361 10.582735,5.3614 C 10.324612,5.629 10.148531,5.8285 9.967796,6.0655 l -0.133714,0.1737 0.206571,0.066 c 0.227633,0.075 0.504612,0.1337 0.661837,0.1431 l 0.103224,0.01 L 10.432612,6.74 C 9.730857,7.2681 9.12302,7.8148 8.939959,8.0801 c -0.08216,0.1197 -0.180735,0.596 -0.201796,0.988 -0.01641,0.2722 0.0023,0.8449 0.02816,0.9153 0.0094,0.026 0.255795,0.03 1.377673,0.03 1.288531,0 1.363592,0 1.347184,-0.042 C 11.41612,9.7812 11.333955,9.4926 11.301016,9.3095 11.249346,9.0044 11.265746,8.3543 11.336286,8.0586 11.531102,7.2207 11.993469,6.4509 12.753878,5.6975 L 13,5.4536 12.739429,5.1625 C 12.596286,5.0053 12.478857,4.8739 12.476531,4.8739 c -0.0023,0 -0.02339,0.021 -0.04445,0.045 z m -11.162204,0.8355 0,0.9739 0.455265,0 c 0.431877,0 0.457714,0 0.471796,-0.044 0.02351,-0.075 0.345061,-0.3615 0.485877,-0.4319 0.07273,-0.038 0.187715,-0.073 0.262898,-0.08 l 0.131388,-0.014 0,-0.6806 0,-0.6806 -0.194816,0.012 c -0.131388,0.01 -0.241715,0.033 -0.347388,0.075 -0.08449,0.033 -0.176082,0.061 -0.204122,0.061 -0.06098,0 -0.122082,-0.059 -0.122082,-0.1197 0,-0.042 -0.02106,-0.045 -0.469347,-0.045 l -0.469469,0 0,0.9741 z m 2.065346,-0.6806 0,1.3729 0.640776,0 0.638327,0 0.0469,-0.082 C 4.719877,6.2535 5.015595,5.9742 5.194003,5.8592 5.597717,5.5965 5.900411,5.5893 6.635105,5.8242 7.095146,5.9697 7.346289,6.026 7.616166,6.0448 l 0.229959,0.014 -0.396734,0.2981 c -0.852,0.6336 -1.488,1.1687 -1.891592,1.5889 -0.849551,0.8848 -1.227429,1.7062 -1.182857,2.5699 0.0094,0.1572 0.03049,0.3474 0.0469,0.4248 l 0.03049,0.1408 2.189755,0.01 c 1.750898,0 2.187306,0 2.178,-0.023 C 8.587801,10.5378 8.477474,9.9887 8.475148,9.3667 8.472848,7.8506 9.174576,6.3932 10.566332,5.0155 L 10.934781,4.6517 10.573311,4.248 C 10.373842,4.025 10.204862,3.8443 10.19776,3.8443 c -0.0071,0 -0.05865,0.038 -0.110326,0.084 C 9.95127,4.0456 9.653229,4.1841 9.402087,4.2475 9.219025,4.2945 9.132209,4.3015 8.744903,4.2995 8.155801,4.2995 7.975066,4.2645 6.949434,3.9662 5.989556,3.6845 5.569434,3.6634 5.060168,3.8653 4.961598,3.9053 4.855923,3.9383 4.82776,3.9383 4.75735,3.9383 4.672862,3.8443 4.672862,3.767 l 0,-0.063 -0.668939,0 -0.668938,0 0,1.3731 z M 5.801837,4.1834 c 0.05633,0.068 -0.0047,0.1127 -0.183061,0.1409 -0.08914,0.012 -0.227633,0.049 -0.30747,0.077 -0.154898,0.059 -0.215877,0.045 -0.215877,-0.044 0,-0.061 0.04922,-0.092 0.239387,-0.1549 0.204245,-0.066 0.420123,-0.075 0.467021,-0.019 z m 0.267551,6.4049 0,0.07 -0.612612,0.01 c -0.657184,0.01 -0.69,0 -0.654858,-0.1127 0.01408,-0.047 0.02584,-0.047 0.640653,-0.042 l 0.626694,0.01 0,0.07 z M 8.827061,3.0826 c -0.02816,0.1009 -0.06331,0.1948 -0.07984,0.2089 -0.01408,0.014 -0.09392,0.045 -0.178408,0.068 -0.234734,0.063 -0.237061,0.07 -0.01408,0.1314 l 0.204122,0.056 0.06343,0.2112 0.06588,0.2089 0.054,-0.1854 c 0.03049,-0.1032 0.06331,-0.1994 0.07506,-0.2112 0.01176,-0.014 0.110327,-0.052 0.215878,-0.084 L 9.425593,3.4254 9.249511,3.3734 C 9.153271,3.3454 9.059348,3.3144 9.040613,3.3054 9.021883,3.2954 8.981963,3.2045 8.953793,3.1012 8.923303,3.0003 8.895143,2.9134 8.890363,2.9087 c -0.0045,0 -0.03269,0.075 -0.06331,0.1737 z"/>`,
             check: g => (g.luckySevenCount || 0) >= 77,
         },
         {
             id: 'sec_early_bird', cat: 'secret', name: 'Early Bird', type: 'single',
             rarity: 'rare', clue: 'The early bird catches the block.',
             desc: 'Play a game before 7 AM.',
-            svgIcon: `<path fill="#FFD700" d="M12,6a6.006,6.006,0,0,1,6,6,1,1,0,0,1-2,0,4,4,0,0,0-8,0,1,1,0,0,1-2,0A6.006,6.006,0,0,1,12,6Zm1-2V3a1,1,0,0,0-2,0V4a1,1,0,0,0,2,0Zm5.364,1.292L17.657,6a1,1,0,0,0,1.414,1.415l.707-.707a1,1,0,0,0-1.414-1.416ZM19,12a1,1,0,0,0,1,1h1a1,1,0,0,0,0-2H20A1,1,0,0,0,19,12ZM2,12a1,1,0,0,0,1,1H4a1,1,0,0,0,0-2H3A1,1,0,0,0,2,12ZM4.221,5.293a1,1,0,0,0,0,1.415l.707.707A1,1,0,1,0,6.343,6l-.707-.708A1,1,0,0,0,4.221,5.293Z"/><path fill="#ffffff" d="M22,14H2a1,1,0,0,0,0,2H22a1,1,0,0,0,0-2Zm-2,4a1,1,0,0,0-1-1H5a1,1,0,0,0,0,2H19A1,1,0,0,0,20,18ZM8,20a1,1,0,0,0,0,2h8a1,1,0,0,0,0-2Z"/>`,
             check: g => g.earlyBird,
         },
         {
             id: 'sec_no_drop', cat: 'secret', name: 'Gentle', type: 'single',
             rarity: 'rare', clue: 'No rush. Let gravity do the work.',
             desc: 'Reach a score of 1,000+ without using hard drop once.',
-            svgIcon: `<rect x="9" y="4" width="6" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="12" x2="12" y2="20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="9 17 12 20 15 17" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
             check: g => g.score >= 1000 && g.noHardDrop,
         },
         {
             id: 'sec_all_drop', cat: 'secret', name: 'No Hesitation', type: 'single',
             rarity: 'epic', clue: 'Commitment at maximum velocity.',
             desc: 'Reach 1,000+ score hard-dropping every single piece.',
-            svgIcon: `<rect x="9" y="3" width="6" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="11" x2="12" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="8 17 12 21 16 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="7" y1="13" x2="9" y2="15" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.5"/><line x1="17" y1="13" x2="15" y2="15" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.5"/>`,
             check: g => g.score >= 1000 && g.allHardDrop,
         },
         {
             id: 'sec_big_font', cat: 'secret', name: 'Go Big', type: 'single',
             rarity: 'common', clue: 'Go big or go home.',
             desc: 'Play a game with font size and game scale both set to maximum.',
-            svgIcon: `<path fill-rule="evenodd" clip-rule="evenodd" d="M13.9928 6.6967L17.1747 3.51472L20.3567 6.6967L19.2961 7.75736L17.9247 6.38604L17.9247 17.614L19.2961 16.2426L20.3567 17.3033L17.1747 20.4853L13.9928 17.3033L15.0534 16.2426L16.4247 17.614V6.38604L15.0534 7.75736L13.9928 6.6967Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3.75 4.5L4.5 3.75H12L12.75 4.5V19.5L12 20.25H4.5L3.75 19.5V4.5ZM5.25 5.25V18.75H11.25V17.25H8.25V15.75H11.25V14.25H8.25V12.75H11.25V11.25H7.5V9.75H11.25V8.25H8.25V6.75H11.25V5.25H5.25Z" fill="currentColor"/>`,
             check: g => g.bigFont,
         },
         {
             id: 'sec_exact_100', cat: 'secret', name: 'Hundred Percent', type: 'single',
             rarity: 'rare', clue: 'Exactly. Not one more, not one less.',
             desc: 'Place exactly 100 pieces in a single game.',
-            svgIcon: `<circle cx="12" cy="12" r="10" fill="none" stroke="#44cc44" stroke-width="1.5"/><path d="M8.5 12l2.5 3 5-6" fill="none" stroke="#44cc44" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
             check: g => g.exactBlocks100,
         },
     {
         id: 'sec_exact_level', cat: 'secret', name: 'Zero Overflow', type: 'single',
         rarity: 'rare', clue: 'Zero to spare. Zero in excess.',
         desc: 'Earn enough XP to hit a level boundary exactly — zero XP overflow.',
-        svgIcon: `<circle cx="7.5" cy="7.5" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="16.5" cy="16.5" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`,
         check: () => false, // checked directly in gameOver
     },
     {
         id: 'sec_speedgames', cat: 'secret', name: 'Quick Five', type: 'single',
         rarity: 'epic', clue: 'Five blinks of an eye.',
         desc: 'Play 5 games in under 1 minute, each clearing at least one line.',
-        svgIcon: `<path d="M13 2L7 10h4l-2 6 8-8h-4z" fill="none" stroke="#FFD700" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><text x="14" y="20" font-size="9" font-weight="bold" fill="currentColor" stroke="none" font-family="sans-serif">5</text>`,
         check: () => false, // checked directly in gameOver
     },
     {
         id: 'surgeon', cat: 'basic', name: 'Precision Cutter', type: 'tiered',
-        svgIcon: `<text x="6" y="9" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">1</text><line x1="5" y1="20" x2="19" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><text x="18" y="19" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">2</text>`,
         counter: { path:'stats.surgeonLines', label:'Total Lines (1–2)', unit:'lines' },
         tiers: [
             { rarity:'common', name:'Precise',    desc:'Clear 100 single or double lines', progress:{ path:'stats.surgeonLines', target:100 } },
@@ -5377,12 +5845,10 @@
         id: 'pin_record', cat: 'secret', name: "What's the Point?", type: 'single',
         rarity: 'common', clue: 'Why would you do that?',
         desc: 'Pin your current personal record.',
-        svgIcon: `<line x1="12" y1="2" x2="12" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="19" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="5" x2="12" y2="2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="5" x2="12" y2="2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`,
         check: () => false,
     },
     {
         id: 'daily_xp', cat: 'basic', name: 'Daily Grinder', type: 'tiered',
-        svgIcon: `<rect x="3" y="4" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M9 14.5l2.5 2.5 4-4" fill="none" stroke="#44cc44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
         counter: { path:'stats.bestDailyXP', label:'Best Daily XP (raw)' },
         tiers: [
             { rarity:'common',    name:'Good Progress', desc:'Earn 500 raw XP in one day (from games only, no multipliers)',   progress:{ path:'stats.bestDailyXP', target:500   } },
@@ -5395,19 +5861,16 @@
         id: 'rules_reader', cat: 'secret', name: 'Dementia', type: 'single',
         rarity: 'common', clue: 'Knowledge is power... or is it?',
         desc: 'Check the rules 5 times.',
-        svgIcon: `<path d="M4 19.5A2.5 2.5 0 016.5 17H20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="9" y1="7" x2="16" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="9" y1="11" x2="14" y2="11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>`,
         check: () => false,
     },
     {
         id: 'prosperity', cat: 'secret', name: 'Loaded', type: 'single',
         rarity: 'rare', clue: 'Saving for a rainy day.',
         desc: 'Have 20+ boosters saved at once.',
-        svgIcon: `<rect x="3" y="10" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 10V6a5 5 0 0110 0v4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="16" r="2" fill="currentColor"/>`,
         check: () => false,
     },
     {
         id: 'music_listener', cat: 'basic', name: 'In the Zone', type: 'tiered',
-        svgIcon: `<path d="M3 18V11a9 9 0 0118 0v7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="3" y="15" width="4" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="17" y="15" width="4" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>`,
         counter: { path:'_computed.musicTracksListened', label:'Tracks Listened' },
         tiers: [
             { rarity:'common', name:'Background Music', desc:'Listen to 25 music tracks',  progress:{ path:'_computed.musicTracksListened', target:25  } },
@@ -5419,40 +5882,34 @@
         id: 'third_charm', cat: 'secret', name: "Third Time's the Charm", type: 'single',
         rarity: 'epic', clue: "Third time's the charm.",
         desc: 'Come close to your record at least twice (not necessarily consecutively), then beat it.',
-        svgIcon: `<g transform="translate(0,2.475) scale(0.046875)"><path fill="rgba(255,255,255,0.88)" fill-rule="nonzero" d="M334.22 1.61c27.26 3.44 52.63 12.14 75.16 24.98 23.39 13.31 43.7 31.1 59.95 52.04 16.21 20.88 28.41 44.97 35.5 71.01 6.84 25.02 8.99 51.75 5.56 78.97-3.43 27.26-12.14 52.62-24.98 75.16-13.31 23.38-31.1 43.69-52.04 59.94-20.88 16.22-44.97 28.41-71.01 35.5-25.02 6.85-51.75 8.99-78.97 5.56-27.26-3.43-52.62-12.13-75.16-24.97-23.38-13.32-43.69-31.11-59.91-52l-.03-.04a203.687 203.687 0 01-22.82-36.93c13.03-.38 25.67-2.24 37.8-5.39 4.01 7.08 8.53 13.85 13.52 20.27 13.38 17.24 30.09 31.86 49.25 42.79 18.47 10.51 39.33 17.71 61.86 20.55 22.52 2.83 44.46 1.07 65.01-4.57 21.31-5.83 41.09-15.85 58.33-29.24 17.24-13.38 31.86-30.09 42.79-49.25 10.51-18.47 17.71-39.33 20.55-61.86 2.84-22.52 1.08-44.46-4.57-65.01-5.83-21.31-15.85-41.09-29.23-58.33-13.39-17.24-30.1-31.86-49.26-42.79-18.47-10.51-39.33-17.71-61.85-20.55-20.74-2.61-40.98-1.32-60.09 3.3a170.278 170.278 0 00-21.86-31.3c2.47-.78 4.95-1.51 7.44-2.2 25.11-6.92 51.8-9.07 79.06-5.64zm-36.45 102.85c.62-4.94 3.21-9.14 6.82-11.98 3.64-2.83 8.35-4.26 13.29-3.63 4.95.62 9.15 3.17 11.98 6.82 2.84 3.64 4.26 8.35 3.64 13.29l-11.85 94.06 65.03 50.53a18.05 18.05 0 016.8 11.97c.58 4.56-.56 9.35-3.6 13.25l-.01.04c-3.04 3.9-7.41 6.23-11.96 6.8-4.56.58-9.35-.56-13.26-3.6h-.03l-72.75-56.57c-2.52-1.84-4.48-4.31-5.77-7.1a17.967 17.967 0 01-1.46-9.65l13.13-104.23z"/><path fill="red" d="M120.46.93c66.53 0 120.46 53.94 120.46 120.47 0 66.52-53.93 120.46-120.46 120.46C53.94 241.86 0 187.92 0 121.4 0 54.87 53.94.93 120.46.93z"/><path fill="#fff" fill-rule="nonzero" d="M128.02 105.32V91.45c-14.26-2.37-31.88-.15-45.87 2.78l-4.52-23.14c14.13-4.4 27.8-6.6 41-6.6 11.36 0 19.59.7 24.68 2.09 5.1 1.39 8.86 3.07 11.3 5.04 5.33 4.51 7.99 11.35 7.99 20.5 0 11.58-4.81 19.92-14.42 25.02v.87c11.46 4.75 17.2 13.38 17.2 25.89 0 6.14-.96 11.38-2.87 15.72-1.91 4.35-4.31 7.71-7.21 10.09-2.9 2.37-6.72 4.25-11.47 5.64-7.07 1.97-17 2.96-29.8 2.96s-25.63-1.51-38.48-4.53l4.86-26.09c16.41 3.98 30.87 5.09 47.61 2.96v-13.7l-29.89-2.96V108.8l29.89-3.48z"/></g>`,
         check: () => false,
     },
     {
         id: 'risky_break', cat: 'secret', name: 'No Risk, No Break', type: 'single',
         rarity: 'common', clue: 'Living on the edge.',
         desc: 'Pause the game at speed 3 or higher.',
-        svgIcon: `<path transform="scale(0.02341)" fill="currentColor" d="m960.428 896l-576-128q-44-8-64-32l-96-160l-32 256q0 26-18.5 45t-45.5 19t-45.5-18.5t-18.5-45.5l54-377q14-75 42-103q9-8 52.5-46t52.5-47l119-99V64q0-25 18-44.5t46-19.5q29 0 46.5 19t17.5 45v128q-1 4-6.5 15.5t-14 27t-11.5 21.5l-117 95q-2 3 3.5 11t11.5 15l6 7l128 160l135-127q6-11 10-16q19-18 44.5-18t43.5 18l197 196q18 19 18 44.5t-18.5 44t-44 18.5t-43.5-18l-150-150l-160 136l416 96q27 0 45.5 18.5t18.5 45t-18.5 45.5t-45.5 19zm-832-640q-53 0-90.5-37.5T.428 128t37.5-90.5t90.5-37.5t90.5 37.5t37.5 90.5t-37.5 90.5t-90.5 37.5zm160 640h192q13 0 22.5 9.5t9.5 22.5t-9.5 22.5t-22.5 9.5h-192q-13 0-22.5-9.5t-9.5-22.5t9.5-22.5t22.5-9.5zm320 64h320q13 0 22.5 9.5t9.5 22.5t-9.5 22.5t-22.5 9.5h-320q-13 0-22.5-9.5t-9.5-22.5t9.5-22.5t22.5-9.5z"/>`,
         check: () => false,
     },
     {
         id: 'loser', cat: 'secret', name: 'Loser', type: 'single',
         rarity: 'rare', clue: 'Rock bottom.',
         desc: 'Lose 5 games in a row without clearing any lines.',
-        svgIcon: `<path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3z" fill="none" stroke="#ff3333" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17" fill="none" stroke="#ff3333" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
         check: () => false,
     },
     {
         id: 'marathon', cat: 'secret', name: 'Marathon', type: 'single',
         rarity: 'rare', clue: 'Do you ever stop?',
         desc: 'Play 20 games in a single session.',
-        svgIcon: `<g transform="scale(0.046875)" fill="currentColor"><path d="M196.267,409.597h-153.6c-4.71,0-8.533,3.823-8.533,8.533s3.823,8.533,8.533,8.533h153.6c4.71,0,8.533-3.823,8.533-8.533S200.977,409.597,196.267,409.597z"/><path d="M25.6,324.263h68.267c4.71,0,8.533-3.823,8.533-8.533s-3.823-8.533-8.533-8.533H25.6c-4.71,0-8.533,3.823-8.533,8.533S20.89,324.263,25.6,324.263z"/><path d="M153.6,366.93c0-4.71-3.823-8.533-8.533-8.533H8.533c-4.71,0-8.533,3.823-8.533,8.533s3.823,8.533,8.533,8.533h136.533C149.777,375.463,153.6,371.64,153.6,366.93z"/><path d="M435.2,375.463H384c-4.71,0-8.533,3.823-8.533,8.533s3.823,8.533,8.533,8.533h51.2c31.13,0,55.202,21.495,59.11,51.2H353.399L80.333,170.663L209.143,41.853c7.074,22.46,23.33,66.15,49.357,92.177c29.158,29.167,79.761,35.115,99.9,36.326v68.574h-20.147c-2.961-5.077-8.405-8.533-14.694-8.533c-9.412,0-17.067,7.654-17.067,17.067c0,9.412,7.654,17.067,17.067,17.067c6.289,0,11.733-3.456,14.694-8.533H358.4v51.2h-20.147c-2.961-5.077-8.405-8.533-14.694-8.533c-9.412,0-17.067,7.654-17.067,17.067s7.654,17.067,17.067,17.067c6.289,0,11.733-3.456,14.694-8.533H358.4v8.533c0,2.261,0.896,4.437,2.5,6.033l17.067,17.067c3.337,3.337,8.73,3.337,12.066,0c3.337-3.336,3.337-8.73,0-12.066l-14.566-14.566V162.13c0-4.71-3.823-8.533-8.533-8.533c-0.649,0-65.092-0.358-96.367-31.633c-32.034-32.034-48.794-97.783-48.956-98.441c-0.751-2.978-3.038-5.333-5.999-6.153c-2.978-0.802-6.144,0.026-8.311,2.193L62.242,164.622c0,0-0.009,0-0.009,0.009c-0.008,0-0.008,0.009-0.008,0.009l-11.657,11.665c-10.641,10.633-10.325,29.602,0.666,40.593l266.999,266.999c1.126,1.126,11.503,11.034,27.768,11.034H486.4c14.353,0,25.6-11.247,25.6-25.6v-17.067C512,409.196,478.268,375.463,435.2,375.463z M494.933,469.33c0,4.864-3.669,8.533-8.533,8.533H346.001c-9.31,0-15.693-6.033-15.701-6.033l-266.999-267c-4.403-4.403-4.727-12.407-0.666-16.461l5.632-5.641l275.567,275.567c1.596,1.604,3.772,2.5,6.033,2.5h145.067V469.33z"/><path d="M273.067,230.397v102.4c0,4.71,3.823,8.533,8.533,8.533s8.533-3.823,8.533-8.533v-102.4c0-4.71-3.823-8.533-8.533-8.533S273.067,225.686,273.067,230.397z"/><path d="M332.715,202.971c4.173,0,7.825-3.063,8.431-7.322c0.674-4.659-2.569-8.986-7.236-9.66c-56.977-8.183-105.634-44.305-130.15-96.614c-1.997-4.267-7.066-6.093-11.349-4.105c-4.267,2.005-6.101,7.083-4.105,11.349c26.965,57.532,80.495,97.263,143.181,106.266C331.904,202.945,332.305,202.971,332.715,202.971z"/></g>`,
         check: () => false,
     },
     {
         id: 'lucky_day', cat: 'secret', name: 'Lucky Day', type: 'single',
         rarity: 'legendary', clue: 'Fortune favors the patient.',
         desc: 'See the "Lucky day!" quote on the splash screen.',
-        svgIcon: `<path transform="scale(0.05185)" fill="#44cc44" d="m333.171,166.387c21.089-6.853 38.021-15.961 48.289-26.229 21.408-21.408 21.945-55.705 1.197-76.454-8.919-8.919-20.784-14.205-33.417-15.07-0.866-12.634-6.151-24.499-15.07-33.417-20.749-20.749-55.046-20.212-76.454,1.197-10.268,10.268-19.376,27.2-26.229,48.289-6.853-21.089-15.961-38.021-26.229-48.289-21.408-21.408-55.706-21.945-76.454-1.197-8.919,8.919-14.205,20.784-15.07,33.417-12.632,0.866-24.499,6.151-33.417,15.07-20.748,20.749-20.211,55.045 1.197,76.454 10.268,10.268 27.2,19.376 48.289,26.228-21.089,6.853-38.021,15.961-48.289,26.229-21.408,21.408-21.945,55.705-1.197,76.454 8.918,8.918 20.784,14.204 33.417,15.07 0.865,12.633 6.151,24.498 15.07,33.417 20.748,20.75 55.045,20.212 76.454-1.197 6.48-6.48 12.496-15.619 17.777-26.776-1.054,52.578-0.624,118.128 17.391,168.421 0.723,2.02 2.277,3.632 4.268,4.431 0.898,0.36 1.846,0.54 2.793,0.54 1.151,0 2.301-0.265 3.354-0.792l32-16c1.946-0.973 3.374-2.743 3.912-4.851 0.539-2.108 0.136-4.346-1.104-6.133-22.706-32.723-36.597-90.135-42.811-139.846 4.547,8.556 9.555,15.683 14.878,21.006 10.334,10.334 23.95,16.17 38.338,16.432 0.338,0.006 0.673,0.009 1.01,0.009 14.109,0 27.253-5.391 37.105-15.244 8.919-8.919 14.205-20.784 15.07-33.417 12.632-0.866 24.499-6.151 33.417-15.07 20.748-20.749 20.211-55.046-1.198-76.454-10.267-10.268-27.199-19.376-48.287-26.228zm-81.305,278.512c-8.314-26.839-11.962-57.924-13.378-88.714 6.15,25.828 15.771,56.552 30.153,80.326l-16.775,8.388zm120.184-186.437c-7.696,7.695-18.525,11.588-29.731,10.671-2.188-0.178-4.356,0.615-5.913,2.172-1.557,1.557-2.351,3.719-2.172,5.913 0.914,11.199-2.976,22.035-10.671,29.731-7.181,7.182-16.847,11.05-27.236,10.843-10.485-0.19-20.431-4.467-28.004-12.041-12.345-12.344-23.364-38.2-29.478-69.165-0.694-3.514-3.776-6.047-7.358-6.047s-6.664,2.533-7.358,6.047c-6.113,30.964-17.132,56.82-29.477,69.165-7.574,7.574-17.52,11.85-28.004,12.04-10.384,0.196-20.055-3.662-27.236-10.843-7.695-7.695-11.585-18.532-10.671-29.73 0.179-2.194-0.615-4.356-2.172-5.913-1.556-1.557-3.717-2.352-5.913-2.172-11.2,0.914-22.037-2.977-29.731-10.671-14.899-14.9-14.362-39.681 1.197-55.241 12.345-12.345 38.201-23.364 69.166-29.478 3.514-0.694 6.047-3.776 6.047-7.358s-2.533-6.664-6.047-7.358c-30.965-6.113-56.821-17.132-69.166-29.477-15.56-15.56-16.097-40.341-1.197-55.241 7.696-7.695 18.53-11.584 29.731-10.671 2.192,0.179 4.356-0.615 5.913-2.172 1.557-1.557 2.351-3.719 2.172-5.913-0.914-11.199 2.976-22.035 10.671-29.731 14.9-14.899 39.68-14.362 55.241,1.197 12.344,12.344 23.364,38.201 29.477,69.166 0.694,3.514 3.776,6.047 7.358,6.047s6.664-2.533 7.358-6.047c6.113-30.965 17.133-56.821 29.477-69.166 15.56-15.56 40.34-16.097 55.241-1.197 7.695,7.695 11.584,18.532 10.671,29.731-0.179,2.194 0.615,4.356 2.172,5.913 1.557,1.556 3.715,2.349 5.913,2.172 11.201-0.915 22.035,2.976 29.731,10.671 14.899,14.9 14.362,39.681-1.197,55.241-12.345,12.344-38.201,23.364-69.165,29.477-3.514,0.694-6.047,3.776-6.047,7.358s2.533,6.664 6.047,7.358c30.964,6.113 56.82,17.132 69.165,29.477 15.558,15.561 16.095,40.342 1.196,55.242z"/>`,
         check: () => false,
     },
     {
         id: 'mirror_score', cat: 'basic', name: 'Other Side', type: 'tiered',
-        svgIcon: `<line x1="12" y1="3" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/><path d="M6 6h3v12H6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M18 6h-3v12h3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>`,
         counter: { path:'stats.bestMirrorScore', label:'Mirror Mode Best' },
         tiers: [
             { rarity:'common',    name:'Reflected',    desc:'Score 250 in Mirror Mode',   check: g => g.mirror && g.score >= 250,  progressDisplay:{ path:'stats.bestMirrorScore', target:250  } },
@@ -5465,7 +5922,6 @@
         id: 'loyal_piece', cat: 'secret', name: 'Loyal Holder', type: 'single',
         rarity: 'rare', clue: 'Saving it for later... forever.',
         desc: 'Hold a piece for 30+ placements, then use it.',
-        svgIcon: `<path d="M21 12 A9 9 0 1 1 15 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 7v5l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><text x="21" y="10" text-anchor="middle" font-size="5.5" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">30</text>`,
         check: () => false,
         progressDisplay: { path:'stats.bestLoyalPiece', target:30 },
     },
@@ -5473,28 +5929,24 @@
         id: 'logo_click', cat: 'secret', name: 'Explorer', type: 'single',
         rarity: 'rare', clue: 'Curiosity.',
         desc: 'See every title animation.',
-        svgIcon: `<circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="15.9" y1="15.9" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><text x="10" y="10" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="bold" fill="currentColor" stroke="none" font-family="sans-serif">?</text>`,
         check: () => false,
     },
     {
         id: 'mute_jarvis', cat: 'secret', name: 'On and Off', type: 'single',
         rarity: 'rare', clue: 'Make up your mind.',
         desc: 'Mute music 10 times (5s minimum gaps).',
-        svgIcon: `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><line x1="16" y1="9" x2="22" y2="15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="22" y1="9" x2="16" y2="15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`,
         check: () => false,
     },
     {
         id: 'save_transfer', cat: 'secret', name: 'Backed Up', type: 'single',
         rarity: 'common', clue: 'Trust, but verify.',
         desc: 'Import or transfer a save file.',
-        svgIcon: `<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><line x1="12" y1="10" x2="12" y2="15" stroke="#ff0000" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17.5" x2="12.01" y2="17.5" stroke="#ff0000" stroke-width="2.5" stroke-linecap="round"/>`,
         check: () => false,
     },
     {
         id: 'pin_collector', cat: 'secret', name: 'Pin Collector', type: 'single',
         rarity: 'rare', clue: "Collector's instinct.",
         desc: 'Pin 15+ scores.',
-        svgIcon: `<line x1="12" y1="17" x2="12" y2="22" stroke="#aaaaaa" stroke-width="1.5" stroke-linecap="round"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z" fill="none" stroke="#cc3333" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
         check: () => false,
         progressDisplay: { path:'stats.pinnedCount', target:15 },
     },
@@ -5502,20 +5954,17 @@
         id: 'exact_death', cat: 'secret', name: 'Angel Numbers', type: 'single',
         rarity: 'rare', clue: 'Angel numbers.',
         desc: 'End a game with a repeating score: 111, 222… or 1111, 2222… up to 9999. Score must be ≥ 100.',
-        svgIcon: `<path d="m9.5,5.5c0,1.379,1.122,2.5,2.5,2.5s2.5-1.121,2.5-2.5-1.122-2.5-2.5-2.5-2.5,1.121-2.5,2.5Zm4,0c0,.827-.673,1.5-1.5,1.5s-1.5-.673-1.5-1.5.673-1.5,1.5-1.5,1.5.673,1.5,1.5Zm7,.5c-3.373,0-6.02,2.984-6.555,3.632-1.256.475-2.633.475-3.889,0-.535-.648-3.182-3.632-6.555-3.632C.918,6,.185,11.139.024,15.45c-.015.409.132.796.416,1.09.286.297.67.46,1.083.46.263,0,.477.214.477.5,0,.827.673,1.5,1.494,1.5.231.006.506.098.506.5v2c0,.099.036.186.086.264.069.315.174.623.353.905.514.807,1.392,1.288,2.346,1.288l10.428.043c.957,0,1.834-.481,2.348-1.288.191-.299.298-.628.364-.964.043-.074.075-.156.075-.248v-2c0-.275.224-.5.5-.5.827,0,1.5-.673,1.5-1.5,0-.275.224-.5.509-.5.412,0,.795-.162,1.079-.457.283-.294.43-.681.414-1.089-.134-3.531-.768-9.454-3.502-9.454ZM3.5,18c-.276,0-.5-.225-.5-.523,0-.814-.663-1.477-1.477-1.477-.139,0-.268-.055-.363-.153-.093-.097-.142-.225-.137-.359.192-5.156,1.165-8.487,2.477-8.487,2.712,0,5.005,2.377,5.669,3.136l-4.315,8.675c-.279-.583-.899-.811-1.354-.811Zm15.218,4.175c-.33.517-.892.825-1.503.825l-10.428-.043c-.613,0-1.176-.309-1.505-.825s-.371-1.157-.118-1.701l4.847-9.744c1.29.416,2.687.417,3.976,0l4.843,9.774c.259.556.217,1.196-.112,1.714Zm4.15-6.326c-.094.098-.221.151-.368.151-.827,0-1.5.673-1.5,1.5,0,.275-.224.5-.5.5-.596,0-1.107.352-1.349.856l-4.32-8.72c.663-.758,2.957-3.136,5.669-3.136,1.304,0,2.311,3.412,2.503,8.491.005.135-.043.262-.135.357Z" fill="currentColor"/><path d="M7.634,4.486c-.415-.445-.634-.96-.634-1.486,0-1.683,2.196-3,5-3s5,1.317,5,3c0,.526-.219,1.041-.634,1.486-.099.106-.232.16-.366.16-.122,0-.244-.044-.34-.134-.202-.188-.214-.504-.026-.706.243-.262.366-.533.366-.807,0-.946-1.643-2-4-2s-4,1.054-4,2c0,.273.123.545.366.807.188.202.176.519-.026.706-.202.188-.519.177-.707-.026Z" fill="#FFD700"/>`,
         check: () => false,
     },
     {
         id: 'skin_loyal', cat: 'secret', name: 'Never Changing', type: 'single',
         rarity: 'rare', clue: "If it ain't broke...",
         desc: 'Play 50+ games without changing block skin.',
-        svgIcon: `<polygon points="12,2 15.1,9.5 23,9.5 16.9,14.5 19.4,22 12,17.5 4.6,22 7.1,14.5 1,9.5 8.9,9.5" fill="none" stroke="#FFD700" stroke-width="1.5" stroke-linejoin="round"/>`,
         check: () => false,
         progressDisplay: { path:'stats.sameSkinStreak', target:50 },
     },
     {
         id: 'fun_squared', cat: 'basic', name: 'Fun Fanatic', type: 'tiered',
-        svgIcon: `<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 14s1.5 3 4 3 4-3 4-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="9" x2="9.01" y2="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="15" y1="9" x2="15.01" y2="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M7 2l2 3M17 2l-2 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>`,
         counter: { path:'stats.funGamesPlayed', label:'Fun Games Played' },
         tiers: [
             { rarity:'common',    name:'Just for Giggles', desc:'Play 5 games in Fun Mode clearing at least 1 line each',   progress:{ path:'stats.funGamesPlayed', target:5   } },
@@ -5528,7 +5977,6 @@
         id: 'abort_mission', cat: 'secret', name: 'Mission Failed', type: 'single',
         rarity: 'rare', clue: 'Mission failed.',
         desc: 'Leave 20+ games.',
-        svgIcon: `<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="16 17 21 12 16 7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`,
         check: () => false,
         progressDisplay: { path:'stats.gamesAborted', target:20 },
     },
@@ -5536,47 +5984,40 @@
         id: 'deja_vu', cat: 'secret', name: 'Deja Vu', type: 'single',
         rarity: 'epic', clue: "Haven't I been here before?",
         desc: 'Finish a game with the same score as one of your past highscores.',
-        svgIcon: `<path d="M19 7A9 9 0 0 0 5.5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="5.5,4.5 5.5,9 9.5,9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 17A9 9 0 0 0 18.5 19.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="18.5,19.5 18.5,15 14.5,15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><text x="12" y="13" text-anchor="middle" dominant-baseline="central" font-size="7" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">123</text>`,
         check: () => false,
     },
     {
         id: 'streak_lost', cat: 'secret', name: 'The End of the Run', type: 'single',
         rarity: 'rare', clue: 'All good things...',
         desc: 'Lose a daily streak of 20+ days.',
-        svgIcon: `<path d="M21 12 L21 6 Q21 4 19 4 L5 4 Q3 4 3 6 L3 20 Q3 22 5 22 L11 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="2" x2="14" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="13" x2="14" y2="17" stroke="#ff3333" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="13" x2="10" y2="17" stroke="#ff3333" stroke-width="1.5" stroke-linecap="round"/><text x="20" y="22" text-anchor="middle" font-size="5" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">20+</text>`,
         check: () => false,
     },
     {
         id: 'gift_ignore', cat: 'secret', name: 'Ungrateful', type: 'single',
         rarity: 'common', clue: 'Ungrateful.',
         desc: 'Have 10+ unclaimed mission XP rewards or milestone boxes combined (resets with missions).',
-        svgIcon: `<path d="M20 12v10H4V12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M22 7H2v5h20V7z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 22V7" stroke="currentColor" stroke-width="1.5"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="22" y1="2" x2="2" y2="22" stroke="#ff3333" stroke-width="2" stroke-linecap="round"/>`,
         check: () => false,
     },
     {
         id: 'back_to_back', cat: 'secret', name: 'Back to Back', type: 'single',
         rarity: 'epic', clue: 'Lightning strikes twice.',
         desc: 'Get the same score in two consecutive games.',
-        svgIcon: `<text x="3" y="11" font-size="9" font-weight="900" fill="currentColor" font-family="sans-serif">123</text><g transform="translate(24,24) scale(-1,-1)"><text x="3" y="11" font-size="9" font-weight="900" fill="currentColor" font-family="sans-serif" opacity="0.45">123</text></g>`,
         check: () => false,
     },
     {
         id: 'afk', cat: 'secret', name: 'AFK', type: 'single',
         rarity: 'rare', clue: 'Still there?',
         desc: 'Spend 15 minutes in the menu without playing.',
-        svgIcon: `<text x="8" y="10" font-size="10" font-weight="bold" fill="currentColor" stroke="none" font-family="sans-serif">Z</text><text x="13" y="16" font-size="8" fill="currentColor" stroke="none" font-family="sans-serif" opacity="0.6">z</text><text x="16" y="20" font-size="6" fill="currentColor" stroke="none" font-family="sans-serif" opacity="0.3">z</text>`,
         check: () => false,
     },
     {
         id: 'parachute_catcher', cat: 'secret', name: 'Supply Drop', type: 'single',
-        rarity: 'common', clue: 'Not every falling block is ordinary.',
-        desc: 'Catch a color-changing block in the menu.',
-        svgIcon: `<path d="M8 12V5a2 2 0 014 0v7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 10v-1a2 2 0 014 0v3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 12v-1a2 2 0 014 0v4a8 8 0 01-16 0v-3a2 2 0 014 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
+        rarity: 'common', clue: 'Look for a drop against a plain sky.',
+        desc: 'Catch a color-changing block in the menu with the Plain background.',
         check: () => false,
     },
     {
         id: 'collector', cat: 'basic', name: 'Collector', type: 'tiered',
-        svgIcon: `<path d="M3 5h2l1 9h12l1-7H6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="19" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="17" cy="19" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/>`,
         counter: { path:'_computed.itemsBought', label:'Items Bought' },
         tiers: [
             { rarity:'common',    name:'Starter Pack',  desc:'Buy 10 items',    progress:{ path:'_computed.itemsBought', target:10 } },
@@ -5588,7 +6029,6 @@
         id: 'pause_spam', cat: 'secret', name: 'Anxiety', type: 'single',
         rarity: 'common', clue: 'Anxiety.',
         desc: 'Pause 5+ times in a single game.',
-        svgIcon: `<rect x="4" y="4" width="5" height="16" rx="1" fill="currentColor" opacity="0.5"/><rect x="15" y="4" width="5" height="16" rx="1" fill="currentColor" opacity="0.5"/><rect x="4" y="4" width="5" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="15" y="4" width="5" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>`,
         check: () => false,
     },
     // ── NEW ACHIEVEMENTS (batch 3) ────────────────────────────────────────
@@ -5596,26 +6036,22 @@
         id: 'leaning_tower', cat: 'secret', name: 'Leaning Tower', type: 'single',
         rarity: 'rare', clue: 'A precarious structure, barely standing.',
         desc: 'Game over with bottom row having exactly 1 filled cell and no other row having more than 3 filled cells (must clear at least 1 line).',
-        svgIcon: `<path transform="scale(0.04687)" fill="currentColor" d="M393.503,141.288l-10.645-0.747l3.776-53.205c0.597-8.533-2.155-16.768-7.744-23.232c-3.179-3.669-7.104-6.4-11.435-8.277l0.896-12.544c0.597-8.533-2.155-16.768-7.744-23.232c-5.589-6.464-13.376-10.368-21.909-10.965L211.017,0.04c-17.259-0.853-32.939,12.075-34.176,29.675l-0.917,12.8c-12.523,3.691-22.379,14.464-23.36,28.245l-3.776,53.184l-10.667-0.768c-5.931-0.597-10.944,4.032-11.392,9.899c-0.427,5.867,3.989,10.965,9.877,11.392l10.667,0.747l-4.523,63.851l-10.667-0.747c-5.931-0.384-10.965,4.032-11.392,9.899c-0.427,5.867,4.011,10.965,9.877,11.392l10.667,0.747l-4.523,63.851l-10.667-0.747c-5.696-0.405-10.965,4.032-11.392,9.899c-0.427,5.867,4.011,10.965,9.877,11.392l10.667,0.747l-4.523,63.808l-10.645-0.747c-5.717-0.405-10.965,4.032-11.392,9.899c-0.427,5.867,3.989,10.965,9.877,11.392l10.645,0.747l-6.784,95.787c-0.427,5.845,4.011,10.944,9.899,11.371l60.629,4.267h153.685c5.589,0,10.24-4.331,10.667-9.92l6.016-84.907l10.624,0.747c0.256,0.021,0.512,0.021,0.768,0.021c5.547,0,10.219-4.288,10.624-9.92c0.427-5.867-3.989-10.965-9.877-11.392l-10.624-0.747l4.523-63.829l10.603,0.747c0.256,0.021,0.512,0.021,0.768,0.021c5.568,0,10.24-4.309,10.624-9.92c0.427-5.867-4.011-10.965-9.877-11.392l-10.624-0.747l4.523-63.851l10.624,0.747c0.256,0.021,0.512,0.021,0.768,0.021c5.547,0,10.24-4.288,10.624-9.92c0.427-5.867-4.011-10.965-9.877-11.392l-10.624-0.747l4.523-63.808l10.624,0.747c0.256,0.021,0.512,0.021,0.768,0.021c5.547,0,10.219-4.288,10.624-9.92C403.807,146.813,399.391,141.715,393.503,141.288z M198.111,31.208c0.192-2.837,1.493-5.44,3.648-7.296c2.133-1.877,4.843-2.795,7.744-2.581l127.68,9.045c2.837,0.192,5.44,1.493,7.296,3.648c1.877,2.133,2.795,4.885,2.603,7.744l-0.768,10.624l-97.365-6.891l-51.605-3.669L198.111,31.208z M253.087,462.824l-1.984,27.861h-21.376l2.048-29.355c0.427-5.888,5.419-10.389,11.413-9.899c2.837,0.192,5.44,1.493,7.296,3.648C252.361,457.213,253.279,459.965,253.087,462.824z M336.649,490.685H272.5l1.856-26.347c1.237-17.621-12.053-32.939-29.675-34.197c-17.771-0.96-32.939,12.117-34.176,29.696l-2.176,30.869h-14.677l-49.237-3.477l6.037-85.141l31.851,2.261c0.021,0,0.043,0.021,0.085,0.021c0.128,0,0.256,0,0.384,0l63.403,4.501c0.021,0,0.043,0.021,0.064,0.021c0.085,0,0.171,0,0.277,0l63.552,4.501h0.021c0.043,0,0.085,0,0.128,0l31.787,2.261L336.649,490.685z M343.455,394.387l-21.291-1.515l2.261-31.915c0.427-5.867-4.011-10.965-9.877-11.392c-5.888-0.448-10.965,4.032-11.392,9.899l-2.261,31.893l-42.581-3.029l2.283-31.915c0.427-5.867-3.989-10.965-9.877-11.392c-5.867-0.512-10.965,4.032-11.392,9.899l-2.261,31.893l-42.56-3.029l2.261-31.915c0.427-5.867-4.011-10.965-9.877-11.392c-5.845-0.597-10.965,4.032-11.392,9.899l-2.261,31.936l-21.291-1.515l4.523-63.808l191.531,13.568L343.455,394.387z M349.492,309.267l-21.269-1.515l2.261-31.915c0.427-5.867-4.011-10.965-9.877-11.392c-5.867-0.427-10.965,4.032-11.392,9.899l-2.261,31.915l-42.581-3.008l2.283-31.915c0.427-5.867-3.989-10.965-9.877-11.392c-5.845-0.491-10.965,4.032-11.392,9.899l-2.283,31.915l-42.56-3.029l2.261-31.915c0.427-5.867-4.011-10.965-9.877-11.392c-5.824-0.576-10.965,4.032-11.392,9.899l-2.261,31.915l-21.312-1.536l4.523-63.851l31.829,2.261c0.043,0,0.064,0.021,0.107,0.021c0.171,0.021,0.32,0.021,0.491,0.021l127.168,9.003h0.021l31.893,2.261L349.492,309.267z M355.529,224.125l-21.291-1.515l2.283-31.915c0.405-5.867-3.989-10.965-9.877-11.392c-5.867-0.384-10.965,4.032-11.392,9.899l-2.261,31.915l-42.56-3.008l2.283-31.915c0.427-5.867-3.989-10.965-9.877-11.392c-5.845-0.469-10.965,4.032-11.392,9.899l-2.261,31.915l-42.56-3.008l2.261-31.893c0.427-5.867-4.011-10.965-9.877-11.392c-5.888-0.576-11.008,3.989-11.435,9.856l-2.261,31.893l-21.312-1.515l4.523-63.829l159.573,11.328c0.021,0,0.021,0,0.043,0c0.043,0,0.107,0,0.149,0l31.765,2.261L355.529,224.125z M365.343,85.843l-3.776,53.184l-21.291-1.515l2.283-31.915c0.427-5.867-3.989-10.965-9.877-11.392c-5.845-0.384-10.965,4.032-11.392,9.899l-2.261,31.893l-42.581-3.029l2.283-31.915c0.405-5.867-4.011-10.965-9.877-11.392c-6.059-0.448-10.965,4.032-11.392,9.899l-2.304,31.936l-42.56-3.029l2.261-31.936c0.427-5.867-4.011-10.965-9.877-11.392c-5.803-0.512-10.965,4.032-11.413,9.899l-2.24,31.915l-21.291-1.493l3.776-53.184c0.192-2.837,1.493-5.44,3.648-7.296c2.133-1.877,4.736-2.859,7.744-2.581l170.24,12.053c2.837,0.192,5.44,1.493,7.296,3.648C364.617,80.232,365.535,82.984,365.343,85.843z"/>`,
         check: () => false,
     },
     {
         id: 'dry_spell', cat: 'secret', name: 'Let It Stack', type: 'single',
         rarity: 'rare', clue: 'The well has run dry.',
         desc: 'Place 30+ pieces without clearing a single line.',
-        svgIcon: `<rect x="10" y="4" width="4" height="4" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="16" width="4" height="4" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="10" y="16" width="4" height="4" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="16" y="16" width="4" height="4" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.5"/>`,
         check: () => false,
     },
     {
         id: 'double_satisfaction', cat: 'secret', name: 'Double the Satisfaction', type: 'single',
         rarity: 'rare', clue: 'Four and four. Back to back.',
         desc: 'Clear 4 lines twice in a row.',
-        svgIcon: `<path transform="translate(4.8,4.5) scale(0.19)" fill="currentColor" d="M26.85,1.24A36.12,36.12,0,0,1,54.33,4.86l.12.08A36.14,36.14,0,0,1,68.79,20.38,9.37,9.37,0,0,0,65,21.74,32,32,0,0,0,52.42,8.4l-.1-.06a32.2,32.2,0,1,0-7.86,59l.2,0A31.91,31.91,0,0,0,56.85,61a9.58,9.58,0,0,0,1.26,2.11,7.53,7.53,0,0,0,.75.87l.32.31a36.08,36.08,0,0,1-13.58,7h-.06a36.22,36.22,0,0,1-18.69-70ZM18,41.44A22.25,22.25,0,0,0,23,46.13a23.81,23.81,0,0,0,13.9,4.19A22.5,22.5,0,0,0,50.29,45.8a20,20,0,0,0,4.18-4.38.12.12,0,0,1,.17,0L56,42.74a.11.11,0,0,1,0,.15,25.45,25.45,0,0,1-7.84,8.45A21.07,21.07,0,0,1,37,54.89,21.8,21.8,0,0,1,25.48,51.8a28.13,28.13,0,0,1-9-8.82.14.14,0,0,1,0-.16l1.4-1.39a.13.13,0,0,1,.18,0ZM44.94,20c2.4,0,4.34,2.81,4.34,6.28s-1.94,6.27-4.34,6.27-4.33-2.81-4.33-6.27S42.55,20,44.94,20ZM27.5,20c2.4,0,4.34,2.81,4.34,6.28s-1.94,6.27-4.34,6.27-4.33-2.81-4.33-6.27S25.11,20,27.5,20ZM70,27.74h5.92A2.07,2.07,0,0,1,78,29.8V57.22a2.07,2.07,0,0,1-2.07,2.06H65.57a2.07,2.07,0,0,1-2.06-2.06c1.78-9.52,3-18.28,4.4-27.42A2.06,2.06,0,0,1,70,27.74Z"/><path transform="translate(0.5,5.5) scale(0.195)" fill="currentColor" d="M92.12,7.74a3.55,3.55,0,0,1,1.77-1.86,4.18,4.18,0,0,1,2.85-.16,7.78,7.78,0,0,1,2.71,1.39,13.41,13.41,0,0,1,5,9.65,29.31,29.31,0,0,1-.06,4.27c-.08,1-.21,2.06-.39,3.15h10.34A11.15,11.15,0,0,1,119,25.37a7.48,7.48,0,0,1,2.87,2.52,6.39,6.39,0,0,1,1,3.84,9.06,9.06,0,0,1-.93,3.55,11.23,11.23,0,0,1,.28,4.29,5,5,0,0,1-1.43,2.9,12.91,12.91,0,0,1-.71,4.83,10.28,10.28,0,0,1-2.3,3.6,14.53,14.53,0,0,1-.46,2.56A8.83,8.83,0,0,1,116,56.22h0c-1.76,2.48-3.16,2.42-5.38,2.33-.31,0-.64,0-1.16,0H89.37a9.78,9.78,0,0,1-4.53-.91,10.92,10.92,0,0,1-3.55-3.1l-.3-.86V30.19l1-.27c2.6-.7,4.64-2.92,6.23-5.58a39.58,39.58,0,0,0,3.55-8.51V9.73a3.85,3.85,0,0,1,.33-2ZM95,8.38a1.11,1.11,0,0,0-.51.8V16l-.06.39a42.58,42.58,0,0,1-3.89,9.34c-1.72,2.87-4,5.34-6.85,6.48V53.17a7.79,7.79,0,0,0,2.33,2,7.28,7.28,0,0,0,3.31.61H109.5c.36,0,.83,0,1.26,0,1.33,0,2.16.09,3-1.17h0a6,6,0,0,0,.87-1.91,12.15,12.15,0,0,0,.41-2.54l.42-.9a7.6,7.6,0,0,0,2-2.94A10.66,10.66,0,0,0,118,41.9l0-.82.69-.43a2.1,2.1,0,0,0,.84-1.53,9.11,9.11,0,0,0-.35-3.64l.11-1a7,7,0,0,0,.86-2.86,3.75,3.75,0,0,0-.6-2.24,5,5,0,0,0-1.84-1.6,8.16,8.16,0,0,0-3.43-.87H100.69L101,25.3c.29-1.57.5-3.07.63-4.49a25.39,25.39,0,0,0,.06-3.87,10.58,10.58,0,0,0-3.9-7.64,5.09,5.09,0,0,0-1.74-.92,1.5,1.5,0,0,0-1,0Z"/><path transform="translate(23.5,5.5) scale(-0.195,0.195)" fill="currentColor" d="M92.12,7.74a3.55,3.55,0,0,1,1.77-1.86,4.18,4.18,0,0,1,2.85-.16,7.78,7.78,0,0,1,2.71,1.39,13.41,13.41,0,0,1,5,9.65,29.31,29.31,0,0,1-.06,4.27c-.08,1-.21,2.06-.39,3.15h10.34A11.15,11.15,0,0,1,119,25.37a7.48,7.48,0,0,1,2.87,2.52,6.39,6.39,0,0,1,1,3.84,9.06,9.06,0,0,1-.93,3.55,11.23,11.23,0,0,1,.28,4.29,5,5,0,0,1-1.43,2.9,12.91,12.91,0,0,1-.71,4.83,10.28,10.28,0,0,1-2.3,3.6,14.53,14.53,0,0,1-.46,2.56A8.83,8.83,0,0,1,116,56.22h0c-1.76,2.48-3.16,2.42-5.38,2.33-.31,0-.64,0-1.16,0H89.37a9.78,9.78,0,0,1-4.53-.91,10.92,10.92,0,0,1-3.55-3.1l-.3-.86V30.19l1-.27c2.6-.7,4.64-2.92,6.23-5.58a39.58,39.58,0,0,0,3.55-8.51V9.73a3.85,3.85,0,0,1,.33-2ZM95,8.38a1.11,1.11,0,0,0-.51.8V16l-.06.39a42.58,42.58,0,0,1-3.89,9.34c-1.72,2.87-4,5.34-6.85,6.48V53.17a7.79,7.79,0,0,0,2.33,2,7.28,7.28,0,0,0,3.31.61H109.5c.36,0,.83,0,1.26,0,1.33,0,2.16.09,3-1.17h0a6,6,0,0,0,.87-1.91,12.15,12.15,0,0,0,.41-2.54l.42-.9a7.6,7.6,0,0,0,2-2.94A10.66,10.66,0,0,0,118,41.9l0-.82.69-.43a2.1,2.1,0,0,0,.84-1.53,9.11,9.11,0,0,0-.35-3.64l.11-1a7,7,0,0,0,.86-2.86,3.75,3.75,0,0,0-.6-2.24,5,5,0,0,0-1.84-1.6,8.16,8.16,0,0,0-3.43-.87H100.69L101,25.3c.29-1.57.5-3.07.63-4.49a25.39,25.39,0,0,0,.06-3.87,10.58,10.58,0,0,0-3.9-7.64,5.09,5.09,0,0,0-1.74-.92,1.5,1.5,0,0,0-1,0Z"/>`,
         check: () => false,
     },
     {
         id: 'one_at_a_time', cat: 'basic', name: 'Single Minded', type: 'tiered',
-        svgIcon: `<line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>`,
         counter: { path:'stats.singleLineClears', label:'Single Line Clears' },
         tiers: [
             { rarity:'common',    name:'Patient',    desc:'Clear 50 single lines',    progress:{ path:'stats.singleLineClears', target:50  } },
@@ -5627,12 +6063,10 @@
         id: 'surgeons_streak', cat: 'secret', name: 'Crescendo', type: 'single',
         rarity: 'legendary', clue: '1, 2, 3, 4. Precision in sequence.',
         desc: 'Clear 1 line, then 2, then 3, then 4 in exactly that order — consecutive clears with no other clears between.',
-        svgIcon: `<line x1="3" y1="6" x2="6" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="10" x2="10" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="14" x2="14" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="18" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="19 4 21 6 19 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><line x1="18" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>`,
         check: () => false,
     },
     {
         id: 'spinner', cat: 'basic', name: 'Spinner', type: 'tiered',
-        svgIcon: `<path d="M20 15A9 9 0 0 0 7 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="23,12 20,15 18,12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9A9 9 0 0 0 17 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="1,12 4,9 6,12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
         counter: { path:'stats.totalRotations', label:'Total Rotations' },
         tiers: [
             { rarity:'common',    name:'Twister', desc:'Rotate 500 times',    progress:{ path:'stats.totalRotations', target:500   } },
@@ -5645,21 +6079,18 @@
         id: 'dizzy', cat: 'secret', name: 'Overthinker', type: 'single',
         rarity: 'common', clue: 'Round and round and round...',
         desc: 'Rotate a single piece 20+ times before placing it.',
-        svgIcon: `<circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="1.5"/><g transform="scale(0.06)" fill="none" stroke="currentColor" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"><path d="M151.856 244.712C157.142 238.518 163.516 230.818 172.188 227.63C222.539 209.123 271.458 269.703 222.195 285.339C191.96 294.935 139.608 285.366 152.954 244.25"/><path d="M131.03 191.497C102.484 189.705 90.9062 113.358 144.845 111.048C200.489 108.666 181.763 195.058 140.287 166.758C125.566 156.709 138.727 130.949 153.033 137.186"/><path d="M231.722 115.862C270.273 98.942 309.383 144.843 287.118 177.253C276.697 192.419 256.98 196.373 240.043 191.675C229.704 188.81 223.939 180.086 223.939 170.042C223.939 125.018 288.185 149.846 253.498 164.272"/></g>`,
         check: () => false,
     },
     {
         id: 'fav_track', cat: 'secret', name: 'Favorite Song', type: 'single',
         rarity: 'common', clue: "You've got a favorite.",
         desc: 'Listen to the same track 10 times.',
-        svgIcon: `<rect x="3" y="14" width="3" height="8" rx="1" fill="currentColor"/><rect x="7" y="8" width="3" height="14" rx="1" fill="currentColor"/><rect x="11" y="4" width="3" height="18" rx="1" fill="currentColor"/><rect x="15" y="10" width="3" height="12" rx="1" fill="currentColor"/><rect x="19" y="6" width="3" height="16" rx="1" fill="currentColor"/>`,
         check: () => false,
     },
     {
         id: 'clutch', cat: 'secret', name: 'Clutch', type: 'single',
         rarity: 'legendary', clue: 'The T-piece at its absolute peak.',
         desc: 'Clear 3 lines with a T-spin.',
-        svgIcon: `<rect x="4" y="9" width="5" height="5" rx="0.5" fill="none" stroke="#ffffff" stroke-width="1.5"/><rect x="9" y="9" width="5" height="5" rx="0.5" fill="none" stroke="#ffffff" stroke-width="1.5"/><rect x="14" y="9" width="5" height="5" rx="0.5" fill="none" stroke="#ffffff" stroke-width="1.5"/><rect x="9" y="14" width="5" height="5" rx="0.5" fill="none" stroke="#ffffff" stroke-width="1.5"/>`,
         check: () => false,
         progressDisplay: { path:'stats.tSpinTriples', target:1 },
     },
@@ -5667,28 +6098,24 @@
         id: 'staircase', cat: 'secret', name: 'Step by Step', type: 'single',
         rarity: 'epic', clue: 'Step by step, column by column.',
         desc: 'Create a perfect staircase pattern: each column is exactly 1 block higher than the previous, across all 10 columns.',
-        svgIcon: `<path d="M2 22 L2 17 L7 17 L7 12 L12 12 L12 7 L17 7 L17 2 L22 2 L22 22 Z" fill="currentColor" opacity="0.15" stroke="none"/><path d="M2 22 L2 17 L7 17 L7 12 L12 12 L12 7 L17 7 L17 2 L22 2 L22 22 L2 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
         check: () => false,
     },
     {
         id: 'indecisive', cat: 'secret', name: 'Left Right Left', type: 'single',
         rarity: 'common', clue: 'Left... no, right... no, left!',
         desc: 'Move a piece from wall to wall 3+ times before placing it.',
-        svgIcon: `<polyline points="12 4 18 4 18 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="18" y1="4" x2="10" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="12 20 6 20 6 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="6" y1="20" x2="14" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`,
         check: () => false,
     },
     {
         id: 'too_fast', cat: 'secret', name: 'Difficulty Spike', type: 'single',
         rarity: 'rare', clue: 'So close to the next gear.',
         desc: 'Game over on the first line after a speed-up (at speed 3+).',
-        svgIcon: `<path d="M5 12C5 8.13401 8.13401 5 12 5M16.4999 7.5L11.9999 12M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12ZM13 12C13 12.5523 12.5523 13 12 13C11.4477 13 11 12.5523 11 12C11 11.4477 11.4477 11 12 11C12.5523 11 13 11.4477 13 12Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
         check: () => false,
     },
     {
         id: 'the_2048', cat: 'secret', name: 'Power of Two', type: 'single',
         rarity: 'legendary', clue: 'A familiar number for puzzle fans.',
         desc: 'Score exactly 2,048 in a game.',
-        svgIcon: `<text x="3" y="17" font-size="13" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">2</text><text x="11" y="10" font-size="8" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">10</text>`,
         check: () => false,
     },
     // ── MISSIONS ──────────────────────────────────────────────
@@ -5696,55 +6123,47 @@
         id: 'mq_first_easy', cat: 'basic', name: 'First Steps', type: 'single',
         rarity: 'common', clue: 'Every journey begins somewhere.',
         desc: 'Complete your first Easy daily quest.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_normal_10', cat: 'basic', name: 'Quest Veteran', type: 'single',
         rarity: 'rare', clue: 'A veteran of the grind.',
         desc: 'Complete 10 Normal tier daily quests.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_hard_5', cat: 'basic', name: 'Hard Worker', type: 'single',
         rarity: 'epic', clue: 'You don\'t back down from a challenge.',
         desc: 'Complete 5 Hard tier daily quests.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_secret_1', cat: 'basic', name: 'Secret Keeper', type: 'single',
         rarity: 'epic', clue: 'Not everything is what it seems.',
         desc: 'Complete a Secret daily quest.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_total_50', cat: 'basic', name: 'Quest Machine', type: 'single',
         rarity: 'legendary', clue: 'Fifty goals. Fifty victories.',
         desc: 'Complete 50 total daily quests.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_streak_7', cat: 'basic', name: 'Week Warrior', type: 'single',
         rarity: 'rare', clue: 'Seven days in a row.',
         desc: 'Maintain a 7-day daily quest streak.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_streak_30', cat: 'basic', name: 'Monthly Master', type: 'single',
         rarity: 'legendary', clue: 'Thirty days of dedication.',
         desc: 'Maintain a 30-day daily quest streak.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     // ── TIERED MISSION COUNT BADGES ───────────────────────────────────────
     {
         id: 'mq_easy_quests', cat: 'basic', name: 'Easy Runner', type: 'tiered',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         counter: { path: 'missions.stats.byTier.easy', label: 'Easy Quests Done' },
         tiers: [
             { rarity: 'common',    name: 'Casual Grinder', desc: 'Complete 10 Easy quests (daily or weekly)',    progress: { path: 'missions.stats.byTier.easy', target: 10  } },
@@ -5754,7 +6173,6 @@
     },
     {
         id: 'mq_normal_quests', cat: 'basic', name: 'Middle Ground', type: 'tiered',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         counter: { path: 'missions.stats.byTier.normal', label: 'Normal Quests Done' },
         tiers: [
             { rarity: 'common',    name: 'Solid Player',   desc: 'Complete 10 Normal quests (daily or weekly)',  progress: { path: 'missions.stats.byTier.normal', target: 10  } },
@@ -5764,7 +6182,6 @@
     },
     {
         id: 'mq_hard_quests', cat: 'basic', name: 'Hard Core', type: 'tiered',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         counter: { path: 'missions.stats.byTier.hard', label: 'Hard Quests Done' },
         tiers: [
             { rarity: 'rare',      name: 'Red Zone',       desc: 'Complete 5 Hard quests (daily or weekly)',    progress: { path: 'missions.stats.byTier.hard', target: 5   } },
@@ -5774,7 +6191,6 @@
     },
     {
         id: 'mq_total_quests', cat: 'basic', name: 'The Grind', type: 'tiered',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         counter: { path: 'missions.stats.totalCompleted', label: 'Total Quests Done' },
         tiers: [
             { rarity: 'common',    name: 'Quest Taker',    desc: 'Complete 30 quests total',                    progress: { path: 'missions.stats.totalCompleted', target: 30  } },
@@ -5785,7 +6201,6 @@
     },
     {
         id: 'mq_secret_quests', cat: 'basic', name: 'Secret Hunter', type: 'tiered',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         counter: { path: 'missions.stats.byTier.secret', label: 'Secret Quests Done' },
         tiers: [
             { rarity: 'common',    name: 'Curious',        desc: 'Complete 2 Secret daily quests',              progress: { path: 'missions.stats.byTier.secret', target: 2   } },
@@ -5798,59 +6213,51 @@
         id: 'mq_daily_perfect', cat: 'secret', name: 'Perfect Day', type: 'single',
         rarity: 'mythic', clue: 'All 5 quests AND the secret — flawless.',
         desc: 'Complete all 5 daily quests AND the secret quest in one day.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_all_cleared', cat: 'secret', name: 'All Cleared', type: 'single',
         rarity: 'epic', clue: 'A perfect week — nothing left undone.',
         desc: 'Complete all weekly missions AND all 5 daily quests every day for an entire week.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_no_easy_epic', cat: 'secret', name: 'No Easy Day', type: 'single',
         rarity: 'epic', clue: 'The easy path is not for you.',
         desc: 'Have at least 4 Normal-or-harder daily quests rolled in one day.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_no_easy_legendary', cat: 'secret', name: 'No Easy Day', type: 'single',
         rarity: 'legendary', clue: 'Only the hardest.',
         desc: 'Have at least 3 Hard daily quests rolled in one day.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_hard_they_said', cat: 'secret', name: 'Hard They Said', type: 'single',
         rarity: 'epic', clue: 'You proved a point.',
         desc: 'Complete only the Hard weekly mission — leave all others unfinished.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_lazy_lucky', cat: 'secret', name: 'Lazy or Lucky?', type: 'single',
         rarity: 'epic', clue: 'One day, one secret, nothing more.',
         desc: 'Complete only the secret daily quest in a day — leave all regular quests unfinished.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_barely', cat: 'secret', name: 'Barely', type: 'single',
         rarity: 'epic', clue: 'You survived without the rewards.',
         desc: 'Keep a 7+ daily streak for a whole week without claiming any milestone rewards.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
     {
         id: 'mq_double_badge', cat: 'secret', name: 'Two Birds', type: 'single',
         rarity: 'rare', clue: 'One run. Two victories.',
         desc: 'Unlock any 2 achievements in a single game.',
-        svgIcon: `<text x="3" y="16" font-size="14" font-weight="900" fill="currentColor" stroke="none" font-family="sans-serif">!!!</text>`,
         check: () => false,
     },
-    ];
+    ].map(ach => ({ ...ach, svgIcon: achievementIcon(ach.id) }));
 
     // Patch collector badge — set final tier target to total buyable items
     (function() {
@@ -5950,6 +6357,7 @@
         return true;
     }
     function _showMenuAchPopup(ach) {
+        if (!_audioInForeground()) return;
         const rc = RARITY_ACH[ach.rarity || (ach.tiers ? ach.tiers[0].rarity : 'common')] || RARITY_ACH.common;
         const el = document.createElement('div');
         el.style.cssText = `position:fixed;bottom:-80px;right:20px;z-index:9990;background:rgba(5,5,20,0.97);border:1px solid ${rc.color};border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,0.7),0 0 16px ${rc.color}30;min-width:200px;max-width:320px;font-family:inherit;transition:bottom 0.4s cubic-bezier(.22,.68,0,1.2),opacity 0.3s ease;opacity:0;`;
@@ -6085,25 +6493,6 @@
         return newlyUnlocked;
     }
 
-    // Pool of secret badge icons — deterministically assigned by achievement id hash
-    // Same opacity as locked basic badges (iconColor = #2e2e3a)
-    const _SECRET_ICON_POOL = [
-        // Eye crossed out
-        `<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="1.2"/>`,
-        // Lock (smaller)
-        `<rect x="7" y="12" width="10" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1"/><path d="M9 12V9a3 3 0 016 0v3" fill="none" stroke="currentColor" stroke-width="1"/>`,
-        // Eye crossed out (same direction as first)
-        `<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="1.2"/>`,
-        // ? standalone
-        `<path d="M9 9c0-2 1.5-3 3-3s3 1 3 3-1.5 2-3 3v1" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="12" cy="17" r="1" fill="currentColor"/>`,
-    ];
-    function _getSecretQMark(rarity, achId) {
-        // Deterministic hash of achievement id to pick icon
-        let hash = 0;
-        for (let i = 0; i < (achId || '').length; i++) hash = ((hash << 5) - hash + (achId || '').charCodeAt(i)) | 0;
-        const idx = Math.abs(hash) % _SECRET_ICON_POOL.length;
-        return _SECRET_ICON_POOL[idx];
-    }
     function _achShapeStyle(rarity) {
         switch(rarity) {
             case 'common':    return { outer: 'border-radius:50%;', inner: 'border-radius:50%;' };
@@ -6142,11 +6531,10 @@
                 const rarity = a._newTier ? a._newTier.rarity : a.rarity;
                 const name   = a._newTier ? a._newTier.name   : a.name;
                 const rc = RARITY_ACH[rarity] || RARITY_ACH.common;
-                const sh = _achShapeStyle(rarity);
                 const tierLabel = a._newTierNum ? ` · Tier ${a._newTierNum}` : '';
                 return `<li class="go-ach-card" data-rarity="${rarity}">
-                    <div class="go-ach-icon" aria-hidden="true" style="${sh.outer}background:${rc.color}55;">
-                        <svg viewBox="0 0 24 24" width="18" height="18" ${_isColoredSvg(a.svgIcon)?'class="ach-badge-colored"':`class="ach-badge-icon" style="color:#fff;--glow-c:${rc.color};"`}>${a.svgIcon}</svg>
+                    <div class="go-ach-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="22" height="22">${a.svgIcon}</svg>
                     </div>
                     <div><strong>${escapeHtml(name)}</strong><small>${rc.label}${tierLabel}</small></div>
                 </li>`;
@@ -6154,6 +6542,7 @@
     }
 
     function _showGameAchievement(ach, tierIdx) {
+        if (!_audioInForeground()) return;
         const feed = document.getElementById('game-ach-feed');
         if (!feed) return;
         const tier = ach.tiers ? ach.tiers[tierIdx] : { rarity: ach.rarity, name: ach.name };
@@ -6174,7 +6563,7 @@
     }
 
     function _showAchievementToast(list) {
-        if (!list || !list.length) return;
+        if (!_audioInForeground() || !list || !list.length) return;
         const existing = document.querySelectorAll('.ach-menu-toast');
         const stackOffset = existing.length * 82;
         let delay = 0;
@@ -6246,12 +6635,12 @@
         return 'M' + mapped.map(([pointX, pointY]) => `${pointX.toFixed(1)},${pointY.toFixed(1)}`).join(' L') + ' Z';
     }
 
-    function _achProgressOutlineSvg(rarity, fraction, color, size) {
+    function _achProgressOutlineSvg(rarity, fraction, size) {
         const outline = _achShapePath(rarity, size);
         const filled = Math.min(1, fraction) * 100;
-        return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="position:absolute;inset:0;pointer-events:none;z-index:2;">
-            <path d="${outline}" pathLength="100" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"
-                stroke-dasharray="${filled} ${100 - filled}" stroke-dashoffset="0" opacity="0.85"/>
+        return `<svg class="ach-card-progress" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true">
+            <path d="${outline}" pathLength="100" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                ${filled < 100 ? `stroke-dasharray="${filled} ${100 - filled}"` : ''}/>
         </svg>`;
     }
 
@@ -6296,8 +6685,8 @@
             _animateIn(container, _ni > _oi ? 'tab-slide-in-right' : 'tab-slide-in-left');
         }
 
-        const oldTip = document.getElementById('ach-tip');
-        if (oldTip) oldTip.remove();
+        closeInfo();
+        const tip = infoPanel('ach-tip');
 
         if (saveData.pendingAchievementClaims?.length > 0) {
             const pendingSection = document.createElement('section');
@@ -6310,7 +6699,7 @@
                 const claimAllBtn = document.createElement('button');
                 claimAllBtn.className = 'lb-block-btn lb-block-btn--primary';
                 claimAllBtn.textContent = 'CLAIM ALL';
-                claimAllBtn.addEventListener('click', () => {
+                claimAllBtn.addEventListener('click', () => _claimAfterPaint(claimAllBtn, () => {
                     let totalXpGained = 0;
                     const claims = [...saveData.pendingAchievementClaims];
                     saveData.pendingAchievementClaims = [];
@@ -6322,13 +6711,13 @@
                     saveDataToFile();
                     drawRankBadge();
                     renderAchievementsOverlay(tab);
-                });
+                }));
                 pendingHeader.appendChild(claimAllBtn);
             }
             pendingSection.appendChild(pendingHeader);
             const pendingGrid = document.createElement('div');
             pendingGrid.className = 'ach-pending-list';
-            saveData.pendingAchievementClaims.forEach((claim, idx) => {
+            saveData.pendingAchievementClaims.forEach(claim => {
                 const rarity = Object.hasOwn(RARITY_ACH, claim.rarity) ? claim.rarity : 'common';
                 const rc = RARITY_ACH[rarity];
                 const card = document.createElement('div');
@@ -6339,7 +6728,9 @@
                 claimBtn.className = 'lb-block-btn';
                 claimBtn.textContent = 'CLAIM';
                 claimBtn.setAttribute('aria-label', `Claim ${claim.name}`);
-                claimBtn.addEventListener('click', () => {
+                claimBtn.addEventListener('click', () => _claimAfterPaint(claimBtn, () => {
+                    const idx = saveData.pendingAchievementClaims.indexOf(claim);
+                    if (idx < 0) return;
                     _grantXP(claim.xp);
                     saveData.pendingAchievementClaims.splice(idx, 1);
                     playSFX('unlock');
@@ -6349,7 +6740,7 @@
                     saveDataToFile();
                     drawRankBadge();
                     renderAchievementsOverlay(tab);
-                });
+                }));
                 card.innerHTML = nameHtml;
                 card.appendChild(claimBtn);
                 pendingGrid.appendChild(card);
@@ -6420,7 +6811,6 @@
         const byRarity = (a, b) => (_RARITY_ORDER[_getRarityOfItem(b)] || 0) - (_RARITY_ORDER[_getRarityOfItem(a)] || 0);
         const byProgress = (a, b) => _getProgressOfItem(b) - _getProgressOfItem(a);
         function defaultOrder(a, b) {
-            if (a.kind !== b.kind) return a.kind === 'unlocked' ? -1 : 1;
             const rarityDelta = byRarity(a, b);
             if (rarityDelta) return rarityDelta;
             const progressDelta = byProgress(a, b);
@@ -6438,7 +6828,10 @@
             recent: (a, b) => unlockDate(b).localeCompare(unlockDate(a)),
         };
         const order = sortOrders[sort];
-        renderItems.sort((a, b) => (order?.(a, b) || 0) || defaultOrder(a, b));
+        renderItems.sort((a, b) => {
+            if (a.kind !== b.kind) return a.kind === 'unlocked' ? -1 : 1;
+            return (order?.(a, b) || 0) || defaultOrder(a, b);
+        });
 
         if (!renderItems.length) {
             const empty = document.createElement('div');
@@ -6447,20 +6840,6 @@
             container.appendChild(empty);
             return;
         }
-
-        function _posAchTip(t, e) {
-            const tw = t.offsetWidth || 280, th = t.offsetHeight || 200;
-            let tx = e.clientX + 14, ty = e.clientY - 10;
-            if (tx + tw > window.innerWidth - 10) tx = e.clientX - tw - 10;
-            if (ty + th > window.innerHeight - 10) ty = window.innerHeight - th - 10;
-            if (ty < 10) ty = 10;
-            if (tx < 10) tx = 10;
-            t.style.left = tx + 'px'; t.style.top = ty + 'px';
-        }
-        const tip = document.createElement('div');
-        tip.id = 'ach-tip';
-        tip.style.cssText = 'display:none;position:fixed;z-index:2100;background:rgba(5,5,20,0.97);border:1px solid color-mix(in srgb, var(--primary) 30%, transparent);border-radius:8px;padding:8px 10px;min-width:270px;max-width:340px;pointer-events:none;font-family:inherit;font-size:0.68rem;color:#bbb;line-height:1.5;';
-        document.body.appendChild(tip);
 
         function buildCard(item) {
             const { ach, kind, curTier, maxTier } = item;
@@ -6475,117 +6854,88 @@
             const sh = _achShapeStyle(rarity);
             const borderColor = isUnlocked ? rc.color : '#3a3a4a';
             const innerBg     = isUnlocked ? 'rgba(15,10,30,0.95)' : 'rgba(10,10,14,0.95)';
-            const iconColor   = isUnlocked ? '#fff' : '#2e2e3a';
 
             const isSecretLocked = ach.cat === 'secret' && !isUnlocked;
             const _progressFrac = _getProgressOfItem(item);
 
-            const isGold = rarity === 'legendary';
-            const wrap = document.createElement('div');
+            const wrap = document.createElement('button');
+            wrap.type = 'button';
+            wrap.className = 'ach-card';
+            wrap.dataset.state = kind;
+            if (!isSecretLocked) wrap.dataset.achId = ach.id;
+            wrap.setAttribute('aria-label', `${isSecretLocked ? 'Secret achievement' : _getNameOfItem(item)}, ${kind}`);
             const _badgeSize = rarity === 'rare' ? 62 : 68;
-            wrap.style.cssText = `position:relative;width:68px;height:68px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;`;
-            const innerWrap = document.createElement('div');
+            const innerWrap = document.createElement('span');
             innerWrap.style.cssText = `width:${_badgeSize}px;height:${_badgeSize}px;position:relative;`;
-            if (isUnlocked && isGold) {
-                wrap.style.filter = 'drop-shadow(0 0 4px rgba(255,215,64,0.4))';
-            }
-            const _secretQIcon = isSecretLocked ? _getSecretQMark(rarity, ach.id) : '';
-            const _displayIcon = isSecretLocked ? _secretQIcon : ach.svgIcon;
-            const _pulseDelay = (Math.random() * 20).toFixed(1);
-            const _iconAttrs = isSecretLocked
-                ? `style="color:#3a3a4a;"`
-                : (isUnlocked ? (_isColoredSvg(_displayIcon) ? 'class="ach-badge-colored"' : `class="ach-badge-icon" style="color:#fff;--glow-c:${rc.color};--ach-pulse-delay:-${_pulseDelay}s;"`) : `style="color:${iconColor};"`);
-            const _progressSvg = (_progressFrac > 0 && !isUnlocked) ? _achProgressOutlineSvg(rarity, _progressFrac, rc.color, _badgeSize) : '';
+            const icon = isSecretLocked ? achievementIcon('question') : ach.svgIcon;
+            const progressSvg = _progressFrac > 0 ? _achProgressOutlineSvg(rarity, _progressFrac, _badgeSize) : '';
             innerWrap.innerHTML = `
-                <div style="width:100%;height:100%;${sh.outer}background:${borderColor};display:flex;align-items:center;justify-content:center;">
-                    <div style="width:calc(100% - 6px);height:calc(100% - 6px);${sh.inner}background:${innerBg};display:flex;align-items:center;justify-content:center;position:relative;">
-                        <svg viewBox="0 0 24 24" width="${isSecretLocked ? '44' : '30'}" height="${isSecretLocked ? '44' : '30'}" ${_iconAttrs}>${_displayIcon}</svg>
-                    </div>
-                </div>
-                ${_progressSvg}`;
+                <span style="width:100%;height:100%;${sh.outer}background:${borderColor};display:flex;align-items:center;justify-content:center;">
+                    <span style="width:calc(100% - 6px);height:calc(100% - 6px);${sh.inner}background:${innerBg};display:flex;align-items:center;justify-content:center;position:relative;">
+                        <svg class="ach-card-icon" viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">${icon}</svg>
+                    </span>
+                </span>
+                ${progressSvg}`;
             wrap.appendChild(innerWrap);
-            const _showAchTooltip = (e) => {
-                const isSecret = ach.cat === 'secret';
-                let html = '';
+            const iconEl = innerWrap.querySelector('.ach-card-icon');
+            bindInfoPreview(wrap, () => {
+                const dateLine = value => {
+                    const date = showDates && LBSave.displayDate(value);
+                    return date ? `<div class="ach-tip-note">${_SVG_CALENDAR}${escapeHtml(date)}</div>` : '';
+                };
+                const tierLine = (tier, prefix = '') => `<div class="ach-tip-tier" data-rarity="${tier.rarity}">${prefix}${escapeHtml(tier.name)}</div><div>${escapeHtml(tier.desc)}</div>`;
+                const counterLine = () => {
+                    const count = ach.counter && _getProgressVal(ach.counter.path);
+                    return count > 0 ? `<div class="ach-tip-note">${escapeHtml(ach.counter.label)}: ${escapeHtml(_fmtCounter(ach.counter, count))}</div>` : '';
+                };
+                let html = `<div class="ach-tip-title">${isSecretLocked ? '???' : escapeHtml(ach.name)}</div>`;
                 if (ach.type === 'tiered') {
-                    html += `<div style="font-weight:bold;color:${isUnlocked?'#fff':'#888'};margin-bottom:4px;font-size:0.72rem;white-space:nowrap;">${ach.name}</div>`;
                     if (isUnlocked) {
                         const tierDates = saveData.achievements?.[ach.id]?.tierDates || {};
-                        for (let i = 0; i < curTier; i++) {
-                            const t = ach.tiers[i]; const tr = RARITY_ACH[t.rarity] || RARITY_ACH.common;
-                            html += `<div style="color:${tr.color};font-weight:bold;letter-spacing:1px;">${tr.label} — ${t.name}</div>`;
-                            html += `<div style="color:#555;font-size:0.58rem;font-style:italic;margin-bottom:2px;">${t.desc}</div>`;
-                            const date = LBSave.displayDate(tierDates[i + 1]);
-                            if (showDates && date) html += `<div style="color:#666;font-size:0.55rem;margin-bottom:3px;">${_SVG_CALENDAR}${escapeHtml(date)}</div>`;
+                        for (const [index, tier] of ach.tiers.slice(0, curTier).entries()) {
+                            html += tierLine(tier, `${RARITY_ACH[tier.rarity].label} — `) + dateLine(tierDates[index + 1]);
                         }
-                        if (ach.counter && curTier >= maxTier) {
-                            const cv = _getProgressVal(ach.counter.path);
-                            if (cv > 0) {
-                                const lastRc = RARITY_ACH[ach.tiers[maxTier - 1].rarity];
-                                html += `<div style="margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.07);"><span style="font-size:0.55rem;color:#555;">${ach.counter.label}: </span><span style="color:${lastRc.color};font-weight:bold;">${_fmtCounter(ach.counter, cv)}</span></div>`;
-                            }
-                        }
+                        if (curTier === maxTier) html += counterLine();
                     } else {
-                        const nxt = ach.tiers[curTier]; const ntr = RARITY_ACH[nxt.rarity];
-                        html += `<div style="color:#888;">${curTier === 0 ? 'First tier' : 'Next'}: <span style="color:${ntr.color};">${nxt.name}</span></div>`;
-                        html += `<div style="color:#888;font-style:italic;margin-top:2px;">${nxt.desc}</div>`;
-                        const progressInfo = nxt.progress || nxt.progressDisplay;
+                        const next = ach.tiers[curTier];
+                        html += tierLine(next, curTier === 0 ? 'First tier: ' : 'Next: ');
+                        const progressInfo = next.progress || next.progressDisplay;
                         if (progressInfo) {
-                            const cur2 = _getProgressVal(progressInfo.path);
-                            const pct = Math.min(100, Math.round(cur2 / progressInfo.target * 100));
-                            html += `<div class="ach-progress-bar" style="margin-top:4px;width:100%;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;"><div class="ach-progress-fill" style="height:100%;width:${pct}%;background:${ntr.color};border-radius:2px;"></div></div>`;
-                            html += `<div style="color:#555;margin-top:2px;">${cur2} / ${progressInfo.target}</div>`;
-                        }
-                        if (ach.counter && !ach.tiers.some(t => t.progress || t.progressDisplay)) {
-                            const cv = _getProgressVal(ach.counter.path);
-                            if (cv > 0) {
-                                html += `<div style="margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.07);"><span style="font-size:0.55rem;color:#555;">${ach.counter.label}: </span><span style="color:${ntr.color};font-weight:bold;">${_fmtCounter(ach.counter, cv)}</span></div>`;
-                            }
+                            html += `<div class="ach-tip-note">${escapeHtml(_getProgressVal(progressInfo.path))} / ${progressInfo.target}</div>`;
+                        } else if (!ach.tiers.some(tier => tier.progress || tier.progressDisplay)) {
+                            html += counterLine();
                         }
                     }
-                    const _dots = ach.tiers.map((t2, i) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${i<curTier?(RARITY_ACH[t2.rarity]?.color||'#888'):'#2a2a3a'};margin-right:2px;"></span>`).join('');
-                    html += `<div style="margin:4px 0;">${_dots} <span style="color:#666;">${curTier}/${maxTier}</span></div>`;
+                    html += `<div class="ach-tip-total">Tiers earned: ${curTier} / ${maxTier}</div>`;
                 } else {
-                    const tr = RARITY_ACH[ach.rarity] || RARITY_ACH.common;
-                    const showReal = isUnlocked || !isSecret;
-                    html += `<div style="font-weight:bold;color:${isUnlocked?'#fff':'#888'};margin-bottom:3px;font-size:0.72rem;white-space:nowrap;">${showReal ? ach.name : '???'}</div>`;
-                    if (isUnlocked || !isSecret) html += `<div style="color:${isUnlocked?tr.color:'#555'};font-weight:bold;letter-spacing:1px;margin-bottom:5px;">${tr.label}</div>`;
-                    if (isSecret && !isUnlocked) {
-                        html += `<div style="color:#555;font-style:italic;">"${ach.clue}"</div>`;
-                    } else {
-                        html += `<div style="color:#aaa;">${ach.desc}</div>`;
-                        const date = LBSave.displayDate(saveData.achievements?.[ach.id]?.unlockedAt);
-                        if (showDates && isUnlocked && date)
-                            html += `<div style="color:#666;margin-top:3px;font-size:0.55rem;">${_SVG_CALENDAR}${escapeHtml(date)}</div>`;
-                        if (isSecret && ach.clue)
-                            html += `<div style="color:#555;font-style:italic;margin-top:4px;">"${ach.clue}"</div>`;
-                        if (isUnlocked && isSecret) {
-                            let _bestHtml = '';
-                            if (ach.id === 'afk') {
-                                const _secs = saveData.stats?.menuIdleTime || 0;
-                                if (_secs > 0) { const _m = Math.floor(_secs/60), _s = _secs%60; _bestHtml = `Longest idle: ${_m}m ${String(_s).padStart(2,'0')}s`; }
-                            }
-                            if (_bestHtml) html += `<div style="margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.07);font-size:0.6rem;color:#888;">${_bestHtml}</div>`;
-                        }
+                    if (!isSecretLocked) {
+                        html += `<div class="ach-tip-tier" data-rarity="${rarity}">${rc.label}</div><div>${escapeHtml(ach.desc)}</div>`;
+                        if (isUnlocked) html += dateLine(saveData.achievements?.[ach.id]?.unlockedAt);
+                    }
+                    if (ach.clue) html += `<div class="ach-tip-note">“${escapeHtml(ach.clue)}”</div>`;
+                    if (isUnlocked && ach.id === 'afk') {
+                        const seconds = saveData.stats?.menuIdleTime || 0;
+                        if (seconds > 0) html += `<div class="ach-tip-total">Longest idle: ${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s</div>`;
                     }
                 }
                 tip.innerHTML = html;
-                tip.style.display = 'block';
-                _posAchTip(tip, e);
-            };
-            wrap.addEventListener('mouseenter', e => { _showAchTooltip(e); });
-            wrap.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
-            wrap.addEventListener('mousemove', e => { _posAchTip(tip, e); });
+                wrap.setAttribute('aria-describedby', tip.id);
+                showInfo(tip, wrap, { position: iconEl, dismiss: () => {
+                    tip.hidden = true;
+                    wrap.removeAttribute('aria-describedby');
+                } });
+            }, { tap: true });
             return wrap;
         }
 
-        function renderSection(items, title, counts) {
+        function renderSection(items, cat, counts) {
             if (!items.length) return;
             const section = document.createElement('div');
+            section.dataset.achGroup = cat;
             section.style.cssText = 'width:100%;margin-bottom:4px;';
             const header = document.createElement('div');
             header.className = 'ach-section-head';
-            header.innerHTML = `<h2>${escapeHtml(title)}</h2><span class="ach-section-rule" aria-hidden="true"></span><span class="ach-count-label">${counts.done} of ${counts.total}</span>`;
+            header.innerHTML = `<h2>${escapeHtml(cat.toUpperCase())}</h2><span class="ach-section-rule" aria-hidden="true"></span><span class="ach-count-label">${counts.done} of ${counts.total}</span>`;
             section.appendChild(header);
             const grid = document.createElement('div');
             grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start;padding:0 0 20px 0;align-items:center;';
@@ -6595,7 +6945,7 @@
         }
 
         for (const [cat, counts] of sectionCounts) {
-            renderSection(renderItems.filter(item => item.ach.cat === cat), cat.toUpperCase(), counts);
+            renderSection(renderItems.filter(item => item.ach.cat === cat), cat, counts);
         }
     }
     // ===================== END ACHIEVEMENTS =====================
@@ -6696,44 +7046,27 @@
         }
         return result;
     }
-    // --- Area-proportional fill LUTs for all rank shapes ---
-    // For each shape, LUT[i] gives the height fraction h (0..1, bottom-up) such that
-    // the area below h equals i% of the total shape area.
+    const _FILL_STEPS = 128;
+    const _fillFractionAt = index => (1 - Math.cos(Math.PI * index / _FILL_STEPS)) / 2;
 
-    // Circle LUT (Bronze, sides:0): analytic formula
     const _CIRCLE_FILL_LUT = (() => {
-        const LUT = new Float32Array(101);
-        for (let i = 0; i <= 100; i++) {
-            const tf = i / 100;
+        const LUT = new Float32Array(_FILL_STEPS + 1);
+        LUT[0] = 1;
+        LUT[_FILL_STEPS] = -1;
+        for (let i = 1; i < _FILL_STEPS; i++) {
+            const tf = _fillFractionAt(i);
             let lo = 0, hi = 1;
             for (let iter = 0; iter < 32; iter++) {
                 const mid = (lo + hi) / 2;
                 const frac = mid <= 0 ? 0 : mid >= 1 ? 1 : (Math.acos(1 - 2 * mid) - 2 * (1 - 2 * mid) * Math.sqrt(mid * (1 - mid))) / Math.PI;
                 if (frac < tf) lo = mid; else hi = mid;
             }
-            LUT[i] = (lo + hi) / 2;
+            LUT[i] = 1 - lo - hi;
         }
         return LUT;
     })();
 
-    // Polygon fill LUT builder: computes the corrFL value (used by the fill rect in _drawMiniShape)
-    // for each target area percentage, accounting for the fill rotation angle.
-    //
-    // In _drawMiniShape, the fill rect top is at Y = rFill*(1 - 2*corrFL) in the rotated frame.
-    // The shape is clipped, so only the intersection matters. We need corrFL such that
-    // the area of the shape below Y = rFill*(1-2*corrFL) equals the target percentage.
-    //
-    // Since the polygon is at radius r and rFill = r+4, we work in normalized coords (radius 1)
-    // and account for the rFill/r scale factor.
-    function _buildPolyFillLUT(shape, fillAngle, r, rFill) {
-        const rawPts = getShapePoints(0, 0, 1, shape);
-        if (!rawPts || rawPts.length < 3) return _CIRCLE_FILL_LUT;
-
-        // Rotate vertices so fill direction aligns with +Y (bottom-up fill)
-        const rot = -(Math.PI + fillAngle);
-        const cosR = Math.cos(rot), sinR = Math.sin(rot);
-        const pts = rawPts.map(([x, y]) => [x * cosR - y * sinR, x * sinR + y * cosR]);
-
+    function _buildPolyFillLUT(pts) {
         // Total area via shoelace
         let totalArea = 0;
         for (let i = 0; i < pts.length; i++) {
@@ -6765,45 +7098,40 @@
             return Math.abs(a) / 2;
         }
 
-        // The fill rect in _drawMiniShape uses:
-        //   fillHeight = corrFL * 2 * rFill
-        //   rect top Y = rFill - fillHeight = rFill * (1 - 2*corrFL)
-        // In normalized coords (polygon at radius 1), the cut Y is:
-        //   cutY_norm = rFill/r * (1 - 2*corrFL)
-        // Solving for corrFL:
-        //   corrFL = 0.5 * (1 - cutY_norm * r / rFill)
-        const k = rFill / r;
-
-        // Build LUT: for each target area %, find corrFL
-        const LUT = new Float32Array(101);
-        LUT[0] = 0;
-        LUT[100] = 1;
-        for (let i = 1; i < 100; i++) {
-            const targetArea = (i / 100) * totalArea;
-            // Binary search for cutY_norm where areaBelow(cutY_norm) = targetArea
-            // cutY_norm ranges from +k (below shape, area=0) to -k (above shape, area=total)
-            let lo = -k, hi = k;
-            for (let iter = 0; iter < 40; iter++) {
+        const LUT = new Float32Array(_FILL_STEPS + 1);
+        const minY = Math.min(...pts.map(point => point[1]));
+        const maxY = Math.max(...pts.map(point => point[1]));
+        LUT[0] = maxY;
+        LUT[_FILL_STEPS] = minY;
+        for (let i = 1; i < _FILL_STEPS; i++) {
+            const targetArea = _fillFractionAt(i) * totalArea;
+            let lo = minY, hi = maxY;
+            for (let iter = 0; iter < 24; iter++) {
                 const mid = (lo + hi) / 2;
                 if (areaBelow(mid) < targetArea) hi = mid; else lo = mid;
             }
-            const cutY = (lo + hi) / 2;
-            LUT[i] = Math.max(0, Math.min(1, 0.5 * (1 - cutY / k)));
+            LUT[i] = (lo + hi) / 2;
         }
         return LUT;
     }
 
-    // Cache LUTs keyed by shape + fill angle + radius
     const _SHAPE_FILL_LUTS = new Map();
-    function _getShapeFillLUT(shape, fillAngle, r, rFill) {
+    function _getShapeFillLUT(shape, orbitAngle) {
         if (!shape || shape.sides === 0) return _CIRCLE_FILL_LUT;
-        // Quantize angle to 1° to keep cache bounded
-        const aDeg = Math.round(((fillAngle || 0) * 180 / Math.PI) % 360 + 360) % 360;
-        const key = `${shape.sides}_${shape.star ? 1 : 0}_${shape.innerRatio || 0}_${shape.rounded ? 1 : 0}_${aDeg}`;
+        const key = `${shape.sides}_${shape.star ? 1 : 0}_${shape.innerRatio || 0}_${orbitAngle}`;
         if (_SHAPE_FILL_LUTS.has(key)) return _SHAPE_FILL_LUTS.get(key);
-        const lut = _buildPolyFillLUT(shape, fillAngle || 0, r, rFill);
+        const rotation = -(Math.PI + orbitAngle);
+        const cos = Math.cos(rotation), sin = Math.sin(rotation);
+        const pts = getShapePoints(0, 0, 1, shape).map(([x, y]) => [x * cos - y * sin, x * sin + y * cos]);
+        const lut = _buildPolyFillLUT(pts);
         _SHAPE_FILL_LUTS.set(key, lut);
         return lut;
+    }
+
+    function _fillCut(lut, fraction) {
+        const index = _FILL_STEPS * Math.acos(1 - 2 * Math.max(0, Math.min(1, fraction))) / Math.PI;
+        const low = Math.floor(index);
+        return lut[low] + (lut[Math.min(_FILL_STEPS, low + 1)] - lut[low]) * (index - low);
     }
 
     function _traceMiniShape(ctx, sx, sy, r, shape) {
@@ -6838,6 +7166,7 @@
     }
 
     const _haloSprites = new Map();
+    const _HALO_RIM_SCALE = .92;
 
     function _badgeTone(color, amount) {
         const target = amount < 0 ? 0 : 255;
@@ -6861,12 +7190,20 @@
         const extent = r + 12;
         const size = extent * 2;
         const muted = _badgeTone(color, -.42);
-        const empty = _makeBadgeSprite(size, ctx => {
+        const empty = _makeBadgeSprite(size, (ctx, scale) => {
             _traceMiniShape(ctx, extent, extent, r, shape);
             ctx.fillStyle = '#181c20';
             ctx.fill();
-            ctx.strokeStyle = muted;
-            ctx.lineWidth = 1.35;
+            _traceMiniShape(ctx, extent, extent, r * _HALO_RIM_SCALE, shape);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.4;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 5 * scale;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            _traceMiniShape(ctx, extent, extent, r * .68, shape);
+            ctx.strokeStyle = _badgeTone(color, -.5);
+            ctx.lineWidth = .8;
             ctx.stroke();
         });
         const filled = _makeBadgeSprite(size, (ctx, scale) => {
@@ -6877,7 +7214,7 @@
             ctx.fillStyle = surface;
             ctx.fill();
 
-            _traceMiniShape(ctx, extent, extent, r * .92, shape);
+            _traceMiniShape(ctx, extent, extent, r * _HALO_RIM_SCALE, shape);
             ctx.strokeStyle = color;
             ctx.lineWidth = 4.2;
             ctx.shadowColor = color;
@@ -6908,9 +7245,7 @@
         }
 
         const rotation = Math.PI + orbitAngle;
-        const rFill = r + 4;
-        const corrFL = _getShapeFillLUT(shape, orbitAngle, r, rFill)[Math.min(100, Math.round(fillLevel * 100))];
-        const cut = rFill - corrFL * 2 * rFill;
+        const cut = r * _fillCut(_getShapeFillLUT(shape, orbitAngle), fillLevel);
         const reach = extent * Math.SQRT2;
         ctx.save();
         ctx.translate(sx, sy);
@@ -6923,7 +7258,7 @@
         ctx.restore();
 
         ctx.save();
-        _traceMiniShape(ctx, sx, sy, r, shape);
+        _traceMiniShape(ctx, sx, sy, r * _HALO_RIM_SCALE, shape);
         ctx.clip();
         ctx.translate(sx, sy);
         ctx.rotate(rotation);
@@ -6967,18 +7302,35 @@
         }
     }
 
+    const _CELESTITE_SHIELD = [[150, 30], [250, 75], [250, 170], [150, 275], [50, 170], [50, 75]];
+    const _CELESTITE_CURVES = [[250, 248], [50, 248]];
     function _traceCelestiteShield(ctx) {
         ctx.beginPath();
-        ctx.moveTo(150, 30);
-        ctx.lineTo(250, 75);
-        ctx.lineTo(250, 170);
-        ctx.quadraticCurveTo(250, 248, 150, 275);
-        ctx.quadraticCurveTo(50, 248, 50, 170);
-        ctx.lineTo(50, 75);
+        ctx.moveTo(..._CELESTITE_SHIELD[0]);
+        ctx.lineTo(..._CELESTITE_SHIELD[1]);
+        ctx.lineTo(..._CELESTITE_SHIELD[2]);
+        ctx.quadraticCurveTo(..._CELESTITE_CURVES[0], ..._CELESTITE_SHIELD[3]);
+        ctx.quadraticCurveTo(..._CELESTITE_CURVES[1], ..._CELESTITE_SHIELD[4]);
+        ctx.lineTo(..._CELESTITE_SHIELD[5]);
         ctx.closePath();
     }
 
+    function _getCelestiteFillLUT() {
+        const points = _CELESTITE_SHIELD.slice(0, 3);
+        _CELESTITE_CURVES.forEach((control, index) => {
+            const start = _CELESTITE_SHIELD[index + 2];
+            const end = _CELESTITE_SHIELD[index + 3];
+            for (let step = 1; step <= 16; step++) {
+                const t = step / 16;
+                points.push(start.map((value, axis) => (1 - t) ** 2 * value + 2 * t * (1 - t) * control[axis] + t ** 2 * end[axis]));
+            }
+        });
+        points.push(_CELESTITE_SHIELD[5]);
+        return _buildPolyFillLUT(points);
+    }
+
     let _celestiteHalo;
+    let _celestiteFillLUT;
 
     function _drawBadgeCanvas(displayLevel, displayPercent, info, xpLabel, xpProgress) {
         const ctx = rankCtx;
@@ -7009,7 +7361,8 @@
             const gold = `rgb(${Math.round(_r1+(_r2-_r1)*_cf)},${Math.round(_g1+(_g2-_g1)*_cf)},${Math.round(_b1+(_b2-_b1)*_cf)})`;
 
             // --- AURORA FILL (color slowly shifts hue) ---
-            const fillTop = 275 - (275 - 30) * pct;
+            _celestiteFillLUT ??= _getCelestiteFillLUT();
+            const fillTop = _fillCut(_celestiteFillLUT, pct);
             const hueShift = t * 0.005;
             ctx.save();
             _traceCelestiteShield(ctx);
@@ -7406,7 +7759,7 @@
     function _doSpawnParachute() { _spawnSpecialBlock(); }
     let _nextDropTime = Date.now() + (60 + Math.random() * 540) * 1000; // first drop 1-10 min
     setInterval(() => {
-        if (_specialBlock) return;
+        if (_specialBlock || LBArtPack.backgroundMode(settings.themeBackground) !== 'plain') return;
         const menuEl = document.getElementById('menu-overlay');
         if (!menuEl || menuEl.classList.contains('hidden')) return;
         if (Date.now() < _nextDropTime) return;
@@ -7573,7 +7926,7 @@
         const atlas = _getSkinAtlas(skin);
         if (!atlas || atlas.ready) draw();
         else atlas.promise.then(loaded => {
-            if (loaded && canvas.isConnected && Number(canvas.dataset.previewColor) === id) draw();
+            if (loaded && Number(canvas.dataset.previewColor) === id) draw();
         });
     }
 
@@ -7775,10 +8128,10 @@
         for (let i = floatingTexts.length - 1; i >= 0; i--) { const ft = floatingTexts[i]; ft.update(effectDt); ft.draw(ctx); if (ft.l <= 0) floatingTexts.splice(i, 1); }
         ctx.restore()
     }
-    function drawCenteredPiece(c,p){
+    function drawCenteredPiece(c,p,cell = BLOCK){
         if(!p)return;
         // Cell size relative to canvas — fills more of the canvas area
-        const s = BLOCK; // use exact gameplay block size so skins render perfectly
+        const s = cell;
         let mX=10,gX=0,mY=10,gY=0;
         for(let y=0;y<p.length;y++)for(let x=0;x<p[y].length;x++)if(p[y][x]){if(x<mX)mX=x;if(x>gX)gX=x;if(y<mY)mY=y;if(y>gY)gY=y;}
         const pW=gX-mX+1, pH=gY-mY+1;
@@ -7788,7 +8141,7 @@
     }
     function drawNext(){
         if (settings.optNoNext) { [pcNextCtx,mNextCtx].filter(Boolean).forEach(c=>{c.clearRect(0,0,c.canvas._logicalWidth,c.canvas._logicalHeight);}); return; }
-        [pcNextCtx,mNextCtx].filter(Boolean).forEach(c=>{c.clearRect(0,0,c.canvas._logicalWidth,c.canvas._logicalHeight);drawCenteredPiece(c,player.next)});
+        [pcNextCtx,mNextCtx].filter(Boolean).forEach(c=>{c.clearRect(0,0,c.canvas._logicalWidth,c.canvas._logicalHeight);drawCenteredPiece(c,player.next, c.canvas._logicalWidth * .23)});
         if (settings.opt3Next) {
             [pcNext2Ctx, pcNext3Ctx].forEach((pc, i) => {
                 const piece = _nextQueue[i];
@@ -7834,14 +8187,11 @@
         _wallBounceCount = 0; _wallTouchedLeft = false; _wallTouchedRight = false;
         drawNext();
         if(collide(board,player)){gameOver();return;}
-        // Continue the held direction without restarting DAS on each piece.
+        const bufferedMove = _bufferedMove;
+        _bufferedMove = 0;
         if(!isGameOver && !isPaused){
-            const direction = _moveDirection;
-            if (direction) {
-                _moveDirection=direction;
-                _moveRepeatAt=performance.now();
-                _updateHeldMove(_moveRepeatAt);
-            }
+            if (_moveDirection) handleMove(_moveDirection);
+            else if (bufferedMove) playerMove(bufferedMove);
         }
     }
 
@@ -8160,19 +8510,22 @@
                     _syncGameMusicTempo();
                     if (!LBMusicTempo.isIntenseSpeed(oldSpeed) && LBMusicTempo.isIntenseSpeed(speedLevel)) {
                         const intense = _getPlaylist('action');
-                        if (intense.length && !intense.includes(_nowPlayingName)) _gameSourceNode?.finishAtBar?.();
+                        if (intense.length && !intense.includes(_nowPlayingName)) {
+                            if (_activeMusic?.started && _activeMusic.source.finishAtBar) _activeMusic.source.finishAtBar();
+                            else _startGameMusicForCurrentSpeed(true);
+                        }
                     }
                     playSFX('levelup');
                     if (settings.showSpeedUp !== false) {
-                        floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, canvas._logicalHeight / 2 - 20, `SPEED UP!`, '#ffcc00', 32));
-                        floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, canvas._logicalHeight / 2 + 10, `Speed ${speedLevel}`, '#ffcc00', 20));
+                        floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, canvas._logicalHeight / 2 - 20, `LEVEL UP!`, '#ffcc00', 32));
+                        floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, canvas._logicalHeight / 2 + 10, `LV ${speedLevel}`, '#ffcc00', 20));
                     }
                 }
                 dropInterval = Math.floor(1000 / speedLevel);
                 // Board clear check (after removing lines)
                 if (board.every(row => row.every(v => v === 0))) _boardClearedThisGame = true;
                 lineClear.finish();
-                updateUI();isAnimating=false;lastTime=performance.now();resetPlayer();if(_bufferedMove){playerMove(_bufferedMove);_bufferedMove=0;}
+                updateUI();isAnimating=false;lastTime=performance.now();resetPlayer();
                 _checkMidGameAchievements();
             }, clearMs);return true
         }return false
@@ -8223,15 +8576,16 @@
         }
         drawGame(); requestAnimationFrame(update);
     }
-    function _renderHudSpeed() {
-        const meter = document.getElementById('lb-hud-speed-meter');
-        const maximum = SPEED_MULTIPLIERS.length;
-        if (meter.hasAttribute('aria-valuemax') && meter.getAttribute('aria-valuenow') === String(speedLevel)) return;
-        meter.setAttribute('aria-valuemax', maximum);
-        meter.setAttribute('aria-valuenow', speedLevel);
-        meter.style.setProperty('--hud-speed-max', maximum);
-        meter.style.setProperty('--hud-speed-level', speedLevel);
-        document.getElementById('lb-hud-speed-value').textContent = speedLevel;
+    function _renderHudLevel() {
+        const progress = document.getElementById('lb-hud-level-progress');
+        const label = document.getElementById('lb-hud-level-label');
+        const capped = speedLevel === SPEED_MULTIPLIERS.length;
+        const lines = capped ? LINES_PER_SPEED : linesClearedThisGame % LINES_PER_SPEED;
+        const text = `LV ${speedLevel} · ${capped ? 'Max' : `${lines}/${LINES_PER_SPEED} lines`}`;
+        if (label.textContent === text) return;
+        progress.max = LINES_PER_SPEED;
+        progress.value = lines;
+        label.textContent = text;
     }
     function _fmtScoreHTML(v){const i=Math.floor(v);const d=Math.round((v-i)*10);return i.toLocaleString()+(d>0?`<span style="font-size:0.6em;opacity:0.7;">.${d}</span>`:'');}
     function updateUI() {
@@ -8240,7 +8594,7 @@
         document.getElementById('pc-score').innerHTML = _fmtScoreHTML(score);
         document.getElementById('pc-time').textContent = `${minutes}:${seconds}`;
         document.getElementById('pc-lines').textContent = linesClearedThisGame;
-        _renderHudSpeed();
+        _renderHudLevel();
         const fun = currentGameMode === 'fun';
         const record = fun ? (saveData.stats?.bestFunScore || 0) : _prevHighscore;
         const difference = score - record;
@@ -8295,39 +8649,8 @@
         document.getElementById('go-xp-row').hidden = funMode;
         document.getElementById('go-pin-btn').hidden = funMode;
         const bonus = document.getElementById('go-record-bonus');
-        bonus.hidden = recordBonus <= 0;
-        bonus.textContent = `Record bonus · +${recordBonus.toLocaleString()} XP`;
-    }
-
-    const _goMissionProgress = new Map();
-
-    function _renderGoMissionProgress(update) {
-        const sections = () => {
-            const { daily, weekly } = saveData.missions || {};
-            return [
-                ['Daily', daily?.quests || []],
-                ['Secret', daily?.secret ? [daily.secret] : []],
-                ['Weekly', weekly?.missions || []],
-            ];
-        };
-        const before = new Map(sections().flatMap(([, quests]) => quests.map(quest => [quest, quest.progress || 0])));
-        update();
-        for (const [period, quests] of sections()) {
-            for (const quest of quests) {
-                const previous = before.get(quest) || 0;
-                if (!(quest.progress > previous)) continue;
-                const title = period === 'Secret' && !quest.completed ? 'Secret mission' : quest.title || quest.id;
-                _goMissionProgress.set(quest, { title, period, progress: quest.progress, target: quest.target,
-                    completed: quest.completed, points: quest.completed ? quest.pts || 0 : 0 });
-            }
-        }
-        const disclosure = document.getElementById('go-mission-progress');
-        disclosure.hidden = !_goMissionProgress.size;
-        const points = [..._goMissionProgress.values()].reduce((total, row) => total + row.points, 0);
-        document.getElementById('go-mission-points').textContent = points ? `+${points} pts to claim` : '0 pts earned';
-        document.getElementById('go-mission-list').innerHTML = [..._goMissionProgress.values()].map(row => `
-            <li><span><strong>${escapeHtml(row.title)}</strong><small>${row.period}</small></span>
-                <span>${row.completed ? 'Completed' : `${row.progress.toLocaleString()} / ${row.target.toLocaleString()}`}</span></li>`).join('');
+        bonus.hidden = funMode || recordBonus <= 0;
+        document.getElementById('go-record-bonus-xp').textContent = bonus.hidden ? '' : `+${recordBonus.toLocaleString()} XP`;
     }
 
     function gameOver(){
@@ -8337,10 +8660,6 @@
         isAnimating=false; _hardDropAnimating=false; // safety: clear all animation locks
         lineClear.reset();
         _boosterUsedThisRound = false;
-        _goMissionProgress.clear();
-        const missionDisclosure = document.getElementById('go-mission-progress');
-        missionDisclosure.hidden = true;
-        missionDisclosure.open = false;
         try {
         const _gcGO = document.getElementById('game-container');
         if (_gcGO) _gcGO.style.transform = '';
@@ -8394,7 +8713,7 @@
         const best = _bestScore();
         _renderGoStats(best, best > previousBest, false, finalXP, pbBonus);
         gainedXPThisRound = finalXP;
-        _renderGoMissionProgress(() => _updateGameMissionProgress(finalXP));
+        _updateGameMissionProgress(finalXP);
         const _lvlBefore = getLevelInfo(saveData.totalXP).level;
         saveData.totalXP += finalXP;
         const _lvlAfter = getLevelInfo(saveData.totalXP).level;
@@ -8519,7 +8838,7 @@
         const bonus = Math.round(originalXP * (mult - 1));
         gainedXPThisRound += bonus;
         _grantXP(bonus);
-        if (bonus > 0) _renderGoMissionProgress(() => _updateMissionProgress({ totalXP: bonus }));
+        if (bonus > 0) _updateMissionProgress({ totalXP: bonus });
         document.getElementById('go-total-xp').textContent = gainedXPThisRound.toLocaleString();
         _renderGoBoostRow(gainedXPThisRound);
         animateXPGain();
@@ -8529,10 +8848,10 @@
         const row = document.getElementById('go-boost-row');
         const available = [...BOOSTER_KEYS].reverse().filter(key => saveData.boosters?.[key] > 0);
         row.hidden = _boosterUsedThisRound || xp <= 0 || !available.length;
-        row.innerHTML = row.hidden ? '' : `<div class="go-boost-heading"><h2 class="go-section-title" id="go-boost-title">XP boosters</h2><button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About score boosters" title="About score boosters"></button></div>
+        row.innerHTML = row.hidden ? '' : `<div class="go-boost-heading"><h2 class="go-section-title" id="go-boost-title">XP boosters</h2><button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About score boosters" data-control-tip="About score boosters"></button></div>
             <ul class="go-reward-list go-boost-list">${available.map(key => {
                 const { label, rarity } = BOOSTER_META[key];
-                return `<li><button type="button" class="lb-block-btn lb-block-reward" data-rarity="${rarity}" onclick="window.useScoreBooster('${key}')" aria-label="Use ${label}, ${escapeHtml(saveData.boosters[key])} available">
+                return `<li><button type="button" class="lb-block-btn" data-rarity="${rarity}" onclick="window.useScoreBooster('${key}')" aria-label="Use ${label}, ${escapeHtml(saveData.boosters[key])} available">
                     ${LBArtPack.boosterIcon(key)}
                     <strong>${label.replace(' Booster', ' XP')}</strong>
                     <small>${rarity}</small>
@@ -8558,10 +8877,14 @@
             _syncRunMissions(true);
             _refreshGameDPR();
             isPaused=false;
+            _runMusicPaused = false;
             if(timeInterval)clearInterval(timeInterval);
             timeInterval=setInterval(()=>{if(!isPaused&&!isGameOver&&!document.hidden){gameTime++;updateUI()}},1000);
             lastTime=performance.now(); update(lastTime);
-            switchMusicMode('game');
+            if (!isGameOver) {
+                if (musicPlaying) switchMusicMode('game');
+                else startMusic('game');
+            }
             onStarted?.();
         }, START_FLASH_MS);
     }
@@ -8662,7 +8985,11 @@
         if (screen === 'start-animation') return startGame();
         return new Promise(resolve => startGame(() => {
             if (screen === 'pause') togglePause();
-            if (screen === 'game-over') gameOver();
+            if (screen === 'game-over') {
+                score = _bestScore() + 120;
+                linesClearedThisGame = 4;
+                gameOver();
+            }
             resolve();
         }));
     }
@@ -8705,6 +9032,7 @@
     }
 
     function backFromOverlay(overlay) {
+        closeInfo();
         if (controlsEditor.cancel()) return;
         switch (overlay.id) {
             case 'start-animation-overlay': return;
@@ -8805,6 +9133,7 @@
         if (!runActive() || isPaused) return;
         if (action === 'soft') softDropSources.add(source);
         else if (action === 'left' || action === 'right') {
+            heldMoves.delete(source);
             heldMoves.set(source, action === 'left' ? -1 : 1);
             updateInputMove();
         } else gameAction(action);
@@ -8812,10 +9141,10 @@
 
     window.LBInput = {
         active: touchActive,
-        unlockAudio() { initAudio(); if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {}); },
+        unlockAudio() { _unlockAudio(true); },
         action: gameAction,
-        press(action) { if (touchActive()) pressGameInput(action, 'touch'); },
-        release() { releaseGameInput('touch'); }
+        press(action, pointerId) { pressGameInput(action, `touch:${pointerId}`); },
+        release(pointerId) { releaseGameInput(`touch:${pointerId}`); }
     };
 
     // Android shell only: keep native navigation isolated from desktop input.
@@ -8852,18 +9181,44 @@
             }
         })).catch(error => console.error('Android back button setup failed', error));
         void startupWait('Android lifecycle listener', () => nativeApp.addListener('appStateChange', ({ isActive }) => {
+            _audioAppActive = isActive;
+            _syncAudioLifecycle();
             if (isActive) _reminders?.refresh();
             if (!isActive && !isPaused && !isGameOver
                 && document.getElementById('app').classList.contains('active-game')) togglePause();
         })).catch(error => console.error('Android lifecycle setup failed', error));
+        for (const [event, paused] of [['pause', true], ['resume', false]]) {
+            void startupWait(`Android ${event} listener`, () => nativeApp.addListener(event, () => {
+                _audioAppPaused = paused;
+                _syncAudioLifecycle();
+            })).catch(error => console.error(`Android ${event} setup failed`, error));
+        }
     }
 
     document.addEventListener('keydown',handleKeyDown); document.addEventListener('keyup',handleKeyUp);
     window.addEventListener('blur', resetHeldInputs);
     
     document.addEventListener('visibilitychange', () => {
+        _syncAudioLifecycle();
         if(document.hidden && document.getElementById('app').classList.contains('active-game') && !isGameOver && !isPaused && !isAnimating && document.getElementById('start-animation-overlay').classList.contains('hidden')) togglePause();
     });
+    window.addEventListener('pagehide', event => {
+        _audioPageHidden = true;
+        if (!event.persisted) stopMusic();
+        else _syncAudioLifecycle();
+    });
+    window.addEventListener('pageshow', () => {
+        _audioPageHidden = false;
+        _syncAudioLifecycle();
+    });
+    for (const type of ['pointerup', 'click', 'keydown']) {
+        document.addEventListener(type, event => {
+            if (!event.isTrusted || event.repeat || audioCtx?.state === 'running') return;
+            const hadContext = Boolean(audioCtx);
+            _unlockAudio(true);
+            if (musicPlaying && !hadContext && audioCtx) switchMusicMode(_currentMode);
+        }, { capture: true });
+    }
 
 
     document.addEventListener('click', (e) => {
@@ -8901,6 +9256,13 @@
         _nowPlayingName = name || '';
         _nowPlayingArtist = (artist !== undefined ? artist : _nowPlayingArtist) || '';
         _updateMusicWidget();
+        if (!document.getElementById('playlist-overlay')?.classList.contains('hidden')) _renderPlaylistPanel();
+    }
+    function _syncPlaylistEqualizer() {
+        const source = _activeMusic?.source;
+        const playing = _activeMusic?.playing && source?.playing !== false && audioCtx?.state === 'running'
+            && !settings.musicMuted && settings.musicVol > 0;
+        _playlistContent?.toggleAttribute('data-playing', Boolean(playing));
     }
     function _fmtTime(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); }
     function _updateMusicWidget() {
@@ -8919,9 +9281,7 @@
         });
         const artistEl = document.getElementById('mw-artist');
         if (artistEl) artistEl.textContent = _nowPlayingArtist ? 'by ' + _nowPlayingArtist : '';
-        const elapsed = _musicPaused
-            ? _trackPauseOffset
-            : (audioCtx ? Math.min(audioCtx.currentTime - _trackStartTime + _trackPauseOffset, _trackDuration || 0) : 0);
+        const elapsed = Math.min(_musicPosition(), _trackDuration || 0);
         const dur = _trackDuration || 0;
         const elEl = document.getElementById('mw-elapsed');
         const totEl = document.getElementById('mw-total');
@@ -8945,16 +9305,13 @@
         if (plTot) plTot.textContent = dur > 0 ? _fmtTime(dur) : '0:00';
         if (plFill) plFill.style.width = (dur > 0 ? Math.min(100, elapsed / dur * 100) : 0) + '%';
         const isPix = settings.stylePack === 'pixel';
+        const icon = _musicPaused
+            ? (isPix ? _SVG_PIX_PLAY : `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><polygon points="3,2 13,8 3,14"/></svg>`)
+            : (isPix ? _SVG_PIX_PAUSE : `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/></svg>`);
         const pauseBtn = document.getElementById('mw-pause');
-        if (pauseBtn) {
-            pauseBtn.innerHTML = _musicPaused
-                ? (isPix ? _SVG_PIX_PLAY : `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><polygon points="3,2 13,8 3,14"/></svg>`)
-                : (isPix ? _SVG_PIX_PAUSE : `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/></svg>`);
-        }
+        if (pauseBtn) pauseBtn.innerHTML = icon;
         const plPause = document.getElementById('pl-mw-pause');
-        if (plPause) plPause.innerHTML = _musicPaused
-            ? `<svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><polygon points="3,2 13,8 3,14"/></svg>`
-            : `<svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/></svg>`;
+        if (plPause) plPause.innerHTML = miniMusicIcon(icon);
     }
     window.musicWidgetPrev = function() {
         if (_currentMode !== 'menu' || !musicPlaying) return;
@@ -8968,14 +9325,12 @@
     };
     window.musicWidgetPause = function() {
         if (!audioCtx || !musicPlaying || !_nowPlayingName || _currentMode !== 'menu') return;
-        if (!_musicPaused) {
-            _trackPauseOffset = Math.min(audioCtx.currentTime - _trackStartTime + _trackPauseOffset, Math.max(0, _trackDuration - 0.1));
-            _menuSourceNode?.stop();
-            _menuSourceNode = null;
-            _musicPaused = true;
-            _updateMusicWidget();
-        } else {
+        _musicPaused = !_musicPaused;
+        if (!_musicPaused && !_activeMusic) {
             _playMenuTrack(_nowPlayingName, _trackPauseOffset);
+        } else {
+            _syncMusicPlayback();
+            _updateMusicWidget();
         }
     };
     window.musicWidgetSeek = function(e, el) {
@@ -9026,9 +9381,7 @@
                 </div>
                 <strong class="lb105-level-rank">${name}</strong>
             </header>
-            <div class="lb105-level-reward-frame">
-                <div class="lb105-level-rewards lb-scroll-fade" role="region" aria-label="Level rewards"></div>
-            </div>
+            <div class="lb105-level-rewards lb-scroll-fade" role="region" aria-label="Level rewards"></div>
             <button type="button" class="lb-block-btn lb-block-btn--primary">Awesome!</button>
         </div>`;
         const scroller = overlay.querySelector('.lb105-level-rewards');
@@ -9820,8 +10173,8 @@
         const pct = hasProgress ? Math.min(100, ((q.progress || 0) / q.target) * 100) : 0;
         const _progFmt = hasProgress
             ? (q.metric === 'gameTime'
-                ? `<span style="color:${tc}">${_fmtMissionTime(q.progress || 0)}</span><span style="color:#444">/${_fmtMissionTime(q.target)}</span>`
-                : `<span style="color:${tc}">${escapeHtml(q.progress || 0)}</span><span style="color:#444">/${escapeHtml(q.target)}</span>`)
+                ? `<span style="color:${tc}">${_fmtMissionTime(q.progress || 0)}</span>/${_fmtMissionTime(q.target)}`
+                : `<span style="color:${tc}">${escapeHtml(q.progress || 0)}</span>/${escapeHtml(q.target)}`)
             : '';
         const miniWellHtml = hasProgress ? _miniWell(q.progress, q.target, tc) : '';
         // Progress row: continuous HUD-style bar (Section D) + progress/target on right
@@ -9837,7 +10190,7 @@
         if (claimedState) {
             actionHtml = `<div style="font-family:var(--ui-font);font-size:0.48rem;color:#44ff88;letter-spacing:0.18em;">&#x2713; CLAIMED</div>`;
         } else if (readyState) {
-            actionHtml = `<div style="text-align:center;margin-top:8px;"><button class="mq-pts-claim-btn" style="color:${tc};border-color:${tc};background:${tc}22;box-shadow:0 0 10px ${tc}22;" onclick="window._claimQuestPts(${escapeHtml(JSON.stringify(String(q.id)))},${!!isWeekly},'${tc}',this)">CLAIM +${escapeHtml(q.pts)} PTS</button></div>`;
+            actionHtml = `<div style="text-align:center;margin-top:8px;"><button class="mq-pts-claim-btn lb-block-btn" onclick="window._claimQuestPts(${escapeHtml(JSON.stringify(String(q.id)))},${!!isWeekly},'${tc}',this)">CLAIM +${escapeHtml(q.pts)} PTS</button></div>`;
         } else if (!done && hasProgress) {
             actionHtml = `<div style="font-family:var(--ui-font);font-size:0.48rem;color:#555;letter-spacing:0.1em;">${Math.floor(pct)}% complete</div>`;
         }
@@ -9850,7 +10203,7 @@
             ? `<div class="mq-change-overlay" onclick="window._changeMission(${index},${!!isWeekly})"><span class="mq-change-overlay-label">↺ TAP TO SWAP</span></div>`
             : '';
         return `<div class="mq-card-wrap"${index == null ? '' : ` data-mission-slot="${index}"`}>
-            <div class="mq-card${isSecret?' mq-card--secret':''}${changeModeCls}" style="${cardStyle}">
+            <div class="mq-card${isSecret?' mq-card--secret':''}${readyState?' mq-card--ready':''}${changeModeCls}" style="${cardStyle}">
                 <div class="mq-card-hdr">
                     <span class="mq-tier-badge" style="--mq-tier:${tc}">${escapeHtml(tierLabel)}</span>
                     <span class="mq-pts" style="color:${tc}">+${escapeHtml(q.pts)} pts</span>
@@ -9862,10 +10215,14 @@
                         <div class="mq-card-desc">${desc}</div>
                     </div>
                 </div>
-                ${progressRowHtml}${actionHtml ? `<div class="mq-card-action">${actionHtml}</div>` : ''}
+                ${progressRowHtml}${actionHtml ? `<div class="mq-card-action${!done && hasProgress ? ' mq-card-action--percent' : ''}">${actionHtml}</div>` : ''}
             </div>
             ${changeOverlay}
         </div>`;
+    }
+
+    function _missionCrateMarker(rarity, locked = false) {
+        return `<img class="mq-ms-crate${locked ? ' mq-ms-crate--locked' : ''}" src="assets/ui/crates/${rarity}.png" alt="" draggable="false">`;
     }
 
     function _missionProgressBar(points, milestones, claimed, isWeekly) {
@@ -9901,7 +10258,6 @@
             const tPct = ((ms.pts / stepSize) / totalSteps * 100).toFixed(2);
             return `<div style="${_tickStyle}left:${tPct}%;"></div>`;
         }).join('') + goldenTickHtml;
-        const boxIcon = `<svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 3.66333L20.25 7.7398V17.01L12 21.0865L3.75 17.01V7.7398L12 3.66333ZM5.25 9.41292V16.078L11.25 19.0427V12.3776L5.25 9.41292ZM12.75 12.3776V19.0427L18.75 16.078V9.41292L16.5 10.5247V13.4999L15 14.2499V11.2659L12.75 12.3776ZM17.807 8.20577L15.8527 9.17139C15.8099 9.13606 15.7624 9.10498 15.7106 9.07908L10.1015 6.27454L12 5.33645L17.807 8.20577ZM8.41452 7.1081L14.1871 9.9944L12 11.0751L6.19304 8.20577L8.41452 7.1081Z"/></svg>`;
         const labels = milestones.map(ms => {
             const lPct = (ms.pts / stepSize) / totalSteps * 100;
             return `<div class="mq-pb-label-item" style="left:${lPct}%;color:#fff;">${ms.pts}</div>`;
@@ -9912,18 +10268,15 @@
             : '';
         const icons = milestones.map(ms => {
             const iPct = (ms.pts / stepSize) / totalSteps * 100;
-            const reached = points >= ms.pts;
             const isClaimed = (claimed || []).includes(ms.pts);
+            const reached = points >= ms.pts || isClaimed;
             const canClaim = reached && !isClaimed;
-            const cls = reached ? (isWeekly ? 'reached-w' : 'reached-d') : '';
-            const claimedColor = isWeekly ? '#ff9900' : '#44ff88';
-            const checkIcon = `<svg viewBox="0 0 10 10" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 7 4.5 9 8.5 1"/></svg>`;
-            const iconContent = isClaimed
-                ? `<span class="mq-ms-icon" style="color:${claimedColor};filter:drop-shadow(0 0 4px ${claimedColor}66);display:inline-flex;width:40px;height:40px;align-items:center;justify-content:center;">${checkIcon}</span>`
-                : `<span class="mq-ms-icon ${cls}">${boxIcon}</span>`;
+            const rarity = reached ? LBCrates.missionRarity(ms.pts, isWeekly) : 'common';
+            const crate = _missionCrateMarker(rarity, !reached);
+            const label = `${ms.pts} points: ${reached ? `${rarity} crate` : 'locked crate'}`;
             return `<div class="mq-pb-icon-wrap" style="left:${iPct}%">${canClaim
-                ? `<button class="mq-ms-claim-btn" onclick="window._claimMissionMilestone(${ms.pts},${!!isWeekly})" title="Claim reward">${iconContent}</button>`
-                : iconContent}</div>`;
+                ? `<button type="button" class="mq-ms-claim-btn" onclick="window._claimMissionMilestone(${ms.pts},${!!isWeekly},false,this)" aria-label="Claim ${label}" data-control-tip="Claim ${label}">${crate}</button>`
+                : `<span class="mq-ms-marker" role="img" aria-label="${label}${isClaimed ? ', claimed' : ''}" title="${label}${isClaimed ? ' (claimed)' : ''}">${crate}${isClaimed ? '<span class="mq-ms-claimed" aria-hidden="true">✓</span>' : ''}</span>`}</div>`;
         }).join('');
         // Weekly: pending universal parts — claimable box replaces star when available
         const pending = isWeekly ? (saveData.missions?.weekly?.pendingUniversalParts || 0) : 0;
@@ -9932,8 +10285,8 @@
             if (pending > 0) {
                 return `<div class="mq-pb-icon-wrap" style="left:${gPct}%;">
                     <div style="position:relative;display:inline-block;">
-                        <button class="mq-ms-claim-btn" onclick="window._claimWeeklyUniversalParts()" title="Collect +${escapeHtml(pending)} Universal Part${pending !== 1 ? 's' : ''}">
-                            <span class="mq-ms-icon reached-w">${boxIcon}</span>
+                        <button type="button" class="mq-ms-claim-btn" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} Universal Part${pending !== 1 ? 's' : ''}" data-control-tip="Collect +${escapeHtml(pending)} Universal Part${pending !== 1 ? 's' : ''}">
+                            ${_missionCrateMarker('legendary')}
                         </button>
                         <div style="position:absolute;top:-3px;right:-5px;background:#ffcc44;color:#050510;font-family:var(--ui-font);font-size:0.32rem;font-weight:bold;padding:1px 3px;border-radius:3px;line-height:1.4;pointer-events:none;">+${escapeHtml(pending)}</div>
                     </div>
@@ -9946,7 +10299,7 @@
         })() : '';
         const ptsColor = isGolden ? '#ffcc44' : (isWeekly ? '#ffcc44' : '#4499ff');
         return `<div class="mq-pb-wrap" style="position:relative;">
-            <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;">
+            <div class="mq-pb-points" style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;">
                 <span style="font-family:var(--ui-font);font-size:1.4rem;font-weight:900;color:${ptsColor};letter-spacing:1px;line-height:1;${isGolden?'text-shadow:0 0 12px rgba(255,204,68,0.45);':''}">${escapeHtml(points)}</span>
                 <span style="font-family:var(--ui-font);font-size:0.52rem;color:var(--bb-muted);letter-spacing:2px;padding-bottom:1px;">PTS</span>
             </div>
@@ -10021,30 +10374,14 @@
             <div style="display:flex;gap:4px;">${squaresHtml}</div>
         </div>`;
 
-        // Size squares to be actually square after render
-        requestAnimationFrame(() => {
-            // Tooltips
-            let mqTip = document.getElementById('mq-cal-tip');
-            if (!mqTip) {
-                mqTip = document.createElement('div');
-                mqTip.id = 'mq-cal-tip';
-                mqTip.style.cssText = 'display:none;position:fixed;z-index:9999;background:rgba(5,5,20,0.97);border:1px solid rgba(68,153,255,0.25);border-radius:10px;padding:10px 16px;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,0.7);text-align:center;min-width:60px;';
-                document.body.appendChild(mqTip);
-            }
-            el.querySelectorAll('[data-mq-day-count]').forEach(cell => {
-                cell.addEventListener('mouseenter', e => {
-                    const cnt = parseInt(cell.dataset.mqDayCount, 10);
-                    mqTip.innerHTML = cnt > 0
-                        ? `<div style="font-family:var(--ui-font);font-size:1.3rem;font-weight:900;color:#4499ff;line-height:1;">${escapeHtml(cnt)}</div><div style="font-size:0.5rem;color:#778;margin-top:4px;letter-spacing:0.08em;">${cnt === 1 ? 'MISSION' : 'MISSIONS'}</div>`
-                        : `<div style="font-size:1rem;color:#333;line-height:1;">—</div><div style="font-size:0.5rem;color:#444;margin-top:4px;letter-spacing:0.08em;">NO MISSIONS</div>`;
-                    mqTip.style.display = 'block';
-                    mqTip.style.left = (e.clientX + 14) + 'px';
-                    mqTip.style.top = (e.clientY - 56) + 'px';
-                });
-                cell.addEventListener('mouseleave', () => { mqTip.style.display = 'none'; });
-                cell.addEventListener('mousemove', e => { mqTip.style.left = (e.clientX + 14) + 'px'; mqTip.style.top = (e.clientY - 56) + 'px'; });
-            });
-        });
+        for (const cell of el.querySelectorAll('[data-mq-day-count]')) {
+            bindInfoPreview(cell, () => {
+                const panel = infoPanel('mq-cal-tip');
+                const count = Number(cell.dataset.mqDayCount);
+                panel.textContent = count === 0 ? 'No missions' : `${count} ${count === 1 ? 'mission' : 'missions'}`;
+                showInfo(panel, cell);
+            }, { tap: true });
+        }
     }
 
     function _sortQuests(quests) {
@@ -10101,6 +10438,7 @@
     }
 
     function renderMissionsOverlay(tab) {
+        closeInfo();
         if (!saveData.missions) saveData.missions = _defaultMissions();
         _checkMissionsRefresh();
         const m = saveData.missions;
@@ -10137,9 +10475,9 @@
         const xpColor = xpDone ? '#44ff88' : '#ffcc44';
         const xpBarBg = xpDone ? 'linear-gradient(90deg,#22aa44,#44ff88)' : 'linear-gradient(90deg,#996600,#ffcc44)';
         const multRows = MISSION_STREAK_XP_TIERS.map(([days, multiplier]) =>
-            `<div style="display:flex;justify-content:space-between;gap:14px;font-size:0.58rem;color:${dStreak>=days?'#ffcc44':'#444'};margin-bottom:3px;"><span>${days} days</span><span>×${multiplier.toFixed(2)}</span></div>`).join('');
+            `<div>${days} days · ×${multiplier.toFixed(2)}</div>`).join('');
         const streakPanelHtml = `
-            <div style="border:1px solid rgba(255,204,68,0.25);border-radius:10px;overflow:hidden;">
+            <div class="mq-streak-summary" style="border:1px solid rgba(255,204,68,0.25);border-radius:10px;overflow:hidden;">
             <div class="mq-streak-half" style="padding:14px 16px;background:rgba(255,204,68,0.05);border:none;border-radius:0;position:relative;overflow:hidden;">
                 <div class="mq-streak-flame mq-streak-flame--watermark" aria-hidden="true">🔥</div>
                 <div style="display:flex;align-items:center;gap:8px;position:relative;">
@@ -10149,15 +10487,9 @@
                 </div>
                 <div style="font-size:0.42rem;color:#776633;letter-spacing:0.15em;margin-top:6px;position:relative;">DAILY STREAK · BEST <b style="color:#ffcc44;">${escapeHtml(bestD)}</b></div>
                 ${xpMult > 1 ? `<div style="margin-top:5px;font-size:0.45rem;color:#aa8800;position:relative;">XP Multiplier: ${xpMult.toFixed(2)}× active</div>` : ''}
-                <div class="mq-streak-panel-tip">
-                    <div style="font-family:var(--ui-font);font-size:0.48rem;letter-spacing:1.5px;color:#666;margin-bottom:5px;">XP MULTIPLIER</div>
-                    ${multRows}
-                    ${xpMult > 1 ? `<div style="margin-top:4px;font-size:0.58rem;color:#ffcc44;">Active: ${xpMult.toFixed(2)}×</div>` : ''}
-                    <div style="font-size:0.5rem;color:#555;margin-top:4px;">Streak requires ${xpThresh} raw XP/day</div>
-                </div>
             </div>
-            <div style="height:1px;background:rgba(255,255,255,0.07);"></div>
-            <div style="padding:14px 16px;background:${xpDone?'rgba(68,255,136,0.04)':'rgba(255,204,68,0.03)'};">
+            <div class="mq-streak-divider" style="height:1px;background:rgba(255,255,255,0.07);"></div>
+            <div class="mq-streak-xp" style="padding:14px 16px;background:${xpDone?'rgba(68,255,136,0.04)':'rgba(255,204,68,0.03)'};">
                 <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;">
                     <span style="font-size:0.45rem;color:#666;letter-spacing:0.18em;font-family:var(--ui-font);">TODAY'S XP</span>
                     <span style="font-family:var(--ui-font);font-size:0.8rem;font-weight:bold;color:${xpColor};">${escapeHtml(rawXP)}<span style="color:#555;font-size:0.55rem;font-weight:normal;">/${xpThresh}</span></span>
@@ -10168,7 +10500,7 @@
                 ${!xpDone ? `<div style="font-size:0.42rem;color:#555;margin-top:5px;">Hit ${xpThresh} XP to keep your streak alive</div>` : ''}
             </div>
             </div>
-            <button id="mq-change-toggle" class="mq-change-toggle${window._mqChangeMode ? ' mq-change-toggle--active' : ''}" ${(tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) && !window._mqChangeMode ? 'disabled' : ''} onclick="event.stopPropagation();window._toggleChangeMode()">
+            <button id="mq-change-toggle" class="mq-change-toggle lb-block-btn${window._mqChangeMode ? ' mq-change-toggle--active' : ''}" ${(tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) && !window._mqChangeMode ? 'disabled' : ''} onclick="event.stopPropagation();window._toggleChangeMode()">
                 <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 20.75C10.08 20.75 8.23 19.99 6.87 18.63C5.51 17.27 4.75 15.42 4.75 13.5C4.75 11.58 5.51 9.73 6.87 8.37C8.23 7.01 10.08 6.25 12 6.25H14.5C14.9 6.25 15.25 6.6 15.25 7C15.25 7.4 14.9 7.75 14.5 7.75H12C10.86 7.75 9.75 8.09 8.81 8.72C7.86 9.35 7.12 10.25 6.69 11.3C6.25 12.35 6.14 13.51 6.36 14.62C6.58 15.74 7.13 16.76 7.93 17.57C8.74 18.37 9.76 18.92 10.88 19.14C11.99 19.36 13.15 19.25 14.2 18.81C15.25 18.38 16.15 17.64 16.78 16.69C17.41 15.75 17.75 14.64 17.75 13.5C17.75 13.1 18.1 12.75 18.5 12.75C18.9 12.75 19.25 13.1 19.25 13.5C19.25 15.42 18.48 17.26 17.12 18.62C15.76 19.98 13.92 20.75 12 20.75Z"/><path d="M12 10.75C11.6 10.75 11.25 10.4 11.25 10C11.25 9.8 11.33 9.61 11.47 9.47L13.94 7L11.47 4.53C11.18 4.24 11.18 3.76 11.47 3.47C11.76 3.18 12.24 3.18 12.53 3.47L15.53 6.47C15.67 6.61 15.75 6.8 15.75 7C15.75 7.2 15.67 7.39 15.53 7.53L12.53 10.53C12.39 10.67 12.2 10.75 12 10.75Z"/></svg>
                     ${window._mqChangeMode ? 'CANCEL SWAP' : (tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) ? 'SWAP USED' : 'SWAP QUEST'}
@@ -10176,7 +10508,17 @@
                 <div style="font-size:0.42rem;letter-spacing:0.06em;font-weight:normal;opacity:0.5;margin-top:2px;">once per ${tab === 'weekly' ? 'week' : 'day'}</div>
             </button>`;
         const streakPanelEl = document.getElementById('mq-streak-panel');
-        if (streakPanelEl) streakPanelEl.innerHTML = streakPanelHtml;
+        if (streakPanelEl) {
+            streakPanelEl.innerHTML = streakPanelHtml;
+            const streak = streakPanelEl.querySelector('.mq-streak-half');
+            bindInfoPreview(streak, () => {
+                const panel = infoPanel('mq-streak-panel-tip');
+                panel.innerHTML = `<strong>XP multiplier</strong>${multRows}
+                    ${xpMult > 1 ? `<div>Active: ${xpMult.toFixed(2)}×</div>` : ''}
+                    <div>Streak requires ${xpThresh} raw XP/day</div>`;
+                showInfo(panel, streak);
+            }, { tap: true });
+        }
 
         const bonusBoxHtml = `            <div id="mq-bonus-box" style="padding:14px 16px;background:rgba(255,204,68,0.04);border:1px solid rgba(255,204,68,0.2);transition:box-shadow 0.3s,border-color 0.3s;">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
@@ -10264,20 +10606,12 @@
                 setTimeout(() => body.classList.remove(_inClass), 350);
             }
         }
-        // Custom tooltip for [data-mqctip] elements in the body (star icon, etc.)
-        if (body) {
-            let _bTip = document.getElementById('mq-body-tip');
-            if (!_bTip) {
-                _bTip = document.createElement('div');
-                _bTip.id = 'mq-body-tip';
-                _bTip.style.cssText = 'display:none;position:fixed;z-index:2300;background:rgba(5,5,20,0.97);border:1px solid rgba(255,204,68,0.3);border-radius:8px;padding:6px 12px;font-size:0.58rem;pointer-events:none;color:#ccc;font-family:inherit;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.6);';
-                document.body.appendChild(_bTip);
-            }
-            body.querySelectorAll('[data-mqctip]').forEach(el => {
-                el.addEventListener('mouseenter', e => { _bTip.textContent = el.dataset.mqctip; _bTip.style.display = 'block'; _bTip.style.left = (e.clientX + 14) + 'px'; _bTip.style.top = (e.clientY - 36) + 'px'; });
-                el.addEventListener('mouseleave', () => { _bTip.style.display = 'none'; });
-                el.addEventListener('mousemove', e => { _bTip.style.left = (e.clientX + 14) + 'px'; _bTip.style.top = (e.clientY - 36) + 'px'; });
-            });
+        for (const star of body?.querySelectorAll('[data-mqctip]') || []) {
+            bindInfoPreview(star, () => {
+                const panel = infoPanel('mq-body-tip');
+                panel.textContent = star.dataset.mqctip;
+                showInfo(panel, star);
+            }, { tap: true });
         }
         _renderMissionStatsSection();
         if (tab === 'daily' && m.daily.newVisit) { m.daily.newVisit = false; saveDataToFile(); }
@@ -10371,6 +10705,7 @@
     const _seasonScreen = window.LBSeasonUI.mount({
         getSave: () => saveData,
         save: saveDataToFile,
+        claimAfterPaint: _claimAfterPaint,
         partName: _partItemName,
         boosterName: key => BOOSTER_INFO[key]?.label || key,
         inventory: () => ({
@@ -10477,7 +10812,8 @@
         return recovered;
     }
 
-    window._claimMissionMilestone = function(pts, isWeekly, silent = false) {
+    window._claimMissionMilestone = function(pts, isWeekly, silent = false, button) {
+        if (button) return _claimAfterPaint(button, () => window._claimMissionMilestone(pts, isWeekly, silent));
         if (!saveData.missions) return;
         const m = saveData.missions;
         const milestones = isWeekly ? MQ_WEEKLY_MILESTONES : MQ_DAILY_MILESTONES;
@@ -10511,7 +10847,8 @@
         if (!silent) _showMilestoneRewardBox(ms, isWeekly, rewards);
     };
 
-    window._claimWeeklyUniversalParts = function(silent = false) {
+    window._claimWeeklyUniversalParts = function(silent = false, button) {
+        if (button) return _claimAfterPaint(button, () => window._claimWeeklyUniversalParts(silent));
         if (!saveData.missions?.weekly) return;
         const pending = saveData.missions.weekly.pendingUniversalParts || 0;
         if (pending <= 0) return;
@@ -10524,7 +10861,12 @@
         _checkGlowNotifications();
     };
 
-    window._claimQuestPts = function(questId, isWeekly, color, btnEl, silent = false) {
+    window._claimQuestPts = (questId, isWeekly, color, button, silent = false) => {
+        const claim = () => _claimQuestPts(questId, isWeekly, color, button, silent);
+        return button && !silent ? _claimAfterPaint(button, claim) : claim();
+    };
+
+    function _claimQuestPts(questId, isWeekly, color, btnEl, silent) {
         if (!saveData.missions) return;
         const m = saveData.missions;
         let q;
@@ -10584,7 +10926,6 @@
         const _fromRect = btnEl ? btnEl.getBoundingClientRect() : null;
         saveDataToFile();
         if (silent) return;
-        // Re-render immediately so correct pts are visible even if Chrome live-reloads
         renderMissionsOverlay(isWeekly ? 'weekly' : 'daily');
         _checkGlowNotifications();
         // Animations are purely visual (data already committed above)
@@ -10596,7 +10937,7 @@
                 }
             });
         }
-    };
+    }
 
     function _flyPtsToBar(pts, fromEl, color, isWeekly, onDone) {
         const fromRect = (fromEl && typeof fromEl.getBoundingClientRect === 'function') ? fromEl.getBoundingClientRect() : fromEl;
@@ -10715,16 +11056,16 @@
         document.body.appendChild(overlay);
 
         LBCrates.bindReveal(preOpen, rewardsDiv, grid, LBCrates.missionRarity(ms.pts, isWeekly));
-        claimBtn.onclick = () => {
+        claimBtn.onclick = () => _claimAfterPaint(claimBtn, () => {
             overlay.remove();
             renderMissionsOverlay(isWeekly ? 'weekly' : 'daily');
             _checkGlowNotifications();
-        };
+        });
     }
 
     // ===== PLAYLIST PANEL =====
     function openPlaylistPanel() {
-        _initTrackCatalog().then(_renderPlaylistPanel);
+        if (!_trackPool.size) _initTrackCatalog().then(_renderPlaylistPanel);
         _renderPlaylistPanel();
         const _plEl = document.getElementById('playlist-overlay');
         _plEl.classList.remove('hidden');
@@ -10736,8 +11077,8 @@
         if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
     }
     function _renderPlaylistPanel() {
-        const el = document.getElementById('playlist-panel-content');
-        if (!el) return;
+        const el = _playlistContent;
+        if (!el?.isConnected) return;
         if (_trackPool.size === 0) {
             el.innerHTML = '<p class="lb-playlist-loading" role="status">Loading tracks…</p>';
             return;
@@ -10749,7 +11090,7 @@
         const actionPlaylist = _getPlaylist('action');
         const allNames = [..._trackPool.keys()].sort((a, b) => a.localeCompare(b));
         const TAG_COLORS = { chill:'#4488cc', electronic:'#44bb88', retro:'#cc8844', intense:'#cc4444', upbeat:'#aa44cc' };
-        const trackToggle = (on, ctx, name) => `<button type="button" class="lb-block-btn lb-block-btn--icon lb-playlist-check" aria-label="${ctx === 'menu' ? 'Menu' : 'Game'} playlist: ${escapeHtml(name)}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}',${escapeHtml(JSON.stringify(name))},${!on})">${svgCheck}</button>`;
+        const trackToggle = (on, ctx, name) => `<button type="button" class="lb-block-btn lb-block-btn--icon lb-playlist-check" data-playlist="${ctx === 'menu' ? 'menu' : 'game'}" aria-label="${ctx === 'menu' ? 'Menu' : 'Game'} playlist: ${escapeHtml(name)}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}',${escapeHtml(JSON.stringify(name))},${!on})">${svgCheck}</button>`;
         const header = `<div class="lb-playlist-grid lb-playlist-columns" aria-hidden="true">
             <span>Track</span><span>Menu</span><span>Game</span><span>Tags</span>
         </div>`;
@@ -10762,14 +11103,14 @@
             const menuOn = menuPlaylist.includes(name);
             const gameOn = isAction ? actionPlaylist.includes(name) : gamePlaylist.includes(name);
             const gameCtx = isAction ? 'action' : 'game';
-            const playMark = isPlaying ? '<span aria-hidden="true">▶</span> ' : '';
+            const playMark = isPlaying ? '<span class="lb-playlist-equalizer" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
             const tagChips = [...tags].sort().map(t => {
                 const tc = hexColor(TAG_COLORS[t], '#888888');
                 return `<span class="lb-playlist-tag" style="--tag-tone:${tc}">${escapeHtml(t)}</span>`;
             }).join('');
             return `<div class="lb-playlist-grid lb-playlist-row">
                 <button type="button" class="lb-block-btn lb-playlist-track" aria-label="Play ${escapeHtml(name)}" ${isPlaying ? 'aria-current="true"' : ''} onclick="window.playTrackInPlaylist(${escapeHtml(JSON.stringify(name))})">
-                    <span>${playMark}${escapeHtml(name)}</span>
+                    <span class="lb-playlist-track-title">${playMark}<span>${escapeHtml(name)}</span></span>
                     ${artist ? `<small>by ${escapeHtml(artist)}</small>` : ''}
                 </button>
                 ${trackToggle(menuOn, 'menu', name)}
@@ -10784,10 +11125,10 @@
     window.closePlaylistPanel = closePlaylistPanel;
     window.playTrackInPlaylist = function(name) {
         if (_currentMode !== 'menu' || !_trackPool.has(name)) return;
-        initAudio();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        musicPlaying = true;
-        const idx = _getPlaylist('menu').indexOf(name);
+        if (!musicPlaying) startMusic('menu');
+        else _unlockAudio(true);
+        if (!audioCtx) return;
+        const idx = _selectMusicTracks('menu').indexOf(name);
         if (idx >= 0) _currentMenuTrackIdx = idx;
         _menuShuffleQueue = [];
         _playMenuTrack(name);
@@ -10808,12 +11149,11 @@
             if (!settings[key].includes(name)) settings[key].push(name);
         } else {
             settings[key] = settings[key].filter(t => t !== name);
-            if (settings[key].length === 0) settings[key] = [...allTracks]; // can't disable all
-            // If this track is currently playing in menu mode, skip to a random enabled one
-            if (mode === 'menu' && _nowPlayingName === name && _menuSourceNode) {
+            if (settings[key].length === 0) settings[key] = [...allTracks];
+            if (mode === 'menu' && _currentMode === 'menu' && _nowPlayingName === name && _activeMusic) {
                 const nextEnabled = settings[key];
                 const nextName = nextEnabled[Math.floor(Math.random() * nextEnabled.length)];
-                const nextIdx = _menuFileNames.indexOf(nextName);
+                const nextIdx = _selectMusicTracks('menu').indexOf(nextName);
                 if (nextIdx >= 0) _playMenuFileTrack(nextIdx);
             }
         }
@@ -11101,7 +11441,8 @@
         });
         ov.querySelectorAll('[data-sfx]').forEach(row => {
             row.addEventListener('click', () => {
-                initAudio(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                _unlockAudio(true);
+                if (!audioCtx) return;
                 const n = row.dataset.sfx;
                 if (_devSfxPack === 'b') _playSFX_B(n);
                 else if (_devSfxPack === 'c') _playSFX_C(n);
@@ -11465,7 +11806,7 @@
     document.addEventListener('click', event => {
         const trigger = event.target.closest?.('[data-help-section]');
         if (!trigger) return;
-        if (trigger.dataset.helpSection === 'modes') document.getElementById('mode-opt-tooltip').style.display = 'none';
+        closeInfo();
         trigger.focus({ preventScroll: true });
         window.openHelp(trigger.dataset.helpSection);
     });
@@ -11521,10 +11862,7 @@
     window.openAchievements = function(tab) { renderAchievementsOverlay(tab || 'all'); const _achEl = document.getElementById('achievements-overlay'); _achEl.classList.remove('hidden'); _animateIn(_achEl, 'anim-in-right'); };
     window.closeAchievements = function() {
         const _mEl = document.getElementById('menu-overlay');
-        _animateOut(document.getElementById('achievements-overlay'), 'anim-out-right', function() {
-            const t = document.getElementById('ach-tip'); if (t) t.remove();
-            _checkAchGlow();
-        });
+        _animateOut(document.getElementById('achievements-overlay'), 'anim-out-right', _checkAchGlow);
         if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
     };
     window.openModeSelect = openModeSelect;
@@ -11614,6 +11952,7 @@
                 }
             },
             async playSound(pack, sound) {
+                if (!_audioInForeground()) return;
                 initAudio();
                 if (audioCtx.state === 'suspended') await audioCtx.resume();
                 const previousPack = settings.sfxPack;
@@ -11627,6 +11966,7 @@
     let dailyGiftReady = false;
     const dailyGift = LBCrates.mountDailyGift({
         button: document.getElementById('lb43-daily-gift'), getSave: () => saveData,
+        claimAfterPaint: _claimAfterPaint,
         ready: () => dailyGiftReady && !_gameInProgress, save: saveDataToFile, onClose: drawRankBadge,
         grant(plan) {
             const cards = LBCrates.grantDailyGift(saveData, plan, {

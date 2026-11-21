@@ -71,6 +71,25 @@ it('shows best counts alongside percentages of unrounded, comparable averages', 
   expect(byId('stat-best-score-pct').textContent).toBe('11969% of your average');
 });
 
+it('fits the recent calendar to the available width, ends today and responds to resize', () => {
+  const chart = byId('stat-activity-calendar');
+  chart.style.padding = '8px';
+  let width = 320;
+  Object.defineProperty(chart, 'clientWidth', { get: () => width });
+  game.w.openStats();
+  expect(query('button[data-cal-year="recent"]').textContent).toBe('Last 14 days');
+  expect(all('#cal-grid button')).toHaveLength(14);
+  const today = query('[aria-current="date"]');
+  expect(today).toBe(all('#cal-grid button').at(-1));
+  today.dispatchEvent(new game.w.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+  expect(game.w.document.activeElement).toBe(all('#cal-grid button').at(-2));
+  width = 530;
+  game.w.dispatchEvent(new game.w.Event('resize'));
+  expect(query('button[data-cal-year="recent"]').textContent).toBe('Last 24 days');
+  expect(all('#cal-grid button')).toHaveLength(24);
+  expect(query('[aria-current="date"]')).toBe(all('#cal-grid button').at(-1));
+});
+
 it('renders the full leap-year calendar and exposes counts on hover, tap and keyboard', () => {
   const save = game.api.save;
   save.stats.playHistory = { '2024-02-29': 6 };

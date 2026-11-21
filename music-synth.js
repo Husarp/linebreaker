@@ -236,7 +236,15 @@
 
         function schedule() {
             if (!running) return;
-            if (timeline.schedule(context.currentTime, play)) {
+            let ended;
+            try {
+                ended = timeline.schedule(context.currentTime, play);
+            } catch (error) {
+                source.onerror?.(error);
+                source.stop();
+                return;
+            }
+            if (ended) {
                 source.stop();
                 source.onended?.();
                 return;
@@ -259,6 +267,7 @@
         const source = {
             buffer: descriptor,
             onended: null,
+            onerror: null,
             connect(target) { output.connect(target); },
             setTempo: timeline.setTempo,
             finishAtBar: timeline.finishAtBar,
@@ -282,9 +291,9 @@
             stop() {
                 if (stopped) return;
                 stopped = true;
+                output.disconnect();
                 silence();
                 for (const filter of Object.values(noiseFilters)) filter.disconnect();
-                output.disconnect();
             }
         };
         return source;

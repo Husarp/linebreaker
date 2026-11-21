@@ -115,8 +115,7 @@
     flex: none;
     justify-content: space-between;
     padding: 4px 8px;
-    border: 1px solid var(--bb-edge);
-    border-radius: var(--bb-cap);
+    background: transparent;
 }
 .lb102-sfx-head h2 {
     font: 400 clamp(.55rem, 2.6vw, .68rem)/1.6 var(--bb-font-pixel);

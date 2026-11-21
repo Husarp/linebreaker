@@ -55,7 +55,10 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
   await qa.open('season-pass');
   expect(w.document.querySelector('.sp-receipt')).not.toBeNull();
   expect(w.document.querySelector('.sp-claim')).not.toBeNull();
-  await qa.open('daily-gift');
+  const gift = qa.open('daily-gift');
+  await Promise.resolve();
+  advance(100);
+  await gift;
   visible('daily-gift-overlay');
   await qa.open('level-crate');
   visible('level-box-overlay');
@@ -68,6 +71,12 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
     await opened;
     visible(id);
   }
+  const bonus = get('go-record-bonus');
+  expect(bonus.hidden).toBe(false);
+  expect(bonus.parentElement.className).toBe('go-stat-rows');
+  expect(bonus.querySelector('dt').textContent).toBe('Record bonus');
+  expect(bonus.querySelector('dd').textContent).toBe(`+${(1854).toLocaleString()} XP`);
+  expect(get('go-achievements-new').querySelector('.go-ach-icon').hasAttribute('style')).toBe(false);
   await qa.open('menu');
   await qa.open('transfer');
   expect(get('transfer-overlay').querySelector('[onclick*="file-import-input"]').disabled).toBe(true);
@@ -113,7 +122,7 @@ it('opens the documented screenshot targets through real UI handlers', async () 
   expect(w.__LB_QA.list()).toEqual(Object.keys(targets));
   for (const [name, selector] of Object.entries(targets)) {
     const opened = w.__LB_QA.open(name);
-    if (['game', 'pause', 'game-over'].includes(name)) {
+    if (['daily-gift', 'game', 'pause', 'game-over'].includes(name)) {
       await Promise.resolve();
       advance(3000);
     }

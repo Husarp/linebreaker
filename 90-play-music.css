@@ -58,6 +58,52 @@
     background: transparent !important;
 }
 
+#playlist-overlay .lb-playlist-check[aria-pressed="true"][data-playlist] {
+    --bb-button-edge: var(--playlist-tick);
+    --bb-button-ink: var(--playlist-tick);
+    --bb-button-face: color-mix(in srgb, var(--playlist-tick) 12%, var(--bb-face));
+}
+
+.lb-playlist-check[data-playlist="menu"] { --playlist-tick: var(--rarity-rare); }
+.lb-playlist-check[data-playlist="game"] { --playlist-tick: var(--success); }
+
+.lb-playlist-track-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.lb-playlist-equalizer {
+    display: inline-flex;
+    flex: none;
+    align-items: end;
+    gap: 2px;
+    height: 12px;
+}
+
+.lb-playlist-equalizer i {
+    width: 3px;
+    height: 12px;
+    background: currentColor;
+    clip-path: inset(50% 0 0);
+}
+
+.lb-playlist-equalizer i:nth-child(2) { clip-path: inset(0); }
+.lb-playlist-equalizer i:nth-child(3) { clip-path: inset(67% 0 0); }
+
+@media (prefers-reduced-motion: no-preference) {
+    #playlist-panel-content[data-playing] .lb-playlist-equalizer i {
+        animation: lb-playlist-level 720ms steps(4, end) var(--equalizer-delay, 0ms) infinite alternate !important;
+    }
+    .lb-playlist-equalizer i:nth-child(2) { --equalizer-delay: -360ms; }
+    .lb-playlist-equalizer i:nth-child(3) { --equalizer-delay: -540ms; }
+}
+
+@keyframes lb-playlist-level {
+    from { clip-path: inset(83.33% 0 0); }
+    to { clip-path: inset(0); }
+}
+
 .lb-playlist-tag {
     border-radius: 3px;
     overflow-wrap: anywhere;

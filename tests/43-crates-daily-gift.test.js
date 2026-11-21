@@ -71,6 +71,10 @@ it('grants a gift once and persists it before the player opens the animated reve
   expect(gift.dataset.status).toBe('available');
   gift.click();
   gift.click();
+  expect(gift.getAttribute('aria-busy')).toBe('true');
+  advance(16);
+  expect(api.save.lastDailyGift).toBeNull();
+  advance(16);
   const dialog = window.document.querySelector('#daily-gift-overlay');
   const crate = dialog.querySelector('.lb43-crate');
   expect(crate.querySelector('img').getAttribute('src')).toBe('assets/ui/crates/mythic.png');
@@ -102,6 +106,8 @@ it('shows the full streak count and a new week of dots, with a separate bonus ca
   window.matchMedia = () => ({ matches: true });
   const document = window.document;
   document.querySelector('#lb43-daily-gift').click();
+  game.advance(16);
+  game.advance(16);
   const dialog = document.querySelector('#daily-gift-overlay');
   const streak = dialog.querySelector('.lb64-streak');
   expect(streak.getAttribute('aria-label')).toBe('8-day gift streak, day 1 of 7 this cycle');
@@ -159,6 +165,8 @@ it('persists the high-water timestamp even if the clock rolls back before the fi
   expect(api.save.lastDailyGift).toBeNull();
   window.Date = originalDate;
   gift.click();
+  game.advance(16);
+  game.advance(16);
   expect(gift.dataset.status).toBe('claimed');
 });
 
@@ -174,6 +182,8 @@ it('uses the matching rarity art for rank, level, and mission milestone boxes', 
   document.querySelector('#lb-open-btn').click();
   expect(document.querySelector('.lb43-crate').hidden).toBe(true);
   document.querySelector('#lb-claim-btn').click();
+  advance(16);
+  advance(16);
   advance(600);
   expect(rarity()).toBe('epic');
   document.querySelector('#lb-open-btn').click();
@@ -182,6 +192,8 @@ it('uses the matching rarity art for rank, level, and mission milestone boxes', 
   expect(universal).toHaveLength(1);
   expect(universal[0].querySelector('.lb-block-reward-amount').textContent).toBe('×2');
   document.querySelector('#lb-claim-btn').click();
+  advance(16);
+  advance(16);
   api.refreshMissions();
   const save = api.save;
   save.missions.weekly.points = 120;

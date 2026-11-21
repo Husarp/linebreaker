@@ -5,6 +5,30 @@ let game, api;
 beforeEach(async () => { game = await loadGame(); api = game.api; api.setup(); });
 afterEach(() => game?.close());
 
+it.each([
+  ['daily', 'pointsToday', 10, 6, 9, 12],
+  ['weekly', 'points', 100, 60, 90, 120],
+])('reveals %s crate rarity only after reaching each milestone', (tab, pointsKey, points, claimed, ready, locked) => {
+  api.refreshMissions();
+  const save = api.save;
+  save.missions[tab][pointsKey] = points;
+  save.missions[tab].claimedMilestones = [claimed];
+  api.setSave(save);
+  game.w.renderMissionsOverlay(tab);
+
+  const {document, LBCrates} = game.w;
+  const selector = (threshold, tag) => document.querySelector(`${tag}[aria-label*="${threshold} points:"]`);
+  const claim = selector(ready, 'button');
+  const done = selector(claimed, '[role="img"]');
+  const future = selector(locked, '[role="img"]');
+  expect(claim.querySelector('img').getAttribute('src')).toBe(`assets/ui/crates/${LBCrates.missionRarity(ready, tab === 'weekly')}.png`);
+  expect(done.querySelector('img').getAttribute('src')).toBe(`assets/ui/crates/${LBCrates.missionRarity(claimed, tab === 'weekly')}.png`);
+  expect(done.querySelector('.mq-ms-claimed')).not.toBeNull();
+  expect(future.getAttribute('aria-label')).toBe(`${locked} points: locked crate`);
+  expect(future.querySelector('.mq-ms-crate--locked').getAttribute('src')).toBe('assets/ui/crates/common.png');
+  expect(selector(locked, 'button')).toBeNull();
+});
+
 it('rolls full daily and weekly sets without repeated objectives', () => {
   api.seed(34);
   const dailySeen = new Map(), weeklySeen = new Map();
@@ -74,9 +98,7 @@ it('credits raw and multiplied game XP separately and adds booster XP only once'
     const {daily, weekly} = api.save.missions;
     return [daily.quests, weekly.missions].map(quests => quests.map(quest => quest.progress));
   };
-  const disclosure = game.w.document.getElementById('go-mission-progress');
-  const points = game.w.document.getElementById('go-mission-points');
-  const missionRows = () => [...disclosure.querySelectorAll('li')];
+  const results = game.w.document.getElementById('go-overlay');
   const clearSingle = () => {
     const cells = Array.from({length: 22}, () => Array(10).fill(0));
     cells[21].fill(2);
@@ -89,29 +111,16 @@ it('credits raw and multiplied game XP separately and adds booster XP only once'
   api.setup({save, scoreMultiplier: 1.3});
   api.gameOver();
   expect(progress()).toEqual([[0, 0, 0], [0, 0, 0]]);
-  expect(disclosure.hidden).toBe(true);
   api.setup({save: api.save, scoreMultiplier: 1.3});
   clearSingle();
   expect(progress()).toEqual([[10, 20, 1], [10, 20, 1]]);
-  expect(disclosure.hidden).toBe(false);
-  expect(disclosure.open).toBe(false);
-  expect(points.textContent).toBe('0 pts earned');
-  expect(missionRows()).toHaveLength(6);
-  expect(missionRows()[1].textContent).toContain('20 / 35');
-  disclosure.querySelector('summary').click();
-  expect(disclosure.open).toBe(true);
+  expect(results.textContent).not.toContain('Mission progress');
   game.w.useScoreBooster('2xp_game');
   game.w.useScoreBooster('2xp_game');
   expect(progress()).toEqual([[10, 35, 1], [10, 40, 1]]);
   expect(api.save.missions.daily.quests[1].completed).toBe(true);
-  expect(disclosure.open).toBe(true);
-  expect(points.textContent).toBe('+2 pts to claim');
-  expect(missionRows()[1].textContent).toContain('Completed');
   api.setup({save: api.save, scoreMultiplier: 1.3});
   clearSingle();
   expect(progress()).toEqual([[20, 35, 2], [20, 60, 2]]);
-  expect(disclosure.open).toBe(false);
-  expect(points.textContent).toBe('0 pts earned');
-  expect(missionRows()).toHaveLength(5);
-  expect(disclosure.textContent).not.toContain('daily total XP');
+  expect(results.textContent).not.toContain('daily total XP');
 });

@@ -32,7 +32,15 @@
     const bar = document.createElement('div');
     bar.className = 'lb-touch-controls'; bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Touch game controls');
     const pointers = new Map(); let gesture;
-    const reset = () => { pointers.clear(); gesture = null; game.release(); };
+    const heldButtons = new Map();
+    const resetGesture = () => { pointers.clear(); gesture = null; };
+    const releaseButton = pointerId => {
+        if (heldButtons.delete(pointerId)) game.release(pointerId);
+    };
+    const reset = () => {
+        resetGesture();
+        for (const pointerId of heldButtons.keys()) releaseButton(pointerId);
+    };
     const glyphs = {
         left: 'M12 5l-7 7 7 7m-7-7h14', right: 'M12 5l7 7-7 7m7-7H5',
         cw: 'M5 9a8 8 0 1 1 0 7m0-7V3m0 6h6',
@@ -45,12 +53,24 @@
         const caption = document.createElement('span'); caption.textContent = label;
         button.append(caption);
         if (glyphs[action]) button.insertAdjacentHTML('beforeend', `<svg class="lb-touch-glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${glyphs[action]}"/></svg>`);
+        const isMove = action === 'left' || action === 'right';
         button.addEventListener('pointerdown', event => {
             event.preventDefault(); button.setPointerCapture(event.pointerId);
-            if (action === 'left' || action === 'right' || action === 'soft') game.press(action);
-            else game.action(action);
+            if (isMove || action === 'soft') {
+                heldButtons.set(event.pointerId, action);
+                game.press(action, event.pointerId);
+            } else game.action(action);
         });
-        for (const type of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(type, () => game.release());
+        if (isMove) button.addEventListener('pointermove', event => {
+            const held = heldButtons.get(event.pointerId);
+            if (!held) return;
+            const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('button');
+            const direction = target?.dataset.action;
+            if (target?.parentElement !== bar || direction === held || (direction !== 'left' && direction !== 'right')) return;
+            heldButtons.set(event.pointerId, direction);
+            game.press(direction, event.pointerId);
+        });
+        for (const type of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(type, event => releaseButton(event.pointerId));
         button.addEventListener('click', event => { if (event.detail === 0) game.action(action); });
         bar.append(button);
     }
@@ -91,10 +111,10 @@
         if (pointers.size) return;
         gesture.elapsed = event.timeStamp - gesture.started;
         gestureActions(gesture, true).forEach(game.action);
-        reset();
+        resetGesture();
     });
-    board.addEventListener('pointercancel', reset);
-    board.addEventListener('lostpointercapture', event => { if (pointers.has(event.pointerId)) reset(); });
+    board.addEventListener('pointercancel', resetGesture);
+    board.addEventListener('lostpointercapture', event => { if (pointers.has(event.pointerId)) resetGesture(); });
     root.addEventListener('blur', reset);
     document.addEventListener('visibilitychange', () => { if (document.hidden) reset(); });
 })(globalThis);

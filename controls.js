@@ -52,7 +52,7 @@
             const row = document.createElement('div');
             row.className = 'lb-controls-row';
             row.innerHTML = `<span>${actions[action]}</span>
-                <button type="button" class="lb-block-btn lb-block-btn--icon lb-controls-restore" aria-label="Restore default keys for ${actions[action]}" title="Restore default keys" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg></button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb-controls-restore" aria-label="Restore default keys for ${actions[action]}" data-control-tip="Restore default keys" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg></button>
                 <button type="button" class="lb-btn lb-btn--ghost"></button><button type="button" class="lb-btn lb-btn--ghost"></button>`;
             const [restore, ...slots] = row.querySelectorAll('button');
             restoreButtons.set(action, restore);

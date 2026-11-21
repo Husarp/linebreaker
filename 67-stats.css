@@ -75,6 +75,15 @@
 }
 
 #stats-overlay .lb-stats-calendar { width: max-content; min-width: 0; }
+#stat-activity-calendar { --recent-cell: 18px; --recent-gap: 3px; --recent-inset: 4px; }
+#stats-overlay .lb-stats-chart.lb-stats-chart--recent {
+    display: block;
+    padding: 0;
+    --calendar-cell: var(--recent-cell);
+    --calendar-gap: var(--recent-gap);
+}
+#stats-overlay .lb-stats-chart--recent .lb-stats-calendar-scroll { padding: var(--recent-inset); overflow: hidden; }
+#stats-overlay .lb-stats-chart--recent #cal-grid { grid-template-rows: var(--calendar-cell); }
 #stats-overlay :is(#cal-month-row, #cal-grid) {
     position: relative;
     display: grid;

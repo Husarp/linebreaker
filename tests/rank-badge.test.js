@@ -9,6 +9,48 @@ function badgeText() {
   return ['badge-rank-name', 'badge-level-num'].map(id => game.w.document.getElementById(id).textContent);
 }
 
+function readBadgeCut(xp) {
+  game.api.setSave({...game.api.save, totalXP: xp});
+  const firstCall = game.calls.length;
+  game.api.drawRankBadge();
+  const calls = game.calls.slice(firstCall);
+  return {cut: calls.find(([method]) => method === 'rect')?.[2], rotation: calls.find(([method]) => method === 'rotate')?.[1], calls};
+}
+
+function sampledFill(cut, minY, maxY, widthAt) {
+  let total = 0, filled = 0;
+  const count = 4000;
+  for (let index = 0; index < count; index++) {
+    const y = minY + (index + .5) * (maxY - minY) / count;
+    const width = widthAt(y);
+    total += width;
+    if (y >= cut) filled += width;
+  }
+  return filled / total;
+}
+
+function orbitalArea(cut, rotation, shape) {
+  if (!shape.sides) {
+    return sampledFill(cut, -24, 24, y => 2 * Math.sqrt(24 ** 2 - y ** 2));
+  }
+  const vertexCount = shape.sides * (shape.star ? 2 : 1);
+  const vertices = Array.from({length: vertexCount}, (_, index) => {
+    const angle = index / vertexCount * 2 * Math.PI - Math.PI / 2 - rotation;
+    const radius = 24 * (shape.star && index % 2 ? shape.innerRatio : 1);
+    return [radius * Math.cos(angle), radius * Math.sin(angle)];
+  });
+  const ys = vertices.map(vertex => vertex[1]);
+  return sampledFill(cut, Math.min(...ys), Math.max(...ys), y => {
+    const crossings = [];
+    vertices.forEach(([startX, startY], index) => {
+      const [endX, endY] = vertices[(index + 1) % vertexCount];
+      if ((startY > y) !== (endY > y)) crossings.push(startX + (y - startY) * (endX - startX) / (endY - startY));
+    });
+    crossings.sort((left, right) => left - right);
+    return crossings.reduce((width, x, index) => width + (index % 2 ? x : -x), 0);
+  });
+}
+
 it('renders a fresh save with no chosen file as Bronze level 1', () => {
   expect(game.api.save.totalXP).toBe(0);
   game.api.drawRankBadge();
@@ -37,8 +79,10 @@ it('draws the cached Halo glow and thin inner line on filled Gold badges', () =>
   canvasPrototype.getContext = function (...args) {
     const ctx = getContext.apply(this, args);
     const strokes = [];
+    let start;
     spriteStrokes.set(this, strokes);
-    ctx.stroke = () => strokes.push({width: ctx.lineWidth, blur: ctx.shadowBlur, color: ctx.strokeStyle});
+    ctx.moveTo = (x, y) => { start = [x, y]; };
+    ctx.stroke = () => strokes.push({width: ctx.lineWidth, blur: ctx.shadowBlur, color: ctx.strokeStyle, start});
     return ctx;
   };
   game.api.setSave({...game.api.save, totalXP: 37000});
@@ -48,14 +92,84 @@ it('draws the cached Halo glow and thin inner line on filled Gold badges', () =>
   const blits = game.calls.slice(firstCall).filter(([method]) => method === 'drawImage');
   const emptyBadge = blits[0][1];
   const filledBadge = blits[1][1];
-  expect(spriteStrokes.get(emptyBadge)).toEqual([{width: 1.35, blur: expect.any(Function), color: 'rgb(148,125,0)'}]);
-  expect(spriteStrokes.get(filledBadge)).toEqual([
+  const emptyStrokes = spriteStrokes.get(emptyBadge);
+  const filledStrokes = spriteStrokes.get(filledBadge);
+  expect(emptyStrokes[0].start).toEqual(filledStrokes[0].start);
+  expect(emptyStrokes[1].start).toEqual(filledStrokes[2].start);
+  const styles = strokes => strokes.map(({width, blur, color}) => ({width, blur, color}));
+  expect(styles(emptyStrokes)).toEqual([
+    {width: 1.4, blur: 5, color: '#ffd700'},
+    {width: .8, blur: 0, color: 'rgb(128,108,0)'},
+  ]);
+  expect(styles(filledStrokes)).toEqual([
     {width: 4.2, blur: 8, color: '#ffd700'},
     {width: .9, blur: 0, color: 'rgb(255,243,176)'},
     {width: .8, blur: 0, color: '#ffd700'},
   ]);
   game.api.drawRankBadge();
   expect(spriteStrokes.size).toBe(2);
+});
+
+it('fills 63.6% of the active diamond with Silver III at 1272 / 2000 XP', () => {
+  const {cut, rotation} = readBadgeCut(17272);
+  expect(badgeText()).toEqual(['SILVER', 'III']);
+  expect(game.api.getLevelInfo(17272)).toMatchObject({currentXP: 1272, neededXP: 2000, percent: .636});
+  expect(orbitalArea(cut, rotation, {sides: 4})).toBeCloseTo(.636, 3);
+});
+
+it.each([0, 10000, 30000, 65000, 120000, 200000, 310000, 455000])('keeps orbital rank at base XP %i area-proportional around the ring', base => {
+  const {rank, neededXP} = game.api.getLevelInfo(base);
+  for (const slot of [0, 2, 5, 9]) {
+    for (const fraction of [.005, .031, .17, .23, .5, .636, .88, .971, .995]) {
+      const {cut, rotation} = readBadgeCut(base + neededXP * (slot + fraction));
+      expect(Math.abs(orbitalArea(cut, rotation, rank.shape) - fraction)).toBeLessThan(.001);
+    }
+  }
+});
+
+it('keeps the curved Celestite shield area-proportional', () => {
+  const base = 640000;
+  const {neededXP} = game.api.getLevelInfo(base);
+  for (const fraction of [.03, .17, .5, .636, .88, .97]) {
+    const {calls} = readBadgeCut(base + neededXP * fraction);
+    const [, , cut] = calls.find(([method, x, , width]) => method === 'fillRect' && x === 0 && width === 300);
+    const area = sampledFill(cut, 30, 275, y => {
+      if (y < 75) return 200 * (y - 30) / 45;
+      if (y < 170) return 200;
+      const t = (156 - Math.sqrt(156 ** 2 - 204 * (y - 170))) / 102;
+      return 200 * (1 - t ** 2);
+    });
+    expect(area).toBeCloseTo(fraction, 3);
+  }
+});
+
+it('shows XP on activation for three seconds and refreshes the timeout on another tap', () => {
+  readBadgeCut(17272);
+  const doc = game.w.document;
+  const trigger = doc.getElementById('lb122-xp-trigger');
+  const tooltip = doc.getElementById('lb122-xp-tooltip');
+  expect(tooltip.hidden).toBe(true);
+  trigger.click();
+  expect(tooltip.hidden).toBe(false);
+  expect(tooltip.querySelector('strong').textContent).toBe('63.6% · 1,272 / 2,000 XP');
+  game.advance(2000);
+  trigger.click();
+  game.advance(2999);
+  expect(tooltip.hidden).toBe(false);
+  game.advance(1);
+  expect(tooltip.hidden).toBe(true);
+});
+
+it('clears tapped XP help on scrolling and when navigating to another screen', () => {
+  const { document, Event } = game.w;
+  const trigger = document.getElementById('lb122-xp-trigger');
+  const tooltip = document.getElementById('lb122-xp-tooltip');
+  trigger.click();
+  document.getElementById('menu-overlay').dispatchEvent(new Event('scroll'));
+  expect(tooltip.hidden).toBe(true);
+  trigger.click();
+  game.w.openAchievements();
+  expect(tooltip.hidden).toBe(true);
 });
 
 it.each([

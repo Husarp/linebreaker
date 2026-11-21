@@ -5,7 +5,7 @@
   "channels": { "bundle": "channel", "shell": "shell-channel" },
   "artifacts": { "manifest": "manifest.json", "shellManifest": "shell.json", "apk": "LinebreakerShell-{code}.apk", "asset": "f-{sha256}.bin" },
   "updateUrls": { "bundle": null, "shell": null, "releases": null },
-  "build": { "shellApi": 1, "versionCode": 1003, "versionName": "1.0.3", "webVersion": "1.0.3", "minShellApi": 1, "message": "Start on older Android WebViews, recover from stalled saves, and copy startup diagnostics from the app shell." },
+  "build": { "shellApi": 1, "versionCode": 1100, "versionName": "1.1.0", "webVersion": "1.1.0", "minShellApi": 1, "message": "Slide between movement arrows, see the next piece more clearly, and enjoy smoother music, quicker reward feedback, and cleaner screens." },
   "signing": {
     "privateKey": "~/.keystores/linebreaker/ota-private.pem",
     "publicKey": "keys/public-key.b64",

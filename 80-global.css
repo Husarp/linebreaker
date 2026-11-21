@@ -110,8 +110,9 @@ html ::-webkit-scrollbar-corner { background: var(--bb-well); }
     width: min(100%, 420px) !important;
     background: var(--bb-panel) !important;
 }
-.lb80-transfer > header { padding: 8px 10px; }
+.lb80-transfer > header { padding: 8px 10px; background: transparent; }
 .lb80-transfer-action { display: grid; gap: 8px; padding: 12px; text-align: left; }
+.lb80-transfer-action + .lb80-transfer-action { border-top: 1px solid var(--bb-edge); }
 .lb80-transfer .lb80-transfer-action > p { margin: 0; color: var(--bb-muted); }
 .lb80-transfer-action h3 { color: var(--bb-ink); }
 .lb80-transfer-warning { color: var(--warning); }

@@ -52,17 +52,54 @@ it('holds once until a placement', () => {
   expect(preview.getAttribute('aria-label')).toBe('Held piece');
   a.hold();expect(a.state.player.matrix).toEqual(first);
 });
-it('renders the HUD speed meter from level 1 through level 15', () => {
-  const meter = game.w.document.getElementById('lb-hud-speed-meter');
-  for (const speed of [1, 15, 1]) {
-    a.setup({speed});
-    a.hardDrop();
-    game.advance(100);
-    expect(meter.getAttribute('aria-valuemax')).toBe('15');
-    expect(meter.getAttribute('aria-valuenow')).toBe(String(speed));
-    expect(meter.textContent.trim()).toBe(String(speed));
-    expect(meter.style.getPropertyValue('--hud-speed-level')).toBe(String(speed));
+it('tracks line progress, resets it at the next level, and shows the cap', () => {
+  const progress = game.w.document.getElementById('lb-hud-level-progress');
+  const label = game.w.document.getElementById(progress.getAttribute('aria-labelledby'));
+  const clear = count => {
+    const cells = empty();
+    cells.slice(-count).forEach(row => row.fill(1));
+    a.setBoard(cells);
+    a.sweep();
+    game.advance(200);
+  };
+  clear(4);
+  expect([progress.value, progress.max, label.textContent]).toEqual([4, 10, 'LV 1 · 4/10 lines']);
+  clear(4);
+  clear(3);
+  expect([progress.value, label.textContent]).toEqual([1, 'LV 2 · 1/10 lines']);
+  a.setup({speed: 15});
+  a.hardDrop();
+  game.advance(100);
+  expect([progress.value, label.textContent]).toEqual([10, 'LV 15 · Max']);
+});
+
+it.each([false, true])('carries a held touch through a lock (line clear: %s) with fresh DAS', clearsLine => {
+  const cells = empty();
+  if (clearsLine) {
+    cells[21].fill(1);
+    cells[21].fill(0, 4, 6);
   }
+  a.setup({ cells, type: 4 });
+  game.w.document.getElementById('app').classList.add('active-game');
+  const input = game.w.LBInput;
+  input.press('right', 1);
+  expect(a.state.player.pos.x).toBe(4);
+  input.action('hard');
+  game.advance(100);
+  if (clearsLine) game.advance(200);
+
+  const { matrix, pos } = a.state.player;
+  const spawnX = 5 - Math.floor(matrix[0].length / 2);
+  expect(a.state.lines).toBe(Number(clearsLine));
+  expect(pos.x).toBe(spawnX + 1);
+  a.tick(0);
+  game.advance(159);
+  expect(a.state.player.pos.x).toBe(spawnX + 1);
+  game.advance(1);
+  expect(a.state.player.pos.x).toBe(spawnX + 2);
+  input.release(1);
+  game.advance(50);
+  expect(a.state.player.pos.x).toBe(spawnX + 2);
 });
 it('each seven-piece bag contains every piece', () => {
   for(let bag=0;bag<10;bag++) {const types=Array.from({length:7},()=>a.nextPiece().flat().find(Boolean));expect(types.sort()).toEqual([1,2,3,4,5,6,7]);}

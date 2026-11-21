@@ -92,9 +92,15 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
                 prefs.edit().remove("session").apply(); installing=false
             }
             log("check started; installed versionCode ${BuildConfig.VERSION_CODE}")
-            val (source, m) = checks.fetch(CheckChannel.SHELL, Updater.SHELL_URL, transport) {
+            val release = checks.fetchShell(Updater.SHELL_URL, transport) {
                 verifier.verifyShell(it.bytes,System.currentTimeMillis(),-1)
             }
+            if (release == null) {
+                lastCheckSucceeded = true
+                if (ready == null) status = "No app update published"
+                return@submit
+            }
+            val (source, m) = release
             engine.dates.record("shell",m.versionCode.toString(),m.releasedAt,
                 available=m.versionCode>BuildConfig.VERSION_CODE)
             lastCheckSucceeded=true

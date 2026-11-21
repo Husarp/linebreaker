@@ -5,6 +5,37 @@ import { loadGame } from './loader.js';
 let game;
 afterEach(() => game?.close());
 
+it('cycles only the equipped inventory preview and reuses static previews across repopulation', async () => {
+  let tickPreview;
+  game = await loadGame(true, null, null, {skin: 'retro'}, null, window => {
+    window.matchMedia = () => ({matches: false});
+    window.setInterval = (callback, delay) => { if (delay === 2500) tickPreview = callback; };
+  });
+  const {w, api} = game;
+  api.setup({save: {ownedSkins: ['retro', 'glass'], ownedPalettes: ['classic', 'pastel']}});
+  w.openInventory();
+  const previews = () => [...w.document.querySelectorAll('#owned-skin-btns canvas')];
+  const preview = skin => previews().find(canvas => canvas.dataset.skin === skin);
+  const staticPreviews = previews().filter(canvas => canvas.dataset.skin !== 'retro');
+  expect(tickPreview).toBeTypeOf('function');
+  tickPreview();
+  expect(preview('retro').dataset.previewColor).toBe('2');
+  expect(staticPreviews.every(canvas => canvas.dataset.previewColor === '1')).toBe(true);
+
+  w.inventoryTab('colors');
+  w.inventoryTab('blocks');
+  for (const canvas of staticPreviews) expect(preview(canvas.dataset.skin)).toBe(canvas);
+
+  w.document.querySelector('[data-inventory-equip="skin"][data-equip-value="glass"]').click();
+  tickPreview();
+  expect(preview('glass').dataset.previewColor).toBe('3');
+  expect(preview('retro').dataset.previewColor).toBe('1');
+  const retroPreview = preview('retro');
+  w.onSettingChange('colorPalette', 'pastel');
+  expect(preview('retro')).not.toBe(retroPreview);
+  expect(preview('retro').dataset.previewColor).toBe('1');
+});
+
 it('refunds each retired owned skin once and persists Retro and square through a restart', async () => {
   let persisted = JSON.stringify({
     totalXP: 123, universalParts: 2.4,

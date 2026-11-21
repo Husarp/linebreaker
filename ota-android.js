@@ -30,11 +30,25 @@
   section.className = 'settings-section lb-block-panel lb149-settings';
   section.innerHTML = `<h2 class="lb-block-section-title">Updates</h2><p data-update-version></p><p data-shell-version></p>
     <label class="lb149-choice">Automatic update checks <span class="lb-block-switch"><input type="checkbox" role="switch" data-auto disabled><span class="toggle-slider"></span></span></label>
-    <details><summary>Update policy</summary><div data-policy></div><p>Metered Wi-Fi counts as mobile. Limits apply to automatic downloads.</p>
-      <form data-address><label for="lb154-update-address">Bundle update address</label><div class="lb149-actions"><input id="lb154-update-address" type="url" required><button class="lb-block-btn">Save address</button></div></form>
-    </details>
+    <div data-policy></div><p>Metered Wi-Fi counts as mobile. Limits apply to automatic downloads.</p>
+    <form data-address><label for="lb154-update-address">Bundle update address</label><div class="lb149-actions"><input id="lb154-update-address" type="url" required><button class="lb-block-btn">Save address</button></div></form>
     <label class="lb149-choice" hidden>Android update notifications <span class="lb-block-switch"><input type="checkbox" role="switch" data-notifications disabled><span class="toggle-slider"></span></span></label>
-    <p data-feedback role="status"></p><p data-check-status role="status"></p><p data-status role="status"></p><div class="lb149-actions" data-section-actions></div>`;
+    <p data-feedback role="status"></p><div class="lb149-check-status"><p data-check-status role="status"></p></div><p data-status role="status"></p><div class="lb149-actions" data-section-actions></div>`;
+  const updateMessage = text => (text || '').replace(/Can't check for updates — connection blocked \(firewall\?\)/g, 'Could not check for updates');
+  const checkHelp = dialog('Update check help', `<ul>
+    <li>On public Wi-Fi, sign in to the network first, or try mobile data.</li>
+    <li>If the server refuses requests or is busy, wait and retry. If needed, try a network that allows GitHub and its download servers.</li>
+    <li>Check your device date and time and verify the bundle update address.</li>
+    </ul><div class="lb149-actions"><button type="button" class="lb-block-btn" data-close>Close</button></div>`);
+  function checkHelpButton() {
+    const button = makeButton('', () => { if (!checkHelp.open) checkHelp.showModal(); });
+    button.className = 'lb-info-btn';
+    button.setAttribute('aria-label', 'Update check help');
+    return button;
+  }
+  const settingsCheckHelp = checkHelpButton();
+  settingsCheckHelp.hidden = true;
+  section.querySelector('.lb149-check-status').append(settingsCheckHelp);
   const banner = document.createElement('aside');
   banner.className = 'lb-block-panel lb149-banner';
   banner.hidden = true;
@@ -160,9 +174,9 @@
     title.setAttribute('role', 'status');
     checkNotice.replaceChildren(title,
       makeButton('Retry', () => { checkNotice.hidden = true; void check(); }, true),
-      makeButton('Dismiss', () => { checkNotice.hidden = true; }));
+      makeButton('Dismiss', () => { checkNotice.hidden = true; }), checkHelpButton());
     checkNotice.hidden = false;
-    title.textContent = message;
+    title.textContent = updateMessage(message);
     setTimeout(() => { checkNotice.hidden = true; }, 15000);
   }
   let currentAction;
@@ -340,9 +354,10 @@
     const busy = current.webDownloadVersion || current.shellDownloading;
     const transfer = current.webDownloadVersion ? current.webTransfer : current.shellTransfer;
     const progress = busy && transfer?.total ? ` · ${Math.floor(100 * transfer.done / transfer.total)}% · ${size(transfer.done)} / ${size(transfer.total)} · ${size(transfer.speed)}/s` : '';
-    status(`${current.status} · ${current.shellStatus}${progress}`);
-    const checkSummary = current.updateChecks?.summary ?? '';
+    status(updateMessage(`${current.status} · ${current.shellStatus}${progress}`));
+    const checkSummary = updateMessage(current.updateChecks?.summary);
     section.querySelector('[data-check-status]').textContent = checkSummary;
+    settingsCheckHelp.hidden = !current.updateChecks?.failed;
     retry.textContent = current.updateChecks?.failed ? 'Retry' : 'CHECK NOW';
     diagnostics.querySelector('[data-state]').textContent = `${current.trial ? 'Trial' : busy ? 'Downloading' : current.staged || current.shellReady ? 'Ready' : 'No staged update'}: ${section.querySelector('[data-status]').textContent}${checkSummary ? ` · ${checkSummary}` : ''}`;
     renderPolicy(current.updateSettings);

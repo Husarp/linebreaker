@@ -2,7 +2,6 @@ package com.husarp.ota
 
 import android.content.Context
 import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import com.getcapacitor.JSObject
 import com.husarp.ota.core.*
 import java.text.DateFormat
@@ -13,13 +12,20 @@ class UpdateChecks(context: Context, private val log: EventLog, private val chan
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
     private val gate = CheckNoticeGate()
 
-    private fun validated() = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
-        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+    private fun connected() = connectivity.activeNetwork != null
 
     fun <Manifest> fetch(channel: CheckChannel, url: String, transport: Transport,
-                         verify: (DownloadedManifest) -> Manifest): Pair<DownloadedManifest, Manifest> {
+                         verify: (DownloadedManifest) -> Manifest): Pair<DownloadedManifest, Manifest> =
+        checked(channel, { checkNotNull(fetchManifest(url, transport, log, allowMissing = false)) }, verify)
+
+    fun <Manifest> fetchShell(url: String, transport: Transport, verify: (DownloadedManifest) -> Manifest): Pair<DownloadedManifest, Manifest>? {
+        val (source, manifest) = checked(CheckChannel.SHELL, { fetchManifest(url, transport, log) }) { it?.let(verify) }
+        return if (source != null && manifest != null) source to manifest else null
+    }
+
+    private fun <Source, Manifest> checked(channel: CheckChannel, fetch: () -> Source, verify: (Source) -> Manifest): Pair<Source, Manifest> {
         val result = try {
-            verifyUpdateCheck(::validated, { checkNotNull(fetchManifest(url, transport, log, allowMissing = false)) }, verify)
+            verifyUpdateCheck(::connected, fetch, verify)
         } catch (error: CheckException) {
             failure(channel, error)
             throw error

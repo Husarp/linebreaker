@@ -41,19 +41,19 @@ html {
     --lb-safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
     --lb-safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
 }
-/* Remove focus ring on mouse click (keep for keyboard navigation) */
-button:focus:not(:focus-visible) { outline: none !important; }
-a:focus:not(:focus-visible) { outline: none !important; }
-/* Extra: kill focus ring on all interactive elements via mouse click */
-button:focus { outline: none; }
-.opt-btn:focus, .e-step-btn:focus, .btn-back:focus { outline: none; }
+:focus:not(:focus-visible, .lb-gamepad-focus) { outline: none !important; }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 body {
     background: transparent; color: #fff; font-family: var(--ui-font);
     overflow: hidden; touch-action: none; height: 100dvh; width: 100vw;
-    display: flex; align-items: center; justify-content: center; user-select: none;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-user-select: none; user-select: none;
+}
+
+:is(input:not([type]), input[type="text"], input[type="number"], textarea, [contenteditable="true"]) {
+    -webkit-user-select: text; user-select: text;
 }
 
 .bg-gradient {
@@ -501,7 +501,6 @@ input[type="text"] {
 .settings-row:hover { background: rgba(255,255,255,0.04); box-shadow: inset 2px 0 0 var(--primary); }
 .settings-row > span:first-child { font-size: 0.8rem; color: #ddd; flex: 1; }
 .settings-tip { display: none; position: absolute; bottom: calc(100% + 4px); left: 0; right: 0; background: rgba(5,5,20,0.97); border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); border-radius: 8px; padding: 8px 10px; font-size: 0.68rem; color: #bbb; line-height: 1.5; z-index: 20; pointer-events: none; }
-.settings-row:hover .settings-tip { display: block; }
 .settings-instructions { font-size: 0.75rem; color: #aaa; line-height: 1.6; }
 .instr-grid { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin-top: 5px; }
 .instr-grid .key { background: rgba(0,0,0,0.5); border: 1px solid #444; border-radius: 4px; padding: 2px 6px; font-family: monospace; font-size: 0.7rem; color: var(--primary); text-align: center; white-space: nowrap; }
@@ -1746,14 +1745,6 @@ body[data-pack="pixel"] .mt-enable-btn {
 .mq-streak-label { font-family: var(--ui-font); font-size: 0.43rem; letter-spacing: 1.5px; color: #555; margin-top: 1px; }
 .mq-streak-best { font-size: 0.48rem; color: #444; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 4px; }
 .mq-streak-best b { color: #666; }
-/* tooltip for XP multiplier info */
-.mq-streak-panel-tip {
-    display: none; position: absolute; right: calc(100% + 8px); top: 0;
-    background: rgba(5,5,18,0.97); border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 10px; padding: 10px 14px; min-width: 200px; z-index: 100;
-    white-space: nowrap; box-shadow: 0 6px 24px rgba(0,0,0,0.7); pointer-events: none;
-}
-.mq-streak-half:hover .mq-streak-panel-tip { display: block; }
 
 /* Reward banner */
 .mq-reward-banner {
@@ -1807,8 +1798,7 @@ body[data-pack="pixel"] .mt-enable-btn {
 }
 :is(#custom-alert, #custom-confirm) button:focus-visible,
 input[type="range"]:focus-visible { outline: 3px solid var(--accent-bright); outline-offset: 3px; }
-.ach-menu-toast, #lb-tooltip-global, #mode-opt-tooltip,
-#block-preview-tip, #skin-preview-tip, #theme-preview-tip, #grid-preview-tip,
+.ach-menu-toast, #skin-preview-tip, #theme-preview-tip, #grid-preview-tip,
 #pl-row-tip {
     background: var(--surface-1) !important; color: var(--text) !important;
     font-family: var(--font-body) !important; border-radius: var(--radius-md) !important;
@@ -1874,9 +1864,7 @@ input.c-pill-input, input.d-steps-input {
 #go-overlay > * { flex-shrink: 0; max-width: 100%; }
 #go-overlay > h1 { margin: auto 0 0 !important; }
 #go-overlay > div:last-child { margin-bottom: auto; }
-#go-overlay :is(.xp-breakdown, #go-fun-stats, #go-boost-row, #go-achievements-new) { background: var(--surface-1) !important; border-radius: var(--radius-md); }
-#go-overlay :is(.xp-row, .game-stats-row, #go-mission-row) { font-family: var(--font-body); font-size: 14px !important; color: var(--text-muted) !important; }
-#go-mission-row { min-height: 44px; padding: 12px 0; }
+#go-overlay :is(.xp-row, .game-stats-row) { font-family: var(--font-body); font-size: 14px !important; color: var(--text-muted) !important; }
 .lb-reward-overlay { padding: 16px !important; overflow-y: auto; font-family: var(--font-body) !important; }
 .lb-reward-overlay > div { background: var(--surface-1) !important; color: var(--text); max-height: calc(100dvh - 32px) !important; overflow-y: auto; box-shadow: var(--shadow) !important; }
 .lb-reward-overlay div:not(.lb-rank-identity) { font-family: var(--font-body) !important; }

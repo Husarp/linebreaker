@@ -1,22 +1,41 @@
 package com.husarp.ota.core
 
+import java.net.SocketTimeoutException
+import javax.net.ssl.SSLException
+
 enum class CheckFailure(val message: String) {
     OFFLINE("Can't check for updates — no internet"),
-    UNREACHABLE("Can't check for updates — connection blocked (firewall?)"),
+    UNREACHABLE("Can't reach the update server"),
+    TIMEOUT("The update server took too long to respond"),
+    TLS("Couldn't make a secure connection to the update server"),
+    NOT_FOUND("The update file wasn't found"),
+    DENIED("The update server refused the request"),
+    RATE_LIMITED("Too many update requests — try again later"),
+    SERVER("The update server returned an error — try again later"),
     MANIFEST("Can't check for updates — signature or manifest problem")
 }
 
 class CheckException(val failure: CheckFailure, cause: Exception? = null) : Exception(failure.message, cause)
 
 fun <Source, Manifest> verifyUpdateCheck(
-    validated: () -> Boolean, fetch: () -> Source, verify: (Source) -> Manifest
+    connected: () -> Boolean, fetch: () -> Source, verify: (Source) -> Manifest
 ): Pair<Source, Manifest> {
-    if (!validated()) throw CheckException(CheckFailure.OFFLINE)
+    if (!connected()) throw CheckException(CheckFailure.OFFLINE)
     val source = try { fetch() } catch (error: Exception) {
-        val failure = when {
-            error is IntegrityException -> CheckFailure.MANIFEST
-            !validated() -> CheckFailure.OFFLINE
-            else -> CheckFailure.UNREACHABLE
+        val failure = when (error) {
+            is IntegrityException -> CheckFailure.MANIFEST
+            is HttpStatusException -> when (error.status) {
+                401, 403 -> CheckFailure.DENIED
+                404 -> CheckFailure.NOT_FOUND
+                429 -> CheckFailure.RATE_LIMITED
+                else -> CheckFailure.SERVER
+            }
+            else -> when {
+                !connected() -> CheckFailure.OFFLINE
+                error is SocketTimeoutException -> CheckFailure.TIMEOUT
+                error is SSLException -> CheckFailure.TLS
+                else -> CheckFailure.UNREACHABLE
+            }
         }
         throw CheckException(failure, error)
     }

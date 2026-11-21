@@ -44,8 +44,7 @@
     letter-spacing: .07em;
 }
 
-#app .lb-hud-tile > .value,
-#lb-hud-speed-value {
+#app .lb-hud-tile > .value {
     max-width: 100%;
     color: var(--accent-bright);
     font: 400 clamp(12px, 1.55vw, 18px)/1.2 var(--bb-font-pixel);
@@ -55,7 +54,7 @@
 
 #app #hold-panel, .lb-hud-score { grid-area: 1 / 1; }
 #app #pc-next-wrap, .lb-hud-record { grid-area: 2 / 1; }
-.lb-hud-speed, .lb-hud-time { grid-area: 3 / 1; }
+.lb-hud-level, .lb-hud-time { grid-area: 3 / 1; }
 .lb-hud-lines { grid-area: 4 / 1; }
 #game-ach-feed { grid-area: 5 / 1; align-self: start; }
 
@@ -88,23 +87,14 @@
 #hold-panel[data-empty] .lb-hud-hold-ghost { display: block; }
 #hold-panel[data-used] canvas { opacity: .45; }
 
-#lb-hud-speed-meter {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    width: min(100%, 116px);
+#app #lb-hud-level-label {
+    font: 700 11px/1.2 var(--font-body);
+    letter-spacing: 0;
+    text-transform: none;
+    text-align: center;
 }
 
-#lb-hud-speed-value { flex: none; min-width: 2ch; text-align: right; }
-
-.lb-hud-speed-track {
-    --hud-tick: calc(100% / var(--hud-speed-max, 1));
-    --hud-fill: calc(var(--hud-tick) * var(--hud-speed-level, 1));
-    flex: 1;
-    height: 10px;
-    background: linear-gradient(to right, var(--accent-bright) var(--hud-fill), var(--bb-edge) var(--hud-fill));
-    mask-image: repeating-linear-gradient(to right, #000 0 calc(var(--hud-tick) - 1px), transparent calc(var(--hud-tick) - 1px) var(--hud-tick));
-}
+#lb-hud-level-progress { flex: none; width: min(100%, 116px); height: 10px; padding: 1px; }
 
 #app .lb-hud-record { gap: 3px; }
 #app .lb-hud-record .value { font-size: .8rem; }
@@ -142,7 +132,7 @@
         --hud-column: calc((var(--hud-width) - 18px) / 11);
         grid-template-columns: repeat(2, calc(3 * var(--hud-column))) repeat(2, calc(2.5 * var(--hud-column)));
         grid-template-rows: 52px 46px auto;
-        grid-template-areas: 'hold score lines pause' 'next speed speed time' 'board board board board';
+        grid-template-areas: 'hold score lines pause' 'next level level time' 'board board board board';
         gap: 6px;
         width: 100%;
         padding: max(8px, var(--lb-safe-top)) max(12px, var(--lb-safe-right)) max(8px, var(--lb-safe-bottom)) max(12px, var(--lb-safe-left));
@@ -154,14 +144,14 @@
     #app #hold-panel { grid-area: hold; }
     #app #pc-next-wrap { grid-area: next; }
     #app .lb-hud-score { grid-area: score; }
-    #app .lb-hud-speed { grid-area: speed; }
+    #app .lb-hud-level { grid-area: level; }
     #app .lb-hud-lines { grid-area: lines; }
     #app .lb-hud-time { grid-area: time; }
 
     #app .lb-hud-key,
     #app .lb-hud-record { display: none; }
     #app :is(#hold-panel, #pc-next-wrap) { gap: 0; padding-block: 3px 5px; }
-    #app .lb-hud-tile > .value, #lb-hud-speed-value { font-size: clamp(10px, 3.2vw, 13px); }
+    #app .lb-hud-tile > .value { font-size: clamp(10px, 3.2vw, 13px); }
     #app #pc-time { font-size: clamp(8px, 2.8vw, 11px); }
     #app .lb-hud-hold-slot,
     #app .lb-hud-queue { height: 28px; }

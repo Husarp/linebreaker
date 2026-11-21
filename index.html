@@ -69,6 +69,7 @@
     <link rel="stylesheet" href="143-achievements.css">
     <link rel="stylesheet" href="148-branding-qa.css">
     <link rel="stylesheet" href="149-ota.css">
+    <link rel="stylesheet" href="165-safe-area.css">
 </head>
 <body>
 
@@ -94,9 +95,9 @@
     </div>
 </div>
 
-<div class="bg-gradient"></div>
+<div class="bg-gradient" aria-hidden="true"><div class="lb-wallpaper"></div></div>
 
-<canvas id="bg-canvas"></canvas>
+<canvas id="bg-canvas" hidden></canvas>
 
 <!-- CUSTOM ALERT MODAL -->
 <div id="custom-alert" role="dialog" aria-modal="true" aria-labelledby="alert-title" class="overlay hidden" style="z-index: 1100;">
@@ -135,9 +136,9 @@
         <h1 id="pause-title">PAUSED</h1>
         <button type="button" class="lb-run-primary" onclick="window.resumeGame()">RESUME</button>
         <div class="lb-run-icons" role="group" aria-label="Run actions">
-            <button type="button" aria-label="Restart run" title="Restart run" onclick="window.restartPausedRun()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg></button>
-            <button type="button" id="pause-settings" aria-label="Settings" title="Settings" onclick="window.openSettings(true)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3h4l1 3 2 1 3-1 2 4-2 2 2 2-2 4-3-1-2 1-1 3h-4l-1-3-2-1-3 1-2-4 2-2-2-2 2-4 3 1 2-1z"/><circle cx="12" cy="12" r="2.5"/></svg></button>
-            <button type="button" aria-label="Main menu via run results" title="End run and return through results" onclick="window.quitGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-7 9 7M5 10v10h14V10M10 20v-6h4v6"/></svg></button>
+            <button type="button" aria-label="Restart run" data-control-tip="Restart run" onclick="window.restartPausedRun()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg></button>
+            <button type="button" id="pause-settings" aria-label="Settings" data-control-tip="Settings" onclick="window.openSettings(true)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg></button>
+            <button type="button" aria-label="Main menu via run results" data-control-tip="End run and return through results" onclick="window.quitGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-topbar-home"/></svg></button>
         </div>
     </div>
 </div>
@@ -172,10 +173,10 @@
                 <div style="position:absolute;top:-2px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% + 4px);background:rgba(255,255,255,0.4);border-radius:1px;pointer-events:none;z-index:2;"></div>
                 <div style="position:absolute;top:-2px;left:75%;transform:translateX(-50%);width:2px;height:calc(100% + 4px);background:rgba(255,255,255,0.4);border-radius:1px;pointer-events:none;z-index:2;"></div>
             </div>
-            <button type="button" id="lb122-xp-trigger" aria-label="About ranks and XP" aria-describedby="lb122-xp-tooltip"></button>
+            <button type="button" id="lb122-xp-trigger" aria-label="Show XP progress" aria-describedby="lb122-xp-tooltip"></button>
             <div id="lb122-xp-tooltip" class="lb-block-panel" role="tooltip" hidden>
                 <strong id="lb122-xp-progress"></strong>
-                <span>Earn XP by playing or completing missions. Each level brings you closer to the next rank.</span>
+                <span id="lb122-xp-help">Earn XP by playing or completing missions. Each level brings you closer to the next rank.</span>
             </div>
         </div>
         <div class="xp-percent" id="menu-percent" style="display:none;">0%</div>
@@ -186,23 +187,23 @@
             <div class="lb110-menu-grid">
               <button class="btn-secondary btn-neon lb110-key" id="btn-missions" onclick="window.openMissions()">
                   <span data-icon="missions"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span>
-                  MISSIONS
+                  <span class="lb110-key-label">MISSIONS</span>
               </button>
               <button class="btn-secondary btn-neon lb110-key" id="btn-stats" onclick="window.openStats()">
                   <span data-icon="stats"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-4"/></svg></span>
-                  STATS
+                  <span class="lb110-key-label">STATS</span>
               </button>
               <button class="btn-secondary btn-neon lb110-key" id="btn-achievements" onclick="window.openAchievements()">
                   <span data-icon="achievements"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M22,3H19V2a1,1,0,0,0-1-1H6A1,1,0,0,0,5,2V3H2A1,1,0,0,0,1,4V6a4.994,4.994,0,0,0,4.276,4.927A7.009,7.009,0,0,0,11,15.92V18H7a1,1,0,0,0-.949.684l-1,3A1,1,0,0,0,6,23H18a1,1,0,0,0,.948-1.316l-1-3A1,1,0,0,0,17,18H13V15.92a7.009,7.009,0,0,0,5.724-4.993A4.994,4.994,0,0,0,23,6V4A1,1,0,0,0,22,3ZM5,8.829A3.006,3.006,0,0,1,3,6V5H5ZM16.279,20l.333,1H7.387l.334-1ZM17,9A5,5,0,0,1,7,9V3H17Zm4-3a3.006,3.006,0,0,1-2,2.829V5h2Z"/></svg></span>
-                  ACHIEVEMENTS
+                  <span class="lb110-key-label">ACHIEVEMENTS</span>
               </button>
               <button class="btn-secondary btn-neon lb110-key" id="btn-inventory" onclick="window.openInventory()">
                   <span data-icon="inventory"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 7v11.6c0 1.33-1.07 2.4-2.4 2.4H5.4C4.07 21 3 19.93 3 18.6V7" fill="currentColor" fill-opacity=".15"/><path d="M21 7v11.6c0 1.33-1.07 2.4-2.4 2.4H5.4C4.07 21 3 19.93 3 18.6V7" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round"/><path d="M21.4 3H2.6A1.6 1.6 0 001 4.6v.8A1.6 1.6 0 002.6 7h18.8A1.6 1.6 0 0023 5.4v-.8A1.6 1.6 0 0021.4 3Z" fill="currentColor" fill-opacity=".25" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10"/><path d="M8 11h8" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round"/></svg></span>
-                  INVENTORY
+                  <span class="lb110-key-label">INVENTORY</span>
               </button>
               <div id="btn-settings-wrap" style="position:absolute;inset:0;margin:auto;width:60px;height:60px;pointer-events:none;z-index:2;">
                 <button class="btn-secondary btn-neon" id="btn-settings" aria-label="Settings" onclick="window.openSettings()" style="--nc:#3388ff;pointer-events:auto;position:absolute;inset:0;margin:auto;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0;z-index:2;min-height:unset;">
-                    <span data-icon="settings"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                    <span data-icon="settings"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#lb-icon-settings"/></svg></span>
                 </button>
               </div>
             </div>
@@ -221,11 +222,11 @@
                 <span class="lb110-signal" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
             </div>
             <div id="mw-controls">
-                <button class="lb-block-btn lb-block-btn--icon" id="mw-prev" onclick="window.musicWidgetPrev()" title="Previous"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="2" y="3" width="2" height="10"/><polygon points="13,3 6,8 13,13"/></svg></button>
-                <button class="lb-block-btn lb-block-btn--icon" id="mw-pause" onclick="window.musicWidgetPause()" title="Pause/Play"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/></svg></button>
-                <button class="lb-block-btn lb-block-btn--icon" id="mw-next" onclick="window.musicWidgetNext()" title="Next"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="12" y="3" width="2" height="10"/><polygon points="3,3 10,8 3,13"/></svg></button>
-                <button class="lb-block-btn lb-block-btn--icon" id="mw-mute" onclick="window.toggleMute('music')" title="Mute/Unmute"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polygon points="7,3 3,6 1,6 1,10 3,10 7,13" fill="currentColor" stroke="none"/><path d="M10 6.5a2.5 2.5 0 0 1 0 3M12.5 4.5a5 5 0 0 1 0 7"/></svg></button>
-                <button class="lb-block-btn lb-block-btn--icon" id="mw-playlist" onclick="window.openPlaylistPanel()" title="Playlist"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button>
+                <button class="lb-block-btn lb-block-btn--icon" id="mw-prev" onclick="window.musicWidgetPrev()" aria-label="Previous" data-control-tip="Previous"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="2" y="3" width="2" height="10"/><polygon points="13,3 6,8 13,13"/></svg></button>
+                <button class="lb-block-btn lb-block-btn--icon" id="mw-pause" onclick="window.musicWidgetPause()" aria-label="Pause/Play" data-control-tip="Pause/Play"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/></svg></button>
+                <button class="lb-block-btn lb-block-btn--icon" id="mw-next" onclick="window.musicWidgetNext()" aria-label="Next" data-control-tip="Next"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="12" y="3" width="2" height="10"/><polygon points="3,3 10,8 3,13"/></svg></button>
+                <button class="lb-block-btn lb-block-btn--icon" id="mw-mute" onclick="window.toggleMute('music')" aria-label="Mute/Unmute" data-control-tip="Mute/Unmute"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polygon points="7,3 3,6 1,6 1,10 3,10 7,13" fill="currentColor" stroke="none"/><path d="M10 6.5a2.5 2.5 0 0 1 0 3M12.5 4.5a5 5 0 0 1 0 7"/></svg></button>
+                <button class="lb-block-btn lb-block-btn--icon" id="mw-playlist" onclick="window.openPlaylistPanel()" aria-label="Playlist" data-control-tip="Playlist"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button>
             </div>
             <div id="mw-time-row">
                 <span id="mw-elapsed">0:00</span>
@@ -298,6 +299,7 @@
 
 <!-- STATS & LEADERBOARD SCREEN -->
 <svg width="0" height="0" class="lb-run-icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="lb-icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
     <symbol id="lb-topbar-home" viewBox="0 0 24 24"><path d="m3 11 9-7 9 7M5 10v10h14V10M10 20v-6h4v6"/></symbol>
     <symbol id="lb-topbar-parent" viewBox="0 0 24 24"><path d="m8 5-5 5 5 5M3 10h11a5 5 0 0 1 0 10h-3"/></symbol>
     <symbol id="lb-topbar-next" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
@@ -317,18 +319,18 @@
     <symbol id="lb-metric-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
     <symbol id="lb-metric-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4m8-4v4m-7 9 2 2 4-4"/></symbol>
     <symbol id="lb-metric-blocks" viewBox="0 0 24 24"><path d="M5 4h7v14H5zm0 7h14v7h-7"/></symbol>
-    <symbol id="lb-metric-flame" viewBox="0 0 24 24"><path d="M13 2c1 5 6.5 7 6.5 13a7.5 7.5 0 0 1-15 0c0-3 1.5-5.5 4-7.5-.2 2 .5 3.2 1.5 4 2.5-3 3.4-6 3-9.5z" fill="currentColor" stroke="none"/><path d="M12 20a3 3 0 0 1-3-3c0-1.4 1.4-2.6 3-4.5 1.6 1.9 3 3.1 3 4.5a3 3 0 0 1-3 3z" fill="#ffe1a2" stroke="none"/></symbol>
+    <symbol id="lb-metric-flame" viewBox="0 0 24 24"><path d="M13 2c1 5 6.5 7 6.5 13a7.5 7.5 0 0 1-15 0c0-3 1.5-5.5 4-7.5-.2 2 .5 3.2 1.5 4 2.5-3 3.4-6 3-9.5z" fill="currentColor" stroke="none"/><path d="M12 20a3 3 0 0 1-3-3c0-1.4 1.4-2.6 3-4.5 1.6 1.9 3 3.1 3 4.5a3 3 0 0 1-3 3z" fill="var(--lb-flame-core, #ffe1a2)" stroke="none"/></symbol>
     <symbol id="lb-metric-box" viewBox="0 0 24 24"><path d="M4 9h16v11H4zm-1-5h18v5H3zm7 9h4"/></symbol>
 </svg>
-<div id="stats-overlay" class="overlay hidden lb-fullscreen" role="region" aria-labelledby="stats-title">
+<div id="stats-overlay" class="overlay hidden lb-fullscreen" data-lb-bar-screen role="region" aria-labelledby="stats-title">
+    <header class="lb-header lb-block-topbar" data-lb-topbar>
+        <div class="lb-topbar-crumb">
+            <button class="lb-block-back" type="button" onclick="window.closeStats()"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg>Menu</button>
+            <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
+            <h1 class="lb-topbar-title" id="stats-title">Statistics</h1>
+        </div>
+    </header>
     <div class="lb-stats-shell">
-        <header class="lb-header lb-block-topbar">
-            <div class="lb-topbar-crumb">
-                <button class="lb-block-back" type="button" onclick="window.closeStats()"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg>Menu</button>
-                <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
-                <h1 class="lb-topbar-title" id="stats-title">Statistics</h1>
-            </div>
-        </header>
         <div class="lb-block-tabs lb-stats-tabs" role="tablist" aria-label="Statistics views">
             <button class="lb-block-btn" type="button" role="tab" id="stats-tab-general" aria-controls="general-stats-container" aria-selected="true" data-stats-tab="general">General stats</button>
             <button class="lb-block-btn" type="button" role="tab" id="stats-tab-lb" aria-controls="leaderboard-container" aria-selected="false" tabindex="-1" data-stats-tab="leaderboard">Leaderboard</button>
@@ -376,14 +378,14 @@
 </div>
 
 <!-- INVENTORY SCREEN -->
-<div id="inventory-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1004;">
-    <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding:14px 20px; flex-shrink:0; position:sticky; top:0; z-index:1;">
+<div id="inventory-overlay" class="lb-r3 overlay hidden lb-fullscreen" data-lb-bar-screen style="z-index: 1004;">
+    <div class="lb-block-topbar" data-lb-topbar style="display:flex; align-items:center; gap:12px; padding:14px 20px; flex-shrink:0; position:sticky; top:0; z-index:1;">
         <div class="lb-topbar-crumb">
             <button type="button" class="btn-back lb-block-back" onclick="window.closeInventory()"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg>Menu</button>
             <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
             <h1 class="lb-topbar-title">Inventory</h1>
         </div>
-        <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About the inventory" title="About the inventory"></button>
+        <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About the inventory" data-control-tip="About the inventory"></button>
     </div>
     <div class="lb-inventory-content lb-scroll-fade" tabindex="0">
 
@@ -397,15 +399,15 @@
         <!-- ===== BLOCKS TAB ===== -->
         <div id="inventory-blocks" role="tabpanel" aria-labelledby="inventory-tab-blocks" data-invtab-content="blocks">
             <section class="lb-block-card lb-inventory-section">
-                <h2 class="lb-block-section-title lb-help-label">Appearance <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About appearance" title="About appearance"></button></h2>
+                <h2 class="lb-block-section-title lb-help-label">Appearance <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About appearance" data-control-tip="About appearance"></button></h2>
                 <div id="ghost-section-wrap"></div>
             </section>
             <section class="lb-block-card lb-inventory-section">
-                <h2 class="lb-block-section-title lb-help-label">Block Skin <span id="skin-owned-count"></span> <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About block skin" title="About block skin"></button></h2>
+                <h2 class="lb-block-section-title lb-help-label">Block Skin <span id="skin-owned-count"></span> <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About block skin" data-control-tip="About block skin"></button></h2>
                 <div id="owned-skin-btns"></div>
             </section>
             <section class="lb-block-card lb-inventory-section">
-                <h2 class="lb-block-section-title lb-help-label">Grid Style <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About grid style" title="About grid style"></button></h2>
+                <h2 class="lb-block-section-title lb-help-label">Grid Style <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About grid style" data-control-tip="About grid style"></button></h2>
                 <div id="owned-grid-style-btns"></div>
             </section>
         </div>
@@ -416,7 +418,7 @@
                 <header class="lb-block-panel-head">
                     <h2 class="lb-block-section-title" id="inventory-theme-title">Theme Color</h2>
                     <span id="theme-owned-count" class="lb-colors-count"></span>
-                    <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About theme color" title="About theme color"></button>
+                    <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About theme color" data-control-tip="About theme color"></button>
                 </header>
                 <div id="owned-theme-btns"></div>
             </section>
@@ -424,7 +426,7 @@
                 <header class="lb-block-panel-head">
                     <h2 class="lb-block-section-title" id="inventory-palette-title">Block Palette</h2>
                     <span id="palette-owned-count" class="lb-colors-count"></span>
-                    <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About block palette" title="About block palette"></button>
+                    <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About block palette" data-control-tip="About block palette"></button>
                 </header>
                 <div id="owned-palette-btns"></div>
             </section>
@@ -439,8 +441,8 @@
 </div>
 
 <!-- MISSIONS SCREEN -->
-<div id="missions-overlay" class="overlay hidden" onclick="window._mqOverlayClick(event)" style="z-index:1004;background:#050510;backdrop-filter:none;justify-content:flex-start;align-items:stretch;padding:0;overflow:hidden;flex-direction:column;text-align:left;">
-    <div class="mq89-header lb-block-topbar">
+<div id="missions-overlay" class="overlay hidden" data-lb-bar-screen onclick="window._mqOverlayClick(event)" style="z-index:1004;background:#050510;backdrop-filter:none;justify-content:flex-start;align-items:stretch;padding:0;overflow:hidden;flex-direction:column;text-align:left;">
+    <div class="mq89-header lb-block-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
             <button type="button" class="btn-back lb-block-back" onclick="window.closeMissions()"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg>Menu</button>
             <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
@@ -450,7 +452,7 @@
             <button type="button" class="lb-block-btn" data-tab="daily" aria-pressed="true" aria-controls="mq-mission-view">DAILY</button>
             <button type="button" class="lb-block-btn" data-tab="weekly" aria-pressed="false" aria-controls="mq-mission-view">WEEKLY</button>
             <button type="button" class="lb-block-btn" data-tab="season" aria-pressed="false" aria-controls="season-pass-overlay">SEASON</button>
-            <button type="button" class="mq-v4-rules lb-info-btn" data-help-section="missions" aria-label="About missions" title="About missions"></button>
+            <button type="button" class="mq-v4-rules lb-info-btn" data-help-section="missions" aria-label="About missions" data-control-tip="About missions"></button>
         </div>
         <div id="mq-countdown">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="15" rx="1"/><path d="M8 3v6m8-6v6M4 11h16m-12 5h2m4 0h2"/></svg>
@@ -484,8 +486,8 @@
 </div>
 
 <!-- SETTINGS SCREEN -->
-<div id="settings-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1004;">
-    <header class="lb-header lb-block-topbar lb102-topbar">
+<div id="settings-overlay" class="lb-r3 overlay hidden lb-fullscreen" data-lb-bar-screen style="z-index: 1004;">
+    <header class="lb-header lb-block-topbar lb102-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
             <button type="button" id="settings-back" class="btn-back lb-block-back" onclick="window.closeSettings()"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg><span>Menu</span></button>
             <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
@@ -496,7 +498,7 @@
     <div class="lb102-settings-content">
 
         <section class="lb-card lb-stack lb-controls" id="controls-settings" aria-labelledby="controls-title">
-            <h2 class="lb-eyebrow lb-help-label" id="controls-title">Controls <button type="button" class="lb-info-btn" data-help-section="basics" aria-label="About controls" title="About controls"></button></h2>
+            <h2 class="lb-eyebrow lb-help-label" id="controls-title">Controls <button type="button" class="lb-info-btn" data-help-section="basics" aria-label="About controls" data-control-tip="About controls"></button></h2>
             <div class="lb-controls-grid">
                 <div class="lb-controls-row lb102-controls-head" aria-hidden="true"><span>Action</span><span>Primary</span><span>Secondary</span></div>
             </div>
@@ -505,7 +507,7 @@
 
         <!-- ===== SOUND ===== -->
             <div class="settings-section">
-                <div class="settings-title lb-help-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>SOUND <button type="button" class="lb-info-btn" data-help-section="sound" aria-label="About sound settings" title="About sound settings"></button></div>
+                <div class="settings-title lb-help-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>SOUND <button type="button" class="lb-info-btn" data-help-section="sound" aria-label="About sound settings" data-control-tip="About sound settings"></button></div>
                 <div class="settings-row">
                     <span>SFX volume</span>
                     <div class="c-pill-wrap" style="flex:1;">
@@ -548,7 +550,7 @@
 
         <!-- ===== OTHER ===== -->
             <div class="settings-section">
-                <div class="settings-title lb-help-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>GAMEPLAY <button type="button" class="lb-info-btn" data-help-section="scoring" aria-label="About gameplay settings" title="About gameplay settings"></button></div>
+                <div class="settings-title lb-help-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>GAMEPLAY <button type="button" class="lb-info-btn" data-help-section="scoring" aria-label="About gameplay settings" data-control-tip="About gameplay settings"></button></div>
                 <div class="settings-row">
                     <span>DAS delay</span>
                     <div class="d-steps-wrap">
@@ -683,7 +685,7 @@
                 </label>
             </div>
             <div class="settings-section">
-                <div class="settings-title lb-help-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>DISPLAY <button type="button" class="lb-info-btn" data-help-section="display" aria-label="About display settings" title="About display settings"></button></div>
+                <div class="settings-title lb-help-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>DISPLAY <button type="button" class="lb-info-btn" data-help-section="display" aria-label="About display settings" data-control-tip="About display settings"></button></div>
                 <div class="settings-row">
                     <span>Font size</span>
                     <div style="min-width:190px;display:flex;align-items:center;justify-content:flex-end;">
@@ -730,6 +732,13 @@
                         <option value="image">Image</option>
                         <option value="plain">Plain</option>
                     </select>
+                </label>
+                <label class="settings-row">
+                    <span>Moving background</span>
+                    <span class="toggle lb-block-switch">
+                        <input type="checkbox" role="switch" id="setting-moving-background" checked>
+                        <span class="toggle-slider" aria-hidden="true"></span>
+                    </span>
                 </label>
                 <label class="settings-row" for="setting-bg-block-motion">
                     <span>Background blocks</span>
@@ -780,12 +789,12 @@
 <div id="transfer-overlay" class="overlay hidden">
     <div class="lb-block-dialog lb80-transfer" role="dialog" aria-modal="true" aria-labelledby="transfer-title">
         <header class="lb-block-panel-head"><h2 id="transfer-title">Save Transfer</h2></header>
-        <section class="lb-block-card lb80-transfer-action" aria-labelledby="transfer-export-title">
+        <section class="lb80-transfer-action" aria-labelledby="transfer-export-title">
             <h3 id="transfer-export-title" class="lb-block-section-title">Export a backup</h3>
             <p>Keep a <strong>.lbsave</strong> backup or move it to another device. Exporting keeps your progress intact.</p>
             <button type="button" class="lb-block-btn lb-block-btn--primary" onclick="window.startExportProcess()"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5"/></svg>Export save file</button>
         </section>
-        <section class="lb-block-card lb80-transfer-action" aria-labelledby="transfer-import-title">
+        <section class="lb80-transfer-action" aria-labelledby="transfer-import-title">
             <h3 id="transfer-import-title" class="lb-block-section-title">Restore from a file</h3>
             <p>Select a <strong>.lbsave</strong> file or a <strong>legacy save file</strong>. <strong class="lb80-transfer-warning">Importing replaces your current progress.</strong></p>
             <input type="file" id="file-import-input" accept=".lbsave,.&#116;etris,.json" hidden onchange="window.handleFileImport(event)">
@@ -878,8 +887,8 @@
 </div>
 
 <!-- PLAYLIST PANEL -->
-<div id="playlist-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1010;">
-    <div class="lb-block-topbar lb-playlist-topbar">
+<div id="playlist-overlay" class="lb-r3 overlay hidden lb-fullscreen" data-lb-bar-screen style="z-index: 1010;">
+    <div class="lb-block-topbar lb-playlist-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
             <button type="button" class="btn-back lb-block-back" onclick="window.closePlaylistPanel()"><svg aria-hidden="true"><use href="#lb-topbar-parent"/></svg>Back</button>
             <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
@@ -921,8 +930,8 @@
 </div>
 
 <!-- HELP SCREEN -->
-<div id="rules-overlay" class="overlay hidden lb-help" role="dialog" aria-modal="true" aria-labelledby="help-title">
-    <header class="lb-help-header lb-block-topbar">
+<div id="rules-overlay" class="overlay hidden lb-help" data-lb-bar-screen role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <header class="lb-help-header lb-block-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
             <button type="button" id="help-back" class="lb-block-back" onclick="window.closeHelp()"><svg aria-hidden="true"><use href="#lb-topbar-parent"/></svg>Back</button>
             <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
@@ -946,13 +955,9 @@
         <dl class="go-stat-rows" aria-label="Run stats">
             <div><dt><svg class="go-icon lb-run-icon--lines" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-lines"/></svg>Lines broken</dt><dd id="go-lines-cnt">0</dd></div>
             <div><dt><svg class="go-icon lb-run-icon--speed" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-speed"/></svg>Speed level</dt><dd id="go-max-speed">1</dd></div>
-            <div id="go-xp-row"><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/></svg>XP gained</dt><dd id="go-total-xp" aria-live="polite">0</dd></div>
+            <div id="go-xp-row"><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path id="go-xp-icon" d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/></svg>XP gained</dt><dd id="go-total-xp" aria-live="polite">0</dd></div>
+            <div id="go-record-bonus" hidden><dt><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#go-xp-icon"/></svg>Record bonus</dt><dd id="go-record-bonus-xp"></dd></div>
         </dl>
-        <p id="go-record-bonus" hidden></p>
-        <details class="go-mission-progress lb-block-expand" id="go-mission-progress" hidden>
-            <summary><span class="go-mission-summary"><strong>Mission progress</strong><span id="go-mission-points"></span><svg class="go-icon go-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
-            <ul class="lb-block-expand-body" id="go-mission-list"></ul>
-        </details>
     </div>
 
     <section id="go-boost-row" class="go-panel lb-block-panel" aria-labelledby="go-boost-title" hidden></section>
@@ -993,11 +998,9 @@
                 <canvas id="pc-next3-canvas" width="150" height="150" style="display:none;"></canvas>
             </div>
         </div>
-        <div class="glass-box lb-hud-tile lb-hud-speed">
-            <div class="label" id="lb-hud-speed-label">Speed</div>
-            <div id="lb-hud-speed-meter" role="meter" aria-labelledby="lb-hud-speed-label" aria-valuemin="1" aria-valuenow="1">
-                <span id="lb-hud-speed-value">1</span><span class="lb-hud-speed-track" aria-hidden="true"></span>
-            </div>
+        <div class="glass-box lb-hud-tile lb-hud-level">
+            <div class="label" id="lb-hud-level-label">LV 1 · 0/10 lines</div>
+            <progress id="lb-hud-level-progress" class="lb-block-progress" aria-labelledby="lb-hud-level-label" max="10" value="0"></progress>
         </div>
         <div class="glass-box lb-hud-tile lb-hud-lines"><div class="label">Lines</div><div class="value" id="pc-lines">0</div></div>
     </div>
@@ -1025,8 +1028,8 @@
 </div>
 
 <!-- ACHIEVEMENTS OVERLAY -->
-<div id="achievements-overlay" class="overlay hidden" style="z-index: 1003; justify-content: flex-start; padding: 0; overflow: hidden; align-items: stretch;">
-    <div class="lb-block-topbar" style="display:flex; align-items:center; gap:12px; padding-block:14px; flex-shrink:0; position:sticky; top:0; z-index:1;">
+<div id="achievements-overlay" class="overlay hidden" data-lb-bar-screen style="z-index: 1003; justify-content: flex-start; padding: 0; overflow: hidden; align-items: stretch;">
+    <div class="lb-block-topbar" data-lb-topbar style="display:flex; align-items:center; gap:12px; padding-block:14px; flex-shrink:0; position:sticky; top:0; z-index:1;">
         <div class="lb-topbar-crumb">
             <button type="button" class="btn-back lb-block-back" onclick="window.closeAchievements()"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg>Menu</button>
             <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
@@ -1054,7 +1057,7 @@
                 <option value="progress">Progress</option>
                 <option value="recent">Recently unlocked</option>
             </select>
-            <label class="ach-dates" title="Show unlock dates on hover">
+            <label class="ach-dates" data-control-tip="Show unlock dates in achievement details">
                 <span>Dates</span>
                 <span class="toggle">
                     <input type="checkbox" role="switch" id="ach-dates-toggle">
@@ -1069,8 +1072,8 @@
 </div>
 
 <!-- TUTORIAL OVERLAY -->
-<div id="tutorial-overlay" class="lb-r3 overlay hidden lb-fullscreen" style="z-index: 1008;" aria-labelledby="tutorial-title">
-    <header class="lb-header lb-block-topbar lb102-topbar">
+<div id="tutorial-overlay" class="lb-r3 overlay hidden lb-fullscreen" data-lb-bar-screen style="z-index: 1008;" aria-labelledby="tutorial-title">
+    <header class="lb-header lb-block-topbar lb102-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
             <button type="button" class="btn-back lb-block-back" onclick="window.closeTutorial()"><svg aria-hidden="true"><use href="#lb-topbar-parent"/></svg>Back</button>
             <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
@@ -1087,19 +1090,19 @@
 </div>
 
 <!-- CREDITS OVERLAY -->
-<div id="credits-overlay" class="overlay hidden lb-fullscreen" aria-labelledby="credits-title">
+<div id="credits-overlay" class="overlay hidden lb-fullscreen" data-lb-bar-screen aria-labelledby="credits-title">
+    <header class="lb-header lb-block-topbar" data-lb-topbar>
+        <div class="lb-topbar-crumb">
+            <button type="button" class="btn-back lb-block-back" onclick="window.closeCredits()"><svg aria-hidden="true"><use href="#lb-topbar-parent"/></svg>Back</button>
+            <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
+            <h1 class="lb-topbar-title" id="credits-title">Credits &amp; About</h1>
+        </div>
+    </header>
     <div class="lb80-credits">
-        <header class="lb-block-topbar">
-            <div class="lb-topbar-crumb">
-                <button type="button" class="btn-back lb-block-back" onclick="window.closeCredits()"><svg aria-hidden="true"><use href="#lb-topbar-parent"/></svg>Back</button>
-                <svg aria-hidden="true"><use href="#lb-topbar-next"/></svg>
-                <h1 class="lb-topbar-title" id="credits-title">Credits &amp; About</h1>
-            </div>
-        </header>
         <div class="lb-block-panel lb80-credits-edition">
             <strong>LINEBREAKER</strong>
             <span>RPG Edition</span>
-            <span class="lb80-credits-version" data-update-version>Version 1.0.3</span>
+            <span class="lb80-credits-version" data-update-version>Version 1.1.0</span>
         </div>
         <section class="lb-block-card lb80-credits-card" aria-labelledby="credits-team">
             <h2 class="lb-block-section-title" id="credits-team">Created by</h2>
@@ -1123,7 +1126,6 @@
     </div>
 </div>
 
-<div id="lb-tooltip-global" style="display:none; position:fixed; z-index:2000; background:rgba(5,5,20,0.97); border:1px solid color-mix(in srgb, var(--primary) 30%, transparent); border-radius:8px; padding:8px 10px; font-size:0.68rem; color:#bbb; line-height:1.5; gap:12px; flex-wrap:wrap; pointer-events:none; font-family:inherit;"></div>
 <script src="native-save.js"></script>
 <script src="41-season-pass.js"></script>
 <script src="save-sanitize.js"></script>
@@ -1146,5 +1148,6 @@
 <script src="touch.js"></script>
 <script src="desktop.js"></script>
 <script src="update-ui.js"></script>
+<script src="safe-area.js"></script>
 </body>
 </html>

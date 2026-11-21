@@ -1,4 +1,4 @@
-.overlay:is(#mode-select-overlay, #pause-overlay, #go-overlay) {
+.overlay:is(#mode-select-overlay, #pause-overlay) {
     background: rgb(5 7 10 / 58%);
     backdrop-filter: blur(3px);
 }

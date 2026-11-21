@@ -45,6 +45,7 @@
             pinnedScores: [leaderboard[0]],
             funLeaderboard: [{ ...leaderboard[2], score: 6400, cols: 12, rows: 20, startSpeed: 3 }],
             achievements: {
+                score: { unlocked: true, tier: 5, unlockedAt: previousDate() },
                 games: { unlocked: true, tier: 1, unlockedAt: previousDate(4) },
                 total_lines: { unlocked: true, tier: 1, unlockedAt: previousDate(2) },
                 mq_first_easy: { unlocked: true, unlockedAt: previousDate() },

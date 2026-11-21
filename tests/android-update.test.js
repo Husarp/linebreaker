@@ -105,17 +105,25 @@ it('shows a pending check failure after game readiness and keeps Retry in settin
   expect(game.ota.claimCheckNotice).toHaveBeenCalledWith({ token: 'session' });
   const notice = game.get('.lb149-check-notice');
   expect(notice.hidden).toBe(false);
-  expect(notice.querySelector('[role="status"]').textContent).toBe(message);
+  expect(notice.querySelector('[role="status"]').textContent).toBe('Could not check for updates');
   notice.querySelector('button').click();
   await game.redraw();
   expect(game.ota.check).toHaveBeenCalledOnce();
   expect(game.ota.claimCheckNotice).toHaveBeenCalledOnce();
   expect(notice.hidden).toBe(true);
-  expect(game.get('[data-check-status]').textContent).toBe(message);
+  expect(game.get('[data-check-status]').textContent).toBe('Could not check for updates');
+  expect(game.get('.lb149-settings details')).toBeNull();
+  expect(game.get('[data-policy] input')).not.toBeNull();
+  const help = game.get('.lb149-settings [aria-label="Update check help"]');
+  expect(help.hidden).toBe(false);
+  help.click();
+  expect(game.get('dialog[aria-label="Update check help"]').open).toBe(true);
+  game.get('dialog[aria-label="Update check help"] [data-close]').click();
   expect(game.get('[data-section-actions] button').textContent).toBe('Retry');
   game.state.updateChecks = { summary: 'Last checked: 10:05 AM' };
   await game.redraw();
   expect(game.get('[data-check-status]').textContent).toBe('Last checked: 10:05 AM');
+  expect(help.hidden).toBe(true);
   expect(game.get('[data-section-actions] button').textContent).toBe('CHECK NOW');
 });
 

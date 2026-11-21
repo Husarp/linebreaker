@@ -5,7 +5,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.Rect
 import android.net.Uri
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
@@ -33,6 +35,8 @@ import com.getcapacitor.BridgeActivity
 import com.getcapacitor.ProcessedRoute
 import com.husarp.ota.core.*
 import com.husarp.linebreaker.BuildConfig
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : BridgeActivity() {
     private val updater get() = (application as OtaApplication).updater
@@ -45,6 +49,8 @@ class MainActivity : BridgeActivity() {
     private lateinit var activityLaunchToken: String
     private var loadingOverlay: View? = null
     private var safeArea = Insets.NONE
+    private var systemTop = 0
+    private var cutoutRects = emptyList<Rect>()
     private val recoveryTick = Runnable { refreshRecovery() }
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) { refreshRecovery() }
@@ -244,6 +250,8 @@ class MainActivity : BridgeActivity() {
         val decor = window.decorView
         ViewCompat.setOnApplyWindowInsetsListener(decor) { view, insets ->
             safeArea = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            systemTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            cutoutRects = insets.displayCutout?.boundingRects.orEmpty()
             val keyboardOverlays = (window.attributes.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST) ==
                 WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
             val keyboard = if (keyboardOverlays) 0 else insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
@@ -256,9 +264,22 @@ class MainActivity : BridgeActivity() {
     }
     private fun injectSafeArea(web: WebView) {
         val density = resources.displayMetrics.density
+        val origin = IntArray(2).also(web::getLocationInWindow)
         val rules = listOf("top" to safeArea.top, "right" to safeArea.right, "bottom" to safeArea.bottom, "left" to safeArea.left)
             .joinToString("") { (edge, px) -> "style.setProperty('--safe-area-inset-$edge','${px / density}px');" }
-        web.evaluateJavascript("(function(){var style=document.documentElement && document.documentElement.style;if(style){$rules}})()", null)
+        val detail = JSONObject().put("top", safeArea.top / density).put("left", safeArea.left / density)
+            .put("right", safeArea.right / density).put("rects", JSONArray().apply {
+                cutoutRects.forEach { rect -> put(JSONObject()
+                    .put("left", (rect.left - origin[0]) / density).put("top", (rect.top - origin[1]) / density)
+                    .put("right", (rect.right - origin[0]) / density).put("bottom", (rect.bottom - origin[1]) / density)) }
+            })
+        web.evaluateJavascript("(function(){var style=document.documentElement && document.documentElement.style;if(style){$rules" +
+            "style.setProperty('--lb-system-top','${systemTop / density}px');window.__lbWindowInsets=$detail;" +
+            "window.dispatchEvent(new CustomEvent('lb-window-insets',{detail:window.__lbWindowInsets}));}})()", null)
+    }
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        ViewCompat.requestApplyInsets(window.decorView)
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
@@ -329,7 +350,21 @@ class MainActivity : BridgeActivity() {
         box.addView(versions)
         box.addView(TextView(this).apply { text = "State: ${updater.status}\nShell: ${updater.shell.status}" })
         val checkStatus = TextView(this).apply { text = updater.checks.summary() }
-        box.addView(checkStatus)
+        val checkHelp = Button(this).apply {
+            text = "ⓘ"
+            contentDescription = "Update connection help"
+            visibility = if (updater.checks.hasError()) View.VISIBLE else View.GONE
+            setOnClickListener {
+                AlertDialog.Builder(this@MainActivity).setTitle("Update connection help")
+                    .setMessage("Sign in to public Wi-Fi, or try mobile data.\n\nIf the update server refuses requests, wait and retry or try an unrestricted network.\n\nCheck your device date and time and make sure the bundle update address is correct.")
+                    .setPositiveButton("Close", null).show()
+            }
+        }
+        box.addView(LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(checkStatus, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(checkHelp, LinearLayout.LayoutParams(48.dp, 48.dp))
+        })
         listOf("smallFixes" to "Small fixes: install automatically",
             "majorUpdates" to "New versions and big fixes: install automatically without asking",
             "shellUpdates" to "App (shell) updates: install automatically").forEach { (key,label) ->
@@ -391,11 +426,23 @@ class MainActivity : BridgeActivity() {
             setOnClickListener { confirmReset(startupRecovery = updater.watchdog.reason != null) }
         }
         box.addView(reset)
-        val dialog = AlertDialog.Builder(this).setTitle("Debug").setView(ScrollView(this).apply { addView(box) }).setPositiveButton("Save",null).setNegativeButton("Cancel",null).create()
+        val closeShell = Button(this).apply { text = "Close"; contentDescription = "Close app shell" }
+        val shellHeader = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(20.dp, 8.dp, 12.dp, 0)
+            addView(TextView(this@MainActivity).apply { text = "App shell"; textSize = 20f },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(closeShell)
+        }
+        val dialog = AlertDialog.Builder(this).setCustomTitle(shellHeader).setView(ScrollView(this).apply { addView(box) })
+            .setCancelable(true).setPositiveButton("Save",null).create()
+        dialog.setCanceledOnTouchOutside(false)
+        closeShell.setOnClickListener { dialog.cancel() }
         debugDialog = dialog
         refreshDebugSettings = {
             refreshShellOffer()
             checkStatus.text = updater.checks.summary()
+            checkHelp.visibility = if (updater.checks.hasError()) View.VISIBLE else View.GONE
             checkButton.text = if (updater.checks.hasError()) "Retry" else "Check now"
             val latest = updater.settingsJson()
             switches.forEach { (key,control) ->

@@ -120,6 +120,26 @@ it('credits daily and weekly point claims once, including automatic recovery', a
   expect(api.save.season.points).toBe(points + 5);
 });
 
+it('shows immediate mission claim feedback without crediting points until after paint', async () => {
+  game = await loadGame();
+  const { w, api, advance } = game;
+  const save = api.save;
+  const points = save.season.points;
+  const quest = { id: 'day', completed: true, pts: 2 };
+  save.missions.daily.quests = [quest];
+  api.setSave(save);
+  const claim = w.document.body.appendChild(w.document.createElement('button'));
+  claim.onclick = () => w._claimQuestPts(quest.id, false, null, claim);
+  claim.click();
+  claim.click();
+  expect(claim.getAttribute('aria-busy')).toBe('true');
+  advance(16);
+  expect(api.save.season.points).toBe(points);
+  advance(16);
+  expect(api.save.season.points).toBe(points + 2);
+  expect(claim.hasAttribute('aria-busy')).toBe(false);
+});
+
 it('round-trips v1 with clean receipts and a persisted clock notice deadline', async () => {
   game = await loadGame();
   const { sanitizeSave, LBSave } = game.w;
@@ -143,7 +163,8 @@ it('round-trips v1 with clean receipts and a persisted clock notice deadline', a
 
 it('opens from missions, rechecks a stale claim, and awards the exclusive skin after correction', async () => {
   game = await loadGame(true, null, null, async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] }));
-  const { w, api } = game;
+  const { w, api, advance } = game;
+  const afterPaint = () => { advance(16); advance(16); };
   const firstMinute = EPOCH + 29 * DAY + 60_000;
   let now = firstMinute;
   w.Date.now = () => now;
@@ -168,16 +189,20 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   const finalClaim = () => overlay.querySelector('[data-sp-day="30"]');
   now -= 120_000;
   finalClaim().click();
+  expect(finalClaim().getAttribute('aria-busy')).toBe('true');
+  afterPaint();
   expect(api.save.ownedSkins).not.toContain('season-prism');
   expect(overlay.querySelector('#sp-notice').textContent).toContain('Check your device date and time');
   expect(overlay.querySelector('[data-tier="exclusive"]').dataset.state).toBe('future');
   now = firstMinute;
   overlay.querySelector('.sp-jump').click();
   finalClaim().click();
+  afterPaint();
   expect(api.save.season.claimed[30]).toEqual({ type: 'skin', key: 'season-prism' });
   expect(api.save.ownedSkins).toContain('season-prism');
   expect(finalClaim()).toBeNull();
   overlay.querySelector('[data-sp-day="1"]').click();
+  afterPaint();
   expect(overlay.querySelector('[data-stage="1"] .sp-state').textContent).toBe('✓ Claimed');
   expect(overlay.querySelector('#sp-next').textContent).toBe('Stage 2 ready to claim');
   weeklyTab.click();

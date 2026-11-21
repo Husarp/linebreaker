@@ -1,4 +1,6 @@
-import { expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { expect, it, vi } from 'vitest';
+import { JSDOM } from 'jsdom';
 import '../touch.js';
 const map = globalThis.LBTouch.gestureActions;
 const base = { startX: 150, startY: 0, x: 150, y: 0, left: 0, width: 300, cell: 30, elapsed: 100, fingers: 1 };
@@ -20,4 +22,43 @@ it('separates fast hard drop, slow soft drop, hold and drag release', () => {
  expect(map({ ...base, y: 100, elapsed: 600, down: 3 })).toEqual([]);
  expect(map({ ...base, y: -100 }, true)).toEqual(['hold']);
  expect(map({ ...base, moved: true }, true)).toEqual([]);
+});
+
+it('slides between the captured arrows without firing other buttons or releasing on another finger', () => {
+ const dom = new JSDOM('<div id="app"><canvas id="game-board"></canvas></div>', { runScripts: 'outside-only' });
+ try {
+  const { window } = dom;
+  const { document } = window;
+  const game = window.LBInput = { press: vi.fn(), release: vi.fn(), action: vi.fn(), unlockAudio: vi.fn() };
+  window.matchMedia = () => ({ matches: true });
+  window.HTMLElement.prototype.setPointerCapture = vi.fn();
+  window.eval(readFileSync(new URL('../touch.js', import.meta.url), 'utf8'));
+  const left = document.querySelector('[data-action="left"]');
+  const right = document.querySelector('[data-action="right"]');
+  const hard = document.querySelector('[data-action="hard"]');
+  document.elementFromPoint = vi.fn();
+  const pointer = (button, type, pointerId) => button.dispatchEvent(Object.assign(new window.MouseEvent(type, { bubbles: true }), { pointerId }));
+
+  pointer(right, 'pointerdown', 1);
+  expect(right.setPointerCapture).toHaveBeenCalledWith(1);
+  document.elementFromPoint.mockReturnValue(left.querySelector('path'));
+  pointer(right, 'pointermove', 1);
+  pointer(right, 'pointermove', 1);
+  document.elementFromPoint.mockReturnValue(hard);
+  pointer(right, 'pointermove', 1);
+  document.elementFromPoint.mockReturnValue(right);
+  pointer(right, 'pointermove', 1);
+  expect(game.press.mock.calls).toEqual([['right', 1], ['left', 1], ['right', 1]]);
+  expect(game.action).not.toHaveBeenCalled();
+
+  pointer(hard, 'pointerdown', 2);
+  pointer(hard, 'pointerup', 2);
+  expect(game.action).toHaveBeenCalledWith('hard');
+  expect(game.release).not.toHaveBeenCalled();
+  pointer(right, 'lostpointercapture', 1);
+  pointer(right, 'pointerup', 1);
+  expect(game.release.mock.calls).toEqual([[1]]);
+ } finally {
+  dom.window.close();
+ }
 });

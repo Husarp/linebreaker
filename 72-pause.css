@@ -2,7 +2,6 @@
     --pause-accent: var(--primary, var(--accent));
     --pause-highlight: color-mix(in srgb, var(--pause-accent) 48%, white);
     --pause-edge: #777f76;
-    background: #151815;
 }
 
 #pause-overlay .lb-run-panel {

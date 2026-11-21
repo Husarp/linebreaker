@@ -110,7 +110,7 @@ it('omits malformed single and tiered achievement dates from unlocked badge tool
   window.openAchievements('unlocked');
   document.getElementById('ach-dates-toggle').click();
   const tooltip = document.getElementById('ach-tip');
-  const badges = document.querySelectorAll('#ach-list > div > div:nth-child(2) > div');
+  const badges = document.querySelectorAll('#ach-list .ach-card');
   const tooltips = new Map();
   for (const badge of badges) {
     badge.dispatchEvent(new window.MouseEvent('mouseenter'));
@@ -159,7 +159,7 @@ it('only renders valid hex colors in palette inputs, previews and copy handlers'
   expect(preview.firstElementChild.style.getPropertyValue('--piece-color')).toBe('#00ffff');
   expect(preview.children[1].style.getPropertyValue('--piece-color')).toBe('#A1b2C3');
   window._openPaletteViewModal('classic');
-  const copy = [...document.querySelectorAll('#palette-view-modal [title="Copy hex"]')];
+  const copy = [...document.querySelectorAll('#palette-view-modal [data-control-tip="Copy hex"]')];
   expect(copy[0].getAttribute('onclick')).toContain("writeText('#00ffff')");
   expect(copy[1].getAttribute('onclick')).toContain("writeText('#A1b2C3')");
   window._openPaletteEditor('classic');
@@ -273,13 +273,14 @@ it('marks equipped and locked inventory cards without adding owned tags', () => 
   expect(ready.querySelector('button').textContent).toBe('Unlock');
 });
 
-it('cycles the inline skin previews only while Blocks is open', () => {
+it('cycles the equipped skin preview only while Blocks is open', () => {
   Object.defineProperty(document, 'hidden', { value: false });
   const intervals = vi.spyOn(window, 'setInterval');
   const clear = vi.spyOn(window, 'clearInterval');
   window.openInventory();
   const previews = [...document.querySelectorAll('#owned-skin-btns canvas')];
   const preview = previews.find(canvas => canvas.parentElement.dataset.itemKey === 'retro');
+  const staticPreviews = previews.filter(canvas => canvas !== preview);
   const translate = vi.fn();
   const getContext = preview.getContext.bind(preview);
   preview.getContext = () => Object.assign(getContext('2d'), { translate });
@@ -288,7 +289,8 @@ it('cycles the inline skin previews only while Blocks is open', () => {
   const tick = intervals.mock.calls[index][0];
   for (const piece of [2, 3, 4, 5, 6, 7, 1]) {
     tick();
-    expect(new Set(previews.map(canvas => canvas.dataset.previewColor))).toEqual(new Set([String(piece)]));
+    expect(preview.dataset.previewColor).toBe(String(piece));
+    expect(new Set(staticPreviews.map(canvas => canvas.dataset.previewColor))).toEqual(new Set(['1']));
   }
   expect(translate).toHaveBeenNthCalledWith(1, 21, 2);
   expect(translate).toHaveBeenLastCalledWith(4, 19);

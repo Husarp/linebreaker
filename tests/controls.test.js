@@ -243,7 +243,7 @@ it.each([
     const confirm = get('custom-confirm');
     const actions = [...pause.querySelectorAll('.lb-run-icons button')];
     expect(actions.map(button => button.getAttribute('aria-label'))).toEqual(['Restart run', 'Settings', 'Main menu via run results']);
-    expect(actions.every(button => !button.textContent.trim() && button.title && button.querySelector('svg[aria-hidden="true"]'))).toBe(true);
+    expect(actions.every(button => !button.textContent.trim() && button.dataset.controlTip && button.querySelector('svg[aria-hidden="true"]'))).toBe(true);
     const action = actions.find(button => button.getAttribute('aria-label') === label);
     const invoke = w.Function(`return ${action.getAttribute('onclick')}`);
     const respond = async (buttonId, pending) => {
