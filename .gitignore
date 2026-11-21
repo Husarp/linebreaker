@@ -8,8 +8,9 @@ AGENTS.md
 # Private: plans, design work, changelog, personal save (kept in the Vault)
 design/
 CHANGELOG.md
-tetris_save.json
-*.tetris
+*_save.json
+*.lbsave
+*.[t]etris
 
 # Third-party material that must never be published
 # (ripped music: to be replaced; unused community skins and FX pack)

@@ -87,7 +87,7 @@ it('uses all three synth playlists when local MP3s are missing, even with an old
   });
   const { w, api, close } = await loadGame(true, null, null, fetch);
   try {
-    api.setup({ save: { menuPlaylist: ['Rest Area'], gamePlaylist: ['Original Tetris Theme'] } });
+    api.setup({ save: { menuPlaylist: ['Rest Area'], gamePlaylist: ['Classic Block Theme'] } });
     await api._initTrackCatalog();
     const title = () => w.document.getElementById('mw-title').textContent;
     expect(fetch.mock.calls.filter(([, options]) => options?.method === 'HEAD')).toHaveLength(11);

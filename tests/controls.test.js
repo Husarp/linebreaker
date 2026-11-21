@@ -86,7 +86,7 @@ it('warns about conflicts, saves a CCW binding, and restores both slots of just 
     settings.classList.remove('hidden');
     const binding = document.querySelector('button[aria-label^="Rotate CCW, secondary"]');
     const restore = document.querySelector('[aria-label="Restore default keys for Rotate CCW"]');
-    const saved = () => JSON.parse(localStorage.getItem('tetrisRPG_settings')).keyBindings;
+    const saved = () => JSON.parse(localStorage.getItem('linebreaker_settings')).keyBindings;
     expect(restore.hidden).toBe(true);
     expect(document.querySelector('.lb-controls-reset')).toBeNull();
     binding.click();
@@ -131,7 +131,7 @@ it('clears only a conflicting slot when its key is reclaimed by a row restore', 
     const { document, localStorage } = game.w;
     game.w.openSettings();
     document.querySelector('[aria-label="Restore default keys for Move left"]').click();
-    const saved = JSON.parse(localStorage.getItem('tetrisRPG_settings')).keyBindings;
+    const saved = JSON.parse(localStorage.getItem('linebreaker_settings')).keyBindings;
     expect(saved).toEqual({ ...normalizeBindings(), ccw: [null, 'KeyZ'] });
     expect(document.querySelector('.lb-controls-status').textContent).toContain('Reassigned keys cleared from: Rotate CCW.');
   } finally {

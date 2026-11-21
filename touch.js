@@ -22,7 +22,7 @@
     }
     root.LBTouch = { gestureActions };
     if (!root.document) return;
-    const game = root.LBInput, board = document.getElementById('tetris');
+    const game = root.LBInput, board = document.getElementById('game-board');
     if (!game || !board) return;
     const native = root.Capacitor?.isNativePlatform();
     const enabled = native || root.matchMedia?.('(any-pointer: coarse)').matches || navigator.maxTouchPoints > 0;

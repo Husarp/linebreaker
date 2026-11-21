@@ -40,13 +40,13 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   w.TextEncoder = TextEncoder; w.TextDecoder = TextDecoder;
   w.indexedDB = new IDBFactory();
   const storage = new Map();
-  if (initialSettings) storage.set('tetrisRPG_settings', JSON.stringify(initialSettings));
+  if (initialSettings) storage.set('linebreaker_settings', JSON.stringify(initialSettings));
   Object.defineProperty(w, 'localStorage', {value:{getItem:k => storage.get(k) ?? null,setItem:(k,v) => storage.set(k,String(v)),removeItem:k => storage.delete(k),clear:() => storage.clear()}});
   delete w.showOpenFilePicker;
   let seed = 42; w.Math.random = () => ((seed = (Math.imul(seed,1664525)+1013904223) >>> 0)/4294967296);
   if (desktopInvoke) w.__TAURI__ = { core: { invoke: desktopInvoke } };
   if (capacitor) w.Capacitor = capacitor;
-  configureWindow?.(w);
+  await configureWindow?.(w);
   w.eval(readFileSync(new URL('../native-save.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../41-season-pass.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../save-sanitize.js', import.meta.url), 'utf8'));

@@ -26,7 +26,7 @@
         <div class="glass-box"><div class="label">LINES</div><div class="value" id="gallery-pc-lines">36</div></div>
     </div>
 
-    <div id="gallery-game-wrapper"><div id="gallery-game-container"><canvas id="gallery-tetris" width="300" height="600"></canvas></div></div>
+    <div id="gallery-game-wrapper"><div id="gallery-game-container"><canvas id="gallery-game-board" width="300" height="600"></canvas></div></div>
 
     <div class="pc-panel">
         <div class="glass-box" id="gallery-pc-next-wrap">
@@ -101,9 +101,9 @@ function drawBlock(ctx,x,y,size,colour,skin=0) {
 document.querySelectorAll('.lb-skin-preview').forEach(canvas => {
  const ctx=canvas.getContext('2d'); [[1,0],[0,1],[1,1],[2,1]].forEach(([x,y]) => drawBlock(ctx,34+x*42,12+y*42,42,canvas.dataset.colour,Number(canvas.dataset.skin)));
 });
-for(const name of ['pc-hold-canvas','pc-next-canvas','pc-next2-canvas','pc-next3-canvas','tetris']) {
+for(const name of ['pc-hold-canvas','pc-next-canvas','pc-next2-canvas','pc-next3-canvas','game-board']) {
  const canvas=document.getElementById(`gallery-${name}`); const ctx=canvas.getContext('2d');
- if(name==='tetris') {
+ if(name==='game-board') {
   ctx.fillStyle='#000'; ctx.fillRect(0,0,300,600); ctx.strokeStyle='#151515';
   for(let x=0;x<=300;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,600);ctx.stroke();}
   for(let y=0;y<=600;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(300,y);ctx.stroke();}
