@@ -106,7 +106,7 @@ it('shows the full streak count and a new week of dots, with a separate bonus ca
   const streak = dialog.querySelector('.lb64-streak');
   expect(streak.getAttribute('aria-label')).toBe('8-day gift streak, day 1 of 7 this cycle');
   expect(streak.querySelector('.lb64-streak-count').textContent).toBe('🔥8');
-  expect(streak.querySelector('.lb84-streak-flame').getAttribute('aria-hidden')).toBe('true');
+  expect(streak.querySelector('.mq-streak-flame').getAttribute('aria-hidden')).toBe('true');
   expect(streak.querySelectorAll('.lb64-streak-dots > span')).toHaveLength(7);
   expect(streak.querySelector('.lb64-streak-dots > :first-child').className).toBe('lb64-streak-today');
   dialog.querySelector('button').click();
@@ -119,7 +119,7 @@ it('shows the full streak count and a new week of dots, with a separate bonus ca
   expect(api.save.universalParts).toBe(4);
 });
 
-it('uses the approved jigsaw for universal parts and marks it for the awarded skin', async () => {
+it('uses the jigsaw for both kinds of part without overlaying a skin thumbnail', async () => {
   game = await loadGame();
   const { w } = game;
   const grid = w.LBCrates.rewardGrid([
@@ -131,8 +131,8 @@ it('uses the approved jigsaw for universal parts and marks it for the awarded sk
     .toEqual(Array(3).fill('assets/ui/parts/universal-part-128.png'));
   const [universal, aztec, bubble] = grid.children;
   expect(universal.querySelector('.lb124-part-art')).toBeNull();
-  expect(aztec.querySelector('[data-part-key="aztec-gold"] .lb124-part-mark').style.backgroundImage)
-    .toContain('assets/skins/aztec-gold.png');
+  expect(aztec.querySelector('[data-part-key="aztec-gold"] > img:only-child')).not.toBeNull();
+  expect(grid.querySelector('.lb124-part-mark')).toBeNull();
   expect(bubble.querySelector('[data-part-key="bubble"] > img')).not.toBeNull();
 });
 

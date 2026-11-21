@@ -1258,19 +1258,35 @@
             document.head.appendChild(link);
         });
         if (pack.font) document.documentElement.style.setProperty('--ui-font', pack.font);
+        syncMusicMuteButtons();
         if (persist) saveSettings();
     }
 
-    let audioCtx = null, masterGain = null, sfxGain = null, musicPlaying = false;
+    let audioCtx = null, masterGain = null, musicFadeGain = null, sfxGain = null, musicPlaying = false;
     // All SFX are now fully synthesized — no file loading needed
     const _sfxBuffers = {};
+
+    function syncMusicGain() {
+        if (masterGain) masterGain.gain.value = settings.musicMuted ? 0 : settings.musicVol / 100 * 0.2;
+    }
+
+    function fadeMusic(target, duration, from = musicFadeGain?.gain.value) {
+        if (!musicFadeGain) return;
+        const time = audioCtx.currentTime;
+        musicFadeGain.gain.cancelScheduledValues(time);
+        musicFadeGain.gain.setValueAtTime(from, time);
+        musicFadeGain.gain.linearRampToValueAtTime(target, time + duration);
+    }
 
     function initAudio() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             masterGain = audioCtx.createGain();
-            masterGain.gain.value = _musicMuted ? 0 : settings.musicVol / 100 * 0.2;
-            masterGain.connect(audioCtx.destination);
+            syncMusicGain();
+            musicFadeGain = audioCtx.createGain();
+            musicFadeGain.gain.value = 1;
+            masterGain.connect(musicFadeGain);
+            musicFadeGain.connect(audioCtx.destination);
             sfxGain = audioCtx.createGain();
             sfxGain.gain.value = _sfxMuted ? 0 : settings.sfxVol / 100 * 0.4;
             sfxGain.connect(audioCtx.destination);
@@ -2041,14 +2057,7 @@
         initAudio();
         if (audioCtx.state === 'suspended') audioCtx.resume();
         musicPlaying = true;
-        // Sync mute icons with actual settings.musicVol
-        const _isMuted = settings.musicVol === 0;
-        const _isPix = settings.stylePack === 'pixel';
-        const _muteIco = _isMuted ? (_isPix ? _SVG_PIX_MUTED : _SVG_MUTED) : (_isPix ? _SVG_PIX_VOL : _SVG_VOL);
-        const _mwMute = document.getElementById('mw-mute');
-        if (_mwMute) _mwMute.innerHTML = _muteIco;
-        const _plMwMute = document.getElementById('pl-mw-mute');
-        if (_plMwMute) _plMwMute.innerHTML = (_isMuted ? _SVG_MUTED : _SVG_VOL).replace('width="14"','width="11"').replace('height="14"','height="11"');
+        syncMusicMuteButtons();
         switchMusicMode(mode);
     }
     function _stopMusicSources() {
@@ -2070,18 +2079,13 @@
             await _initTrackCatalog();
             if (_currentMode !== 'game' || !musicPlaying || _gameSourceNode) return;
             _startGameMusicForCurrentSpeed();
-            if (audioCtx && masterGain) {
-                const targetVol = _musicMuted ? 0 : settings.musicVol / 100 * 0.2;
-                masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
-                masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
-                masterGain.gain.linearRampToValueAtTime(targetVol, audioCtx.currentTime + 1.5);
-            }
+            fadeMusic(1, 1.5, 0);
         }
     }
     function stopMusic() {
         musicPlaying = false;
         _stopMusicSources();
-        if (audioCtx) { audioCtx.close().catch(()=>{}); audioCtx = null; masterGain = null; sfxGain = null; }
+        if (audioCtx) { audioCtx.close().catch(()=>{}); audioCtx = null; masterGain = null; musicFadeGain = null; sfxGain = null; }
     }
     function pauseMusic() {
         [_menuSourceNode,_gameSourceNode].forEach(source=>source?.pause());
@@ -2244,6 +2248,7 @@
             if (useFileSettings) {
                 Object.assign(settings, defaultSettings, fileSettings);
                 settings.lineClearEffect = LBLineClear.normalizeMode(settings.lineClearEffect);
+                syncMusicGain();
             }
             if (data.stats) saveData.stats = { ...defaultSaveData.stats, ...data.stats };
             if (!saveData.ownedThemes) saveData.ownedThemes = [];
@@ -3629,39 +3634,38 @@
         document.querySelectorAll('[data-vstab-content]').forEach(p => p.classList.toggle('hidden', p.dataset.vstabContent !== tab));
     }
     let _prevMusicVol = 60, _prevSfxVol = 50;
-    let _musicMuted = settings.musicMuted || false, _sfxMuted = settings.sfxMuted || false;
+    let _sfxMuted = settings.sfxMuted || false;
     const _SVG_PIX_VOL = `<svg viewBox="0 0 16 16" width="14" height="14" shape-rendering="crispEdges"><rect fill="currentColor" x="0" y="6" width="4" height="4"/><rect fill="currentColor" x="4" y="4" width="2" height="8"/><rect fill="currentColor" x="6" y="2" width="2" height="12"/><rect fill="currentColor" x="10" y="5" width="2" height="6"/><rect fill="currentColor" x="13" y="3" width="2" height="10"/></svg>`;
     const _SVG_PIX_MUTED = `<svg viewBox="0 0 16 16" width="14" height="14" shape-rendering="crispEdges"><rect fill="currentColor" x="0" y="6" width="4" height="4"/><rect fill="currentColor" x="4" y="4" width="2" height="8"/><rect fill="currentColor" x="6" y="2" width="2" height="12"/><rect fill="currentColor" x="10" y="4" width="2" height="2"/><rect fill="currentColor" x="12" y="6" width="2" height="2"/><rect fill="currentColor" x="14" y="8" width="2" height="2"/><rect fill="currentColor" x="12" y="10" width="2" height="2"/><rect fill="currentColor" x="10" y="12" width="2" height="2"/></svg>`;
     const _SVG_PIX_PAUSE = `<svg viewBox="0 0 16 16" width="14" height="14" shape-rendering="crispEdges"><rect fill="currentColor" x="3" y="2" width="4" height="12"/><rect fill="currentColor" x="9" y="2" width="4" height="12"/></svg>`;
     const _SVG_PIX_PLAY = `<svg viewBox="0 0 16 16" width="14" height="14" shape-rendering="crispEdges"><rect fill="currentColor" x="3" y="2" width="2" height="12"/><rect fill="currentColor" x="5" y="4" width="2" height="8"/><rect fill="currentColor" x="7" y="5" width="2" height="6"/><rect fill="currentColor" x="9" y="6" width="2" height="4"/><rect fill="currentColor" x="11" y="7" width="2" height="2"/></svg>`;
     const _SVG_VOL = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
     const _SVG_MUTED = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`;
+    function syncMusicMuteButtons() {
+        const muted = settings.musicMuted || settings.musicVol === 0;
+        const pixel = settings.stylePack === 'pixel';
+        const icon = pixel ? (muted ? _SVG_PIX_MUTED : _SVG_PIX_VOL) : (muted ? _SVG_MUTED : _SVG_VOL);
+        for (const id of ['music-mute-btn', 'mw-mute', 'pl-mw-mute']) {
+            const button = document.getElementById(id);
+            if (!button) continue;
+            button.innerHTML = id === 'pl-mw-mute'
+                ? (muted ? _SVG_MUTED : _SVG_VOL).replaceAll('="14"', '="11"') : icon;
+            button.setAttribute('aria-label', muted ? 'Unmute music' : 'Mute music');
+        }
+    }
+
     function toggleMute(type) {
         const isPix = settings.stylePack === 'pixel';
         const svgVol = isPix ? _SVG_PIX_VOL : _SVG_VOL;
         const svgMuted = isPix ? _SVG_PIX_MUTED : _SVG_MUTED;
         if (type === 'music') {
-            const _syncMuteButtons = (muted) => {
-                const ico = muted ? svgMuted : svgVol;
-                const mb = document.getElementById('music-mute-btn');
-                if (mb) mb.innerHTML = ico;
-                const mw = document.getElementById('mw-mute');
-                if (mw) mw.innerHTML = ico.replace('width="14"','width="14"').replace('height="14"','height="14"');
-                const plMw = document.getElementById('pl-mw-mute');
-                if (plMw) plMw.innerHTML = (muted ? _SVG_MUTED : _SVG_VOL).replace('width="14"','width="11"').replace('height="14"','height="11"');
-            };
-            if (!_musicMuted) {
-                _musicMuted = true;
-                if (masterGain) masterGain.gain.value = 0;
-                _syncMuteButtons(true);
-                settings.musicMuted = true; saveSettings();
+            settings.musicMuted = !settings.musicMuted;
+            syncMusicGain();
+            syncMusicMuteButtons();
+            saveSettings();
+            if (settings.musicMuted) {
                 // mute_jarvis tracking (5s min gap)
                 { const _now = Date.now(); if (_now - _lastMuteTime >= 5000) { saveData.stats.muteCount = (saveData.stats.muteCount || 0) + 1; _lastMuteTime = _now; if ((saveData.stats.muteCount || 0) >= 10 && !saveData.achievements?.['mute_jarvis']?.unlocked) { unlockAchievement('mute_jarvis'); } saveDataToFile(); } }
-            } else {
-                _musicMuted = false;
-                if (masterGain) masterGain.gain.value = settings.musicVol / 100 * 0.2;
-                _syncMuteButtons(false);
-                settings.musicMuted = false; saveSettings();
             }
         } else {
             if (!_sfxMuted) {
@@ -4250,8 +4254,7 @@
         const mvEl0 = document.getElementById('setting-music-val'); if (mvEl0) mvEl0.innerText = mv + '%';
         const svEl0 = document.getElementById('setting-sfx-val'); if (svEl0) svEl0.innerText = sv + '%';
         const isPix = settings.stylePack === 'pixel';
-        const musicMuteBtn = document.getElementById('music-mute-btn');
-        if (musicMuteBtn) musicMuteBtn.innerHTML = _musicMuted ? (isPix ? _SVG_PIX_MUTED : _SVG_MUTED) : (isPix ? _SVG_PIX_VOL : _SVG_VOL);
+        syncMusicMuteButtons();
         const sfxMuteBtn = document.getElementById('sfx-mute-btn');
         if (sfxMuteBtn) sfxMuteBtn.innerHTML = _sfxMuted ? (isPix ? _SVG_PIX_MUTED : _SVG_MUTED) : (isPix ? _SVG_PIX_VOL : _SVG_VOL);
         // SFX Pack dropdown sync
@@ -4426,16 +4429,8 @@
             settings.musicVol = parseInt(value);
             _cPillSync('music', value);
             const mvEl = document.getElementById('setting-music-val'); if (mvEl) mvEl.innerText = value + '%';
-            if (masterGain) masterGain.gain.value = settings.musicVol / 100 * 0.2;
-            const isPix2 = settings.stylePack === 'pixel';
-            const _isMuted2 = settings.musicVol === 0 || _musicMuted;
-            const _ico2 = _isMuted2 ? (isPix2?_SVG_PIX_MUTED:_SVG_MUTED) : (isPix2?_SVG_PIX_VOL:_SVG_VOL);
-            const mb = document.getElementById('music-mute-btn');
-            if (mb) mb.innerHTML = _ico2;
-            const _mwMute2 = document.getElementById('mw-mute');
-            if (_mwMute2) _mwMute2.innerHTML = _ico2;
-            const _plMute2 = document.getElementById('pl-mw-mute');
-            if (_plMute2) _plMute2.innerHTML = (_isMuted2 ? _SVG_MUTED : _SVG_VOL).replace('width="14"','width="11"').replace('height="14"','height="11"');
+            syncMusicGain();
+            syncMusicMuteButtons();
             saveSettingsDebounced(); return;
         } else if (key === 'sfxVol') {
             settings.sfxVol = parseInt(value);
@@ -8491,11 +8486,7 @@
         document.getElementById('pc-next-wrap').toggleAttribute('data-expanded', is3Next && !isNoNext);
         // Hide entire next piece section when optNoNext is enabled
         ['pc-next-wrap','m-next-wrap'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = isNoNext ? 'none' : ''; });
-        if (audioCtx && masterGain && musicPlaying) {
-            masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
-            masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime);
-            masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + START_FLASH_MS / 1000);
-        }
+        if (musicPlaying) fadeMusic(0, START_FLASH_MS / 1000);
         document.getElementById('menu-overlay').classList.add('hidden');
         const _goEl = document.getElementById('go-overlay');
         _goEl.classList.add('hidden'); _goEl.style.pointerEvents = '';
@@ -8568,12 +8559,7 @@
             _animateIn(_menuEl, 'anim-in-left');
             randomizePlayButton();
         });
-        if (audioCtx && masterGain) {
-            const targetVol = _musicMuted ? 0 : settings.musicVol / 100 * 0.2;
-            masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
-            masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime);
-            masterGain.gain.linearRampToValueAtTime(targetVol, audioCtx.currentTime + 0.8);
-        }
+        fadeMusic(1, 0.8);
         animateXPGain();
         _checkAchGlow();
         _menuIdleStart = Date.now(); // reset afk timer
@@ -8610,6 +8596,11 @@
         if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
         if (event.code !== 'Escape' && event.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
         const action = LBControls.actionForKey(settings.keyBindings, event.code);
+        if (!action && event.code === 'KeyM' && runActive()) {
+            event.preventDefault();
+            if (!event.repeat) toggleMute('music');
+            return;
+        }
         if (!action && event.code !== 'Escape') return;
         const overlay = LBGamepad.topOverlay();
         const back = event.code === 'Escape' && overlay && overlay.id !== 'menu-overlay';
@@ -8830,26 +8821,10 @@
                 ? (isPix ? _SVG_PIX_PLAY : `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><polygon points="3,2 13,8 3,14"/></svg>`)
                 : (isPix ? _SVG_PIX_PAUSE : `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/></svg>`);
         }
-        const muteBtn = document.getElementById('mw-mute');
-        if (muteBtn) {
-            muteBtn.innerHTML = settings.musicVol === 0
-                ? (isPix ? _SVG_PIX_MUTED : _SVG_MUTED)
-                : (isPix ? _SVG_PIX_VOL : _SVG_VOL);
-        }
-        // Sync playlist mini widget pause/mute buttons
         const plPause = document.getElementById('pl-mw-pause');
         if (plPause) plPause.innerHTML = _musicPaused
             ? `<svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><polygon points="3,2 13,8 3,14"/></svg>`
             : `<svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><rect x="3" y="2" width="3" height="12"/><rect x="10" y="2" width="3" height="12"/></svg>`;
-        const plMute = document.getElementById('pl-mw-mute');
-        if (plMute) plMute.innerHTML = settings.musicVol === 0 ? _SVG_MUTED.replace('width="14"','width="11"').replace('height="14"','height="11"') : _SVG_VOL.replace('width="14"','width="11"').replace('height="14"','height="11"');
-        // Sync mute button visuals on both widgets
-        const _isMutedNow = settings.musicVol === 0 || _musicMuted;
-        const isPix3 = settings.stylePack === 'pixel';
-        const _muteIco = _isMutedNow ? (isPix3 ? _SVG_PIX_MUTED : _SVG_MUTED) : (isPix3 ? _SVG_PIX_VOL : _SVG_VOL);
-        const mwMuteBtn = document.getElementById('mw-mute');
-        if (mwMuteBtn) mwMuteBtn.innerHTML = _muteIco;
-        if (plMute) plMute.innerHTML = (_isMutedNow ? _SVG_MUTED : _SVG_VOL).replace('width="14"','width="11"').replace('height="14"','height="11"');
     }
     window.musicWidgetPrev = function() {
         if (_currentMode !== 'menu' || !musicPlaying) return;
@@ -9742,7 +9717,7 @@
         const changeOverlay = (inChangeMode && canSwapThis)
             ? `<div class="mq-change-overlay" onclick="window._changeMission(${index},${!!isWeekly})"><span class="mq-change-overlay-label">↺ TAP TO SWAP</span></div>`
             : '';
-        return `<div class="mq-card-wrap">
+        return `<div class="mq-card-wrap"${index == null ? '' : ` data-mission-slot="${index}"`}>
             <div class="mq-card${isSecret?' mq-card--secret':''}${changeModeCls}" style="${cardStyle}">
                 <div class="mq-card-hdr">
                     <span class="mq-tier-badge" style="--mq-tier:${tc}">${escapeHtml(tierLabel)}</span>
@@ -9962,6 +9937,37 @@
         return result;
     }
 
+    function missionCardPositions(body) {
+        const cards = body.querySelectorAll('[data-mission-slot], #mq-bonus-box');
+        return new Map([...cards].map(card => [card.dataset.missionSlot ?? 'bonus', { card, rect: card.getBoundingClientRect() }]));
+    }
+
+    function animateMissionClaims(body, previousCards) {
+        const currentCards = missionCardPositions(body);
+        const removed = [...previousCards].filter(([slot, { rect }]) =>
+            slot !== 'bonus' && rect.height && !currentCards.has(slot));
+        if (!removed.length) return;
+
+        for (const [, { card, rect }] of removed) {
+            card.classList.add('lb138-mission-exit');
+            card.inert = true;
+            Object.assign(card.style, { top: `${rect.top}px`, left: `${rect.left}px`, width: `${rect.width}px`, height: `${rect.height}px` });
+            body.closest('#missions-overlay').append(card);
+            const exit = card.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(-10px) scale(.9)' }],
+                { duration: 220, easing: 'ease-in', fill: 'forwards' });
+            exit.finished.then(() => card.remove(), () => card.remove());
+        }
+
+        for (const [slot, { card, rect }] of currentCards) {
+            const prior = previousCards.get(slot)?.rect;
+            if (!prior || !rect.height) continue;
+            const dx = prior.left - rect.left;
+            const dy = prior.top - rect.top;
+            if (dx || dy) card.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+                { duration: 260, easing: 'ease-out' });
+        }
+    }
+
     function renderMissionsOverlay(tab) {
         if (!saveData.missions) saveData.missions = _defaultMissions();
         _checkMissionsRefresh();
@@ -10098,6 +10104,9 @@
 
         const body = el.querySelector('#missions-body');
         if (body) {
+            const previousCards = _prevTab === tab && !el.classList.contains('hidden')
+                && typeof body.animate === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+                ? missionCardPositions(body) : null;
             if (_isTabSwitch && body.innerHTML.trim()) {
                 // Snapshot old content into fixed overlay for exit animation
                 const _bRect = body.getBoundingClientRect();
@@ -10113,6 +10122,7 @@
             body.innerHTML = bodyHtml;
             const cards = body.querySelector('.mq-cards');
             if (cards) cards.insertAdjacentHTML('beforeend', bonusBoxHtml);
+            if (previousCards) animateMissionClaims(body, previousCards);
             if (_isTabSwitch) {
                 const _inClass = tab === 'weekly' ? 'mq-tab-in-right' : 'mq-tab-in-left';
                 body.classList.remove('mq-tab-in-right', 'mq-tab-in-left');
@@ -11504,12 +11514,11 @@
             return daily?.lastRefreshDate === _missionDateKey() && (daily.rawXPToday || 0) >= _dailyStreakXPThreshold();
         }
     });
-    _musicMuted = settings.musicMuted || false;
     _sfxMuted = settings.sfxMuted || false;
+    syncMusicGain();
+    syncMusicMuteButtons();
     // Sync mute button icons on load
     { const _isPix = settings.stylePack === 'pixel';
-      const _mBtn = document.getElementById('mw-mute');
-      if (_mBtn) _mBtn.innerHTML = (_musicMuted ? _SVG_MUTED : _SVG_VOL);
       const _sBtn = document.getElementById('sfx-mute-btn');
       if (_sBtn) _sBtn.innerHTML = (_sfxMuted ? (_isPix?_SVG_PIX_MUTED:_SVG_MUTED) : (_isPix?_SVG_PIX_VOL:_SVG_VOL));
     }

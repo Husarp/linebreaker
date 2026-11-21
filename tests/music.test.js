@@ -121,6 +121,43 @@ it('uses all three synth playlists when local MP3s are missing, even with an old
   } finally { close(); }
 });
 
+it('keeps the music volume and mute independent of run fades and settings edits', async () => {
+  const gains = [];
+  const fetch = async path => ({ ok: true, json: async () => path.endsWith('music.release.json') ? original : [] });
+  const { w, api, close } = await loadGame(true, null, null, fetch, { musicVol: 30, musicMuted: false }, win => {
+    const createGain = win.AudioContext.prototype.createGain;
+    win.AudioContext.prototype.createGain = function () {
+      const node = createGain.call(this);
+      node.connect = vi.fn();
+      node.gain.linearRampToValueAtTime = vi.fn();
+      gains.push(node);
+      return node;
+    };
+  });
+  try {
+    api.setup();
+    api.startMusic();
+    const [volume, fade, effects] = gains;
+    expect(volume.connect).toHaveBeenCalledWith(fade);
+    expect(volume.gain.value).toBeCloseTo(0.06);
+    expect(w.document.getElementById('mw-mute').getAttribute('aria-label')).toBe('Mute music');
+    await api.switchMusicMode('game');
+    expect(fade.gain.linearRampToValueAtTime).toHaveBeenCalledWith(1, 1.5);
+    expect(volume.gain.linearRampToValueAtTime).not.toHaveBeenCalled();
+    w.toggleMute('music');
+    expect(volume.gain.value).toBe(0);
+    expect(w.document.getElementById('mw-mute').getAttribute('aria-label')).toBe('Unmute music');
+    w.onSettingChange('musicVol', '75');
+    expect(volume.gain.value).toBe(0);
+    expect(effects.gain.value).toBeCloseTo(0.2);
+    w.document.getElementById('app').classList.add('active-game');
+    w.document.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyM' }));
+    expect(volume.gain.value).toBeCloseTo(0.15);
+    w.document.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyM', repeat: true }));
+    expect(volume.gain.value).toBeCloseTo(0.15);
+  } finally { close(); }
+});
+
 it('does not ship local MP3s or catalogue entries without the private build flag', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'lb-music-build-'));
   const path = relative => join(fixture, relative);

@@ -113,12 +113,6 @@
                 art.dataset.partKey = reward.key ?? '';
                 art.setAttribute('aria-hidden', 'true');
                 art.append(image);
-                const skin = window.LBImageSkins?.find(({ key }) => key === reward.key);
-                if (skin) {
-                    const mark = element('span', 'lb124-part-mark');
-                    mark.style.backgroundImage = `url("assets/skins/${skin.file}")`;
-                    art.append(mark);
-                }
             }
             const quantity = Number(reward.amount.toFixed(1));
             const amount = element('span', 'lb-block-reward-amount', `×${quantity}`);
@@ -143,7 +137,7 @@
         meter.setAttribute('role', 'img');
         meter.setAttribute('aria-label', `${streak}-day gift streak, day ${completed} of ${weekDays} this cycle`);
         const count = element('span', 'lb64-streak-count');
-        const flame = element('span', 'lb84-streak-flame', '🔥');
+        const flame = element('span', 'mq-streak-flame', '🔥');
         flame.setAttribute('aria-hidden', 'true');
         count.append(flame, element('span', '', streak));
         const dots = element('span', 'lb64-streak-dots');

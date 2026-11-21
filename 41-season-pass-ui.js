@@ -114,12 +114,23 @@
             find('#sp-next').textContent = nextDetail;
 
             const focused = document.activeElement?.closest('.sp-card')?.dataset.stage;
-            cards.replaceChildren(...stages.map(({ day, tier, points: threshold, status }) => {
+            const progressBetween = (from, to) => Math.max(0, Math.min(1, (season.points - from) / (to - from)));
+            cards.replaceChildren(...stages.map(({ day, tier, points: threshold, status }, index) => {
                 const card = document.createElement('li');
                 card.className = 'sp-card';
                 card.dataset.stage = day;
                 card.dataset.tier = tier;
                 card.dataset.state = status;
+                if (season.points >= threshold) card.dataset.reached = '';
+                if (index < stages.length - 1) {
+                    const progress = progressBetween(threshold, stages[index + 1].points);
+                    card.style.setProperty('--sp-segment', `${100 * progress}%`);
+                    card.style.setProperty('--sp-outgoing', `${100 * Math.min(1, progress * 2)}%`);
+                }
+                if (index > 0) {
+                    const progress = progressBetween(stages[index - 1].points, threshold);
+                    card.style.setProperty('--sp-incoming', `${100 * Math.max(0, progress * 2 - 1)}%`);
+                }
                 card.tabIndex = -1;
                 if (day === next?.day) {
                     card.dataset.next = '';
@@ -221,7 +232,41 @@
             centerStage(true);
         });
         window.addEventListener('focus', () => { if (isOpen()) refresh(); });
+        let drag;
+        let suppressClick = false;
+        track.addEventListener('pointerdown', event => {
+            suppressClick = false;
+            if (event.pointerType !== 'mouse' || event.button !== 0 || verticalTrack()
+                || track.scrollWidth <= track.clientWidth) return;
+            drag = { id: event.pointerId, x: event.clientX, scroll: track.scrollLeft, active: false };
+        });
+        track.addEventListener('pointermove', event => {
+            if (drag?.id !== event.pointerId) return;
+            const distance = event.clientX - drag.x;
+            if (!drag.active) {
+                if (Math.abs(distance) < 5) return;
+                drag.active = suppressClick = true;
+                track.setPointerCapture(event.pointerId);
+                track.classList.add('lb138-dragging');
+            }
+            event.preventDefault();
+            track.scrollLeft = drag.scroll - distance;
+        });
+        for (const type of ['pointerup', 'pointercancel', 'lostpointercapture', 'pointerleave']) {
+            track.addEventListener(type, event => {
+                if (drag?.id !== event.pointerId || (type === 'pointerleave' && drag.active)) return;
+                drag = null;
+                track.classList.remove('lb138-dragging');
+            });
+        }
+        track.addEventListener('dragstart', event => {
+            if (drag) event.preventDefault();
+        });
         track.addEventListener('click', event => {
+            if (suppressClick && event.detail) {
+                suppressClick = false;
+                return;
+            }
             const button = event.target.closest('[data-sp-day]');
             if (!button || !isOpen() || !config) return;
             const currentSave = getSave();

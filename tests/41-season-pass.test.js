@@ -193,3 +193,20 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   w.openMissions();
   expect(missions.querySelector('[data-tab="daily"]').getAttribute('aria-pressed')).toBe('true');
 });
+
+it('fills the season track through reached thresholds and partway toward the next stage', async () => {
+  game = await loadGame(true, null, null, async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] }));
+  const { w, api } = game;
+  const now = EPOCH + 9 * DAY;
+  w.Date.now = () => now;
+  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 70 }, lastSeenTime: now });
+  w.openMissions();
+  w.document.querySelector('[data-tab="season"]').click();
+  const stage = day => w.document.querySelector(`.sp-card[data-stage="${day}"]`);
+  await vi.waitFor(() => expect(stage(9)).not.toBeNull());
+  expect(stage(7).style.getPropertyValue('--sp-segment')).toBe('100%');
+  expect(stage(8).hasAttribute('data-reached')).toBe(true);
+  expect(stage(8).style.getPropertyValue('--sp-segment')).toBe('75%');
+  expect(stage(9).hasAttribute('data-reached')).toBe(false);
+  expect(stage(9).style.getPropertyValue('--sp-incoming')).toBe('50%');
+});
