@@ -36,6 +36,7 @@
         const inputs = section.querySelectorAll('[data-reminder]');
         const reminderIds = Object.values(reminders).map(({ id }) => ({ id }));
         const preferences = () => ({ ...defaults, ...getSettings().reminders });
+        const bounded = root.LBStartup?.bounded || ((label, action) => action());
         let queue = Promise.resolve();
 
         function render() {
@@ -50,16 +51,16 @@
         function refresh(fromEnabledToggle = false) {
             render();
             queue = queue.then(async () => {
-                await plugin.cancel({ notifications: reminderIds });
+                await bounded('Cancelling reminders', () => plugin.cancel({ notifications: reminderIds }));
                 status.textContent = '';
                 const prefs = preferences();
                 if (!prefs.enabled || !(prefs.daily || prefs.streak || prefs.weekly)) return;
 
-                let { display } = await plugin.checkPermissions();
+                let { display } = await bounded('Checking reminder permission', () => plugin.checkPermissions());
                 const asked = root.localStorage.getItem(permissionKey);
                 if (fromEnabledToggle && !asked && (display === 'prompt' || display === 'prompt-with-rationale')) {
                     root.localStorage.setItem(permissionKey, '1');
-                    ({ display } = await plugin.requestPermissions());
+                    ({ display } = await bounded('Requesting reminder permission', () => plugin.requestPermissions(), 30000));
                 }
                 if (display !== 'granted') {
                     status.textContent = display === 'denied' || root.localStorage.getItem(permissionKey)
@@ -68,7 +69,7 @@
                     return;
                 }
 
-                const { exact_alarm: exactAlarm } = await plugin.checkExactNotificationSetting();
+                const { exact_alarm: exactAlarm } = await bounded('Checking exact alarms', () => plugin.checkExactNotificationSetting());
                 const notifications = [];
                 const add = (key, schedule) => notifications.push({
                     ...reminders[key], schedule, isExactNotification: exactAlarm === 'granted'
@@ -79,7 +80,7 @@
                     const at = nextStreakReminder(new Date(), streakRequirementMet());
                     if (at) add('streak', { at, allowWhileIdle: true });
                 }
-                if (notifications.length) await plugin.schedule({ notifications });
+                if (notifications.length) await bounded('Scheduling reminders', () => plugin.schedule({ notifications }));
             }).catch(error => {
                 status.textContent = 'Could not update reminders.';
                 console.warn('Could not update Android reminders:', error);

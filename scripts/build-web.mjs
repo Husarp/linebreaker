@@ -1,4 +1,5 @@
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { checkWebView } from './webview-compat.mjs';
 
 const localMusic = process.argv.includes('--local-music');
 const catalogue = JSON.parse(await readFile('assets/music.release.json', 'utf8'));
@@ -45,3 +46,5 @@ if (localMusic) {
   }
 }
 await writeFile('dist-web/assets/music.json', JSON.stringify(catalogue, null, 2) + '\n');
+await checkWebView('dist-web', { compile: true });
+await checkWebView('dist-web');

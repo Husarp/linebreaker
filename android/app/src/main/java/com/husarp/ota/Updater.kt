@@ -419,7 +419,7 @@ class Updater(private val context: Context, val engine: Engine, private val veri
     }
     private fun restartLaunch() {
         selectLaunch(); offer = null; laterVersion = null
-        status = "Ready · ${launch.version}"; autoRestartPending = false; safeToInterrupt = false
+        status = "Ready · ${launch.version}"; autoRestartPending = false; safeToInterrupt = true
         updated = null; rolledBack = null
     }
     fun isBusy() = busy.get()

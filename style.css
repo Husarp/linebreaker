@@ -1260,10 +1260,11 @@ body[data-pack="pixel"] .mt-enable-btn {
 
 /* ===== LOADING SCREEN ===== */
 #loading-screen {
-    position: fixed; inset: 0; z-index: 9999;
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 9999;
     background: #0a0a0f;
     display: flex; align-items: center; justify-content: center;
     transition: opacity 0.55s ease;
+    padding: 16px;
     padding: max(16px, var(--lb-safe-top)) max(16px, var(--lb-safe-right)) max(16px, var(--lb-safe-bottom)) max(16px, var(--lb-safe-left));
 }
 #loading-screen.ls-hidden { opacity: 0; pointer-events: none; }
@@ -1308,7 +1309,8 @@ body[data-pack="pixel"] .mt-enable-btn {
 }
 #ls-actions:not([hidden]) { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; }
 #ls-actions [hidden] { display: none; }
-#ls-inner:has(#ls-actions:not([hidden])) .ls-block { animation-play-state: paused; }
+#ls-actions button { margin: 4px; }
+.ls-stalled .ls-block { animation-play-state: paused; }
 #splash-quote {
     position: absolute;
     left: 100%;

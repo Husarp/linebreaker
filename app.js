@@ -1,5 +1,8 @@
 (function() {
 
+    const startup = window.LBStartup;
+    const startupWait = startup?.bounded || ((label, action) => action());
+    startup?.step('Initializing game…');
     const _qaDemo = window.LBQADemo;
     const _visualReview = window.__LB_TEST__ === true && window.__LB_VISUAL_REVIEW__ === true;
     const HTML_ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -2141,8 +2144,13 @@
     }
     function startMusic(mode = 'menu') {
         if (musicPlaying) return;
-        initAudio();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+        try {
+            initAudio();
+            if (audioCtx.state === 'suspended') void audioCtx.resume().catch(error => console.warn('Audio suspended:', error));
+        } catch (error) {
+            console.warn('Audio unavailable:', error);
+            return;
+        }
         musicPlaying = true;
         syncMusicMuteButtons();
         switchMusicMode(mode);
@@ -2212,8 +2220,10 @@
 
     async function _readMusicCatalog(path) {
         try {
-            const response = await fetch(path);
-            return response.ok ? (await response.json()) || {} : {};
+            return await startupWait(`Music catalog ${path}`, async () => {
+                const response = await fetch(path);
+                return response.ok ? (await response.json()) || {} : {};
+            });
         } catch (error) { return {}; }
     }
 
@@ -2225,7 +2235,7 @@
             else if (track.file) {
                 const url = 'assets/music/' + encodeURIComponent(track.file);
                 try {
-                    const response = await fetch(url, { method: 'HEAD' });
+                    const response = await startupWait('Checking optional audio', () => fetch(url, { method: 'HEAD' }));
                     if (response.ok && !response.headers?.get('content-type')?.startsWith('text/html')) buf = { url, duration: 0 };
                 } catch (error) {}
             }
@@ -2251,8 +2261,16 @@
     }
 
     async function loadData() {
+        if (!_qaDemo) startup?.recoverWith(() => {
+            _bootReadOnly = true;
+            applyLoadedData(null, false);
+            enterMenuAfterSave();
+            customAlert('This session will not save progress or settings. Restart to retry loading your save.', 'SAVE UNAVAILABLE');
+            _dismissLoadingScreen();
+        });
         _setLoadProgress(50, 'Loading missions…');
         await _loadMissionCatalog();
+        if (_bootReadOnly) return;
         if (_qaDemo) {
             applyLoadedData(_qaDemo.createSave(defaultSaveData, _defaultMissions()), false);
             _qaDemo.seedMissions(saveData.missions);
@@ -2279,15 +2297,8 @@
             _dismissLoadingScreen();
             return;
         }
-        window.LBStartup?.recoverWith(() => {
-            _bootReadOnly = true;
-            applyLoadedData(null, false);
-            enterMenuAfterSave();
-            customAlert('This session will not save progress or settings. Restart to retry loading your save.', 'SAVE UNAVAILABLE');
-            _dismissLoadingScreen();
-        });
         _setLoadProgress(55, 'Checking save storage…');
-        const existingHandle = !_desktopSave && _hasFileAPI ? await getHandleFromIDB() : null;
+        const existingHandle = !_desktopSave && _hasFileAPI ? await startupWait('Save handle lookup', getHandleFromIDB) : null;
         if (!_bootReadOnly) await showFileSetup(existingHandle);
     }
 
@@ -2301,10 +2312,10 @@
     function _dismissLoadingScreen() {
         const ls = document.getElementById('loading-screen');
         if (!ls || ls.dataset.dismissed) return;
-        window.LBStartup?.finish();
         ls.dataset.dismissed = '1';
         document.getElementById('ls-actions').hidden = true;
         _setLoadProgress(100, 'Ready!');
+        startup?.finish();
         if (_qaDemo) { ls.style.display = 'none'; return; }
         setTimeout(() => {
             ls.classList.add('ls-hidden');
@@ -2414,7 +2425,7 @@
         dailyGift.refresh();
         setTimeout(_checkGlowNotifications, 100);
         _checkMissionsRefresh();
-            _reminders?.refresh();
+        _reminders?.refresh();
         _initTrackCatalog(); // re-run now that saveData is loaded
         if (skinSettingsChanged) saveSettings();
         if (skinNotice && showSkinNotice) customAlert(skinNotice, 'BLOCK SKINS UPDATED');
@@ -2437,10 +2448,12 @@
             let loaded;
             try {
                 _setLoadProgress(75, 'Reading native save…');
-                const json = await _nativeAdapter.load();
+                const json = await startupWait('Native save read', () => _nativeAdapter.load(), 2000);
                 if (_bootReadOnly) return;
                 _setLoadProgress(85, 'Preparing save schema…');
-                loaded = await LBNativeSave.prepareLoadedSave(json, LBSave.version, _nativeAdapter.backupSchema);
+                const backup = _nativeAdapter.backupSchema;
+                loaded = await LBNativeSave.prepareLoadedSave(json, LBSave.version,
+                    backup && ((...args) => startupWait('Save schema backup', () => backup(...args), 2000)));
             } catch (error) {
                 if (_bootReadOnly) return;
                 if (window.LBStartup) window.LBStartup.fail(error, true);
@@ -2452,6 +2465,7 @@
             }
             if (_bootReadOnly) return;
             const { data, readOnly } = loaded;
+            if (readOnly) console.warn('Native save opened read-only:', readOnly);
             _readOnlyRawSave = readOnly ? data : null;
             const { skinSettingsChanged } = applyLoadedData(data, !readOnly);
             _desktopSaveReady = true;
@@ -2465,7 +2479,7 @@
 
         if (!_hasFileAPI) {
             _setLoadProgress(75, 'Reading browser save…');
-            const data = await readIDBSave();
+            const data = await startupWait('Browser save read', readIDBSave);
             if (_bootReadOnly) return;
             applyLoadedData(data);
             enterMenuAfterSave();
@@ -2478,10 +2492,10 @@
             _setLoadProgress(75, 'Opening saved file handle…');
             // Try auto-load if permission already granted
             try {
-                const autoP = await existingHandle.queryPermission({ mode: 'readwrite' });
+                const autoP = await startupWait('Save handle permission', () => existingHandle.queryPermission({ mode: 'readwrite' }));
                 if (_bootReadOnly) return;
                 if (autoP === 'granted') {
-                    const data = await readSaveFile(existingHandle);
+                    const data = await startupWait('Save file read', () => readSaveFile(existingHandle));
                     if (_bootReadOnly) return;
                     fileHandle = existingHandle;
                     applyLoadedData(data);
@@ -3759,7 +3773,7 @@
             const button = document.getElementById(id);
             if (!button) continue;
             button.innerHTML = id === 'pl-mw-mute'
-                ? (muted ? _SVG_MUTED : _SVG_VOL).replaceAll('="14"', '="11"') : icon;
+                ? (muted ? _SVG_MUTED : _SVG_VOL).split('="14"').join('="11"') : icon;
             button.setAttribute('aria-label', muted ? 'Unmute music' : 'Mute music');
         }
     }
@@ -8807,7 +8821,7 @@
     // Android shell only: keep native navigation isolated from desktop input.
     const nativeApp = window.Capacitor?.isNativePlatform() && window.Capacitor.Plugins?.App;
     if (nativeApp?.addListener) {
-        nativeApp.addListener('backButton', async () => {
+        void startupWait('Android back button listener', () => nativeApp.addListener('backButton', async () => {
             const visible = el => el && !el.classList.contains('hidden')
                 && getComputedStyle(el).display !== 'none';
             const overlays = [...document.querySelectorAll(
@@ -8836,12 +8850,12 @@
             } else if (await customConfirm('Exit Linebreaker?', 'EXIT')) {
                 await nativeApp.exitApp();
             }
-        }).catch(error => console.error('Android back button setup failed', error));
-        nativeApp.addListener('appStateChange', ({ isActive }) => {
+        })).catch(error => console.error('Android back button setup failed', error));
+        void startupWait('Android lifecycle listener', () => nativeApp.addListener('appStateChange', ({ isActive }) => {
             if (isActive) _reminders?.refresh();
             if (!isActive && !isPaused && !isGameOver
                 && document.getElementById('app').classList.contains('active-game')) togglePause();
-        }).catch(error => console.error('Android lifecycle setup failed', error));
+        })).catch(error => console.error('Android lifecycle setup failed', error));
     }
 
     document.addEventListener('keydown',handleKeyDown); document.addEventListener('keyup',handleKeyUp);
@@ -9221,14 +9235,14 @@
     let DAILY_QUEST_POOL = FALLBACK_DAILY_QUESTS;
     let WEEKLY_MISSION_POOL = FALLBACK_WEEKLY_MISSIONS;
     async function _loadMissionCatalog() {
-        const controller = new AbortController();
+        const controller = window.AbortController ? new AbortController() : null;
         let timeout;
         try {
             const catalog = await Promise.race([
-                fetch('data/missions.json', { signal: controller.signal }).then(response => response.ok ? response.json() : null),
+                fetch('data/missions.json', controller ? { signal: controller.signal } : {}).then(response => response.ok ? response.json() : null),
                 new Promise(resolve => { timeout = setTimeout(() => {
                     resolve(null);
-                    controller.abort();
+                    if (controller) controller.abort();
                     console.warn('Linebreaker: mission catalog timed out; using built-in missions.');
                 }, 3000); }),
             ]);
@@ -11657,7 +11671,7 @@
     } catch(e) { console.error('Startup error:', e); }
     _setLoadProgress(40, 'Applying theme…');
     loadData().catch(error => {
-        if (window.LBStartup) window.LBStartup.fail(error);
+        if (startup) startup.fail(error, true);
         else console.error('Startup failed:', error);
     });
     window.addEventListener('resize', () => applyGameScale(settings.gameScale || '5'));

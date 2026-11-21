@@ -68,6 +68,18 @@ class StateTest {
     @Test fun newerEmbeddedApkWipesDownload() {
         val h=Harness(); h.good("1.0.1"); val new=Harness(h.root,bundle("1.0.2")); assertEquals("1.0.2",new.engine.coldStart().version); assertEquals(0,new.engine.bundles.listFiles()!!.size)
     }
+    @Test fun newerEmbeddedApkStartsDespiteBlockedBundleAndUnansweredTrial() {
+        val old = Harness(embedded = bundle("1.0.0"))
+        old.pending("1.0.1")
+        assertEquals("1.0.1", old.engine.coldStart().version)
+        old.engine.blocked(listOf("1.0.1"))
+        val upgraded = Harness(old.root, embedded = bundle("1.0.3"))
+        val launch = upgraded.engine.coldStart()
+        assertEquals("1.0.3", launch.version)
+        assertFalse(upgraded.engine.snapshot().trial)
+        assertNull(upgraded.engine.snapshot().pending)
+        assertTrue(upgraded.engine.ready(launch.version, launch.token))
+    }
     @Test fun shellApiChangeKeepsCompatibleDownloadEvenSameEmbedded() {
         val h=Harness(); h.good("1.0.1"); val new=Harness(h.root,shell=2); assertEquals("1.0.1",new.engine.coldStart().version); assertEquals(1,new.engine.bundles.listFiles()!!.size)
     }

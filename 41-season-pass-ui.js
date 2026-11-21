@@ -191,11 +191,12 @@
             if (config || configRequest) return;
             retry.hidden = true;
             loading.textContent = 'Loading reward track…';
-            configRequest = (async () => {
-                const response = await fetch('data/season.json', { signal: window.AbortSignal?.timeout?.(3000) });
+            const bounded = window.LBStartup?.bounded || ((label, action) => action());
+            configRequest = bounded('Season reward track', async () => {
+                const response = await fetch('data/season.json');
                 if (!response.ok) throw new Error('Could not load the reward track');
                 return prepareConfig(await response.json());
-            })();
+            });
             try {
                 config = await configRequest;
                 loading.textContent = '';

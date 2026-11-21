@@ -77,6 +77,7 @@ class MainActivity : BridgeActivity() {
         val reset = Button(this).apply { text = "Reset to built-in version" }
         val wait = Button(this).apply { text = "Wait longer" }
         val shell = Button(this).apply { text = "Open shell" }
+        val copy = Button(this).apply { text = "Copy logs"; setOnClickListener { copyLogs() } }
         val alternatives = listOf(reset, wait, shell)
         var fix: Updater.StartupFix? = null
         var retryShell = false
@@ -132,6 +133,7 @@ class MainActivity : BridgeActivity() {
         box.addView(status); box.addView(check)
         if (updater.launch.version != updater.engine.embedded.version) box.addView(reset)
         box.addView(wait); box.addView(shell)
+        box.addView(copy)
         nativeMessageDialog?.dismiss()
         dialog.setOnDismissListener {
             if (recoveryDialog === dialog) { recoveryDialog = null; refreshRecoveryCheck = null }
@@ -182,6 +184,8 @@ class MainActivity : BridgeActivity() {
         // Keep Capacitor routing and browser features while catching failures independently of bundle JS.
         web.webChromeClient = object : BridgeWebChromeClient(bridge) {
             override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                val source = Uri.parse(message.sourceId().orEmpty()).lastPathSegment.orEmpty().take(120)
+                logWebDiagnostic("console/${message.messageLevel()}", "[$source:${message.lineNumber()}] ${message.message()}")
                 if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR && message.message().startsWith("Uncaught"))
                     startupFailed("javascript-error")
                 return super.onConsoleMessage(message)
@@ -219,7 +223,7 @@ class MainActivity : BridgeActivity() {
             visibility = if (updater.engine.snapshot().trial && updater.watchdog.showLoading) View.VISIBLE else View.GONE
         }
         webFrame.addView(loadingOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
-        updater.onChange = { if (!isFinishing) { refreshRecovery(); refreshDebugSettings?.invoke(); if (updater.foreground) updater.shell.presentRequestedAndroidUi(this); showNativeMessages() } }
+        updater.onChange = { if (!isFinishing) { refreshRecovery(); refreshDebugSettings?.invoke(); if (resumed) updater.shell.presentRequestedAndroidUi(this); showNativeMessages() } }
         updater.onToast = { text -> if (!isFinishing) Toast.makeText(this, text, Toast.LENGTH_LONG).show() }
     }
     private fun setupEdgeToEdge(web: WebView) {
@@ -356,6 +360,22 @@ class MainActivity : BridgeActivity() {
             setOnClickListener { updater.retryChecks() }
         }
         box.addView(checkButton)
+        val shellUpdate = Button(this).apply {
+            setOnClickListener {
+                if (!updater.safeToInterrupt) return@setOnClickListener
+                if (updater.shell.isReady()) updater.shell.installFromWeb(this@MainActivity)
+                else updater.shell.check(consent = true)
+            }
+        }
+        fun refreshShellOffer() {
+            val ready = updater.shell.manifest()?.takeIf { updater.shell.isReady() }?.versionName
+            val available = updater.shell.availableState()?.optString("version")
+            shellUpdate.text = if (ready != null) "Install app update $ready" else "Download app update $available"
+            shellUpdate.visibility = if (ready != null || !available.isNullOrEmpty()) View.VISIBLE else View.GONE
+            shellUpdate.isEnabled = updater.safeToInterrupt && !updater.shell.downloading
+        }
+        refreshShellOffer()
+        box.addView(shellUpdate)
         box.addView(Button(this).apply { text = "Restart"; setOnClickListener { restartBundle(startupRecovery = updater.watchdog.reason != null) } })
         box.addView(Button(this).apply { text = "Logs"; setOnClickListener { showLogs() } })
         box.addView(Button(this).apply {
@@ -374,6 +394,7 @@ class MainActivity : BridgeActivity() {
         val dialog = AlertDialog.Builder(this).setTitle("Debug").setView(ScrollView(this).apply { addView(box) }).setPositiveButton("Save",null).setNegativeButton("Cancel",null).create()
         debugDialog = dialog
         refreshDebugSettings = {
+            refreshShellOffer()
             checkStatus.text = updater.checks.summary()
             checkButton.text = if (updater.checks.hasError()) "Retry" else "Check now"
             val latest = updater.settingsJson()
@@ -453,7 +474,20 @@ class MainActivity : BridgeActivity() {
             else show("offer:${it.optString("version")}", "New version ${it.optString("version")}",updater.formatSize(it.optLong("size")),"Update") { updater.download() }
         }
     }
-    private fun renderLogs() { logText?.text = "${updater.checks.summary()}\n${updater.checks.snapshot()}\n\nstate.json\n${updater.engine.stateJson()}\n\nNewest first (last 500 lines)\n${updater.engine.log.read()}" }
+    internal fun logWebDiagnostic(level: String, message: String) {
+        updater.engine.log.add("WebView ${level.take(24)}: ${message.take(1200).replace('\r', ' ')}")
+    }
+    internal fun logEnvironment(): String {
+        val webView = runCatching { WebView.getCurrentWebViewPackage() }.getOrNull()
+        val version = webView?.let { "${it.packageName} ${it.versionName}" } ?: "unknown"
+        return "WebView: $version\nAndroid: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\nDevice: ${Build.MANUFACTURER} ${Build.MODEL}"
+    }
+    private fun logsText() = "${logEnvironment()}\n\n${updater.checks.summary()}\n${updater.checks.snapshot()}\n\nstate.json\n${updater.engine.stateJson()}\n\nNewest first (last 500 lines)\n${updater.engine.log.read()}"
+    private fun renderLogs() { logText?.text = logsText() }
+    private fun copyLogs() {
+        (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("OTA state and logs", logsText()))
+        Toast.makeText(this, "Logs copied", Toast.LENGTH_SHORT).show()
+    }
     fun showLogs() {
         if (logDialog?.isShowing == true) return
         logText = TextView(this).apply { textSize = 12f; typeface = android.graphics.Typeface.MONOSPACE; setTextIsSelectable(true); setPadding(12.dp,8.dp,12.dp,8.dp) }
@@ -461,10 +495,7 @@ class MainActivity : BridgeActivity() {
         logDialog = AlertDialog.Builder(this).setTitle("Updater logs · live") .setView(scroll)
             .setPositiveButton("Close", null).setNeutralButton("Copy",null).setNegativeButton("Clear",null).create()
         logDialog!!.setOnShowListener {
-            logDialog!!.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
-                (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("OTA state and logs",logText?.text))
-                Toast.makeText(this,"Logs copied",Toast.LENGTH_SHORT).show()
-            }
+            logDialog!!.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { copyLogs() }
             logDialog!!.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener { updater.engine.log.clear(); renderLogs() }
             renderLogs(); handler.postDelayed(refreshLogs,1000)
         }

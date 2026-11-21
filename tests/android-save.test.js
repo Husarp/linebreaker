@@ -43,11 +43,12 @@ it('falls back to built-in missions when an older WebView never resolves the req
  expect(game.w.document.querySelector('#loading-screen').dataset.dismissed).toBe('1');
 });
 
-it('offers read-only recovery after eight seconds and ignores late native reads', async () => {
+it('offers read-only recovery on the native read deadline and ignores late native reads', async () => {
  let finishRead;
  const filesystem = { readFile: vi.fn(() => new Promise(resolve => { finishRead = resolve; })), writeFile: vi.fn() };
  game = await loadGame(true, null, mockAndroid(filesystem), undefined, null, window => window.eval(watchdog));
- game.advance(8000);
+ game.advance(2000);
+ await settle();
  const button = game.w.document.getElementById('ls-continue');
  expect(button.hidden).toBe(false);
  expect(game.w.document.getElementById('ls-status').textContent).toContain('Reading native save');
@@ -61,10 +62,59 @@ it('offers read-only recovery after eight seconds and ignores late native reads'
  expect(game.w.document.querySelector('#loading-screen').dataset.dismissed).toBe('1');
 });
 
-it('replaces the spinner with a restart action when boot code throws', async () => {
+it('boots a legacy save without newer runtime APIs, music, or replies from optional plugins', async () => {
+ const legacy = JSON.parse(readFileSync(new URL('./fixtures/legacy-save.json', import.meta.url), 'utf8'));
+ legacy._settings.reminders = { enabled: true };
+ legacy.pinnedScores.push(null, 'broken');
+ legacy.ownedSkins = { invalid: true };
+ const never = () => new Promise(() => {});
+ const filesystem = { readFile: vi.fn(async ({ path }) => {
+   if (path === 'save.json') return { data: JSON.stringify(legacy) };
+   throw Error('File not found');
+ }), writeFile: vi.fn(async () => {}), rename: vi.fn(async () => {}) };
+ const android = mockAndroid(filesystem);
+ android.Plugins.App = { addListener: never };
+ android.Plugins.LocalNotifications = { cancel: never, requestPermissions: vi.fn(never) };
+ game = await loadGame(true, null, android, never, null, window => {
+  for (const [object, keys] of [[window, ['globalThis', 'AbortController']], [window.Object, ['hasOwn', 'fromEntries']],
+   [window.Array.prototype, ['flat', 'flatMap', 'at', 'findLast', 'findLastIndex']], [window.Promise.prototype, ['finally']],
+   [window.Element.prototype, ['replaceChildren', 'toggleAttribute']]]) {
+   for (const key of keys) delete object[key];
+  }
+  window.localStorage.setItem('lb_reminderPermissionAsked', '1');
+  window.eval(watchdog);
+  window.eval(readFileSync(new URL('../compat.js', import.meta.url), 'utf8'));
+ });
+ game.advance(3000);
+ await settle();
+ expect(game.api.save.totalXP).toBe(5000);
+ expect(game.w.linebreakerReadyForUpdates).toBe(true);
+ expect(game.w.document.querySelector('#loading-screen').dataset.dismissed).toBe('1');
+ expect(android.Plugins.LocalNotifications.requestPermissions).not.toHaveBeenCalled();
+});
+
+it('opens a known save read-only when the legacy schema backup stalls', async () => {
+ const filesystem = {
+  readFile: vi.fn(async ({ path }) => {
+   if (path === 'save.json') return { data: '{"totalXP":789}' };
+   throw Error('File not found');
+  }),
+  writeFile: vi.fn(() => new Promise(() => {})), rename: vi.fn(),
+ };
+ game = await loadGame(true, null, mockAndroid(filesystem), undefined, null, window => window.eval(watchdog));
+ game.advance(2000);
+ await settle();
+ expect(game.api.save.totalXP).toBe(789);
+ expect(game.w.document.querySelector('#loading-screen').dataset.dismissed).toBe('1');
+ await game.api.writeSaveFile({ totalXP: 1 });
+ expect(filesystem.writeFile.mock.calls.map(([request]) => request.path)).toEqual(['save.schema-0.bak']);
+ expect(filesystem.rename).not.toHaveBeenCalled();
+});
+
+it('replaces the spinner with a restart and read-only option after startup has registered recovery', async () => {
  game = await loadGame(true, null, mockAndroid({ readFile: () => new Promise(() => {}) }), undefined, null, window => window.eval(watchdog));
  game.w.dispatchEvent(new game.w.ErrorEvent('error', { error: Error('Broken app script') }));
  expect(game.w.document.getElementById('ls-status').textContent).toContain('Startup failed');
  expect(game.w.document.getElementById('ls-actions').hidden).toBe(false);
- expect(game.w.document.getElementById('ls-continue').hidden).toBe(true);
+ expect(game.w.document.getElementById('ls-continue').textContent).toBe('Continue without saving');
 });

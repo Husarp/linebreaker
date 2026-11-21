@@ -3,6 +3,8 @@
   const ota = window.Capacitor?.getPlatform?.() === 'android' && plugins?.Ota;
   const bundle = window.BUNDLE;
   if (!ota || !bundle?.version) return;
+  const startup = window.LBStartup;
+  const bounded = startup?.bounded || ((label, action) => action());
   const { startupUpgrade, attachVersion, dialog, size, showNotes, copy, newer } = window.LBUpdateTools;
   const defaults = { smallFixes: true, majorUpdates: false, shellUpdates: true, wifiLimitMb: 20, mobileLimitMb: 5, checkFrequency: '6h' };
   const fields = [
@@ -54,10 +56,11 @@
   const clearBanner = () => { banner.hidden = true; bannerKey = undefined; };
   const canInterrupt = () => ready && window.linebreakerCanInterrupt?.() === true && !settingsBusy;
   const syncSafety = () => {
+    if (!ready) return Promise.resolve();
     const safe = canInterrupt();
     if (safe === safety) return Promise.resolve();
     safety = safe;
-    return ota.setSafeToInterrupt({ safe }).catch(() => { if (safety === safe) safety = undefined; });
+    return bounded('OTA safety update', () => ota.setSafeToInterrupt({ safe })).catch(() => { if (safety === safe) safety = undefined; });
   };
   window.LBAndroidUpdates = { syncSafety };
   const guardedOverlay = '#pal-edit-modal, .lb-reward-overlay';
@@ -69,9 +72,15 @@
   const transferPanel = document.getElementById('transfer-overlay');
   if (transferPanel) overlays.observe(transferPanel, { attributes: true, attributeFilter: ['class'] });
   const status = value => { section.querySelector('[data-status]').textContent = value; };
+  const unavailable = error => {
+    console.warn('Android updater startup:', error);
+    status('Updater unavailable. Open GitHub for a standalone APK.');
+    banner.textContent = 'Android could not confirm startup. Saving is paused until you restart the app.';
+    banner.hidden = false;
+  };
   const feedback = (panel, value) => { panel.querySelector('[data-feedback]').textContent = value; };
   const guarded = async action => {
-    await window.flushLinebreakerSave?.();
+    await bounded('Save flush before update', () => window.flushLinebreakerSave?.());
     if (!canInterrupt()) { status('Finish the current activity before updating.'); return; }
     await syncSafety();
     if (canInterrupt()) await action();
@@ -86,7 +95,7 @@
   const logField = diagnostics.querySelector('textarea');
   const reloadLog = async () => {
     if (!diagnostics.open || document.activeElement === logField) return;
-    const log = await ota.getUpdateLog();
+    const log = await bounded('Reading Android logs', () => ota.getUpdateLog());
     if (diagnostics.open && logField.value !== log.text) logField.value = log.text;
   };
   const automatic = [section, diagnostics].map(panel => panel.querySelector('[data-auto]'));
@@ -145,7 +154,7 @@
   const retry = makeButton('CHECK NOW', check);
   async function showCheckNotice(current) {
     if (!ready || document.hidden || !current.updateChecks?.noticePending) return;
-    const { message } = await ota.claimCheckNotice({ token: current.token }).catch(() => ({}));
+    const { message } = await bounded('Checking Android update notice', () => ota.claimCheckNotice({ token: current.token })).catch(() => ({}));
     if (!message) return;
     const title = document.createElement('span');
     title.setAttribute('role', 'status');
@@ -212,7 +221,7 @@
       const buttons = [...actions.querySelectorAll('button:not([data-skip])')];
       buttons.forEach(button => { button.disabled = true; });
       try {
-        state.updateSettings = await ota.setUpdateSettings({ ...values, setupAnswered: true });
+        state.updateSettings = await bounded('Saving update setup', () => ota.setUpdateSettings({ ...values, setupAnswered: true }));
         preferences.close();
         await refresh();
       } catch { feedback(preferences, 'Could not save. Please try again.'); }
@@ -240,7 +249,7 @@
   preferences.addEventListener('close', () => { settingsBusy = false; void syncSafety(); });
 
   function offer(current, includeDismissed = false) {
-    if (current.trial || !canInterrupt() || (!includeDismissed && !current.updateSettings?.setupAnswered)) return null;
+    if (current.trial || !canInterrupt()) return null;
     const web = current.available, shell = current.shellReady || current.shellAvailable;
     if (notice && [web?.version, current.staged?.version, current.webDownloadVersion].some(version => newer(version, notice.to))) notice = null;
     if (notice && shell && (shell.versionCode > current.runningShellVersionCode || newer(shell.version, current.shellVersion))) notice = null;
@@ -278,28 +287,30 @@
     input.closest('label').hidden = false;
     const createChannel = () => system.createChannel({ id: channelId, name: 'Linebreaker updates', importance: 3 });
     let sending = false;
-    input.checked = (await preferences.get({ key })).value === 'on';
+    const readPreference = () => bounded('Reading update notification preference', () => preferences.get({ key }));
+    const checkPermission = () => bounded('Checking update notification permission', () => system.checkPermissions());
+    input.checked = (await readPreference()).value === 'on';
     input.disabled = false;
     input.onchange = async () => {
       const enable = input.checked;
       input.disabled = true;
       try {
         if (enable) {
-          let { display } = await system.checkPermissions();
-          if (display === 'prompt' || display === 'prompt-with-rationale') ({ display } = await system.requestPermissions());
+          let { display } = await checkPermission();
+          if (display === 'prompt' || display === 'prompt-with-rationale') ({ display } = await bounded('Requesting update notification permission', () => system.requestPermissions(), 30000));
           if (display !== 'granted') {
             input.checked = false;
             feedback(section, 'Allow Linebreaker notifications in Android Settings.');
             return;
           }
-          await createChannel();
+          await bounded('Creating update notification channel', createChannel);
         }
-        await preferences.set({ key, value: enable ? 'on' : 'off' });
+        await bounded('Saving update notification preference', () => preferences.set({ key, value: enable ? 'on' : 'off' }));
         feedback(section, '');
         if (enable) notify(state);
-        else await system.cancel({ notifications: Object.values(ids).map(id => ({ id })) });
+        else await bounded('Cancelling update notifications', () => system.cancel({ notifications: Object.values(ids).map(id => ({ id })) }));
       } catch {
-        input.checked = (await preferences.get({ key }).catch(() => ({}))).value === 'on';
+        input.checked = (await readPreference().catch(() => ({}))).value === 'on';
         feedback(section, 'Could not change Android update notifications.');
       } finally { input.disabled = false; }
     };
@@ -315,10 +326,10 @@
       if (!notices.length) return;
       sending = true;
       void (async () => {
-        if ((await system.checkPermissions()).display !== 'granted' || !input.checked) return;
-        await createChannel();
+        if ((await checkPermission()).display !== 'granted' || !input.checked) return;
+        await bounded('Creating update notification channel', createChannel);
         if (!input.checked) return;
-        await system.schedule({ notifications: notices.map(([type, , title, body]) => ({ id: ids[type], title, body, channelId })) });
+        await bounded('Scheduling update notifications', () => system.schedule({ notifications: notices.map(([type, , title, body]) => ({ id: ids[type], title, body, channelId })) }));
         for (const [type, token] of notices) localStorage.setItem(`lb154:notification:${type}`, token);
       })().catch(error => console.warn('Update notifications unavailable:', error)).finally(() => { sending = false; });
     };
@@ -384,7 +395,7 @@
     }
   }
   function refresh() {
-    if (!refreshing) refreshing = ota.getState().then(current => {
+    if (!refreshing) refreshing = bounded('Reading Android update state', () => ota.getState()).then(current => {
       state = current;
       if (current.updated?.to === bundle.version && localStorage.getItem('lb149:lastNoticeToken') !== current.token) {
         notice = current.updated;
@@ -398,17 +409,19 @@
     return refreshing;
   }
   async function initialize() {
-    const initial = await ota.info();
+    startup?.step('Reading Android shell info…');
+    const initial = await bounded('Android shell info', () => ota.info());
     state = initial;
-    if (initial.webVersion !== bundle.version || !initial.token) return;
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    await window.flushLinebreakerSave?.();
-    if (!(await ota.appReady({ version: bundle.version, token: initial.token, checkNotices: true })).accepted) return;
+    if (initial.webVersion !== bundle.version || !initial.token) throw new Error('Android launch version or token did not match');
+    await bounded('First menu frame', () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))), 750).catch(() => {});
+    startup?.step('Flushing startup save writes…');
+    await bounded('Startup save flush', () => window.flushLinebreakerSave?.());
+    startup?.step('Acknowledging Android WebView readiness…');
+    if (!(await bounded('Android appReady', () => ota.appReady({ version: bundle.version, token: initial.token, checkNotices: true }))).accepted) throw new Error('Shell rejected readiness');
+    startup?.step('Android WebView readiness accepted');
     void window.resumeLinebreakerOtaWrites?.()?.catch(error => console.warn('Could not resume save writes:', error));
-    attachVersion(bundle.version, openShell);
-    render(initial);
-    if (initial.updateSettings?.setupAnswered === false) openSettings(false);
     ready = true;
+    render(initial);
     shellUpgrade = startupUpgrade(localStorage, 'lb149:shell', initial.shellVersion);
     if (Number.isSafeInteger(initial.runningShellVersionCode)) {
       const previousCode = Number(localStorage.getItem('lb149:shellCode'));
@@ -417,13 +430,14 @@
     }
     void mountNotifications().catch(() => feedback(section, 'Android update notifications are unavailable.'));
     await syncSafety();
-    await refresh();
+    await refresh().catch(error => console.warn('Could not read Android update state:', error));
     setInterval(() => { void syncSafety(); void refresh().catch(() => {}); }, 1000);
   }
+  attachVersion(bundle.version, openShell);
   const start = () => {
     void Promise.all(['updateAvailable', 'updateStaged', 'updated', 'rolledBack', 'shellUpdateReady', 'updateSettingsChanged']
-      .map(event => ota.addListener(event, () => { if (ready) void refresh().catch(() => {}); }))).catch(() => {});
-    return initialize().catch(() => status('Updater unavailable. Open GitHub for a standalone APK.'));
+      .map(event => bounded('Listening for ' + event, () => ota.addListener(event, () => { if (ready) void refresh().catch(() => {}); })))).catch(() => {});
+    return initialize().catch(unavailable);
   };
   if (window.linebreakerReadyForUpdates) void start();
   else window.addEventListener('linebreaker-update-ready', start, { once: true });

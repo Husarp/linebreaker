@@ -182,9 +182,8 @@ it('does not ship local MP3s or catalogue entries without the private build flag
     cpSync(new URL('../assets/ui', import.meta.url), path('assets/ui'), { recursive: true });
     mkdirSync(path('ui'));
     mkdirSync(path('data'));
-    for (const file of ['index.html', 'app.js', 'music-synth.js', 'style.css', 'desktop.js', 'native-save.js', 'touch.js', 'touch.css', 'portrait.css', 'ui/tokens.css']) {
-      writeFileSync(path(file), 'test fixture');
-    }
+    writeFileSync(path('index.html'), '<script src="music-synth.js"></script>');
+    cpSync(new URL('../music-synth.js', import.meta.url), path('music-synth.js'));
     for (const file of ['music.json', 'music.release.json']) cpSync(new URL('../assets/' + file, import.meta.url), path('assets/' + file));
     cpSync(new URL('../data/missions.json', import.meta.url), path('data/missions.json'));
     cpSync(new URL('../data/season.json', import.meta.url), path('data/season.json'));
@@ -209,4 +208,4 @@ it('does not ship local MP3s or catalogue entries without the private build flag
     expect(existsSync(path('dist-web/assets/ui/crates/mythic.png'))).toBe(true);
     expect(existsSync(path('dist-web/assets/ui/crates/mythic-rainbow.png'))).toBe(false);
   } finally { rmSync(fixture, { recursive: true, force: true }); }
-});
+}, 15000);

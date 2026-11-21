@@ -43,7 +43,14 @@ class OtaPlugin : Plugin() {
     @PluginMethod fun restart(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).restartBundle() }; call.resolve() }
     @PluginMethod fun settings(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).showSettings() }; call.resolve() }
     @PluginMethod fun logs(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).showLogs() }; call.resolve() }
-    @PluginMethod fun getUpdateLog(call: PluginCall) { call.resolve(JSObject().put("text", updater.engine.log.read())) }
+    @PluginMethod fun logWebDiagnostic(call: PluginCall) {
+        val level = call.getString("level")?.takeIf { it in setOf("info", "warn", "error") } ?: "info"
+        call.getString("message")?.let { (activity as MainActivity).logWebDiagnostic(level, it) }
+        call.resolve()
+    }
+    @PluginMethod fun getUpdateLog(call: PluginCall) {
+        call.resolve(JSObject().put("text", "${(activity as MainActivity).logEnvironment()}\n\n${updater.engine.log.read()}"))
+    }
     @PluginMethod fun clearUpdateLog(call: PluginCall) { updater.engine.log.clear(); call.resolve() }
     @PluginMethod fun confirmReset(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).confirmReset() }; call.resolve() }
     @PluginMethod fun openReleases(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).openReleases() }; call.resolve() }

@@ -115,7 +115,7 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
             val apk=download(m,consent)
             verifyApk(apk,m)
             engine.dates.record("shell",m.versionCode.toString(),m.releasedAt,downloaded=true)
-            atomicWrite(envelope,source.bytes); ready=m; available=null; installRequested=consent; explicitInstallRequested=consent
+            atomicWrite(envelope,source.bytes); ready=m; available=null; installRequested=consent || automaticShellInstall(settings()); explicitInstallRequested=consent
             // Update tapped: install right after the download, no second tap.
             if (consent) prefs.edit().putInt("notifyTarget",m.versionCode.toInt()).commit()
             dir.listFiles()?.filter { it.name.endsWith(".apk") && it.name != m.apk }?.forEach { it.delete() }
@@ -190,13 +190,11 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
     fun maybeInstall() { executor.execute { runCatching { maybeInstallOnExecutor() }.onFailure { status="Install failed: ${it.message}"; log("failed: ${it.message}") } } }
     private fun maybeInstallOnExecutor() {
         val m=ready ?: return
-        // Keep automatic silent installation from SPEC2. Only opening Android
-        // settings/confirmation UI requires a web tap or retained-APK startup.
-        if (!explicitInstallRequested && !automaticShellInstall(settings())) { log("automatic shell installation disabled or setup pending"); return }
+        if (!explicitInstallRequested && !automaticShellInstall(settings())) { log("automatic shell installation disabled"); return }
         if (!mayInterrupt()) { log("install deferred: busy in round"); return }
         if (prefs.getBoolean("failed",false)) return
         if (installing || confirmation!=null) { changed(); return }
-        if (!canInstallPackages()) { status="App update ${m.versionName} ready · allow Install unknown apps"; log("unknown-app permission needed; wait for web Install action"); return }
+        if (!canInstallPackages()) { status="App update ${m.versionName} ready · allow Install unknown apps"; log("unknown-app permission needed"); return }
         val start=System.nanoTime()
         verifier.verifyShell(envelope.readBytes(),System.currentTimeMillis(),BuildConfig.VERSION_CODE.toLong())
         val apk=File(dir,m.apk); verifyApk(apk,m)

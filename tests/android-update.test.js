@@ -6,11 +6,12 @@ import { deltaFiles } from '../scripts/ota-bundle.mjs';
 
 const tools = readFileSync(new URL('../update-tools.js', import.meta.url), 'utf8');
 const source = readFileSync(new URL('../ota-android.js', import.meta.url), 'utf8');
+const watchdog = readFileSync(new URL('../boot.js', import.meta.url), 'utf8');
 const windows = [];
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const defaults = { setupAnswered: true, smallFixes: true, majorUpdates: false, shellUpdates: true, wifiLimitMb: 20, mobileLimitMb: 5, checkFrequency: '6h' };
 
-async function boot({ platform = 'android', native = {}, version = '0.1.1', safe = true, saved = {}, plugins = {} } = {}) {
+async function boot({ platform = 'android', native = {}, version = '0.1.1', safe = true, saved = {}, plugins = {}, startup = false } = {}) {
   const { window } = new JSDOM('<main id="menu-overlay"></main><div id="settings-overlay"><section class="settings-section"></section></div><span data-update-version></span>', {
     url: 'https://localhost/', runScripts: 'outside-only', pretendToBeVisual: true,
   });
@@ -35,6 +36,12 @@ async function boot({ platform = 'android', native = {}, version = '0.1.1', safe
   };
   window.Capacitor = { getPlatform: () => platform, Plugins: { Ota: ota, ...plugins } };
   window.BUNDLE = { version };
+  if (startup) {
+    const schedule = window.setTimeout.bind(window);
+    window.setTimeout = (action, ms) => schedule(action, ms === 3000 ? 10 : ms);
+    window.eval(watchdog);
+    window.LBStartup.finish();
+  }
   window.eval(tools);
   window.eval(source);
   return { window, ota, frames, state, setSafe: value => { safe = value; },
@@ -120,12 +127,16 @@ it('never marks a mismatched web bundle ready', async () => {
   expect(game.window.resumeLinebreakerOtaWrites).not.toHaveBeenCalled();
 });
 
-it('acknowledges readiness without a setup answer and then offers the recommended policy', async () => {
-  const game = await boot({ native: { updateSettings: { ...defaults, setupAnswered: false } } });
+it('acknowledges readiness without forcing an unanswered setup dialog or hiding a shell offer', async () => {
+  const game = await boot({ native: { updateSettings: { ...defaults, setupAnswered: false }, shellAvailable: { version: '1.0.3', versionCode: 1003, size: 100 } } });
   await game.restoreSave();
   expect(game.get('dialog[open]')).toBeNull();
   await game.ready();
   expect(game.ota.appReady).toHaveBeenCalledOnce();
+  expect(game.get('dialog[open]')).toBeNull();
+  expect(game.get('.lb149-banner').textContent).toContain('App update 1.0.3');
+  expect(game.ota.setSafeToInterrupt).toHaveBeenLastCalledWith({ safe: true });
+  game.click('Finish update setup');
   expect(game.get('dialog[open]').getAttribute('aria-label')).toBe('How should updates work?');
   expect(game.ota.setSafeToInterrupt).toHaveBeenLastCalledWith({ safe: false });
   game.click('Recommended');
@@ -142,6 +153,30 @@ it('does not resume writes or offer setup when the shell ignores a ready signal'
   expect(game.ota.appReady).toHaveBeenCalledOnce();
   expect(game.window.resumeLinebreakerOtaWrites).not.toHaveBeenCalled();
   expect(game.get('dialog[open]')).toBeNull();
+});
+
+it('reports a stalled OTA bridge and never resumes unconfirmed trial writes', async () => {
+  const game = await boot({ startup: true, native: { trial: true } });
+  game.ota.info.mockImplementation(() => new Promise(() => {}));
+  await game.restoreSave();
+  await new Promise(resolve => setTimeout(resolve, 30));
+  expect(game.ota.appReady).not.toHaveBeenCalled();
+  expect(game.window.resumeLinebreakerOtaWrites).not.toHaveBeenCalled();
+  expect(game.get('.lb149-banner').textContent).toContain('Saving is paused');
+  expect(game.get('dialog[open]')).toBeNull();
+});
+
+it('acknowledges readiness and retains notes when Preferences never replies', async () => {
+  const preferences = { get: vi.fn(() => new Promise(() => {})) };
+  const game = await boot({ startup: true, plugins: { Preferences: preferences, LocalNotifications: {} },
+    native: { updateSettings: { ...defaults, setupAnswered: false }, updated: { to: '0.1.1', notes: 'New notes' } } });
+  await game.restoreSave();
+  await game.ready();
+  expect(game.ota.appReady).toHaveBeenCalledOnce();
+  expect(game.window.resumeLinebreakerOtaWrites).toHaveBeenCalledOnce();
+  expect(preferences.get).toHaveBeenCalledOnce();
+  expect(game.get('dialog[open]')).toBeNull();
+  expect(game.get('.lb149-banner').textContent).toContain("What's new in 0.1.1");
 });
 
 it('exposes Android policy and shell actions directly in the Updates section', async () => {
