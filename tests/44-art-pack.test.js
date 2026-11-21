@@ -50,7 +50,7 @@ it('keeps the existing gradient and falling-block setting when switching art mod
       select.value = mode;
       select.dispatchEvent(new w.Event('change'));
     };
-    const stored = () => JSON.parse(w.localStorage.getItem('tetrisRPG_settings'));
+    const stored = () => JSON.parse(w.localStorage.getItem('linebreaker_settings'));
 
     w.openSettings();
     expect(select.value).toBe('image');

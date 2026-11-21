@@ -31,7 +31,7 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
     window.history.replaceState(null, '', '?dev&demo');
     window.showOpenFilePicker = window.showSaveFilePicker = picker;
     window.indexedDB.open = idb;
-    window.localStorage.setItem('tetrisRPG_funConfig', '{"cols":9}');
+    window.localStorage.setItem('linebreaker_funConfig', '{"cols":9}');
     storage = ['getItem', 'setItem', 'removeItem', 'clear'].map(method => vi.spyOn(window.localStorage, method));
   });
   const { w, api, advance } = game;
@@ -81,8 +81,8 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
   advance(1000);
   expect(api.save.totalXP).toBe(0);
   for (const spy of [native, idb, picker, ...storage]) expect(spy).not.toHaveBeenCalled();
-  expect(JSON.parse(w.localStorage.getItem('tetrisRPG_settings'))).toEqual(diskSettings);
-  expect(w.localStorage.getItem('tetrisRPG_funConfig')).toBe('{"cols":9}');
+  expect(JSON.parse(w.localStorage.getItem('linebreaker_settings'))).toEqual(diskSettings);
+  expect(w.localStorage.getItem('linebreaker_funConfig')).toBe('{"cols":9}');
 });
 
 it('opens the documented screenshot targets through real UI handlers', async () => {

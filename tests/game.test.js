@@ -64,7 +64,7 @@ it('renders the HUD speed meter from level 1 through level 15', () => {
     expect(meter.style.getPropertyValue('--hud-speed-level')).toBe(String(speed));
   }
 });
-it('each seven-piece bag contains every tetromino', () => {
+it('each seven-piece bag contains every piece', () => {
   for(let bag=0;bag<10;bag++) {const types=Array.from({length:7},()=>a.nextPiece().flat().find(Boolean));expect(types.sort()).toEqual([1,2,3,4,5,6,7]);}
 });
 it.each([1,2,5,10,15])('gravity at speed %i uses a strict interval boundary', speed => {

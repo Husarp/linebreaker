@@ -62,7 +62,7 @@ export async function releaseRepository(config) {
 
 export function assertReleaseHygiene() {
   const tracked = run('git', ['ls-files', '-z'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }).split('\0');
-  const excluded = tracked.filter(file => /\.(exe|msi|apk|aab|zip|7z|log|key|pfx|p12|pvk|jks|keystore|mp3|tetris)$/i.test(file) ||
-    /(?:^|\/)(design|drafts|local-data|\.loki)(?:\/|$)|(?:^|\/)(tetris_save\.json|CHANGELOG\.md)$/i.test(file));
+  const excluded = tracked.filter(file => /\.(exe|msi|apk|aab|zip|7z|log|key|pfx|p12|pvk|jks|keystore|mp3|lbsave|[t]etris)$/i.test(file) ||
+    /(?:^|\/)(design|drafts|local-data|\.loki)(?:\/|$)|(?:^|\/)([^/]*_save\.json|CHANGELOG\.md)$/i.test(file));
   if (excluded.length) throw Error(`Remove release-excluded tracked files and ignore them:\n${excluded.join('\n')}`);
 }

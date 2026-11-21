@@ -21,6 +21,10 @@ await cp('assets/skins', 'dist-web/assets/skins', { recursive: true });
 await cp('assets/ui', 'dist-web/assets/ui', { recursive: true, filter: source => !source.endsWith('mythic-rainbow.png') });
 if (localMusic) {
   const local = JSON.parse(await readFile('assets/music.json', 'utf8'));
+  const legacyMusicFiles = new Map([
+    ['Classic Block Theme.mp3', 'Original \u0054etris theme (\u0054etris Soundtrack).mp3'],
+    ['Block Theme (Hardcore Remix).mp3', '\u0054etris (Hardcore Remix).mp3'],
+  ]);
   const files = await readdir('assets/music', { withFileTypes: true }).catch(error => {
     if (error.code === 'ENOENT') return [];
     throw error;
@@ -30,11 +34,12 @@ if (localMusic) {
   for (const category of Object.keys(catalogue)) {
     const candidates = category === 'intense' ? [...(local.intense || []), ...(local.action || [])] : local[category] || [];
     for (const track of candidates) {
-      if (!available.has(track.file)) continue;
+      const source = available.has(track.file) ? track.file : legacyMusicFiles.get(track.file);
+      if (!available.has(source)) continue;
       catalogue[category].push(track);
       if (copied.has(track.file)) continue;
       await mkdir('dist-web/assets/music', { recursive: true });
-      await cp('assets/music/' + track.file, 'dist-web/assets/music/' + track.file);
+      await cp('assets/music/' + source, 'dist-web/assets/music/' + track.file);
       copied.add(track.file);
     }
   }

@@ -170,7 +170,7 @@ it('persists the effect setting and describes custom effects on inventory cards'
   expect(setting.value).toBe('default');
   setting.value = 'skin';
   setting.dispatchEvent(new window.Event('change'));
-  expect(JSON.parse(window.localStorage.getItem('tetrisRPG_settings')).lineClearEffect).toBe('skin');
+  expect(JSON.parse(window.localStorage.getItem('linebreaker_settings')).lineClearEffect).toBe('skin');
   window.openSettings();
   expect(setting.value).toBe('skin');
   game.api.setup({ save: { ownedSkins: ['retro', seasonSkin] } });

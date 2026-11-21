@@ -66,6 +66,7 @@
     <link rel="stylesheet" href="135-halo.css">
     <link rel="stylesheet" href="138-fixes.css">
     <link rel="stylesheet" href="143-achievements.css">
+    <link rel="stylesheet" href="148-branding-qa.css">
 </head>
 <body>
 
@@ -328,7 +329,7 @@
             <button class="lb-block-btn" type="button" role="tab" id="stats-tab-pin" aria-controls="pinned-container" aria-selected="false" tabindex="-1" data-stats-tab="pinned">Pinned</button>
             <button class="lb-block-btn" type="button" role="tab" id="stats-tab-hs" aria-controls="highscores-container" aria-selected="false" tabindex="-1" data-stats-tab="highscores">Highscores</button>
         </div>
-        <section id="general-stats-container" role="tabpanel" aria-labelledby="stats-tab-general" tabindex="0">
+        <section id="general-stats-container" class="lb-scroll-fade" role="tabpanel" aria-labelledby="stats-tab-general" tabindex="0">
             <dl class="lb-block-card lb-stats-metrics lb-metric-grid">
                 <div class="lb-metric-score"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Best score</span></dt><dd id="stat-best-score">—</dd><dd class="lb-stats-comparison" id="stat-best-score-pct" hidden></dd></div>
                 <div class="lb-metric-score"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-average"/></svg><span>Average score</span></dt><dd id="stat-average-score">—</dd></div>
@@ -348,7 +349,7 @@
                 <div id="stat-activity-calendar"></div>
             </section>
         </section>
-        <section id="leaderboard-container" role="tabpanel" aria-labelledby="stats-tab-lb" tabindex="0" hidden>
+        <section id="leaderboard-container" class="lb-scroll-fade" role="tabpanel" aria-labelledby="stats-tab-lb" tabindex="0" hidden>
             <div class="lb-actions" role="group" aria-label="Leaderboard mode">
                 <button class="lb-block-btn lb-block-tab" type="button" aria-pressed="true" aria-controls="lb-list" data-stats-board="standard">Standard</button>
                 <button class="lb-block-btn lb-block-tab" type="button" aria-pressed="false" aria-controls="fun-list" data-stats-board="fun">Fun mode</button>
@@ -356,10 +357,10 @@
             <div id="lb-list"></div>
             <div id="fun-list" hidden></div>
         </section>
-        <section id="pinned-container" role="tabpanel" aria-labelledby="stats-tab-pin" tabindex="0" hidden>
+        <section id="pinned-container" class="lb-scroll-fade" role="tabpanel" aria-labelledby="stats-tab-pin" tabindex="0" hidden>
             <div id="pinned-list"></div>
         </section>
-        <section id="highscores-container" role="tabpanel" aria-labelledby="stats-tab-hs" tabindex="0" hidden>
+        <section id="highscores-container" class="lb-scroll-fade" role="tabpanel" aria-labelledby="stats-tab-hs" tabindex="0" hidden>
             <section class="lb-block-panel">
                 <div class="lb-block-panel-head"><h2>Highscore history</h2></div>
                 <div id="highscores-list" class="lb-stats-panel-body"></div>
@@ -378,7 +379,7 @@
         </div>
         <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About the inventory" title="About the inventory"></button>
     </div>
-    <div class="lb-inventory-content">
+    <div class="lb-inventory-content lb-scroll-fade" tabindex="0">
 
         <!-- Tab buttons -->
         <div class="lb-block-tabs lb-inventory-tabs" role="tablist" aria-label="Inventory categories">
@@ -780,8 +781,8 @@
         </section>
         <section class="lb-block-card lb80-transfer-action" aria-labelledby="transfer-import-title">
             <h3 id="transfer-import-title" class="lb-block-section-title">Restore from a file</h3>
-            <p>Select a <strong>.lbsave</strong> or legacy <strong>.tetris</strong> file. <strong class="lb80-transfer-warning">Importing replaces your current progress.</strong></p>
-            <input type="file" id="file-import-input" accept=".lbsave,.tetris" hidden onchange="window.handleFileImport(event)">
+            <p>Select a <strong>.lbsave</strong> file or a <strong>legacy save file</strong>. <strong class="lb80-transfer-warning">Importing replaces your current progress.</strong></p>
+            <input type="file" id="file-import-input" accept=".lbsave,.&#116;etris,.json" hidden onchange="window.handleFileImport(event)">
             <button type="button" class="lb-block-btn" onclick="document.getElementById('file-import-input').click()"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4m-4 4 4-4 4 4M5 16v5h14v-5"/></svg>Import save file</button>
         </section>
         <button type="button" class="lb-block-btn" onclick="window.closeTransferMenu()">Back to menu</button>
@@ -812,57 +813,61 @@
                 </div>
                 <button type="button" class="lb-block-btn" id="play-rules"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-rules"/></svg> Rules</button>
             </header>
-            <div class="lb69-modes" role="group" aria-label="Game mode">
-                <button type="button" class="lb-block-btn lb-block-tab lb69-mode" data-mode="normal" aria-pressed="true" aria-labelledby="play-normal-name" aria-describedby="play-normal-desc">
-                    <svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-normal"/></svg>
-                    <strong id="play-normal-name">Normal</strong>
-                    <span id="play-normal-desc" class="lb69-mode-detail">Classic Tetris RPG</span>
-                </button>
-                <button type="button" class="lb-block-btn lb-block-tab lb-block-btn--locked lb69-mode" data-mode="fun" aria-pressed="false" aria-labelledby="play-fun-name" aria-describedby="play-fun-lock" disabled>
-                    <svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-fun"/></svg>
-                    <strong id="play-fun-name">Fun</strong>
-                    <span id="play-fun-desc" class="lb69-mode-detail" hidden>Sandbox: custom board and speed. No ranking, XP, or achievements.</span>
-                    <span id="play-fun-lock" class="lb69-mode-detail lb69-lock"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-lock"/></svg> <span id="play-fun-rank"></span></span>
-                </button>
+            <div class="lb148-play-content lb-scroll-fade" tabindex="0" aria-label="Play options">
+                <div class="lb148-play-selection">
+                    <div class="lb69-modes" role="group" aria-label="Game mode">
+                        <button type="button" class="lb-block-btn lb-block-tab lb69-mode" data-mode="normal" aria-pressed="true" aria-labelledby="play-normal-name" aria-describedby="play-normal-desc">
+                            <svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-normal"/></svg>
+                            <strong id="play-normal-name">Normal</strong>
+                            <span id="play-normal-desc" class="lb69-mode-detail">Classic Linebreaker RPG</span>
+                        </button>
+                        <button type="button" class="lb-block-btn lb-block-tab lb-block-btn--locked lb69-mode" data-mode="fun" aria-pressed="false" aria-labelledby="play-fun-name" aria-describedby="play-fun-lock" disabled>
+                            <svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-fun"/></svg>
+                            <strong id="play-fun-name">Fun</strong>
+                            <span id="play-fun-desc" class="lb69-mode-detail" hidden>Sandbox: custom board and speed. No ranking, XP, or achievements.</span>
+                            <span id="play-fun-lock" class="lb69-mode-detail lb69-lock"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-lock"/></svg> <span id="play-fun-rank"></span></span>
+                        </button>
+                    </div>
+                    <section id="play-score-panel" class="lb69-score lb-block-panel" aria-labelledby="play-score-title" aria-live="polite" aria-atomic="true">
+                        <h2 id="play-score-title">Score multiplier</h2>
+                        <strong id="mode-xp-mult-val">100%</strong>
+                        <p id="play-no-modifiers">No active modifiers</p>
+                        <ul id="play-active-modifiers" hidden></ul>
+                    </section>
+                </div>
+                <div class="lb69-actions">
+                    <button type="button" class="lb-block-btn lb-block-btn--primary" id="play-start" data-lb-drift="accent"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-start"/></svg> Start</button>
+                    <button type="button" class="lb-block-btn" id="play-back">Cancel</button>
+                </div>
+                <section class="lb69-options" aria-labelledby="play-modifiers-title">
+                    <h2 id="play-modifiers-title">Options</h2>
+                    <div id="mode-options-panel"></div>
+                </section>
+                <section id="fun-mode-config" class="lb69-config" aria-labelledby="play-board-title" hidden>
+                    <h2 id="play-board-title">Fun setup</h2>
+                    <p>Modifiers still work in Fun, without score bonuses or penalties.</p>
+                    <div class="lb69-range">
+                        <label for="fun-cols">Columns</label>
+                        <output id="fun-cols-val" for="fun-cols">10</output>
+                        <input type="range" class="lb-block-range" id="fun-cols" min="6" max="16" value="10">
+                    </div>
+                    <div class="lb69-range">
+                        <label for="fun-rows">Rows</label>
+                        <output id="fun-rows-val" for="fun-rows">20</output>
+                        <input type="range" class="lb-block-range" id="fun-rows" min="15" max="30" value="20">
+                    </div>
+                    <div class="lb69-range">
+                        <label for="fun-speed">Start speed</label>
+                        <output id="fun-speed-val" for="fun-speed">1</output>
+                        <input type="range" class="lb-block-range" id="fun-speed" min="1" max="15" value="1">
+                    </div>
+                    <figure class="lb69-board-preview" id="play-board-preview" hidden>
+                        <div class="lb69-board-grid" aria-hidden="true"></div>
+                        <figcaption id="play-board-size">10 × 20 board</figcaption>
+                    </figure>
+                </section>
             </div>
-            <div class="lb69-actions">
-                <button type="button" class="lb-block-btn lb-block-btn--primary" id="play-start" data-lb-drift="accent"><svg class="lb69-icon" aria-hidden="true"><use href="#play-icon-start"/></svg> Start</button>
-                <button type="button" class="lb-block-btn" id="play-back">Cancel</button>
-            </div>
-            <section class="lb69-options" aria-labelledby="play-modifiers-title">
-                <h2 id="play-modifiers-title">Options</h2>
-                <div id="mode-options-panel"></div>
-            </section>
-            <section id="fun-mode-config" class="lb69-config" aria-labelledby="play-board-title" hidden>
-                <h2 id="play-board-title">Fun setup</h2>
-                <p>Modifiers still work in Fun, without score bonuses or penalties.</p>
-                <div class="lb69-range">
-                    <label for="fun-cols">Columns</label>
-                    <output id="fun-cols-val" for="fun-cols">10</output>
-                    <input type="range" class="lb-block-range" id="fun-cols" min="6" max="16" value="10">
-                </div>
-                <div class="lb69-range">
-                    <label for="fun-rows">Rows</label>
-                    <output id="fun-rows-val" for="fun-rows">20</output>
-                    <input type="range" class="lb-block-range" id="fun-rows" min="15" max="30" value="20">
-                </div>
-                <div class="lb69-range">
-                    <label for="fun-speed">Start speed</label>
-                    <output id="fun-speed-val" for="fun-speed">1</output>
-                    <input type="range" class="lb-block-range" id="fun-speed" min="1" max="15" value="1">
-                </div>
-                <figure class="lb69-board-preview" id="play-board-preview" hidden>
-                    <div class="lb69-board-grid" aria-hidden="true"></div>
-                    <figcaption id="play-board-size">10 × 20 board</figcaption>
-                </figure>
-            </section>
         </div>
-        <section id="play-score-panel" class="lb69-score lb-block-panel" aria-labelledby="play-score-title" aria-live="polite" aria-atomic="true">
-            <h2 id="play-score-title">Score multiplier</h2>
-            <strong id="mode-xp-mult-val">100%</strong>
-            <p id="play-no-modifiers">No active modifiers</p>
-            <ul id="play-active-modifiers" hidden></ul>
-        </section>
     </div>
 </div>
 
@@ -894,7 +899,7 @@
         </div>
         </div>
     </div>
-    <div style="width:100%; max-width:640px; margin:0 auto; padding:16px 20px;">
+    <div class="lb148-playlist" style="width:100%; max-width:640px; margin:0 auto; padding:16px 20px;">
         <div class="lb-playlist-tools">
             <div class="lb-help-label">
                 <h2 class="lb-block-section-title">Track selection</h2>
@@ -905,7 +910,7 @@
             </div>
             <button type="button" class="lb-block-btn" onclick="window.resetPlaylist()">↺ Reset</button>
         </div>
-        <div id="playlist-panel-content"></div>
+        <div id="playlist-panel-content" class="lb-scroll-fade" tabindex="0"></div>
     </div>
 </div>
 
@@ -920,7 +925,7 @@
     </header>
     <div class="lb-help-layout">
         <nav class="lb-help-nav" aria-label="Help sections"></nav>
-        <div class="lb-help-content"></div>
+        <div class="lb-help-content lb-scroll-fade" tabindex="0"></div>
     </div>
 </div>
 
@@ -991,7 +996,7 @@
         <div class="glass-box lb-hud-tile lb-hud-lines"><div class="label">Lines</div><div class="value" id="pc-lines">0</div></div>
     </div>
     
-    <div id="game-wrapper"><div id="game-container"><canvas id="tetris" width="300" height="600"></canvas></div></div>
+    <div id="game-wrapper"><div id="game-container"><canvas id="game-board" width="300" height="600"></canvas></div></div>
     
     <div class="pc-panel portrait-right">
         <div class="glass-box lb-hud-tile lb-hud-score"><div class="label">Score</div><div class="value" id="pc-score">0</div></div>

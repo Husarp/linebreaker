@@ -45,13 +45,13 @@ it('loads a defaults-based real save with progress, dates, missions and legacy b
  expect(a.save.pinnedScores[0].note).toBe('Nice run');
  expect(a.save.pendingLevelBox.rewards).toHaveLength(2);
 });
-it('imports a legacy TRPG1 export through the shared sanitizer and migrations', async () => {
+it.each(['legacy export', 'legacy JSON save'])('imports a %s through the shared sanitizer and migrations', async format => {
  const json = JSON.stringify({version:3,data:{totalXP:4000,highscore:100,boosters:{'1.6x_game':2},pinnedScores:[{note:attack,date:attack}]}});
  // TRPG1 uses the same XOR bytes with the legacy prefix (ASCII fixture).
- const encoded = a.encSave(json).replace('TRPG2:', 'TRPG1:');
+ const encoded = format === 'legacy export' ? a.encSave(json).replace('TRPG2:', 'TRPG1:') : json;
  let pending;
  game.w.FileReader = class { readAsText() { pending = this.onload({target:{result:encoded}}); } };
- game.w.handleFileImport({target:{files:[{}]}});
+ game.w.handleFileImport({target:{files:[{name: format === 'legacy export' ? 'backup.\u0074etris' : '\u0074etris_save.json'}]}});
  game.w.document.getElementById('confirm-yes').click();
  game.w.document.querySelector('#custom-confirm .modal-box').dispatchEvent(new game.w.Event('animationend'));
  await pending;

@@ -17,7 +17,7 @@ it('keeps spinning by default and advances falling pieces by elapsed time and di
   expect(select.value).toBe('spinning');
   select.value = 'falling';
   select.dispatchEvent(new window.Event('change'));
-  expect(JSON.parse(window.localStorage.getItem('tetrisRPG_settings')).bgBlockMotion).toBe('falling');
+  expect(JSON.parse(window.localStorage.getItem('linebreaker_settings')).bgBlockMotion).toBe('falling');
 
   window.Math.random = () => 0;
   const block = api.makeBgBlock(true);

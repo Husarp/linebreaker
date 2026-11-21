@@ -50,7 +50,7 @@ it('generates seven distinct and coordinated colours from each harmony recipe', 
   }
 });
 
-it('selects the correct tetromino, edits only that piece, and cancels draft changes', async () => {
+it('selects the correct piece, edits only that piece, and cancels draft changes', async () => {
   const document = await startGame();
   game.w._openCustomPaletteModal();
   expect(document.querySelector('#custom-palette-modal')).toBeNull();
@@ -77,7 +77,7 @@ it('selects the correct tetromino, edits only that piece, and cancels draft chan
   expect(pieces[1].style.getPropertyValue('--piece-color')).toBe('#123abc');
   dialog.querySelector('.lb-color-apply').click();
   expect(game.api.save.customPickerColors).toEqual([original[0], '#123abc', ...original.slice(2)]);
-  expect(JSON.parse(game.w.localStorage.getItem('tetrisRPG_settings'))).toMatchObject({ colorPalette: '_custom_picker', colorHistory: ['#123abc'] });
+  expect(JSON.parse(game.w.localStorage.getItem('linebreaker_settings'))).toMatchObject({ colorPalette: '_custom_picker', colorHistory: ['#123abc'] });
 
   game.w._openCustomPaletteModal();
   dialog = document.querySelector('#custom-palette-modal');
@@ -86,7 +86,7 @@ it('selects the correct tetromino, edits only that piece, and cancels draft chan
   expect(new Set([...dialog.querySelectorAll('.lb-color-piece')].map(button => button.style.getPropertyValue('--piece-color'))).size).toBe(7);
   dialog.querySelector('[aria-label="Close"]').click();
   expect(game.api.save.customPickerColors[1]).toBe('#123abc');
-  expect(JSON.parse(game.w.localStorage.getItem('tetrisRPG_settings')).colorHistory).toEqual(['#123abc']);
+  expect(JSON.parse(game.w.localStorage.getItem('linebreaker_settings')).colorHistory).toEqual(['#123abc']);
 });
 
 it('shares presets and history between editors and writes compatible settings to disk', async () => {
@@ -102,7 +102,7 @@ it('shares presets and history between editors and writes compatible settings to
     if (command === 'load_save') return JSON.stringify(saved);
     writes.push(JSON.parse(payload.json));
   });
-  expect(JSON.parse(game.w.localStorage.getItem('tetrisRPG_settings'))).toMatchObject({ colorPalette: '_custom_picker', colorHistory: ['#fedcba'] });
+  expect(JSON.parse(game.w.localStorage.getItem('linebreaker_settings'))).toMatchObject({ colorPalette: '_custom_picker', colorHistory: ['#fedcba'] });
   game.w._openColorPickerModal();
   expect(document.querySelector('#color-picker-modal')).toBeNull();
   game.api.setSave({ ...game.api.save, ownedThemes: themes });

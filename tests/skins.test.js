@@ -33,7 +33,7 @@ it('refunds each retired owned skin once and persists Retro and square through a
 it('resets equipped Lava and refunds it only if owned, even in a current save', async () => {
   game = await loadGame(true, null, null, { skin: 'lava', blockShape: 'round' });
   expect(game.api.save.universalParts).toBe(0);
-  expect(JSON.parse(game.w.localStorage.getItem('tetrisRPG_settings'))).toMatchObject({ skin: 'retro', blockShape: 'square' });
+  expect(JSON.parse(game.w.localStorage.getItem('linebreaker_settings'))).toMatchObject({ skin: 'retro', blockShape: 'square' });
   expect(game.w.applyBlockShape).toBeUndefined();
   game.api.applyLoadedData({ totalXP: 123, ownedSkins: ['lava'], skinCatalogVersion: 1 });
   expect(game.api.save.ownedSkins).toEqual(['retro']);
