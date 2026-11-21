@@ -116,5 +116,5 @@ it('schedules recurring local resets and removes the streak reminder after the g
     toggle('enabled').click();
     await vi.waitFor(() => expect(plugin.cancel).toHaveBeenCalledTimes(4));
     expect(plugin.schedule).toHaveBeenCalledTimes(3);
-    expect(JSON.parse(game.w.localStorage.getItem('tetrisRPG_settings')).reminders).toMatchObject({ enabled: false, weekly: false });
+    expect(JSON.parse(game.w.localStorage.getItem('linebreaker_settings')).reminders).toMatchObject({ enabled: false, weekly: false });
 });

@@ -8,7 +8,7 @@ const get = id => game.w.document.getElementById(id);
 const mode = name => get('mode-select-overlay').querySelector(`[data-mode="${name}"]`);
 const modifier = key => get('mode-options-panel').querySelector(`[data-play-modifier="${key}"]`);
 const score = () => get('mode-xp-mult-val').textContent;
-const savedSettings = () => JSON.parse(game.w.localStorage.getItem('tetrisRPG_settings'));
+const savedSettings = () => JSON.parse(game.w.localStorage.getItem('linebreaker_settings'));
 const setXP = totalXP => game.api.setSave({ ...game.api.save, totalXP });
 const finishClose = () => get('mode-select-overlay').dispatchEvent(new game.w.Event('animationend'));
 
@@ -132,7 +132,7 @@ it('plays a custom Fun board with functional modifiers but no score modifier', a
     expect(get('play-board-size').textContent).toBe('12 × 24 board');
     expect(get('play-board-preview').style.getPropertyValue('--play-cols')).toBe('12');
     expect(get('play-board-preview').style.getPropertyValue('--play-rows')).toBe('24');
-    expect(JSON.parse(game.w.localStorage.getItem('tetrisRPG_funConfig'))).toEqual({ cols: 12, rows: 24, startSpeed: 6 });
+    expect(JSON.parse(game.w.localStorage.getItem('linebreaker_funConfig'))).toEqual({ cols: 12, rows: 24, startSpeed: 6 });
 
     get('play-back').click();
     finishClose();

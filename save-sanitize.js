@@ -89,13 +89,19 @@
         return score;
     }
     function cleanAchievements(value) {
-        return Object.fromEntries(entries(value).map(([key, entry]) => {
+        return Object.fromEntries(entries(value).filter(([key]) => key !== '\u0074etris_lines' || !Object.hasOwn(value, 'i_piece_lines')).map(([key, entry]) => {
             const achievement = { unlocked: entry?.unlocked === true, unlockedAt: date(entry?.unlockedAt) };
             if (typeof entry?.tier === 'number') achievement.tier = Math.floor(number(entry.tier, 0, 100));
             if (object(entry?.tierDates)) achievement.tierDates = Object.fromEntries(entries(entry.tierDates).filter(([tier]) => /^[1-9]\d?$/.test(tier)).map(([tier, when]) => [tier, date(when)]).filter(([, when]) => when));
-            return [key, achievement];
+            return [achievementId(key), achievement];
         }));
     }
+    const achievementId = key => key === '\u0074etris_lines' ? 'i_piece_lines' : key;
+    const trackTitle = name => {
+        if (name === 'Original \u0054etris Theme') return 'Classic Block Theme';
+        if (name === '\u0054etris (Hardcore Remix)') return 'Block Theme (Hardcore Remix)';
+        return name;
+    };
     function sorted(value) {
         if (Array.isArray(value)) return value.map(sorted);
         if (!object(value)) return value;
@@ -176,7 +182,7 @@
             else if (key === 'dailyGiftStreak') out[key] = Math.floor(number(value, 0, 100000));
             else if (typeof defaults[key] === 'number' || key === 'levelRewardsThrough' || key === 'skinCatalogVersion') out[key] = number(value, defaults[key] || 0);
             else if (typeof defaults[key] === 'boolean') out[key] = value === true;
-            else if (key.endsWith('Playlist')) out[key] = Array.isArray(value) ? list(value).filter(trackName) : (defaults[key] || []);
+            else if (key.endsWith('Playlist')) out[key] = Array.isArray(value) ? [...new Set(list(value).filter(trackName).map(trackTitle))] : (defaults[key] || []);
             else if (key === 'ownedSkins') out[key] = Array.isArray(value) ? list(value) : (defaults[key] || []);
             else if (key.startsWith('owned')) out[key] = Array.isArray(value) ? list(value).filter(x => typeof x === 'string').map(string).filter(Boolean) : (defaults[key] || []);
             else if (['parts','boosters','boxes'].includes(key)) out[key] = numericMap(value);
@@ -195,13 +201,19 @@
             else if (k === '_lastSkin') out.stats[k] = string(v);
             else if (k === 'seenTitleAnims') out.stats[k] = list(v).filter(n => Number.isInteger(n) && n >= 0 && n < 6);
             else if (k === 'playHistory') out.stats[k] = dateCounts(v);
-            else if (k === 'songPlayCounts') out.stats[k] = numericMap(v, trackName);
+            else if (k === 'songPlayCounts') {
+                out.stats[k] = {};
+                for (const [name, count] of Object.entries(numericMap(v, trackName))) {
+                    const title = trackTitle(name);
+                    out.stats[k][title] = (out.stats[k][title] || 0) + count;
+                }
+            }
             else if (k === 'blockTypeUsage') out.stats[k] = numericMap(v);
             else out.stats[k] = number(v);
         }
         out.achievements = cleanAchievements(data.achievements);
         out.pendingAchievementClaims = list(data.pendingAchievementClaims).filter(claim => object(claim) && typeof claim.id === 'string' && safeKey(claim.id)).map(claim => ({
-            id: claim.id, name: string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common', xp: number(claim.xp, 0, 100000),
+            id: achievementId(claim.id), name: string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common', xp: number(claim.xp, 0, 100000),
             ...(claim.tierNum ? { tierNum: Math.floor(number(claim.tierNum, 0, 100)) } : {}),
         }));
         out.season = (window.LBSeason || globalThis.LBSeason).sanitizeSeason(data.season);

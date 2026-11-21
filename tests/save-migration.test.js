@@ -5,8 +5,87 @@ import { loadGame } from './loader.js';
 const readJson = file => JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf8'));
 const legacy = readJson('./fixtures/legacy-save.json');
 const catalog = readJson('../data/missions.json');
+const legacyDatabase = '\u0054etrisRPG';
+const settingsKey = '\u0074etrisRPG_settings';
+const funConfigKey = '\u0074etrisRPG_funConfig';
 let game;
 afterEach(() => game?.close());
+
+function openDatabase(indexedDB, name, upgrade = () => {}) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(name, 2);
+    request.onupgradeneeded = () => upgrade(request.result);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function transact(db, operation) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(['handles', 'savedata'], 'readwrite');
+    const result = operation(transaction.objectStore('handles'), transaction.objectStore('savedata'));
+    transaction.oncomplete = () => resolve(result?.result);
+    transaction.onabort = () => reject(transaction.error);
+  });
+}
+
+it('moves browser settings to their new keys without overwriting current preferences', async () => {
+  game = await loadGame(true, null, null, undefined, null, ({ localStorage }) => {
+    localStorage.setItem(settingsKey, '{"musicVol":75}');
+    localStorage.setItem(funConfigKey, '{"cols":8,"rows":18,"startSpeed":3}');
+    localStorage.setItem('linebreaker_settings', '{"musicVol":25}');
+  });
+  const { localStorage } = game.w;
+  expect(JSON.parse(localStorage.getItem('linebreaker_settings')).musicVol).toBe(25);
+  expect(JSON.parse(localStorage.getItem('linebreaker_funConfig'))).toEqual({ cols: 8, rows: 18, startSpeed: 3 });
+  expect(localStorage.getItem(settingsKey)).toBeNull();
+  expect(localStorage.getItem(funConfigKey)).toBeNull();
+});
+
+it('copies browser progress and the remembered file handle once, retaining the old data', async () => {
+  let indexedDB;
+  const oldHandle = { name: '\u0074etris_save.json', kind: 'file' };
+  game = await loadGame(true, null, null, undefined, null, async window => {
+    indexedDB = window.indexedDB;
+    window.localStorage.setItem(settingsKey, '{"musicVol":65}');
+    const db = await openDatabase(indexedDB, legacyDatabase, database => {
+      database.createObjectStore('handles');
+      database.createObjectStore('savedata');
+    });
+    await transact(db, (handles, saves) => {
+      handles.put(oldHandle, 'saveFile');
+      saves.put(JSON.stringify({ totalXP: 4321 }), 'save');
+    });
+    db.close();
+  });
+  expect(game.api.save.totalXP).toBe(4321);
+  expect(JSON.parse(game.w.localStorage.getItem('linebreaker_settings')).musicVol).toBe(65);
+  const current = await openDatabase(indexedDB, 'linebreaker_progress');
+  expect(await transact(current, handles => handles.get('saveFile'))).toEqual(oldHandle);
+  await transact(current, (_, saves) => saves.delete('save'));
+  current.close();
+  const old = await openDatabase(indexedDB, legacyDatabase);
+  expect(JSON.parse(await transact(old, (_, saves) => saves.get('save'))).totalXP).toBe(4321);
+  old.close();
+  game.close();
+  game = await loadGame(true, null, null, undefined, null, window => { window.indexedDB = indexedDB; });
+  expect(game.api.save.totalXP).toBe(0);
+});
+
+it('keeps renamed achievement tiers, pending rewards and playlist history on current-schema saves', async () => {
+  game = await loadGame();
+  const clean = game.w.sanitizeSave({
+    schemaVersion: 1,
+    achievements: { \u0074etris_lines: { tier: 2, tierDates: { 2: '2026-11-18' } } },
+    pendingAchievementClaims: [{ id: '\u0074etris_lines', tierNum: 2, xp: 500 }],
+    gamePlaylist: ['Original \u0054etris Theme', 'Classic Block Theme', '\u0054etris (Hardcore Remix)'],
+    stats: { songPlayCounts: { 'Original \u0054etris Theme': 3, 'Classic Block Theme': 4 } },
+  }, game.api.save);
+  expect(clean.achievements).toEqual({ i_piece_lines: expect.objectContaining({ tier: 2, tierDates: { 2: '2026-11-18' } }) });
+  expect(clean.pendingAchievementClaims[0]).toMatchObject({ id: 'i_piece_lines', tierNum: 2, xp: 500 });
+  expect(clean.gamePlaylist).toEqual(['Classic Block Theme', 'Block Theme (Hardcore Remix)']);
+  expect(clean.stats.songPlayCounts).toEqual({ 'Classic Block Theme': 7 });
+});
 
 it('migrates legacy scores, listening counts, and dates without retaining duplicates', async () => {
   game = await loadGame();

@@ -1,152 +1,144 @@
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { afterEach, expect, it, vi } from 'vitest';
+import { config } from '../scripts/ota-config.mjs';
+import { deltaFiles } from '../scripts/ota-bundle.mjs';
 
-const source = readFileSync(new URL('../android-update.js', import.meta.url), 'utf8');
-const repo = 'example/linebreaker';
-const payload = {
-  tag_name: 'v3.10.0',
-  assets: [
-    { name: 'Windows.exe', size: 9000, browser_download_url: 'https://example.com/windows' },
-    { name: 'Renamed-build.APK', size: 2097152, browser_download_url: 'https://github.com/example/linebreaker/releases/download/v3.10.0/Renamed-build.APK' }
-  ]
-};
-const sessions = [];
+const tools = readFileSync(new URL('../update-tools.js', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../ota-android.js', import.meta.url), 'utf8');
+const windows = [];
 const flush = () => new Promise(resolve => setImmediate(resolve));
+const defaults = { setupAnswered: true, smallFixes: true, majorUpdates: false, shellUpdates: true, wifiLimitMb: 20, mobileLimitMb: 5, checkFrequency: '6h' };
 
-async function boot({ previous, offline, auto = true, platform = 'android', now = 1_000_000, response = payload } = {}) {
-  const dom = new JSDOM('<div id="menu-overlay"><div class="menu-scale-wrapper"></div></div><div id="settings-overlay"><div class="settings-section"></div></div>', {
-    url: 'https://localhost/', runScripts: 'outside-only'
+async function boot({ platform = 'android', native = {}, version = '0.1.1', safe = true, saved = {} } = {}) {
+  const { window } = new JSDOM('<main id="menu-overlay"></main><div id="settings-overlay"><section class="settings-section"></section></div><span data-update-version></span>', {
+    url: 'https://localhost/', runScripts: 'outside-only', pretendToBeVisual: true,
   });
-  sessions.push(dom);
-  const { window } = dom;
-  const listeners = {};
-  const addListener = async (name, callback) => { listeners[name] = callback; };
-  const plugin = {
-    addListener, getInfo: vi.fn(async () => ({ version: '3.9.0', repo })),
-    download: vi.fn(async () => {}), install: vi.fn(async () => {}), openReleases: vi.fn(async () => {})
+  windows.push(window);
+  Object.entries(saved).forEach(([key, value]) => window.localStorage.setItem(key, value));
+  window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  window.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new window.Event('close')); };
+  const state = { token: 'session', webVersion: version, shellVersion: '0.1.0', shellApi: 1,
+    status: 'Ready', shellStatus: 'No shell update', updateSettings: { ...defaults }, ...native };
+  const callbacks = new Map();
+  const frames = [];
+  window.requestAnimationFrame = callback => frames.push(callback);
+  window.linebreakerCanInterrupt = () => safe;
+  window.resumeLinebreakerOtaWrites = vi.fn(async () => {});
+  const ota = {
+    addListener: vi.fn(async (type, callback) => callbacks.set(type, callback)),
+    info: vi.fn(async () => state), getState: vi.fn(async () => state),
+    setSafeToInterrupt: vi.fn(async () => {}), appReady: vi.fn(async () => ({ accepted: true })),
+    setUpdateSettings: vi.fn(async partial => Object.assign(state.updateSettings, partial)),
+    download: vi.fn(async () => {}), restart: vi.fn(async () => {}),
   };
-  window.Capacitor = { getPlatform: () => platform, Plugins: { AppUpdate: plugin, App: { addListener } } };
-  const clock = vi.spyOn(window.Date, 'now').mockReturnValue(now);
-  window.fetch = vi.fn(async () => {
-    if (offline) throw new window.TypeError('Failed to fetch');
-    return { ok: true, status: 200, json: async () => response };
-  });
-  if (previous) window.localStorage.setItem(`android-update-check:${repo}`, previous);
-  if (!auto) window.localStorage.setItem('android-auto-update', 'off');
+  window.Capacitor = { getPlatform: () => platform, Plugins: { Ota: ota } };
+  window.BUNDLE = { version };
+  window.eval(tools);
   window.eval(source);
-  await flush();
-  return { window, clock, plugin, listeners, get: selector => window.document.querySelector(selector) };
+  return { window, ota, frames, state, setSafe: value => { safe = value; },
+    get: selector => window.document.querySelector(selector),
+    click: text => Array.from(window.document.querySelectorAll('button')).find(button => button.textContent === text).click(),
+    async redraw() { callbacks.get('updateAvailable')?.(); await flush(); },
+    async restoreSave() { window.dispatchEvent(new window.Event('linebreaker-update-ready')); await flush(); },
+    async ready() { frames.shift()?.(); frames.shift()?.(); await flush(); },
+  };
 }
 
-afterEach(() => {
-  while (sessions.length) sessions.pop().window.close();
+afterEach(() => { while (windows.length) windows.pop().close(); });
+
+it('separates Android channels from the stable desktop/installer release', () => {
+  expect(config.appId).toBe('com.husarp.linebreaker');
+  expect(config.urls.bundle).toBe('https://github.com/Husarp/linebreaker/releases/download/channel/manifest.json');
+  expect(config.urls.shell).toBe('https://github.com/Husarp/linebreaker/releases/download/shell-channel/shell.json');
+  expect(config.bundle.sourceDir).toBe('dist-web');
 });
 
-it('mounts only in the Android shell', async () => {
-  const { get, plugin, window } = await boot({ platform: 'web' });
-  expect(plugin.getInfo).not.toHaveBeenCalled();
-  expect(window.fetch).not.toHaveBeenCalled();
-  expect(get('.lb-android-update')).toBeNull();
+it('stages reverted file content when any supported APK embeds different bytes', () => {
+  const shared = { path: 'index.html', sha256: 'shared' };
+  const reverted = { path: 'style.css', sha256: 'old' };
+  const added = { path: 'new.js', sha256: 'new' };
+  const first = [shared, reverted];
+  const second = [shared, { ...reverted, sha256: 'different' }, { path: 'removed.js', sha256: 'removed' }];
+  expect(deltaFiles([shared, reverted, added], [first, second])).toEqual([reverted, added]);
 });
 
-it('compares numeric versions, throttles all checks, and dismisses the banner only for this launch', async () => {
-  const { window, clock, get, listeners } = await boot();
-  expect(window.fetch).toHaveBeenCalledWith(`https://api.github.com/repos/${repo}/releases/latest`, expect.anything());
-  expect(get('[data-current]').textContent).toBe('Current version 3.9.0');
-  expect(get('aside [data-update-summary]').textContent).toBe('Update 3.10.0 · 2.0 MB');
-  get('[data-dismiss]').click();
-  get('[data-check]').click();
-  listeners.appStateChange({ isActive: true });
-  expect(window.fetch).toHaveBeenCalledTimes(1);
-  expect(get('aside').hidden).toBe(true);
-  expect(get('section [data-update]').hidden).toBe(false);
+it('only mounts with Android OTA native support', async () => {
+  const game = await boot({ platform: 'web' });
+  await game.restoreSave();
+  expect(game.ota.info).not.toHaveBeenCalled();
+  expect(game.get('.lb149-banner')).toBeNull();
+});
 
-  clock.mockReturnValue(1_300_000);
-  listeners.appStateChange({ isActive: false });
-  expect(window.fetch).toHaveBeenCalledTimes(1);
-  listeners.appStateChange({ isActive: true });
+it('acknowledges the actual bundle and native token only after save restoration and two frames', async () => {
+  const game = await boot();
+  expect(game.ota.info).not.toHaveBeenCalled();
+  await game.restoreSave();
+  expect(game.ota.addListener).toHaveBeenCalledTimes(6);
+  game.frames.shift()();
+  expect(game.ota.appReady).not.toHaveBeenCalled();
+  expect(game.window.resumeLinebreakerOtaWrites).not.toHaveBeenCalled();
+  game.frames.shift()();
   await flush();
-  expect(window.fetch).toHaveBeenCalledTimes(2);
-  expect(get('aside').hidden).toBe(true);
-
-  const previous = window.localStorage.getItem(`android-update-check:${repo}`);
-  const restarted = await boot({ previous, now: 1_300_001 });
-  expect(restarted.window.fetch).not.toHaveBeenCalled();
-  expect(restarted.get('aside').hidden).toBe(false);
+  expect(game.ota.appReady).toHaveBeenCalledWith({ version: '0.1.1', token: 'session' });
+  expect(game.window.resumeLinebreakerOtaWrites).toHaveBeenCalledOnce();
 });
 
-it('respects disabled automatic checks while still supporting a manual check', async () => {
-  const { get, listeners, window } = await boot({ auto: false });
-  listeners.appStateChange({ isActive: true });
-  expect(window.fetch).not.toHaveBeenCalled();
-  get('[data-check]').click();
-  await flush();
-  expect(window.fetch).toHaveBeenCalledTimes(1);
-  expect(get('[data-check-status]').textContent).toBe('An Android update is ready to download.');
+it('never marks a mismatched web bundle ready', async () => {
+  const game = await boot({ native: { webVersion: '0.2.0' } });
+  await game.restoreSave();
+  await game.ready();
+  expect(game.ota.appReady).not.toHaveBeenCalled();
+  expect(game.window.resumeLinebreakerOtaWrites).not.toHaveBeenCalled();
 });
 
-it('keeps automatic failures silent and explains the same failure on manual check', async () => {
-  const { get, window } = await boot({ offline: true });
-  const status = get('[data-check-status]');
-  expect(status.hidden).toBe(true);
-  get('[data-check]').click();
-  expect(status.hidden).toBe(false);
-  expect(status.textContent).toMatch(/Check your connection, firewall, or VPN/);
-  expect(window.fetch).toHaveBeenCalledTimes(1);
+it('shows update setup before acknowledging ready and saves the recommended policy', async () => {
+  const game = await boot({ native: { updateSettings: { ...defaults, setupAnswered: false } } });
+  await game.restoreSave();
+  expect(game.get('dialog[open]').getAttribute('aria-label')).toBe('How should updates work?');
+  await game.ready();
+  expect(game.ota.setSafeToInterrupt).toHaveBeenLastCalledWith({ safe: false });
+  game.click('Recommended');
+  await flush();
+  expect(game.ota.setUpdateSettings).toHaveBeenCalledWith(defaults);
+  expect(game.ota.setSafeToInterrupt).toHaveBeenLastCalledWith({ safe: true });
 });
 
-it('limits a manual check to ten seconds, including response parsing', async () => {
-  const { get, window } = await boot({ auto: false });
-  let fireTimeout;
-  const schedule = vi.spyOn(window, 'setTimeout').mockImplementation(callback => {
-    fireTimeout = callback;
-    return 1;
-  });
-  const json = vi.fn();
-  window.fetch.mockImplementation(async (url, { signal }) => {
-    json.mockImplementation(() => new Promise((resolve, reject) => {
-      signal.addEventListener('abort', () => reject(new Error('aborted')));
-    }));
-    return { ok: true, json };
-  });
-  get('[data-check]').click();
-  await flush();
-  expect(json).toHaveBeenCalledOnce();
-  expect(schedule).toHaveBeenCalledWith(expect.any(Function), 10_000);
-  fireTimeout();
-  await flush();
-  expect(get('[data-check-status]').textContent).toMatch(/GitHub did not respond in time/);
+it('defers offers and explicit auto-restart while a game or save is active', async () => {
+  const game = await boot({ safe: false, native: { staged: { version: '0.2.0' }, autoRestart: true } });
+  await game.restoreSave(); await game.ready();
+  expect(game.get('.lb149-banner').hidden).toBe(true);
+  expect(game.ota.restart).not.toHaveBeenCalled();
+  game.setSafe(true);
+  await game.redraw();
+  expect(game.ota.setSafeToInterrupt).toHaveBeenLastCalledWith({ safe: true });
+  expect(game.ota.restart).toHaveBeenCalledTimes(1);
 });
 
-it('does not offer a desktop-only release to Android players', async () => {
-  const { get } = await boot({ response: { ...payload, assets: [payload.assets[0]] } });
-  get('[data-check]').click();
-  expect(get('aside').hidden).toBe(true);
-  expect(get('section [data-update]').hidden).toBe(true);
-  expect(get('[data-check-status]').textContent).toMatch(/does not contain a downloadable Android APK/);
+it('keeps Later scoped to the offered version and exposes incompatible updates without a download action', async () => {
+  const game = await boot({ native: { available: { version: '0.2.0', size: 2048 } } });
+  await game.restoreSave(); await game.ready();
+  expect(game.get('.lb149-banner').textContent).toContain('2.0 KiB');
+  game.click('Later'); await game.redraw();
+  expect(game.get('.lb149-banner').hidden).toBe(true);
+  game.state.available = { version: '0.3.0', needsShell: true };
+  await game.redraw();
+  expect(game.get('.lb149-banner').textContent).toContain('needs an app update first');
+  expect(game.get('.lb149-banner button').textContent).toBe('Later');
+  expect(game.ota.download).not.toHaveBeenCalled();
 });
 
-it('reports download progress and exposes user-controlled retry and GitHub fallback', async () => {
-  const { get, plugin, listeners } = await boot();
-  let failDownload;
-  plugin.download.mockImplementationOnce(() => new Promise((resolve, reject) => { failDownload = reject; }));
-  get('aside [data-update]').click();
-  expect(get('#android-update-title').textContent).toBe('Update 3.10.0 · 2.0 MB');
-  listeners.downloadProgress({ done: 1048576, total: 2097152 });
-  expect(get('progress').value).toBe(50);
-  expect(get('[data-stats]').textContent).toMatch(/50% · 1.0 MB \/ 2.0 MB · .*\/s/);
-  failDownload(new Error('Download interrupted'));
-  await flush();
-  expect(get('[data-install-status]').textContent).toBe('Download interrupted');
-  expect(get('[data-recovery]').hidden).toBe(false);
-  expect(plugin.openReleases).not.toHaveBeenCalled();
-  get('[data-recovery] [data-github]').click();
-  expect(plugin.openReleases).toHaveBeenCalledTimes(1);
-  get('[data-retry]').click();
-  await flush();
-  expect(plugin.download).toHaveBeenCalledTimes(2);
-  expect(plugin.install).toHaveBeenCalledWith({
-    version: '3.10.0', size: 2097152, url: payload.assets[1].browser_download_url
-  });
+it('shows literal release notes once, with an arrow, and drops them when a newer version appears', async () => {
+  const updated = { to: '0.1.1', notes: '<img src=fake>\nNew theme' };
+  const game = await boot({ native: { updated } });
+  await game.restoreSave(); await game.ready();
+  game.click("What's new in 0.1.1 ›");
+  expect(game.get('[data-notes]').textContent).toBe(updated.notes);
+  expect(game.get('[data-notes] img')).toBeNull();
+  game.state.available = { version: '0.2.0', size: 12 };
+  await game.redraw();
+  expect(game.get('.lb149-banner').textContent).not.toContain("What's new");
+  const reopened = await boot({ native: { updated }, saved: Object.fromEntries(Object.entries(game.window.localStorage)) });
+  await reopened.restoreSave(); await reopened.ready();
+  expect(reopened.get('.lb149-banner').hidden).toBe(true);
 });

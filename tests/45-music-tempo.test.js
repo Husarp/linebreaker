@@ -107,7 +107,7 @@ it('applies run speed, respects the Intense playlist, and persists the opt-out',
     const checkbox = w.document.getElementById('setting-music-follows-speed');
     expect(checkbox.checked).toBe(true);
     checkbox.click();
-    expect(JSON.parse(w.localStorage.getItem('tetrisRPG_settings')).musicFollowsSpeed).toBe(false);
+    expect(JSON.parse(w.localStorage.getItem('linebreaker_settings')).musicFollowsSpeed).toBe(false);
     expect(intenseTrack.setTempo).toHaveBeenLastCalledWith(1.16);
 
     await api.switchMusicMode('menu');

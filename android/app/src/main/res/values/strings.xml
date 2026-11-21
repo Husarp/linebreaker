@@ -1,7 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Linebreaker</string>
-    <string name="title_activity_main">Linebreaker</string>
     <string name="package_name">com.husarp.linebreaker</string>
     <string name="custom_url_scheme">com.husarp.linebreaker</string>
 </resources>

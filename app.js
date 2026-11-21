@@ -337,7 +337,7 @@
 
     const _SPLASH_QUOTES = [
         "100% gravity!",
-        "Now with more tetrominoes!",
+        "Now with more pieces!",
         "XP not included.",
         "Ask your doctor about T-spins!",
         "The I-piece will come. Eventually.",
@@ -585,7 +585,7 @@
         });
     }
 
-    const canvas = document.getElementById('tetris'); const ctx = canvas.getContext('2d');
+    const canvas = document.getElementById('game-board'); const ctx = canvas.getContext('2d');
     const pcNextCtx = document.getElementById('pc-next-canvas').getContext('2d');
     const mNextCtx = document.getElementById('m-next-canvas') ? document.getElementById('m-next-canvas').getContext('2d') : null;
     const pcNext2Ctx = document.getElementById('pc-next2-canvas') ? document.getElementById('pc-next2-canvas').getContext('2d') : null;
@@ -689,12 +689,19 @@
     const _desktopSave = !!_nativeAdapter;
     let _desktopLoadPromise = null;
     let _desktopSaveReady = false;
+    let _readOnlyRawSave = null;
     let fileHandle = null;
 
-    async function openIDB() {
+    function openSaveDatabase(name, legacy = false) {
         return new Promise((resolve, reject) => {
-            const req = indexedDB.open('TetrisRPG', 2);
+            const req = legacy ? indexedDB.open(name) : indexedDB.open(name, 2);
+            let missing = false;
             req.onupgradeneeded = e => {
+                if (legacy) {
+                    missing = true;
+                    req.transaction.abort();
+                    return;
+                }
                 const db = e.target.result;
                 if (!db.objectStoreNames.contains('handles')) db.createObjectStore('handles');
                 if (!db.objectStoreNames.contains('savedata')) db.createObjectStore('savedata');
@@ -704,9 +711,54 @@
                 db.onversionchange = () => db.close(); // yield to future upgrades
                 resolve(db);
             };
-            req.onerror = e => reject(e.target.error);
+            req.onerror = () => missing ? resolve(null) : reject(req.error);
             req.onblocked = () => reject(new Error('IDB upgrade blocked')); // fall through to null save path
         });
+    }
+    function readSaveRecord(db, store, key) {
+        if (!db?.objectStoreNames.contains(store)) return Promise.resolve(undefined);
+        return new Promise((resolve, reject) => {
+            const req = db.transaction(store).objectStore(store).get(key);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+    let _saveDatabase;
+    function openIDB() {
+        return _saveDatabase ??= (async () => {
+            const db = await openSaveDatabase('linebreaker_progress');
+            try {
+                if (await readSaveRecord(db, 'savedata', 'legacyMigrated')) return db;
+                const legacy = await openSaveDatabase('\u0054etrisRPG', true);
+                let handle, save;
+                try {
+                    [handle, save] = await Promise.all([
+                        readSaveRecord(legacy, 'handles', 'saveFile'),
+                        readSaveRecord(legacy, 'savedata', 'save'),
+                    ]);
+                } finally { legacy?.close(); }
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(['handles', 'savedata'], 'readwrite');
+                    const records = tx.objectStore('savedata');
+                    const migrated = records.get('legacyMigrated');
+                    migrated.onsuccess = () => {
+                        if (migrated.result) return;
+                        for (const [store, key, value] of [[tx.objectStore('handles'), 'saveFile', handle], [records, 'save', save]]) {
+                            if (value === undefined) continue;
+                            const existing = store.get(key);
+                            existing.onsuccess = () => { if (existing.result === undefined) store.put(value, key); };
+                        }
+                        records.put(true, 'legacyMigrated');
+                    };
+                    tx.oncomplete = resolve;
+                    tx.onabort = () => reject(tx.error);
+                });
+                return db;
+            } catch (error) {
+                db.close();
+                throw error;
+            }
+        })().catch(error => { _saveDatabase = null; throw error; });
     }
     async function saveHandleToIDB(handle) {
         try {
@@ -757,12 +809,25 @@
         } catch { return null; }
     }
     let _saveWritePromise = null;
-    if (_desktopSave) window.flushLinebreakerSave = () => _saveWritePromise;
+    window.flushLinebreakerSave = () => _saveWritePromise;
+    window.linebreakerCanInterrupt = () => !_gameInProgress && !_saveWritePromise && _saveFileDebounceId === null
+        && !document.querySelector('#pal-edit-modal, .lb-reward-overlay, #transfer-overlay:not(.hidden)');
+    let _otaSavePaused = !!window.LBAndroidUpdates;
+    let _otaSettingsDirty = false;
     let _pendingSaveJSON = null;
+    window.resumeLinebreakerOtaWrites = () => {
+        _otaSavePaused = false;
+        if (_otaSettingsDirty) { _otaSettingsDirty = false; persistSettings(); }
+        return flushPendingSave();
+    };
     function writeSaveFile(data) {
-        if (_qaDemo) return Promise.resolve();
+        if (_qaDemo || _readOnlyRawSave) return Promise.resolve();
         if (_desktopSave && !_desktopSaveReady) return Promise.resolve();
         _pendingSaveJSON = JSON.stringify(LBSave.serializeSave(data, WEEKLY_MISSION_POOL), null, 2);
+        return flushPendingSave();
+    }
+    function flushPendingSave() {
+        if (_otaSavePaused || _pendingSaveJSON === null) return _saveWritePromise || Promise.resolve();
         if (!_saveWritePromise) {
             _saveWritePromise = (async () => {
                 while (_pendingSaveJSON !== null) {
@@ -780,7 +845,8 @@
                         }
                     } catch(e) { console.error('Save failed:', e); }
                 }
-            })().finally(() => { _saveWritePromise = null; });
+            })().finally(() => { _saveWritePromise = null; window.LBAndroidUpdates?.syncSafety(); });
+            window.LBAndroidUpdates?.syncSafety();
         }
         return _saveWritePromise;
     }
@@ -804,21 +870,42 @@
     document.getElementById('setting-hard-drop-lock').addEventListener('change', event => onSettingChange('hardDropLock', event.target.checked));
     document.getElementById('settings-reset-progress').addEventListener('click', resetAllProgress);
     _lineClearEffectSelect.addEventListener('change', () => onSettingChange('lineClearEffect', _lineClearEffectSelect.value));
+    function readLocalSave(key) {
+        const currentKey = `linebreaker_${key}`;
+        const legacyKey = `\u0074etrisRPG_${key}`;
+        let value = localStorage.getItem(currentKey);
+        const legacy = localStorage.getItem(legacyKey);
+        if (legacy !== null) {
+            if (value === null) {
+                value = legacy;
+                try { localStorage.setItem(currentKey, value); } catch { return value; }
+            }
+            localStorage.removeItem(legacyKey);
+        }
+        return value;
+    }
     function loadSettings() {
-        if (!_qaDemo) try { settings = { ...defaultSettings, ...LBSave.cleanSettings(JSON.parse(localStorage.getItem('tetrisRPG_settings') || '{}')) }; } catch(e) {}
+        if (!_qaDemo) try { settings = { ...defaultSettings, ...LBSave.cleanSettings(JSON.parse(readLocalSave('settings') || '{}')) }; } catch(e) {}
         if (!settings.gridStyle) settings.gridStyle = 'lines';
         settings.lineClearEffect = LBLineClear.normalizeMode(settings.lineClearEffect);
         settings.keyBindings = LBControls.normalizeBindings(settings.keyBindings);
     }
     function persistSettings() {
-        if (!_qaDemo) localStorage.setItem('tetrisRPG_settings', JSON.stringify(settings));
+        if (_qaDemo || _readOnlyRawSave) return;
+        if (_otaSavePaused) { _otaSettingsDirty = true; return; }
+        localStorage.setItem('linebreaker_settings', JSON.stringify(settings));
     }
     function saveSettings() { persistSettings(); saveDataToFile(); }
     let _saveFileDebounceId = null;
     function saveSettingsDebounced() {
         persistSettings();
         clearTimeout(_saveFileDebounceId);
-        _saveFileDebounceId = setTimeout(saveDataToFile, 600);
+        _saveFileDebounceId = setTimeout(() => {
+            _saveFileDebounceId = null;
+            saveDataToFile();
+            window.LBAndroidUpdates?.syncSafety();
+        }, 600);
+        window.LBAndroidUpdates?.syncSafety();
     }
 
     function applyFontSize(size) {
@@ -2195,7 +2282,7 @@
         const _loadTimeout = setTimeout(() => {
             const ls = document.getElementById('loading-screen');
             if (ls && !ls.dataset.dismissed) {
-                console.warn('Tetris RPG: load timeout — forcing start');
+                console.warn('Linebreaker: load timeout — forcing start');
                 showFileSetup(null);
             }
         }, 8000);
@@ -2243,7 +2330,7 @@
         let skinNotice = '', skinSettingsChanged = false;
         if (data && typeof data.totalXP === 'number') {
             const fileSettings = data._settings;
-            const useFileSettings = fileSettings && (_qaDemo || !localStorage.getItem('tetrisRPG_settings'));
+            const useFileSettings = fileSettings && (_qaDemo || !localStorage.getItem('linebreaker_settings'));
             saveData = { ...JSON.parse(JSON.stringify(defaultSaveData)), ...data };
             if (useFileSettings) {
                 Object.assign(settings, defaultSettings, fileSettings);
@@ -2351,15 +2438,19 @@
 
         if (_desktopSave) {
             // One boot read even if the loading-screen failsafe fires concurrently.
-            _desktopLoadPromise ||= _nativeAdapter.load();
+            _desktopLoadPromise ||= _nativeAdapter.load().then(json =>
+                LBNativeSave.prepareLoadedSave(json, LBSave.version, _nativeAdapter.backupSchema));
             try {
-                const json = await _desktopLoadPromise;
-                const { skinSettingsChanged } = applyLoadedData(json === null ? null : JSON.parse(json));
+                const { data, readOnly } = await _desktopLoadPromise;
+                _readOnlyRawSave = readOnly ? data : null;
+                const { skinSettingsChanged } = applyLoadedData(data, !readOnly);
                 _desktopSaveReady = true;
                 if (skinSettingsChanged) saveDataToFile();
                 checkAchievementsOnLoad();
                 if (overlay) overlay.classList.add('hidden');
                 randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
+                if (readOnly) customAlert(`${readOnly} Your original save is unchanged. You can export it from Save Transfer.`, 'SAVE IS READ-ONLY');
+                signalUpdateReady();
             } catch (e) {
                 // Do not start with defaults and overwrite an unreadable desktop save.
                 console.error('Native save load failed:', e);
@@ -2374,6 +2465,7 @@
             checkAchievementsOnLoad();
             if (overlay) overlay.classList.add('hidden');
             randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
+            signalUpdateReady();
             return;
         }
 
@@ -2440,7 +2532,7 @@
             btnNew.onclick = async () => {
                 try {
                     const handle = await window.showSaveFilePicker({
-                        suggestedName: 'Linebreaker_save.json',
+                        suggestedName: 'linebreaker_save.json',
                         types: [{ description: 'Linebreaker Save', accept: { 'application/json': ['.json'] } }]
                     });
                     saveData = JSON.parse(JSON.stringify(defaultSaveData));
@@ -2456,6 +2548,11 @@
             };
         }
         overlay.classList.remove('hidden');
+    }
+
+    function signalUpdateReady() {
+        window.linebreakerReadyForUpdates = true;
+        window.dispatchEvent(new Event('linebreaker-update-ready'));
     }
 
     function saveDataToFile() {
@@ -2679,7 +2776,7 @@
                     <span id="uni-apply-progress" aria-hidden="true"></span>
                     <span id="uni-apply-label">Hold to Apply</span>
                 </button>
-            </header>`
+            </header><div id="uni-modal-list" class="lb-scroll-fade" tabindex="0" aria-label="Available parts">`
             + _buildSection('SKINS', all.filter(i => i.cat === 'skin'))
             + _buildSection('THEMES', all.filter(i => i.cat === 'theme'))
             + _buildSection('GHOST COLOR', all.filter(i => i.cat === 'ghostColor'))
@@ -2687,7 +2784,8 @@
             + _buildSection('PALETTES', all.filter(i => i.cat === 'palette'))
             + _buildSection('SFX PACKS', all.filter(i => i.cat === 'sfxPack'))
             + _buildSection('MUSIC', all.filter(i => i.cat === 'music'))
-            + (all.length === 0 ? '<p>You already own everything. Universal parts will carry forward.</p>' : avail === 0 ? '<p>No universal parts remaining.</p>' : '');
+            + (all.length === 0 ? '<p>You already own everything. Universal parts will carry forward.</p>' : avail === 0 ? '<p>No universal parts remaining.</p>' : '')
+            + '</div>';
             c.querySelectorAll('[data-part-add]').forEach(button => button.addEventListener('click', () => window._uniInc(button.dataset.partAdd)));
             c.querySelectorAll('[data-part-remove]').forEach(button => button.addEventListener('click', () => window._uniDec(button.dataset.partRemove)));
             // Re-attach hold events
@@ -3599,6 +3697,7 @@
             b.tabIndex = selected ? 0 : -1;
         });
         document.querySelectorAll('[data-invtab-content]').forEach(p => p.classList.toggle('hidden', p.dataset.invtabContent !== tab));
+        if (_prevInvTab !== tab) _invOv.querySelector('.lb-inventory-content').scrollTop = 0;
         if (tab === 'other') _populateInventoryOther();
         if (tab === 'blocks' || tab === 'colors' || tab === 'fonts') _populateVisualCustomize();
         clearInterval(inventoryPreviewTimer);
@@ -4181,6 +4280,7 @@
         _checkGlowNotifications();
         const _invEl = document.getElementById('inventory-overlay');
         _invEl.classList.remove('hidden');
+        _invEl.querySelector('.lb-inventory-content').scrollTop = 0;
         _animateIn(_invEl, 'anim-in-right');
     }
     function closeInventory() {
@@ -4352,6 +4452,7 @@
         settingsBack.focus({ preventScroll: true });
     }
     async function resetAllProgress() {
+        if (_readOnlyRawSave) { customAlert('This version cannot change your save.', 'SAVE IS READ-ONLY'); return; }
         const phrase = 'RESET MY PROGRESS';
         const overlay = document.createElement('div');
         const opener = document.activeElement;
@@ -4589,8 +4690,9 @@
     async function startExportProcess() {
         if (_qaDemo) return;
         try {
-            const saveFile = _encSave(JSON.stringify({ version: 3, data: LBSave.serializeSave({ ...saveData, _settings: settings }, WEEKLY_MISSION_POOL) }, null, 2));
-            downloadFile('Linebreaker_Save.lbsave', saveFile);
+            const data = _readOnlyRawSave || LBSave.serializeSave({ ...saveData, _settings: settings }, WEEKLY_MISSION_POOL);
+            const saveFile = _encSave(JSON.stringify({ version: 3, data }, null, 2));
+            downloadFile('linebreaker_save.lbsave', saveFile);
             customAlert('Save file (.lbsave) downloaded. Your progress was NOT reset.', 'EXPORT SUCCESS', false);
         } catch(e) {
             customAlert('Could not export your save. Please try again.', 'EXPORT ERROR', false);
@@ -4599,17 +4701,20 @@
 
     function handleFileImport(event) {
         if (_qaDemo) return;
+        if (_readOnlyRawSave) { customAlert('This version cannot replace your save.', 'SAVE IS READ-ONLY'); event.target.value = ''; return; }
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = async function(e) {
             let importedData = null;
             try {
-                const raw = _decSave(e.target.result.trim());
-                const parsed = JSON.parse(raw);
+                const raw = e.target.result.trim();
+                const parsed = JSON.parse(_decSave(raw) ?? raw);
                 importedData = parsed.data || parsed;
             } catch(err) {}
-            if (importedData && typeof importedData.totalXP === 'number') {
+            if (LBNativeSave.schemaOf(importedData) > LBSave.version) {
+                customAlert('This save requires a newer version of Linebreaker.', 'SAVE IMPORT');
+            } else if (importedData && typeof importedData.totalXP === 'number') {
                 const confirmed = await customConfirm("Importing will <b>OVERWRITE</b> your current progress. Proceed?");
                 if (!confirmed) { document.getElementById('file-import-input').value = ''; return; }
                 const { skinNotice } = applyLoadedData(importedData, false);
@@ -5104,7 +5209,7 @@
             ],
         },
         {
-            id: 'tetris_lines', cat: 'basic', name: 'I-Piece Devotion', type: 'tiered',
+            id: 'i_piece_lines', cat: 'basic', name: 'I-Piece Devotion', type: 'tiered',
             svgIcon: `<rect x="2" y="10" width="5" height="5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="10" width="5" height="5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="12" y="10" width="5" height="5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="17" y="10" width="5" height="5" fill="none" stroke="currentColor" stroke-width="1.5"/>`,
             counter: { path:'stats.bestIPieceLines', label:'Best (one game)', unit:'I-lines' },
             tiers: [
@@ -5897,7 +6002,7 @@
                         lines: Math.max(best.lines, e.lines || 0),
                         time: Math.max(best.time, e.time || 0),
                     }), { score: 0, maxSpeed: 0, lines: 0, time: 0 });
-                    if (tier.check({ ..._lbBest, mode: 'normal', blocks: 0, quadraKill: false, boardCleared: false, maxLineStreak: 0, maxBlocksIn60s: 0, iPieceLines: 0, clearedTopLine: false, highPlacer: 0, noRotate: false, equalPieces: false, luckySevenCount: 0, waitedTetris: false, noHardDrop: false, allHardDrop: false, bigFont: false, exactBlocks100: false, speedrunner: 9999, earlyBird: false })) {
+                    if (tier.check({ ..._lbBest, mode: 'normal', blocks: 0, quadraKill: false, boardCleared: false, maxLineStreak: 0, maxBlocksIn60s: 0, iPieceLines: 0, clearedTopLine: false, highPlacer: 0, noRotate: false, equalPieces: false, luckySevenCount: 0, waitedFourLineClear: false, noHardDrop: false, allHardDrop: false, bigFont: false, exactBlocks100: false, speedrunner: 9999, earlyBird: false })) {
                         if (!saveData.achievements[ach.id]) saveData.achievements[ach.id] = {};
                         saveData.achievements[ach.id].tier = i + 1;
                         const xp = _ACH_XP[tier.rarity] || 500;
@@ -7287,7 +7392,7 @@
     let _musicTrackStartTime30s = null;
     let _currentTrackName30s = '';
     let _currentTrackDuration30s = 0;
-    let _waitedTetrisThisGame = false;
+    let _waitedFourLineClearThisGame = false;
     let _lastIPieceGameTime = -999;
     let _hardDropsThisGame = 0;
     let _pendingHardDrop = false;
@@ -7329,7 +7434,7 @@
     let currentGameMode = 'normal'; // 'normal', 'fun'
     let holdPiece = null, holdUsed = false;
     let funModeConfig = { cols: 10, rows: 20, startSpeed: 1 };
-    if (!_qaDemo) try { const _fmc = JSON.parse(localStorage.getItem('tetrisRPG_funConfig') || 'null'); if (_fmc && typeof _fmc === 'object') funModeConfig = { ...funModeConfig, ..._fmc }; } catch(e) {}
+    if (!_qaDemo) try { const _fmc = JSON.parse(readLocalSave('funConfig') || 'null'); if (_fmc && typeof _fmc === 'object') funModeConfig = { ...funModeConfig, ..._fmc }; } catch(e) {}
 
     let player = {pos:{x:0,y:0},matrix:null,next:null};
     let pieceBag = []; let lastPieceColor = 0; let _nextQueue = [];
@@ -7521,7 +7626,7 @@
             _jrr(); c.fillStyle=_jg; c.fill();
             _jrr(); c.strokeStyle='rgba(0,0,0,0.38)'; c.lineWidth=1.5; c.stroke();
         } else if (skin === 'bubble') {
-            // Rounded gel block — inspired by ambar/Tetris bubble theme
+            // Rounded gel block — inspired by a bubble theme
             const _br=s*0.28,_bx=x*s+1,_by=y*s+1,_bw=s-2,_bh=s-2;
             const _bp=()=>{c.beginPath();c.moveTo(_bx+_br,_by);c.lineTo(_bx+_bw-_br,_by);c.arcTo(_bx+_bw,_by,_bx+_bw,_by+_br,_br);c.lineTo(_bx+_bw,_by+_bh-_br);c.arcTo(_bx+_bw,_by+_bh,_bx+_bw-_br,_by+_bh,_br);c.lineTo(_bx+_br,_by+_bh);c.arcTo(_bx,_by+_bh,_bx,_by+_bh-_br,_br);c.lineTo(_bx,_by+_br);c.arcTo(_bx,_by,_bx+_br,_by,_br);c.closePath();};
             _bp(); c.fillStyle=col; c.fill();
@@ -7951,7 +8056,7 @@
             const _isIPiece = player.matrix && (player.matrix.some(row => row.filter(v=>v!==0).length === 4) || (() => { const nc=player.matrix[0]?.length||0; for(let c=0;c<nc;c++) if(player.matrix.filter(r=>r[c]!==0).length===4) return true; return false; })());
             if (_isIPiece) {
                 _iPieceLinesThisGame += rows.length;
-                if (rows.length >= 4 && (gameTime - _lastIPieceGameTime) >= 90) _waitedTetrisThisGame = true;
+                if (rows.length >= 4 && (gameTime - _lastIPieceGameTime) >= 90) _waitedFourLineClearThisGame = true;
             }
             // Line streak
             _currentLineStreak++; if (_currentLineStreak > _maxLineStreakThisGame) _maxLineStreakThisGame = _currentLineStreak;
@@ -8235,7 +8340,7 @@
             if (Math.round(score) > 0) { if (!saveData.funLeaderboard) saveData.funLeaderboard = []; saveData.funLeaderboard.push({ score: Math.round(score), ..._scoreDate(), lines: linesClearedThisGame, time: gameTime, maxSpeed: speedLevel, cols: funModeConfig.cols, rows: funModeConfig.rows, startSpeed: funModeConfig.startSpeed }); saveData.funLeaderboard.sort((a,b) => b.score - a.score); if (saveData.funLeaderboard.length > 200) saveData.funLeaderboard = saveData.funLeaderboard.slice(0, 200); }
             // Check achievements even in fun mode (score-based ones apply)
             saveData.stats.luckySevenCount = (saveData.stats.luckySevenCount || 0) + _sec7CountThisGame;
-            const funNewAch = checkAchievements({ score, lines: linesClearedThisGame, blocks: blocksPlacedThisGame, time: gameTime, maxSpeed: speedLevel, mode: currentGameMode, mirror: !!settings.optMirror, quadraKill: _quadraKillThisGame, boardCleared: _boardClearedThisGame, maxLineStreak: _maxLineStreakThisGame, maxBlocksIn60s: _maxBlocksIn60sThisGame, iPieceLines: _iPieceLinesThisGame, clearedTopLine: _clearedTopLineThisGame, highPlacer: _maxBlocksUnderHalfThisGame, noRotate: !_rotatedThisGame, equalPieces: false, luckySevenCount: saveData.stats.luckySevenCount, waitedTetris: _waitedTetrisThisGame, noHardDrop: _hardDropsThisGame === 0, allHardDrop: _piecesThisGame >= 20 && _piecesThisGame === _piecesHardDroppedThisGame, bigFont: _bigFontGameFlag, exactBlocks100: blocksPlacedThisGame === 100, speedrunner: linesClearedThisGame >= 10 ? gameTime : 9999, earlyBird: _earlyBirdThisGame, nice69: _nice69Triggered, boardSymmetric: _boardSymmetricAchieved });
+            const funNewAch = checkAchievements({ score, lines: linesClearedThisGame, blocks: blocksPlacedThisGame, time: gameTime, maxSpeed: speedLevel, mode: currentGameMode, mirror: !!settings.optMirror, quadraKill: _quadraKillThisGame, boardCleared: _boardClearedThisGame, maxLineStreak: _maxLineStreakThisGame, maxBlocksIn60s: _maxBlocksIn60sThisGame, iPieceLines: _iPieceLinesThisGame, clearedTopLine: _clearedTopLineThisGame, highPlacer: _maxBlocksUnderHalfThisGame, noRotate: !_rotatedThisGame, equalPieces: false, luckySevenCount: saveData.stats.luckySevenCount, waitedFourLineClear: _waitedFourLineClearThisGame, noHardDrop: _hardDropsThisGame === 0, allHardDrop: _piecesThisGame >= 20 && _piecesThisGame === _piecesHardDroppedThisGame, bigFont: _bigFontGameFlag, exactBlocks100: blocksPlacedThisGame === 100, speedrunner: linesClearedThisGame >= 10 ? gameTime : 9999, earlyBird: _earlyBirdThisGame, nice69: _nice69Triggered, boardSymmetric: _boardSymmetricAchieved });
             _showGoAchievements(funNewAch);
             saveDataToFile();
             _renderGoStats(Math.max(previousFunBest, score), Math.round(score) > Math.round(previousFunBest), true, 0);
@@ -8356,7 +8461,7 @@
         saveData.stats.luckySevenCount = (saveData.stats.luckySevenCount || 0) + _sec7CountThisGame;
         const _allHardDropped = _piecesThisGame >= 20 && _piecesThisGame === _piecesHardDroppedThisGame;
         const _equalPieces = Object.keys(_pieceTypeCounts).length === 7 && Object.values(_pieceTypeCounts).every(c => c === Object.values(_pieceTypeCounts)[0]) && blocksPlacedThisGame >= 50;
-        const newAch = checkAchievements({ score, lines: linesClearedThisGame, blocks: blocksPlacedThisGame, time: gameTime, maxSpeed: speedLevel, mode: currentGameMode, mirror: !!settings.optMirror, quadraKill: _quadraKillThisGame, boardCleared: _boardClearedThisGame, maxLineStreak: _maxLineStreakThisGame, maxBlocksIn60s: _maxBlocksIn60sThisGame, iPieceLines: _iPieceLinesThisGame, clearedTopLine: _clearedTopLineThisGame, highPlacer: _maxBlocksUnderHalfThisGame, noRotate: !_rotatedThisGame, equalPieces: _equalPieces, luckySevenCount: saveData.stats.luckySevenCount, waitedTetris: _waitedTetrisThisGame, noHardDrop: _hardDropsThisGame === 0, allHardDrop: _allHardDropped, bigFont: _bigFontGameFlag, exactBlocks100: blocksPlacedThisGame === 100, prevHighscore: _prevHighscore, speedrunner: linesClearedThisGame >= 10 ? gameTime : 9999, earlyBird: _earlyBirdThisGame, nice69: _nice69Triggered, boardSymmetric: _boardSymmetricAchieved });
+        const newAch = checkAchievements({ score, lines: linesClearedThisGame, blocks: blocksPlacedThisGame, time: gameTime, maxSpeed: speedLevel, mode: currentGameMode, mirror: !!settings.optMirror, quadraKill: _quadraKillThisGame, boardCleared: _boardClearedThisGame, maxLineStreak: _maxLineStreakThisGame, maxBlocksIn60s: _maxBlocksIn60sThisGame, iPieceLines: _iPieceLinesThisGame, clearedTopLine: _clearedTopLineThisGame, highPlacer: _maxBlocksUnderHalfThisGame, noRotate: !_rotatedThisGame, equalPieces: _equalPieces, luckySevenCount: saveData.stats.luckySevenCount, waitedFourLineClear: _waitedFourLineClearThisGame, noHardDrop: _hardDropsThisGame === 0, allHardDrop: _allHardDropped, bigFont: _bigFontGameFlag, exactBlocks100: blocksPlacedThisGame === 100, prevHighscore: _prevHighscore, speedrunner: linesClearedThisGame >= 10 ? gameTime : 9999, earlyBird: _earlyBirdThisGame, nice69: _nice69Triggered, boardSymmetric: _boardSymmetricAchieved });
         newAch.forEach(a => { const tIdx = a._newTierNum ? a._newTierNum - 1 : 0; const _mgKey = `${a.id}_${tIdx}`; if (!_midGameAchsShown.has(_mgKey)) _showGameAchievement(a, tIdx); });
         _showGoAchievements(newAch);
         saveDataToFile();
@@ -8451,6 +8556,7 @@
         resetHeldInputs();
         document.getElementById('pause-overlay').classList.add('hidden');
         _gameInProgress = true;
+        window.LBAndroidUpdates?.syncSafety();
         // advanced mode removed
         clearInterval(_playBtnInterval);
         // Reset mode-specific vars
@@ -8506,7 +8612,7 @@
         _blockTimestampsThisGame = []; _maxBlocksIn60sThisGame = 0;
         _iPieceLinesThisGame = 0; _boardClearedThisGame = false; _boardSymmetricAchieved = false; _clearedTopLineThisGame = false;
         _rotatedThisGame = false; _pieceTypeCounts = {}; _sec7CountThisGame = 0; _sec7Last = []; const _ebH = new Date().getHours(); _earlyBirdThisGame = _ebH >= 5 && _ebH < 7;
-        _waitedTetrisThisGame = false; _lastIPieceGameTime = -999;
+        _waitedFourLineClearThisGame = false; _lastIPieceGameTime = -999;
         _hardDropsThisGame = 0; _pendingHardDrop = false; _piecesThisGame = 0; _piecesHardDroppedThisGame = 0;
         _rotationsThisGame = 0; _doublesThisGame = 0; _triplesThisGame = 0; _tSpinsThisGame = 0;
         _bottomTwoRowsThisGame = 0; _softDropUsedThisGame = false;
@@ -8896,23 +9002,16 @@
                 <strong class="lb105-level-rank">${name}</strong>
             </header>
             <div class="lb105-level-reward-frame">
-                <div class="lb105-level-rewards" role="region" aria-label="Level rewards"></div>
+                <div class="lb105-level-rewards lb-scroll-fade" role="region" aria-label="Level rewards"></div>
             </div>
             <button type="button" class="lb-block-btn lb-block-btn--primary">Awesome!</button>
         </div>`;
         const scroller = overlay.querySelector('.lb105-level-rewards');
-        const frame = scroller.parentElement;
         scroller.append(_crateRewardGrid(rewards.map(reward => {
             const boosterKey = reward.icon === '⚡' && Object.keys(BOOSTER_INFO).find(key => BOOSTER_INFO[key].label === reward.label);
             return boosterKey ? { ...reward, type: 'booster', key: boosterKey } : reward;
         }), true));
-        const updateFade = () => {
-            const maxScroll = scroller.scrollHeight - scroller.clientHeight;
-            frame.classList.toggle('can-scroll-up', scroller.scrollTop > 1);
-            frame.classList.toggle('can-scroll-down', maxScroll - scroller.scrollTop > 1);
-            scroller.tabIndex = maxScroll > 1 ? 0 : -1;
-        };
-        scroller.addEventListener('scroll', updateFade, { passive: true });
+        const updateTabStop = () => { scroller.tabIndex = scroller.scrollHeight > scroller.clientHeight ? 0 : -1; };
         const dismiss = overlay.querySelector('button');
         const previousFocus = document.activeElement;
         const close = () => {
@@ -8923,10 +9022,10 @@
         overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
         overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
         document.body.appendChild(overlay);
-        updateFade();
+        updateTabStop();
         dismiss.focus({ preventScroll: true });
         if ('ResizeObserver' in window) {
-            const resize = new ResizeObserver(() => overlay.isConnected ? updateFade() : resize.disconnect());
+            const resize = new ResizeObserver(() => overlay.isConnected ? updateTabStop() : resize.disconnect());
             resize.observe(scroller);
             resize.observe(scroller.firstElementChild);
         }
@@ -10718,7 +10817,7 @@
         selectMode(currentGameMode || 'normal');
 
         playOverlay.classList.remove('hidden');
-        playOverlay.scrollTop = 0;
+        playOverlay.querySelector('.lb148-play-content').scrollTop = 0;
         _animateIn(playOverlay, 'anim-in-up');
         playOverlay.focus({ preventScroll: true });
     }
@@ -10747,7 +10846,7 @@
         document.getElementById('fun-cols-val').value = funModeConfig.cols;
         document.getElementById('fun-rows-val').value = funModeConfig.rows;
         document.getElementById('fun-speed-val').value = funModeConfig.startSpeed;
-        if (!_qaDemo) localStorage.setItem('tetrisRPG_funConfig', JSON.stringify(funModeConfig));
+        if (!_qaDemo) localStorage.setItem('linebreaker_funConfig', JSON.stringify(funModeConfig));
 
         const board = document.getElementById('play-board-preview');
         board.style.setProperty('--play-cols', funModeConfig.cols);

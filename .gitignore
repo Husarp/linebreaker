@@ -8,8 +8,9 @@ AGENTS.md
 # Private: plans, design work, changelog, personal save (kept in the Vault)
 design/
 CHANGELOG.md
-tetris_save.json
-*.tetris
+*_save.json
+*.lbsave
+*.[t]etris
 
 # Third-party material that must never be published
 # (ripped music: to be replaced; unused community skins and FX pack)
@@ -27,6 +28,14 @@ node_modules/
 
 # Capacitor generated web assets and Android local/build state
 dist-web/
+dist/
+.local/
+android/.kotlin/
+capacitor.config.json
+android/app/src/main/assets/embedded-manifest.json
+android/app/src/main/assets/public-key.b64
+*.pem
+signing.properties
 android/local.properties
 android/.gradle/
 android/**/build/

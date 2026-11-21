@@ -11,7 +11,7 @@
   ],
   "game": [
     { "file": "OMORI OST - 086 World's End Valentine.mp3",                                   "artist": "Slime Girls",   "title": "World's End Valentine",              "tags": ["chill"] },
-    { "file": "Original Tetris theme (Tetris Soundtrack).mp3",                               "artist": null,            "title": "Original Tetris Theme",              "tags": ["retro","upbeat"] },
-    { "file": "Tetris (Hardcore Remix).mp3",                                                 "artist": null,            "title": "Tetris (Hardcore Remix)",            "tags": ["electronic","upbeat"] }
+    { "file": "Classic Block Theme.mp3",                               "artist": null,            "title": "Classic Block Theme",              "tags": ["retro","upbeat"] },
+    { "file": "Block Theme (Hardcore Remix).mp3",                                                 "artist": null,            "title": "Block Theme (Hardcore Remix)",            "tags": ["electronic","upbeat"] }
   ]
 }

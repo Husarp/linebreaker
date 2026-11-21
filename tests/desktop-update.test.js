@@ -4,12 +4,13 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { readVersions, stableVersion } from '../scripts/desktop-release-config.mjs';
 
 const script = readFileSync(new URL('../update-ui.js', import.meta.url), 'utf8');
+const tools = readFileSync(new URL('../update-tools.js', import.meta.url), 'utf8');
 const info = { enabled: true, version: '0.9.0', releases: 'https://github.com/owner/repo/releases' };
 const newer = { version: '0.10.0', size: 2 * 1048576 };
 const windows = [];
 afterEach(() => windows.splice(0).forEach(window => window.close()));
 
-async function launch(hook, preferences) {
+async function launch(hook, preferences, saved = {}) {
   const { window } = new JSDOM('<main id="menu-overlay"><canvas></canvas></main><main id="settings-overlay"><div><section class="settings-section"></section></div></main>',
     { url: 'https://linebreaker.test', runScripts: 'outside-only' });
   windows.push(window);
@@ -17,6 +18,9 @@ async function launch(hook, preferences) {
   Object.defineProperty(window.performance, 'now', { value: () => time });
   window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   window.openSettings = () => {};
+  window.linebreakerReadyForUpdates = true;
+  window.linebreakerCanInterrupt = () => true;
+  Object.entries(saved).forEach(([key, value]) => window.localStorage.setItem(key, value));
   if (preferences) window.localStorage.setItem('desktop-auto-update', preferences);
   const invoke = vi.fn(async (command, args) => {
     if (command === 'desktop_smoke_ready') return false;
@@ -24,6 +28,7 @@ async function launch(hook, preferences) {
     return hook(command, args);
   });
   window.__TAURI__ = { core: { invoke, Channel: class {} } };
+  window.eval(tools);
   window.eval(script);
   await settle();
   return {
@@ -35,7 +40,7 @@ async function launch(hook, preferences) {
 const settle = () => new Promise(resolve => setImmediate(resolve));
 const checks = invoke => invoke.mock.calls.filter(([command]) => command === 'check_desktop_update');
 
-it('checks on launch and return, throttles manual checks too, and keeps dismissal until restart', async () => {
+it('throttles automatic checks, allows manual checks, and remembers a dismissed version across restarts', async () => {
   const game = await launch(() => newer);
   const banner = game.select('.lb-update-banner');
   expect(banner.hidden).toBe(false);
@@ -44,15 +49,15 @@ it('checks on launch and return, throttles manual checks too, and keeps dismissa
   game.focus();
   game.select('[data-check]').click();
   await settle();
-  expect(checks(game.invoke)).toHaveLength(1);
+  expect(checks(game.invoke)).toHaveLength(2);
   game.advance(5 * 60 * 1000);
   game.focus();
   await settle();
-  expect(checks(game.invoke)).toHaveLength(2);
+  expect(checks(game.invoke)).toHaveLength(3);
   expect(banner.hidden).toBe(true);
   expect(game.select('[data-get]').hidden).toBe(false);
-  const restarted = await launch(() => newer);
-  expect(restarted.select('.lb-update-banner').hidden).toBe(false);
+  const restarted = await launch(() => newer, undefined, Object.fromEntries(Object.entries(game.window.localStorage)));
+  expect(restarted.select('.lb-update-banner').hidden).toBe(true);
 });
 
 it('honors opt-out and only reports a check failure after manual action', async () => {
@@ -78,12 +83,12 @@ it('shows size and speed, retries without opening GitHub, and drains queued save
       if (++attempts === 1) throw Error('Download failed');
       game.advance(1000);
       args.onProgress.onmessage({ done: 1048576, total: newer.size });
-      expect(game.select('[data-status]').textContent).toBe('1.0 MB / 2.0 MB · 1.0 MB/s');
+      expect(game.select('[data-status]').textContent).toBe('1.0 MiB / 2.0 MiB · 1.0 MiB/s');
     }
   });
   game.window.flushLinebreakerSave = () => new Promise(resolve => { releaseSave = resolve; });
   game.select('[data-open]').click();
-  expect(game.select('[data-summary]').textContent).toBe('Update 0.10.0 · 2.0 MB');
+  expect(game.select('[data-summary]').textContent).toBe('Update 0.10.0 · 2.0 MiB');
   const install = game.select('[data-install]');
   install.click();
   await settle();
@@ -95,6 +100,20 @@ it('shows size and speed, retries without opening GitHub, and drains queued save
   releaseSave();
   await settle();
   expect(game.invoke).toHaveBeenLastCalledWith('install_desktop_update', { version: newer.version });
+});
+
+it('shows release notes for one Windows startup and suppresses them when a newer update is available', async () => {
+  const saved = { 'lb149:desktop': '0.8.0', 'lb149:desktop-pending-notes:version': '0.9.0', 'lb149:desktop-pending-notes': '<b>New</b>' };
+  const upgraded = await launch(() => null, 'off', saved);
+  const notice = upgraded.select('.lb149-banner button');
+  expect(notice.hidden).toBe(false);
+  expect(notice.textContent).toBe("What's new in 0.9.0 ›");
+  notice.click();
+  expect(upgraded.select('[data-notes]').textContent).toBe('<b>New</b>');
+  const reopened = await launch(() => null, 'off', Object.fromEntries(Object.entries(upgraded.window.localStorage)));
+  expect(reopened.select('.lb149-banner').hidden).toBe(true);
+  const superseded = await launch(() => newer, undefined, saved);
+  expect(superseded.select('.lb149-banner').hidden).toBe(true);
 });
 
 it('keeps version mirrors in sync and requires a stable Windows-compatible version', async () => {

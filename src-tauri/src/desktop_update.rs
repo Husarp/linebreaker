@@ -48,7 +48,7 @@ pub async fn check_desktop_update(app: AppHandle, state: State<'_, PendingUpdate
         let size = update.raw_json["platforms"].as_object().and_then(|platforms| {
             platforms.values().find(|platform| platform["url"].as_str() == Some(update.download_url.as_str()))
         }).and_then(|platform| platform["size"].as_u64());
-        Ok(json!({ "version": update.version, "size": size }))
+        Ok(json!({ "version": update.version, "size": size, "notes": update.body }))
     }).transpose()?;
     state.0.lock().map_err(|error| error.to_string())?.available = update;
     Ok(info)
@@ -83,6 +83,12 @@ pub async fn download_desktop_update(state: State<'_, PendingUpdate>, version: S
 
 fn cache_dir(app: &AppHandle) -> tauri::Result<PathBuf> {
     Ok(app.path().app_cache_dir()?.join("updater"))
+}
+
+#[tauri::command]
+pub async fn restart_desktop(app: AppHandle) -> Result<(), String> {
+    if !cfg!(target_os = "windows") { return Err("Desktop restart is only available on Windows".into()); }
+    app.restart()
 }
 
 #[tauri::command]

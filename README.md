@@ -1,13 +1,13 @@
-# Tetris RPG
+# Linebreaker
 
-Tetris z systemem RPG — progresja rang, XP, osiągnięcia, misje dzienne/tygodniowe, ekwipunek, muzyka. Czyste HTML/CSS/JS, bez zewnętrznych frameworków.
+Linebreaker z systemem RPG — progresja rang, XP, osiągnięcia, misje dzienne/tygodniowe, ekwipunek, muzyka. Czyste HTML/CSS/JS, bez zewnętrznych frameworków.
 
 ---
 
 ## Struktura plików
 
 ```
-Tetris/
+Linebreaker/
 ├── index.html          # Cały UI — menu, gra, overlaye, panele
 ├── app.js              # Cała logika — jeden duży IIFE (~10 500+ linii)
 ├── style.css           # Style — układ, animacje, motywy
@@ -27,7 +27,7 @@ Tetris/
 Cały kod JS to jeden IIFE. Brak modułów, brak bundlera — jeden plik działa bezpośrednio w przeglądarce.
 
 **Persystencja:**
-- `saveData` — postęp gracza (XP, rangi, osiągnięcia, ekwipunek, misje, leaderboard) — zapisywany do `.tetris` przez Web File System API (XOR-szyfrowany + Base64)
+- `saveData` — postęp gracza (XP, rangi, osiągnięcia, ekwipunek, misje, leaderboard) — zapisywany do pliku JSON przez Web File System API albo lokalnie w aplikacji natywnej
 - `settings` — ustawienia UI/audio — w `localStorage`
 - Zapis JSON ma pole `schemaVersion`; stare zapisy są migrowane przy odczycie. Daty są zapisane jako `yyyy-mm-dd`.
 - `data/missions.json` — katalog misji ładowany przy starcie. Zapis zawiera tylko identyfikatory i stan misji. Przy zmianie katalogu zaktualizuj też kopię awaryjną w `app.js`.
@@ -36,9 +36,9 @@ Cały kod JS to jeden IIFE. Brak modułów, brak bundlera — jeden plik działa
 
 ## Systemy
 
-### Gra — Tetris
+### Gra — Linebreaker
 
-Standard Tetris: siatka 10×22 (2 ukryte rzędy spawn zone), 7 klasycznych kształtów, 7-bag randomizer.
+Standard Linebreaker: siatka 10×22 (2 ukryte rzędy spawn zone), 7 klasycznych kształtów, 7-bag randomizer.
 
 - **Hard drop** (spacja) — natychmiastowy drop + lock
 - **Soft drop** (↓) — przyśpieszony drop
@@ -217,7 +217,7 @@ Weekly pasek: hover pokazuje ile punktów każdy dzień wniósł.
 
 ### Tryby gry
 
-**Normal** — standardowy Tetris z opcjami modyfikującymi mnożnik score:
+**Normal** — standardowy Linebreaker z opcjami modyfikującymi mnożnik score:
 
 | Opcja | Odblokowanie | Zmiana |
 |-------|-------------|--------|
@@ -261,7 +261,7 @@ Playlist panel: toggle tracki menu/game niezależnie, podgląd i odtwarzanie dź
 
 ### Zapis gry
 
-Plik `.tetris` — XOR-szyfrowany + Base64. Importowany/eksportowany przez Transfer overlay. Dane przechowują:
+Plik `.lbsave` — XOR-szyfrowany + Base64. Importowany/eksportowany przez Transfer overlay. Dane przechowują:
 
 - XP, poziom, ranga
 - Wszystkie osiągnięcia (stan + daty)
