@@ -115,8 +115,8 @@ label.lb69-modifier:hover { background: var(--bb-pressed); }
 .lb69-modifier .lb69-icon { color: var(--bb-muted); }
 .lb69-modifier-score { font-size: 12px; font-weight: 700; white-space: nowrap; }
 .lb69-modifier .toggle-slider::after { font-size: 12px; }
-.lb69-modifier-score[data-effect="bonus"], #mode-xp-mult-val[data-effect="bonus"] { color: #92e1a2; }
-.lb69-modifier-score[data-effect="penalty"], #mode-xp-mult-val[data-effect="penalty"] { color: #ff9b9f; }
+.lb69-modifier-score[data-effect="bonus"], #mode-xp-mult-val[data-effect="bonus"] { color: var(--lb-label); }
+.lb69-modifier-score[data-effect="penalty"], #mode-xp-mult-val[data-effect="penalty"] { color: var(--lb-danger); }
 #mode-select-overlay .lb69-modifier.lb69-locked-row {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;

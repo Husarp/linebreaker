@@ -1,12 +1,14 @@
 .lb-topbar-crumb {
     display: grid;
-    grid-template-columns: auto 12px minmax(0, 1fr);
-    align-items: center;
-    gap: 8px;
+    grid-template: 'back kicker' auto 'back title' auto / auto minmax(0, 1fr);
+    align-content: center;
+    column-gap: var(--space-3);
     min-width: 0;
 }
 
 .lb-block-topbar .lb-topbar-crumb > .lb-block-back {
+    grid-area: back;
+    align-self: center;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -19,7 +21,6 @@
     white-space: nowrap;
 }
 
-.lb-topbar-crumb > svg,
 .lb-topbar-crumb .lb-block-back > svg {
     fill: none;
     stroke: currentColor;
@@ -29,16 +30,25 @@
 }
 
 .lb-topbar-crumb .lb-block-back > svg { width: 14px; height: 14px; }
-.lb-topbar-crumb > svg { width: 12px; height: 12px; color: var(--bb-muted); }
+.lb-topbar-kicker {
+    grid-area: kicker;
+    align-self: end;
+    color: var(--bb-muted);
+    font: 750 var(--lb-type-micro)/1.2 var(--font-body);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
 
 .lb-block-topbar .lb-topbar-crumb > .lb-topbar-title {
+    grid-area: title;
+    align-self: start;
     display: flex;
     align-items: center;
     gap: 6px;
     min-width: 0;
     margin: 0;
-    color: var(--accent-bright);
-    font: 400 clamp(.65rem, 2.25vw, .85rem)/1.55 var(--bb-font-pixel) !important;
+    color: var(--bb-ink);
+    font: 400 var(--lb-type-heading)/1.18 var(--bb-font-pixel) !important;
     letter-spacing: normal;
     text-shadow: none;
     text-transform: uppercase;
@@ -99,7 +109,6 @@
 
 @media (max-width: 480px) {
     .lb-block-topbar .lb-topbar-crumb > .lb-block-back { font-size: 12px !important; }
-    .lb-block-topbar .lb-topbar-crumb > .lb-topbar-title { font-size: 11px !important; }
     #achievements-overlay .lb-block-topbar { padding-inline: 12px; }
     #achievements-overlay #ach-counter { white-space: nowrap; }
 }

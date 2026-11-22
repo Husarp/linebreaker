@@ -746,10 +746,24 @@
     const defaultSettings = { musicVol: 30, sfxVol: 50, sfxPack: 'default', theme: 'default', skin: DEFAULT_BLOCK_SKIN, fontSize: '5', gameScale: '5', das: 160, arr: 50, ghostColor: 'white', btnStyle: 'square', blockShape: 'square', hardDropLock: false, hardDropLockMs: 50, stylePack: 'modern', optGhost: true, optHold: false, opt3Next: false, optMirror: false, optNoNext: false, gridOpacity: 40, gridStyle: 'lines', shakeStrength: 2, lineClearMs: 150, musicMuted: false, sfxMuted: false, colorPalette: 'classic', randomPieceColors: false, randomBlockColors: false, colorHistory: [] };
     Object.assign(defaultSettings, { showRunMissions: false, musicFollowsSpeed: true, musicPaused: false, showSpeedUp: true });
     defaultSettings.themeBackground = 'image';
+    defaultSettings.uiTheme = 'dark';
     defaultSettings.movingBackground = true;
     defaultSettings.lineClearEffect = 'default';
     let settings = { ...defaultSettings };
     const _themeBackgroundSelect = document.getElementById('setting-theme-background');
+    const _uiThemeSelect = document.getElementById('setting-ui-theme');
+    const _systemTheme = window.matchMedia?.('(prefers-color-scheme: light)');
+    for (const name of LBArtPack.wallpapers) {
+        _themeBackgroundSelect.add(new Option(name[0].toUpperCase() + name.slice(1), name));
+    }
+    function syncUiTheme() {
+        settings.uiTheme = ['light', 'system'].includes(settings.uiTheme) ? settings.uiTheme : 'dark';
+        _uiThemeSelect.value = settings.uiTheme;
+        document.documentElement.dataset.lbUiTheme = settings.uiTheme === 'system'
+            ? (_systemTheme?.matches ? 'light' : 'dark') : settings.uiTheme;
+    }
+    _systemTheme?.addEventListener?.('change', syncUiTheme);
+    _uiThemeSelect.addEventListener('change', () => onSettingChange('uiTheme', _uiThemeSelect.value));
     const _movingBackgroundToggle = document.getElementById('setting-moving-background');
     const wallpaper = document.querySelector('.lb-wallpaper');
     let wallpaperAnimation;
@@ -941,7 +955,9 @@
             const _mx=Math.max(_r,_g,_b)/255,_mn=Math.min(_r,_g,_b)/255;let _h=0;
             if(_mx!==_mn){const d=_mx-_mn;if(_mx===_r/255)_h=((_g/255-_b/255)/d+(_g<_b?6:0))/6;else if(_mx===_g/255)_h=((_b/255-_r/255)/d+2)/6;else _h=((_r/255-_g/255)/d+4)/6;}
             const _pb=document.getElementById('btn-play');if(_pb)_pb.style.setProperty('--play-hue',Math.round(_h*360));
-            settings.theme='custom'; return;
+            settings.theme = 'custom';
+            syncWallpaper();
+            return;
         }
         const t = THEMES[name] || THEMES.default;
         document.documentElement.style.setProperty('--primary', t.primary);
@@ -2414,6 +2430,7 @@
             if (useFileSettings) {
                 Object.assign(settings, defaultSettings, fileSettings);
                 settings.lineClearEffect = LBLineClear.normalizeMode(settings.lineClearEffect);
+                syncUiTheme();
                 syncMusicGain();
             }
             if (data.stats) saveData.stats = { ...defaultSaveData.stats, ...data.stats };
@@ -3854,7 +3871,7 @@
     ].map(([key, title, summary, icon]) => {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'lb-block-btn';
+        button.className = 'lb-block-btn lb-ledger-row';
         button.dataset.settingsCategory = key;
         const page = document.getElementById(`settings-${key}`);
         button.setAttribute('aria-controls', page.id);
@@ -4835,6 +4852,9 @@
             const gsVEl = document.getElementById('gamescale-step-val'); if (gsVEl) gsVEl.innerText = value;
             const gsFEl = document.getElementById('gamescale-step-fill'); if (gsFEl) gsFEl.style.width = ((parseInt(value)-1)/9*100).toFixed(1)+'%';
             saveSettingsDebounced(); return;
+        } else if (key === 'uiTheme') {
+            settings.uiTheme = value;
+            syncUiTheme();
         } else if (key === 'themeBackground') {
             settings.themeBackground = LBArtPack.backgroundMode(value);
             LBArtPack.applyThemeBackground(document.querySelector('.bg-gradient'), settings.theme, settings.themeBackground);
@@ -9990,8 +10010,8 @@
         const pct = hasProgress ? Math.min(100, ((q.progress || 0) / q.target) * 100) : 0;
         const _progFmt = hasProgress
             ? (q.metric === 'gameTime'
-                ? `<span style="color:${tc}">${_fmtMissionTime(q.progress || 0)}</span>/${_fmtMissionTime(q.target)}`
-                : `<span style="color:${tc}">${escapeHtml(q.progress || 0)}</span>/${escapeHtml(q.target)}`)
+                ? `<span>${_fmtMissionTime(q.progress || 0)}</span>/${_fmtMissionTime(q.target)}`
+                : `<span>${escapeHtml(q.progress || 0)}</span>/${escapeHtml(q.target)}`)
             : '';
         const miniWellHtml = hasProgress ? _miniWell(q.progress, q.target, tc) : '';
         // Progress row: continuous HUD-style bar (Section D) + progress/target on right
@@ -10020,10 +10040,10 @@
             ? `<button type="button" class="mq-change-overlay" aria-label="Swap ${escapeHtml(q.desc)}" onclick="window._changeMission(${index},${!!isWeekly})"><span class="mq-change-overlay-label">↺ TAP TO SWAP</span></button>`
             : '';
         return `<div class="mq-card-wrap"${index == null ? '' : ` data-mission-slot="${index}"`}>
-            <div class="mq-card${isSecret?' mq-card--secret':''}${readyState?' mq-card--ready':''}${changeModeCls}" style="${cardStyle}">
+            <div class="mq-card${isSecret?' mq-card--secret':''}${readyState?' mq-card--ready':''}${changeModeCls}" style="${cardStyle}--mq-tier:${tc}">
                 <div class="mq-card-hdr">
-                    <span class="mq-tier-badge" style="--mq-tier:${tc}">${escapeHtml(tierLabel)}</span>
-                    <span class="mq-pts" style="color:${tc}">+${escapeHtml(q.pts)} pts</span>
+                    <span class="mq-tier-badge">${escapeHtml(tierLabel)}</span>
+                    <span class="mq-pts">+${escapeHtml(q.pts)} pts</span>
                 </div>
                 <div class="mq-card-body${miniWellHtml ? '' : ' mq-card-body--nowell'}">
                     ${miniWellHtml}
@@ -11763,6 +11783,7 @@
 
     _setLoadProgress(5, 'Initializing…');
     loadSettings();
+    syncUiTheme();
     const controlsEditor = LBControls.createEditor(document.getElementById('controls-settings'),
         () => settings.keyBindings, bindings => { settings.keyBindings = bindings; saveSettings(); });
     LBGamepad.start({ press: pressGameInput, release: releaseGameInput, back: backFromOverlay });

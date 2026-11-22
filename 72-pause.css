@@ -1,65 +1,20 @@
-#pause-overlay {
-    --pause-accent: var(--primary, var(--accent));
-    --pause-highlight: color-mix(in srgb, var(--pause-accent) 48%, white);
-    --pause-edge: #777f76;
-}
-
 #pause-overlay .lb-run-panel {
+    width: min(100%, 380px);
     padding: clamp(20px, 5vw, 28px);
-    background: #262b27;
-    border: 2px solid var(--pause-edge);
-    border-radius: 4px 14px 4px 14px;
-    box-shadow: inset 0 0 0 3px #101310, 3px 3px #0e100e;
 }
 
 #pause-title {
     margin: 0 0 24px;
-    color: var(--pause-highlight);
-    font-family: 'Press Start 2P', monospace;
+    color: var(--lb-ink);
+    font-family: var(--lb-font-heading);
     font-size: clamp(18px, 6vw, 28px);
-    text-shadow: 0 3px #101310;
-}
-
-#pause-overlay button {
-    --pause-face: #343936;
-    --pause-hover: #454d47;
-    --pause-pressed: #242924;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--pause-face) !important;
-    border: 2px solid var(--pause-edge);
-    border-radius: 6px !important;
-    box-shadow: inset 0 2px #ffffff1e, inset 0 -4px #0007, 0 2px #0e100e !important;
-    color: #f5f4f0 !important;
-    font-weight: 750;
-    padding: 0 !important;
+    text-shadow: none;
 }
 
 #pause-overlay .lb-run-primary {
-    --pause-face: color-mix(in srgb, var(--pause-accent) 19%, #343936);
-    --pause-hover: color-mix(in srgb, var(--pause-accent) 25%, #454d47);
-    --pause-pressed: color-mix(in srgb, var(--pause-accent) 13%, #242924);
     min-height: 60px;
-    border-color: var(--pause-highlight);
     font-size: 20px !important;
     letter-spacing: .08em;
-}
-
-#pause-overlay button:hover {
-    background: var(--pause-hover) !important;
-    border-color: var(--pause-highlight);
-    text-decoration: none;
-}
-
-#pause-overlay button:active {
-    background: var(--pause-pressed) !important;
-    box-shadow: inset 0 3px 4px #0008 !important;
-}
-
-#pause-overlay button:is(:focus-visible, .lb-gamepad-focus:focus) {
-    outline: 3px solid var(--pause-highlight) !important;
-    outline-offset: 3px;
 }
 
 #pause-overlay .lb-run-icons button {

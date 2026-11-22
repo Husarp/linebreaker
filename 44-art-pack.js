@@ -19,13 +19,14 @@ window.LBArtPack = (() => {
     }
 
     function backgroundMode(value) {
-        return value === 'plain' ? 'plain' : 'image';
+        return value === 'plain' || backgrounds.has(value) ? value : 'image';
     }
 
     function themeBackground(theme, mode, orientation = 'landscape') {
         const variant = orientation === 'portrait' ? 'portrait' : 'landscape';
-        return backgroundMode(mode) === 'image' && backgrounds.has(theme)
-            ? `assets/ui/bg/${theme}-${variant}.jpg` : null;
+        const choice = backgroundMode(mode);
+        const wallpaper = choice === 'image' ? theme : choice;
+        return backgrounds.has(wallpaper) ? `assets/ui/bg/${wallpaper}-${variant}.jpg` : null;
     }
 
     function applyThemeBackground(element, theme, mode) {
@@ -37,5 +38,5 @@ window.LBArtPack = (() => {
         }
     }
 
-    return { universalPart, boosterToken, boosterIcon, backgroundMode, themeBackground, applyThemeBackground };
+    return { universalPart, boosterToken, boosterIcon, wallpapers: Object.freeze([...backgrounds]), backgroundMode, themeBackground, applyThemeBackground };
 })();
