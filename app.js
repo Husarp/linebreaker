@@ -3839,47 +3839,48 @@
         });
     }
 
-    const settingsTabs = document.querySelector('.lb102-tabs');
-    const settingsTabButtons = [...settingsTabs.querySelectorAll('[data-settings-tab]')];
-    let activeSettingsTab = 'game';
-    function updateSettingsTabEdges() {
-        const { scrollLeft, scrollWidth, clientWidth } = settingsTabs;
-        settingsTabs.parentElement.toggleAttribute('data-left', scrollLeft > 1);
-        settingsTabs.parentElement.toggleAttribute('data-right', scrollLeft + clientWidth < scrollWidth - 1);
+    const settingsMenu = document.querySelector('.lb102-categories');
+    const settingsScroll = document.querySelector('.lb102-settings-scroll');
+    const settingsBack = document.getElementById('settings-back');
+    const settingsTitle = document.querySelector('#settings-overlay .lb-topbar-title');
+    const settingsCategories = new Map([
+        ['game', 'Game', 'Gameplay and assistance', '<path d="M4 9h6V3h6v6h6v6H4z"/>'],
+        ['controls', 'Controls', 'Key bindings and timing', '<path d="M3 6h18v12H3zM6 10h2m3 0h2m3 0h2M6 14h2m3 0h7"/>'],
+        ['audio', 'Audio', 'Music and sound effects', '<path d="M3 9h4l5-4v14l-5-4H3zM16 9a4 4 0 0 1 0 6m2-9a8 8 0 0 1 0 12"/>'],
+        ['display', 'Display', 'Colors and motion', '<path d="M3 4h18v13H3zM8 21h8m-4-4v4"/>'],
+        ['notifications', 'Notifications', 'Mission and streak reminders', '<path d="M4 17h16l-2-3v-4a6 6 0 0 0-12 0v4zm6 3a2 2 0 0 0 4 0"/>'],
+        ['updates', 'Updates', 'Update checks and notes', '<use href="#lb-icon-update"/>'],
+        ['about', 'About', 'Help, credits and saves', '<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>'],
+    ].map(([key, title, summary, icon]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'lb-block-btn';
+        button.dataset.settingsCategory = key;
+        const page = document.getElementById(`settings-${key}`);
+        button.setAttribute('aria-controls', page.id);
+        button.innerHTML = `<svg aria-hidden="true" viewBox="0 0 24 24">${icon}</svg><span><strong>${title}</strong><small>${summary}</small></span><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#lb-topbar-next"/></svg>`;
+        button.onclick = () => { showSettingsCategory(key); settingsBack.focus(); };
+        settingsMenu.append(button);
+        return [key, { title, button, page }];
+    }));
+    let activeSettingsCategory;
+    function showSettingsCategory(key) {
+        activeSettingsCategory = settingsCategories.get(key);
+        settingsMenu.hidden = !!activeSettingsCategory;
+        for (const category of settingsCategories.values()) category.page.hidden = category !== activeSettingsCategory;
+        settingsTitle.textContent = activeSettingsCategory?.title || 'Settings';
+        const isBack = activeSettingsCategory || settingsFromPause;
+        settingsBack.querySelector('use').setAttribute('href', isBack ? '#lb-topbar-parent' : '#lb-topbar-home');
+        settingsBack.querySelector('span').textContent = isBack ? 'Back' : 'Menu';
+        settingsScroll.scrollTop = 0;
     }
-    function settingsTab(tab = activeSettingsTab, focus = false, reveal = true) {
-        const selected = settingsTabButtons.find(button => button.dataset.settingsTab === tab);
-        if (!selected) return;
-        activeSettingsTab = tab;
-        for (const button of settingsTabButtons) {
-            button.setAttribute('aria-selected', String(button === selected));
-            button.tabIndex = button === selected ? 0 : -1;
-            document.getElementById(button.getAttribute('aria-controls')).hidden = button !== selected;
-        }
-        if (reveal) revealSettingsTab(selected);
-        if (focus) selected.focus({ preventScroll: true });
-    }
-    function revealSettingsTab(selected) {
-        document.querySelector('.lb102-settings-scroll').scrollTop = 0;
-        selected.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
-        updateSettingsTabEdges();
-    }
-    settingsTabs.addEventListener('scroll', updateSettingsTabEdges, { passive: true });
-    window.addEventListener('resize', updateSettingsTabEdges);
-    settingsTabs.addEventListener('click', event => {
-        const tab = event.target.closest('[data-settings-tab]');
-        if (tab) settingsTab(tab.dataset.settingsTab);
-    });
-    settingsTabs.addEventListener('keydown', event => {
-        const current = settingsTabButtons.indexOf(event.target);
-        if (current < 0) return;
-        const count = settingsTabButtons.length;
-        const next = { ArrowLeft: (current + count - 1) % count, ArrowRight: (current + 1) % count, Home: 0, End: count - 1 }[event.key];
-        if (next === undefined) return;
-        event.preventDefault();
-        event.stopPropagation();
-        settingsTab(settingsTabButtons[next].dataset.settingsTab, true);
-    });
+    settingsBack.onclick = () => {
+        if (!activeSettingsCategory) return closeSettings();
+        const { button } = activeSettingsCategory;
+        controlsEditor.cancel();
+        showSettingsCategory();
+        button.focus();
+    };
     let inventoryPreviewTimer;
     let inventoryPreviewColor = 1;
     let inventoryPreviewPalette;
@@ -4620,19 +4621,15 @@
     }
 
     let settingsFromPause = false;
-    function openSettings(fromPause = false, tab = activeSettingsTab) {
+    function openSettings(fromPause = false, category) {
         const overlay = document.getElementById('settings-overlay');
-        const back = document.getElementById('settings-back');
         settingsFromPause = fromPause;
         closeInfo();
         document.getElementById(fromPause ? 'pause-overlay' : 'menu-overlay').classList.add('hidden');
-        back.querySelector('use').setAttribute('href', fromPause ? '#lb-topbar-parent' : '#lb-topbar-home');
-        back.querySelector('span').textContent = fromPause ? 'Back' : 'Menu';
         overlay.classList.remove('hidden');
-        settingsTab(tab, false, false);
+        showSettingsCategory(category);
         return fillScreenAfterPaint(overlay, () => {
-            revealSettingsTab(settingsTabs.querySelector('[aria-selected="true"]'));
-            if (!overlay.contains(document.activeElement)) back.focus({ preventScroll: true });
+            if (!overlay.contains(document.activeElement)) settingsBack.focus({ preventScroll: true });
             syncSettingsControls();
         });
     }
@@ -6402,8 +6399,8 @@
             toast.className = 'ach-menu-toast';
             toast.setAttribute('role', 'status');
             toast.style.cssText = `
-                position:fixed;top:${16 + (stackOffset + idx * 82)}px;left:50%;transform:translateX(-50%) translateY(-70px);
-                z-index:9990;opacity:0;
+                position:fixed;top:calc(var(--lb-safe-top) + ${stackOffset + idx * 82}px);left:50%;transform:translateX(-50%) translateY(-70px);
+                z-index:var(--lb-z-top-notice);opacity:0;
                 background:rgba(5,5,20,0.97);border:1px solid ${rc.color};border-radius:12px;
                 padding:10px 16px;display:flex;align-items:center;gap:10px;
                 box-shadow:0 4px 24px rgba(0,0,0,0.7),0 0 16px ${rc.color}40;
@@ -11134,7 +11131,6 @@
     }
 
     window.closeAlert = closeAlert;
-    window.settingsTab = settingsTab;
     window.resumeGame = resumeGame;
     window.quitGame = quitGame;
     window.restartPausedRun = restartPausedRun;

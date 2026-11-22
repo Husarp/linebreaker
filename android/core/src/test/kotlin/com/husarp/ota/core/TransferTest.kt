@@ -49,6 +49,18 @@ class TransferTest {
         val stage=Installer(h.root,embedded,transport(texts()),h.log).stage(next,embedded,{null},"https://example.test/manifest.json")!!
         h.engine.commit(next,stage); h.engine.coldStart(); assertFalse(h.engine.hasPath("stable.css"))
     }
+    @Test fun emptyOverlayFileIsCreatedAndVerifiedWithoutNetwork() {
+        val h = Harness()
+        val empty = entry("index.html", "")
+        val manifest = bundle("1.0.1", listOf(empty))
+        val installer = Installer(h.root, embedded, Transport { _, _ -> error("Must not download") }, h.log)
+        val staged = installer.stage(manifest, embedded, { null }, "https://example.test/manifest.json")!!
+        h.engine.commit(manifest, staged)
+        h.engine.coldStart()
+        val file = h.engine.overlayFile(empty.path)!!
+        assertTrue(file.isFile)
+        assertArrayEquals(ByteArray(0), file.readBytes())
+    }
     @Test fun unchangedCurrentOverlayReusedWithoutDownload() {
         val h=Harness(); val t=transport(texts()); val first=Installer(h.root,embedded,t,h.log).stage(changed,embedded,{null},"https://example.test/manifest.json")!!
         h.engine.commit(changed,first); val launch=h.engine.coldStart(); h.engine.ready(launch.version,launch.token)

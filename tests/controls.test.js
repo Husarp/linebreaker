@@ -148,7 +148,7 @@ it('opens the same Settings from the menu and pause and returns to the caller', 
     const settings = get('settings-overlay');
     const back = get('settings-back');
     const bindInline = button => { button.onclick = w.Function(button.getAttribute('onclick')); };
-    [get('btn-settings'), get('pause-settings'), back].forEach(bindInline);
+    [get('btn-settings'), get('pause-settings')].forEach(bindInline);
     const finishClose = () => settings.dispatchEvent(new w.Event('animationend'));
     get('btn-settings').click();
     expect(settings.classList.contains('hidden')).toBe(false);
@@ -164,6 +164,10 @@ it('opens the same Settings from the menu and pause and returns to the caller', 
     expect(get('pause-overlay').classList.contains('hidden')).toBe(true);
     expect(settings.classList.contains('hidden')).toBe(false);
     expect(back.textContent.trim()).toBe('Back');
+    settings.querySelector('[data-settings-category="audio"]').click();
+    key(game, 'Escape');
+    expect(settings.querySelector('.lb102-categories').hidden).toBe(false);
+    expect(get('pause-overlay').classList.contains('hidden')).toBe(true);
     key(game, 'Escape');
     finishClose();
     expect(settings.classList.contains('hidden')).toBe(true);

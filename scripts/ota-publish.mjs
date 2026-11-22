@@ -15,7 +15,7 @@ export function publishPlan(kind, version, c = config, base = root) {
   const manifest = path.join(dir, web ? c.artifacts.manifest : c.artifacts.shellManifest);
   const m = readSignedManifest(manifest, c, base);
   if (web ? m.version !== version : m.versionCode !== Number(version)) throw new Error('Prepared metadata version mismatch');
-  const names = web ? [...new Set(m.files.map(f=>f.asset))].filter(name=>fs.existsSync(path.join(dir,name))) : [m.apk];
+  const names = web ? [...new Set(m.files.filter(file => file.size > 0).map(file => file.asset))].filter(name=>fs.existsSync(path.join(dir,name))) : [m.apk];
   if (!web && m.apk !== c.artifacts.apk.replaceAll('{code}', version)) throw new Error('APK name/config mismatch');
   for (const name of names) {
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name)) throw new Error('Unsafe prepared asset name');

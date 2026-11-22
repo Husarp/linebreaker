@@ -5,7 +5,7 @@
   "channels": { "bundle": "channel", "shell": "shell-channel" },
   "artifacts": { "manifest": "manifest.json", "shellManifest": "shell.json", "apk": "LinebreakerShell-{code}.apk", "asset": "f-{sha256}.bin" },
   "updateUrls": { "bundle": null, "shell": null, "releases": null },
-  "build": { "shellApi": 1, "versionCode": 1102, "versionName": "1.1.2", "webVersion": "1.1.2", "minShellApi": 1, "message": "Adds top update notices and clearer update settings, keeps music paused until you press Play, hides numbers in rank shapes, and fixes mission Swap on phones." },
+  "build": { "shellApi": 1, "versionCode": 1103, "versionName": "1.1.3", "webVersion": "1.1.3", "minShellApi": 1, "message": "Adds a Settings category menu and a separate Notifications page, and fixes top notices and Inventory around the camera cutout." },
   "signing": {
     "privateKey": "~/.keystores/linebreaker/ota-private.pem",
     "publicKey": "keys/public-key.b64",

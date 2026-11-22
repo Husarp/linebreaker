@@ -190,6 +190,9 @@ it('exposes Android policy and shell actions directly in the Updates section', a
   await game.restoreSave();
   await game.ready();
   const section = game.get('.lb149-settings');
+  expect(section.querySelector('[data-get]').hidden).toBe(true);
+  expect(section.querySelector('.lb184-toolbar button:last-child').textContent).toBe('GitHub releases');
+  expect(section.querySelector('.lb184-toolbar button:last-child svg')).not.toBeNull();
   expect(section.querySelector('h2').textContent).toBe('Updates');
   section.querySelector('[data-auto]').click();
   await flush();

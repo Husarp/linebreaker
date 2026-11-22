@@ -106,7 +106,10 @@ class Installer(private val root: File, private val embedded: Manifest, private 
                         } else {
                             destination.delete()
                             val source = if (currentByPath[f.path]?.sha256 == f.sha256) currentOverlay(f.path) else null
-                            if (source != null && valid(source, f)) {
+                            if (f.size == 0L) {
+                                FileOutputStream(destination).use { it.fd.sync() }
+                                log.add("Overlay ${f.path}: create empty file, 0 network bytes")
+                            } else if (source != null && valid(source, f)) {
                                 FileOutputStream(destination).use { out -> source.inputStream().use { it.copyTo(out) }; out.fd.sync() }
                                 log.add("Overlay ${f.path}: reuse current overlay, 0 network bytes")
                             } else {

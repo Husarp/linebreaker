@@ -1,4 +1,5 @@
 :root {
+    --lb-z-top-notice: 30000;
     --lb-scroll-gap: 6px;
     --lb-bar-left: max(12px, var(--lb-safe-left));
     --lb-bar-right: max(12px, var(--lb-safe-right));
@@ -46,30 +47,29 @@
 #stats-overlay :is([role="tabpanel"], #leaderboard-container) { padding-inline: var(--lb-scroll-gap); }
 
 [data-lb-cutout] .overlay[data-lb-bar-screen] { padding-inline: 0; }
-[data-lb-cutout] .overlay > [data-lb-topbar] {
+[data-lb-cutout] .overlay:where(:not(#inventory-overlay)) > [data-lb-topbar] {
     padding-top: max(var(--lb-bar-pad), var(--lb-system-top, 0px)) !important;
     padding-inline: var(--lb-bar-left) var(--lb-bar-right) !important;
 }
-[data-lb-cutout="left"] .overlay > [data-lb-topbar] { padding-right: calc(100% - var(--lb-cut-start)) !important; }
-[data-lb-cutout="right"] .overlay > [data-lb-topbar] { padding-left: var(--lb-cut-end) !important; }
-[data-lb-cutout="split"] [data-lb-topbar] > .lb-topbar-crumb {
+[data-lb-cutout="left"] .overlay:where(:not(#inventory-overlay)) > [data-lb-topbar] { padding-right: calc(100% - var(--lb-cut-start)) !important; }
+[data-lb-cutout="right"] .overlay:where(:not(#inventory-overlay)) > [data-lb-topbar] { padding-left: var(--lb-cut-end) !important; }
+[data-lb-cutout="split"] :where(:not(#inventory-overlay)) > [data-lb-topbar] > .lb-topbar-crumb {
     flex: 1;
     gap: 0;
     grid-template-columns: calc(var(--lb-cut-start) - var(--lb-bar-left)) calc(var(--lb-cut-end) - var(--lb-cut-start)) minmax(0, 1fr);
 }
 [data-lb-cutout="split"] [data-lb-topbar] .lb-block-back { justify-self: start; }
-[data-lb-cutout="split"] [data-lb-topbar] .lb-topbar-crumb > svg { visibility: hidden; }
-[data-lb-cutout="split"] :is(#inventory-overlay, #achievements-overlay) > [data-lb-topbar] {
+[data-lb-cutout="split"] :where(:not(#inventory-overlay)) > [data-lb-topbar] .lb-topbar-crumb > svg { visibility: hidden; }
+[data-lb-cutout="split"] #achievements-overlay > [data-lb-topbar] {
     display: grid !important;
     grid-template-columns: calc(var(--lb-cut-start) - var(--lb-bar-left)) calc(var(--lb-cut-end) - var(--lb-cut-start)) minmax(0, 1fr);
     column-gap: 0 !important;
 }
-[data-lb-cutout="split"] :is(#inventory-overlay, #achievements-overlay) > [data-lb-topbar] > .lb-topbar-crumb { grid-area: 1 / 1 / 2 / -1; }
-[data-lb-cutout="split"] #inventory-overlay > [data-lb-topbar] > .lb-info-btn {
-    grid-area: 2 / 1;
-    justify-self: end;
+[data-lb-cutout="split"] #achievements-overlay > [data-lb-topbar] > .lb-topbar-crumb { grid-area: 1 / 1 / 2 / -1; }
+#inventory-overlay > [data-lb-topbar] {
+    padding-inline: max(16px, var(--lb-safe-left)) max(16px, var(--lb-safe-right)) !important;
+    padding-bottom: var(--lb-bar-pad);
 }
-[data-lb-cutout="split"][data-lb-cutout-roomy] #inventory-overlay > [data-lb-topbar] > .lb-info-btn { grid-row: 1; }
 [data-lb-cutout="split"] #achievements-overlay .ach-summary {
     grid-area: 2 / 1 / 3 / -1;
     flex-direction: row;

@@ -26,15 +26,18 @@ it.each([
     const bytes = Buffer.from('test asset');
     const sha256 = createHash('sha256').update(bytes).digest('hex');
     const asset = web ? `f-${sha256}.bin` : `LinebreakerShell-${version}.apk`;
-    const metadata = web ? { version, message: notes, files: [{ asset, sha256, size: bytes.length }] }
+    const emptySha = createHash('sha256').update('').digest('hex');
+    const emptyAsset = `f-${emptySha}.bin`;
+    const metadata = web ? { version, message: notes, files: [{ asset, sha256, size: bytes.length }, { asset: emptyAsset, sha256: emptySha, size: 0 }] }
       : { versionName: '1.0.2', versionCode: Number(version), embeddedWebVersion: '1.0.2', apk: asset, notes, sha256, size: bytes.length };
     const payload = Buffer.from(JSON.stringify(metadata));
     writeFileSync(path.join(dir, asset), bytes);
+    if (web) writeFileSync(path.join(dir, emptyAsset), '');
     writeFileSync(path.join(dir, web ? c.artifacts.manifest : c.artifacts.shellManifest), JSON.stringify({
       payload: payload.toString('base64'), signature: sign(null, payload, privateKey).toString('base64'),
     }));
     const plan = publishPlan(kind, version, c, base);
-    expect(plan).toMatchObject({ title, notes });
+    expect(plan).toMatchObject({ title, notes, payloads: [path.join(dir, asset)] });
     for (const exists of [true, false]) {
       const calls = [];
       executePublish(plan, args => {

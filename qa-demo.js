@@ -95,7 +95,8 @@
 
         add('menu', () => {});
         for (const mode of ['normal', 'fun']) screen(mode === 'normal' ? 'play' : 'play-fun', 'mode-select-overlay', () => play(mode), window.closeModeSelect);
-        for (const tab of ['game', 'controls', 'audio', 'display', 'updates', 'about']) {
+        screen('settings-home', 'settings-overlay', () => settings(), window.closeSettings);
+        for (const tab of ['game', 'controls', 'audio', 'display', 'notifications', 'updates', 'about']) {
             screen(tab === 'game' ? 'settings' : `settings-${tab}`, 'settings-overlay', () => settings(tab), window.closeSettings);
         }
         add('whats-new-notice', () => window.LBUpdateTools.showReleaseNotice(window.BUNDLE.version, null, { preview: true }), () => {

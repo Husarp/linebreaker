@@ -54,23 +54,21 @@
     max-width: 900px;
     margin-inline: auto;
 }
-.lb102-settings-content { padding: 24px 16px max(32px, env(safe-area-inset-bottom)); }
-.lb102-tab-strip { position: relative; flex: none; width: 100%; max-width: 900px; min-width: 0; margin-inline: auto; }
-.lb102-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-color: var(--bb-edge) var(--bb-well);
-    padding: 6px max(16px, var(--lb-safe-right)) 8px max(16px, var(--lb-safe-left));
+.lb102-settings-content { padding: 16px max(16px, var(--lb-safe-right)) max(32px, var(--lb-safe-bottom)) max(16px, var(--lb-safe-left)); }
+.lb102-categories { display: grid; gap: 8px; max-width: 36rem; margin-inline: auto; }
+.lb102-categories[hidden], #notification-settings:not([hidden]) + .lb102-reminders-unavailable { display: none; }
+#settings-overlay .lb102-categories .lb-block-btn {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) 16px;
+    text-align: start;
+    gap: 12px;
+    min-height: 60px;
+    padding-inline: 14px !important;
 }
-.lb102-tabs::-webkit-scrollbar { height: 5px; background: var(--bb-well); }
-.lb102-tabs::-webkit-scrollbar-thumb { background: var(--bb-edge); }
-#settings-overlay .lb102-tabs .lb-block-btn { flex: 0 0 auto; min-height: 44px; padding-inline: 8px !important; font: 400 .625rem var(--bb-font-pixel) !important; text-decoration: none; }
-#settings-overlay .lb102-tabs .lb-block-btn[aria-selected="false"]:not(:focus-visible) { box-shadow: none !important; }
-.lb102-tab-strip::before, .lb102-tab-strip::after {
-    content: ""; position: absolute; inset-block: 0 5px; width: 14px; z-index: 1; pointer-events: none;
-}
-.lb102-tab-strip[data-left]::before { left: 0; background: linear-gradient(to right, var(--bb-page), transparent); }
-.lb102-tab-strip[data-right]::after { right: 0; background: linear-gradient(to left, var(--bb-page), transparent); }
+.lb102-categories svg { width: 100%; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+#settings-overlay .lb102-categories strong { display: block; font: 400 .64rem/1.45 var(--bb-font-pixel); }
+#settings-overlay .lb102-categories small, #settings-overlay .lb102-reminders-unavailable { color: var(--bb-muted); font: .8rem/1.5 var(--font-body); }
+.lb102-categories small { display: block; margin-top: 3px; }
 #settings-overlay :is(.settings-title, #controls-title) {
     display: flex;
     align-items: center;
@@ -161,6 +159,5 @@
 .lb102-sfx-speaker svg { width: 20px; height: 20px; }
 
 @media (orientation: portrait) and (max-width: 600px) {
-    .lb102-settings-content { padding: 16px; }
     .lb102-tutorial-card { margin-top: 16px; }
 }

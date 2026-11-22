@@ -1,6 +1,7 @@
 (function () {
   const holdTime = 650;
   const releaseNotes = {
+    '1.1.3': 'Settings opens to a category menu, with a separate Notifications page for game reminders.\nTop notices and Inventory now respect the camera cutout.',
     '1.1.2': 'Settings now has tabs and a permanent What’s new section.\nMission Swap works on phones again, and Missions and Season use rarity crate art.\nMenu screens open faster. Android uses the Linebreaker icon for update notifications.',
     '1.1.1': 'Removed falling background blocks and Supply Drops. Completed rank badges now show rank-coloured numbers.',
     '1.1.0': 'Improved phone controls, game-over rewards, music transitions, rank badges, and mission progression.',
@@ -112,7 +113,7 @@
       banner = document.createElement('aside');
       banner.className = 'lb-block-panel lb184-banner';
       banner.setAttribute('aria-label', 'Update notice');
-      banner.innerHTML = `<svg class="lb184-notice-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14M12 3v12m-5-5 5 5 5-5"/></svg>
+      banner.innerHTML = `<svg class="lb184-notice-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-update"/></svg>
         <div class="lb184-notice-copy"><div role="status"><strong data-title></strong><p data-detail></p></div>${statusMarkup}<div class="lb149-actions" data-actions></div></div>
         <button type="button" class="lb-block-btn lb-block-back" data-dismiss aria-label="Dismiss update notice">✕</button>`;
       banner.querySelector('[data-dismiss]').onclick = closeNotice;

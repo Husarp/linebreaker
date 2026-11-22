@@ -5,22 +5,31 @@ import { loadGame } from './loader.js';
 let game;
 afterEach(() => game?.close());
 
-it('opens the settings shell before syncing controls, remembers tabs, and cancels a closed screen fill', async () => {
+it('opens deep links before syncing, returns to the category menu, and cancels a closed screen fill', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => { window.__testDeferredScreens = true; });
   const { w, advance } = game;
-  const selected = () => w.document.querySelector('[data-settings-tab][aria-selected="true"]').dataset.settingsTab;
+  const menu = w.document.querySelector('.lb102-categories');
+  const back = w.document.getElementById('settings-back');
   const controls = w.document.getElementById('settings-controls');
   const opened = w.openSettings(false, 'updates');
-  expect(selected()).toBe('updates');
+  expect(menu.hidden).toBe(true);
   expect(w.document.querySelector('#settings-updates').hidden).toBe(false);
+  expect(w.document.querySelector('#settings-updates #notification-settings')).toBeNull();
   w.closeSettings();
   advance(16); advance(16);
   await opened;
   const reopened = w.openSettings();
-  expect(selected()).toBe('updates');
-  w.document.querySelector('[data-settings-tab="controls"]').click();
-  expect(selected()).toBe('controls');
+  expect(menu.hidden).toBe(false);
+  const controlsButton = menu.querySelector('[data-settings-category="controls"]');
+  controlsButton.click();
+  expect(menu.hidden).toBe(true);
   expect(controls.hidden).toBe(false);
+  expect(back.textContent).toBe('Back');
+  back.click();
+  expect(controls.hidden).toBe(true);
+  expect(w.document.activeElement).toBe(controlsButton);
+  menu.querySelector('[data-settings-category="notifications"]').click();
+  expect(w.document.querySelector('#settings-notifications').hidden).toBe(false);
   advance(16); advance(16);
   await reopened;
   w.closeSettings();
@@ -140,8 +149,8 @@ it('opens the documented screenshot targets through real UI handlers', async () 
   const { w, advance } = game;
   const targets = {
     menu: '#menu-overlay', play: '#mode-select-overlay', 'play-fun': '#mode-select-overlay[data-mode="fun"]',
-    settings: '#settings-game', 'settings-controls': '#settings-controls', 'settings-audio': '#settings-audio',
-    'settings-display': '#settings-display', 'settings-updates': '#settings-updates', 'settings-about': '#settings-about',
+    'settings-home': '.lb102-categories', settings: '#settings-game', 'settings-controls': '#settings-controls', 'settings-audio': '#settings-audio',
+    'settings-display': '#settings-display', 'settings-notifications': '#settings-notifications', 'settings-updates': '#settings-updates', 'settings-about': '#settings-about',
     'whats-new-notice': '.lb184-banner', inventory: '[data-invtab-content="blocks"]',
     'inventory-colors': '[data-invtab-content="colors"]', 'inventory-other': '[data-invtab-content="other"]',
     stats: '#general-stats-container', leaderboard: '#leaderboard-container', pinned: '#pinned-container', highscores: '#highscores-container',

@@ -158,10 +158,8 @@
     diagnostics.showModal();
     void refresh().catch(() => {});
   };
-  const github = makeButton('', () => run(openGitHub));
-  github.classList.add('lb-block-btn--icon');
-  github.setAttribute('aria-label', 'GitHub releases');
-  github.innerHTML = githubIcon;
+  const github = makeButton('GitHub releases', () => run(openGitHub));
+  github.insertAdjacentHTML('afterbegin', githubIcon);
   section.querySelector('[data-section-actions]').append(retry, getUpdate,
     makeButton("What's new", () => showNotes(...releaseInfo, openGitHub)), github);
   const shellButton = makeButton('Open app shell', () => typeof ota.settings === 'function' ? run(() => ota.settings()) : openShell());

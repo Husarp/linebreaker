@@ -16,7 +16,7 @@ await page.evaluate(() => window.__LB_QA.open('settings'));
 | --- | --- |
 | Main menu and play | `menu`, `play`, `play-fun` |
 | In-game | `start-animation`, `game`, `pause`, `game-over` |
-| Settings and dialogs | `settings` (Game), `settings-controls`, `settings-audio`, `settings-display`, `settings-updates`, `settings-about`, `whats-new-notice`, `transfer`, `reset-progress`, `color-picker`, `sfx-preview`, `sfx-panel` |
+| Settings and dialogs | `settings-home` (category menu), `settings` (Game), `settings-controls`, `settings-audio`, `settings-display`, `settings-notifications`, `settings-updates`, `settings-about`, `whats-new-notice`, `transfer`, `reset-progress`, `color-picker`, `sfx-preview`, `sfx-panel` |
 | Inventory and dialogs | `inventory`, `inventory-colors`, `inventory-other`, `palette-preview`, `palette-editor`, `custom-palette`, `inventory-sfx`, `universal-parts`, `universal-exchange`, `booster-exchange` |
 | Stats and scores | `stats`, `leaderboard`, `pinned`, `highscores` |
 | Progression | `missions`, `missions-weekly`, `mission-confirm`, `season-pass`, `achievements`, `level-up` |

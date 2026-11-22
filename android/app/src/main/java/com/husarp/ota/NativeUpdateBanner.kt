@@ -39,7 +39,7 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
         val layout = FrameLayout.LayoutParams(
             minOf(448.dp, host.width.takeIf { it > 0 }?.minus(left + right + 24.dp) ?: 320.dp).coerceAtLeast(1),
             FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        ).apply { setMargins(left + 12.dp, top + 12.dp, right + 12.dp, 0) }
+        ).apply { setMargins(left + 12.dp, top, right + 12.dp, 0) }
         if (key == item.key) {
             val previous = panel?.layoutParams as? FrameLayout.LayoutParams
             if (previous == null || previous.topMargin != layout.topMargin || previous.leftMargin != layout.leftMargin ||

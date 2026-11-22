@@ -34,18 +34,18 @@
 .lb149-dialog textarea::-webkit-scrollbar { width: 8px; height: 8px; }
 .lb149-dialog textarea::-webkit-scrollbar-thumb { background: var(--bb-edge); }
 .lb149-choice { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: .8rem; }
-.lb149-settings [hidden] { display: none; }
+.lb149-settings [hidden] { display: none !important; }
 .lb149-dialog ul { padding-inline-start: 1.25rem; }
 .lb149-dialog li + li { margin-top: .5em; }
 .lb149-dialog input[type="url"] { display: block; width: 100%; margin-bottom: .65rem; padding: .55rem; border: 1px solid var(--bb-edge); border-radius: var(--bb-cap); color: inherit; background: var(--bb-well); }
 .lb149-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-block: .45rem; }
 .lb184-banner {
     position: fixed;
-    z-index: 1250;
-    inset: calc(var(--lb-safe-top, 0px) + 80px) max(.75rem, var(--lb-safe-right, 0px)) auto max(.75rem, var(--lb-safe-left, 0px));
+    z-index: var(--lb-z-top-notice);
+    inset: var(--lb-safe-top, 0px) max(.75rem, var(--lb-safe-right, 0px)) auto max(.75rem, var(--lb-safe-left, 0px));
     width: auto;
     max-width: 28rem;
-    margin-inline: auto;
+    margin: 0 auto;
     padding: .65rem .45rem .65rem .8rem;
     display: grid;
     grid-template-columns: 20px minmax(0, 1fr) 44px;
