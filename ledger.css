@@ -194,6 +194,7 @@
     height: 44px;
     padding: 0 !important;
     border: var(--lb-border) solid var(--lb-rule) !important;
+    border-radius: var(--lb-radius) !important;
     background: var(--lb-key) !important;
     color: var(--lb-label) !important;
     box-shadow: var(--lb-key-shadow) !important;
@@ -613,7 +614,7 @@
     text-align: start;
 }
 #menu-overlay :is(.lb-menu-play, .lb-menu-nav button, #btn-stats)::before,
-#menu-overlay :is(.lb-menu-play, .lb-menu-nav button, #btn-stats)::after { content: none; }
+#menu-overlay :is(.lb-menu-play, .lb-menu-nav button:not([data-ready]), #btn-stats)::after { content: none; }
 #menu-overlay :is(.lb-menu-play, .lb-menu-nav button, #btn-stats):hover:not(:active) { transform: none; }
 #menu-overlay .lb-menu-play { animation: none; }
 #menu-overlay .lb-menu-nav {
@@ -648,7 +649,7 @@
     padding-inline: 15px !important;
 }
 .lb-menu-nav :is(svg, .lb-ledger-chevron) { color: var(--lb-label); }
-#menu-overlay .lb-menu-nav [data-ready]::after {
+#menu-overlay .lb-menu-nav button[data-ready]::after {
     content: '';
     position: static;
     grid-area: 1 / 3;
@@ -996,17 +997,20 @@
 }
 .lb-ledger-tag svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.65; }
 .lb-game-root button.lb-ledger-claim {
+    --lb-button-height: 29px;
+    --lb-button-padding: 3px 8px;
+    --lb-button-shadow: none;
     position: relative;
-    min-height: 29px;
+    height: var(--lb-button-height);
     min-width: 44px;
-    padding: 3px 8px !important;
+    align-self: center;
+    justify-self: end;
     font: 750 .6875rem/1.2 var(--lb-font-body) !important;
     letter-spacing: normal;
     text-transform: none;
     white-space: nowrap;
-    --lb-button-shadow: none;
 }
-.lb-ledger-claim::before { content: ''; position: absolute; inset: -7px 0; }
+.lb-ledger-claim::before { content: ''; position: absolute; inset: -8px 0; }
 
 svg.lb-ledger-chevron {
     width: 16px;
@@ -1359,7 +1363,7 @@ svg.lb-ledger-chevron {
     letter-spacing: -.045em;
     text-transform: none;
 }
-.lb-game-root .lb-collection-feature p { margin: 0; color: inherit; font: var(--lb-type-small)/1.32 var(--lb-font-body); }
+.lb-game-root .lb-collection-feature p { margin: 0; color: var(--lb-art-ink) !important; font: var(--lb-type-small)/1.32 var(--lb-font-body); }
 .lb-collection-feature img { flex: none; width: 78px; height: 78px; object-fit: contain; filter: drop-shadow(0 6px 7px var(--lb-scrim)); }
 .lb-collection-feature progress {
     --lb-track: color-mix(in srgb, var(--lb-art-ink) 25%, var(--lb-art));

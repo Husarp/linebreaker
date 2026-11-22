@@ -5,8 +5,8 @@
     gap: var(--space-2);
     box-sizing: border-box;
     min-width: var(--target);
-    min-height: var(--target);
-    padding: 6px 12px !important;
+    min-height: var(--lb-button-height, var(--target));
+    padding: var(--lb-button-padding, 6px 12px) !important;
     border: var(--bb-stroke) solid var(--bb-button-edge, var(--bb-edge)) !important;
     border-radius: var(--bb-cap) !important;
     background: var(--bb-button-face, var(--bb-face)) !important;
@@ -281,7 +281,7 @@ input[type="range"]:is(.lb-block-range, #settings-overlay input)::-moz-range-thu
 }
 .lb-header.lb-block-topbar { display: flex; align-items: center; gap: var(--space-2); padding-inline: var(--space-2); }
 .lb-header.lb-block-topbar > h1 { flex: 1; }
-:is(.lb-block-topbar, .sp-header) :is(.btn-back, .lb-header > button:first-child, #help-back, .lb-block-back) {
+:is(.lb-block-topbar, .sp-header) :where(.btn-back, .lb-header > button:first-child, #help-back, .lb-block-back) {
     min-height: var(--target) !important;
     min-width: var(--target) !important;
     padding: 4px 8px !important;
@@ -294,7 +294,7 @@ input[type="range"]:is(.lb-block-range, #settings-overlay input)::-moz-range-thu
     text-transform: uppercase;
     cursor: pointer;
 }
-:is(.lb-block-topbar, .sp-header) :is(.btn-back, .lb-header > button:first-child, #help-back, .lb-block-back):hover {
+:is(.lb-block-topbar, .sp-header) :where(.btn-back, .lb-header > button:first-child, #help-back, .lb-block-back):hover {
     color: var(--accent-bright) !important;
     text-decoration: underline;
 }
