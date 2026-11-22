@@ -160,7 +160,8 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
   await Promise.resolve();
   advance(100);
   await gift;
-  expect(get('lb43-crate-banner').textContent).toMatch(/crate added to your inventory/);
+  visible('daily-gift-crate-overlay');
+  expect(get('daily-gift-crate-overlay').textContent).toContain('Shake crate');
   await qa.open('level-crate');
   visible('inventory-crate-overlay');
   await qa.open('mission-crate');
@@ -258,8 +259,8 @@ it('shows the level and rank division in level rewards and the rarity in Invento
   expect(popup.querySelector('.lb105-level-emblem span')).toBeNull();
   expect(popup.querySelector('.lb105-level-emblem + .lb105-level-value').textContent).toBe('Level 30');
   expect(popup.querySelector('.lb105-level-emblem polygon').getAttribute('points').split(' ')).toHaveLength(5);
-  const universal = popup.querySelector('.lb-block-reward > img[src$="universal-part-128.png"]').closest('.lb-block-reward');
-  expect(universal.querySelector('.lb-block-reward-amount').textContent).toBe('×2');
+  const common = popup.querySelector('.lb-block-reward > img[src$="crates/common.png"]').closest('.lb-block-reward');
+  expect(common.querySelector('.lb-block-reward-amount').textContent).toBe('×4');
   popup.querySelector('button').click();
   expect(popup.isConnected).toBe(false);
   await w.__LB_QA.open('level-crate');

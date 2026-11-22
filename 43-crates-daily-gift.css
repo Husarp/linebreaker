@@ -48,7 +48,8 @@
 .lb43-crate-body { display: block; height: clamp(100px, 22vh, 158px); width: auto; }
 .lb43-crate-lid { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
 .lb43-crate figcaption { margin-top: 4px; }
-.lb43-crate-opening .lb43-crate-sprite { animation: lb43-shake 230ms ease-in-out; }
+.lb43-gift-progress { color: var(--lb-ink); font: 400 var(--lb-type-small)/1.5 var(--lb-font-pixel); }
+.lb43-crate-shaking .lb43-crate-sprite { animation: lb43-shake 230ms ease-in-out; }
 .lb43-crate-opening .lb43-crate-body { clip-path: polygon(var(--lb43-seam), 100% 100%, 0% 100%); }
 .lb43-crate-opening .lb43-crate-lid {
     clip-path: polygon(0% 0%, var(--lb43-seam), 100% 0%);
@@ -72,7 +73,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .lb43-crate-opening .lb43-crate-sprite,
+    .lb43-crate-shaking .lb43-crate-sprite,
     .lb43-crate-opening .lb43-crate-lid,
     .lb43-crate-cards > .lb-reward-card { animation: none; }
 }

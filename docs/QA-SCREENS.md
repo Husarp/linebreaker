@@ -20,11 +20,11 @@ await page.evaluate(() => window.__LB_QA.open('settings'));
 | Inventory and dialogs | `inventory` (Crates), `inventory-blocks`, `inventory-colors`, `inventory-boosters`, `inventory-parts`, `inventory-other` (SFX Packs), `palette-preview`, `palette-editor`, `custom-palette`, `inventory-sfx`, `universal-parts`, `universal-exchange`, `booster-exchange` |
 | Stats and scores | `stats`, `leaderboard`, `pinned`, `highscores` |
 | Progression | `missions`, `missions-weekly`, `mission-confirm`, `season-pass`, `achievements`, `level-up` |
-| Crates | `daily-gift` (menu grant banner), `inventory` (stocked Locker), `level-crate`, `mission-crate` (Inventory reveals) |
-
-Season Pass integration: call `LBCrates.grantCrate(saveData, rarity)` with a lowercase rarity, then persist the crate and the claim receipt together with the caller's normal save. The grant does not open or pay out a crate.
+| Crates | `daily-gift` (tap Shake crate three times), `level-crate` (Inventory reveal), `mission-crate` (immediate reveal) |
 | Music and help | `playlist`, `help`, `tutorial`, `credits` |
 | Generic dialogs | `alert`, `confirm` |
+
+Season Pass integration: call `LBCrates.grantCrate(saveData, rarity)` with a lowercase rarity, then persist the crate and the claim receipt together with the caller's normal save. The grant does not open or pay out a crate.
 
 The fixture uses late Gold (level 30), one level below the final modifier unlocks, so Play shows both locked and unlocked options. Music uses the game’s enabled playlists; there is no separate track purchase system. `season-pass` opens the dedicated Season Pass screen. The season follows the real calendar, so on its first day there is only one unlocked stage and no prior claim. Save setup and platform update dialogs are not screenshot targets.
 

@@ -479,7 +479,10 @@
                     <span><strong>Season Pass</strong><small id="mq-season-stage">View rewards</small></span>
                     <span class="mq-season-key" aria-hidden="true"><span class="lb-ledger-chevron"></span></span>
                 </button>
-                <button type="button" id="mq-change-toggle" class="lb-block-btn btn-secondary" aria-pressed="false" onclick="event.stopPropagation();window._toggleChangeMode()">Swap</button>
+                <div class="mq-swap-control">
+                    <button type="button" id="mq-change-toggle" class="lb-block-btn" aria-pressed="false" aria-describedby="mq-swaps-left" onclick="event.stopPropagation();window._toggleChangeMode()">Swap</button>
+                    <span id="mq-swaps-left">1 swap left today</span>
+                </div>
             </div>
             <section id="mq-bonus-box" class="lb-block-card">
                 <div class="mq-list-head"><h3 class="lb-block-section-title">Bonus Box</h3><span></span></div>

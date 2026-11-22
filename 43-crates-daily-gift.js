@@ -2,7 +2,11 @@
     'use strict';
 
     const rarities = ['common', 'rare', 'epic', 'legendary', 'mythic'];
-    const weights = [60, 25, 10, 4, 1];
+    const weights = [70, 22, 6.5, 1.3, 0.2];
+    const DAILY_GIFT_TAPS = 3;
+    const DAILY_GIFT_UPGRADE_CHANCE = 0.25;
+    const DAILY_GIFT_MAX_RARITY = 'epic';
+    const DAILY_GIFT_SHAKE_MS = 230;
     const contents = [
         { parts: 2, universal: 1, booster: '1.25x_game', boosters: 1 },
         { parts: 3, universal: 1, booster: '1.5x_game', boosters: 1 },
@@ -11,16 +15,32 @@
         { parts: 10, universal: 5, booster: '2xp_game', boosters: 3 },
     ];
     const rankTiers = ['common', 'rare', 'rare', 'epic', 'epic', 'legendary', 'legendary', 'legendary', 'mythic'];
-    const dailyTiers = { 6: 'common', 9: 'rare', 12: 'mythic' };
-    const weeklyTiers = { 60: 'rare', 90: 'epic', 120: 'legendary', 150: 'mythic' };
+    const dailyTiers = { 6: 'common', 9: 'common', 12: 'rare' };
+    const weeklyTiers = { 60: 'rare', 90: 'epic', 120: 'epic' };
     const rollbackTolerance = 10 * 60_000;
 
     function giftStatus(save, now = new Date()) {
         const day = LBSave.localDate(now);
-        if (save.lastSeenTime - now.getTime() > rollbackTolerance || save.lastDailyGift > day) {
+        if (save.lastSeenTime - now.getTime() > rollbackTolerance || save.lastDailyGift > day || save.pendingDailyGift?.day > day) {
             return { day, status: 'clock-blocked' };
         }
+        if (save.pendingDailyGift) return { day, status: 'in-progress' };
         return { day, status: save.lastDailyGift === day ? 'claimed' : 'available' };
+    }
+
+    function shakeGift(gift, roll = Math.random()) {
+        const index = rarities.indexOf(gift.rarity);
+        return { day: gift.day, taps: gift.taps + 1, rarity: rarities[
+            Math.min(rarities.indexOf(DAILY_GIFT_MAX_RARITY), index + Number(roll < DAILY_GIFT_UPGRADE_CHANCE))
+        ] };
+    }
+
+    function restoreGift(gift, lastClaimed, date) {
+        const day = date(gift?.day);
+        const index = rarities.indexOf(gift?.rarity);
+        if (!day || (lastClaimed && day <= lastClaimed) || !Number.isInteger(gift.taps) || gift.taps < 0 || gift.taps >= DAILY_GIFT_TAPS
+            || index < 0 || index > Math.min(gift.taps, rarities.indexOf(DAILY_GIFT_MAX_RARITY))) return null;
+        return { day, taps: gift.taps, rarity: gift.rarity };
     }
 
     function observeTime(save, now = Date.now()) {
@@ -115,7 +135,8 @@
             const image = element('img');
             image.alt = '';
             const isPart = reward.type === 'parts' || reward.type === 'universal_parts';
-            image.src = isPart ? window.LBArtPack.universalPart
+            image.src = reward.type === 'crate' ? `assets/ui/crates/${reward.rarity}.png`
+                : isPart ? window.LBArtPack.universalPart
                 : (reward.type === 'booster' && window.LBArtPack.boosterToken(reward.key)) || 'assets/ui/64-item-part.svg';
             let art = image;
             if (reward.type === 'parts') {
@@ -140,19 +161,28 @@
         return grid;
     }
 
-    function animateReveal(rewards, grid, rarity) {
+    function crateArt(rarity) {
         const art = element('figure', 'lb43-crate');
-        art.dataset.rarity = rarity;
         const sprite = element('div', 'lb43-crate-sprite');
         for (const layer of ['body', 'lid']) {
             const image = element('img', `lb43-crate-${layer}`);
-            image.src = `assets/ui/crates/${rarity}.png`;
             image.alt = '';
             sprite.append(image);
         }
-        art.append(sprite, element('figcaption', '', `${rarity} crate`));
-        rewards.before(art);
+        art.append(sprite, element('figcaption'));
+        setCrateArt(art, rarity);
+        return art;
+    }
 
+    function setCrateArt(art, rarity) {
+        art.dataset.rarity = rarity;
+        for (const image of art.querySelectorAll('img')) image.src = `assets/ui/crates/${rarity}.png`;
+        art.querySelector('figcaption').textContent = crateLabel(rarity);
+    }
+
+    const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+    function animateReveal(art, rewards, grid) {
         const done = rewards.querySelector('button');
         grid.classList.add('lb43-crate-cards');
         for (const [index, card] of Array.from(grid.children).entries()) {
@@ -164,8 +194,9 @@
             rewards.hidden = false;
             done.focus({ preventScroll: true });
         };
-        if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) reveal();
+        if (reducedMotion()) reveal();
         else {
+            art.classList.remove('lb43-crate-shaking');
             art.classList.add('lb43-crate-opening');
             window.setTimeout(reveal, 490);
         }
@@ -199,24 +230,30 @@
         if (!crates.length) list.append(element('div', 'lb-block-card lb-collection-empty', 'No crates in storage.'));
     }
 
-    function showCrateReveal(rarity, count, grid, onClose) {
+    function showCrateReveal(rarity, count, grid, onClose, gift) {
         const overlay = element('div', 'lb-reward-overlay lb64-crate-overlay');
-        overlay.id = 'inventory-crate-overlay';
+        overlay.id = gift ? 'daily-gift-crate-overlay' : 'inventory-crate-overlay';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.setAttribute('aria-labelledby', 'lb43-crate-title');
         overlay.tabIndex = -1;
         const panel = element('div', 'lb64-crate-panel lb-block-dialog');
-        const title = element('h2', 'lb64-crate-title', count > 1 ? `${count} crates opened` : crateLabel(rarity));
+        const title = element('h2', 'lb64-crate-title', gift ? 'Daily Gift' : count > 1 ? `${count} crates opened` : crateLabel(rarity));
         title.id = 'lb43-crate-title';
+        const art = crateArt(rarity);
         const rewards = element('div');
         rewards.hidden = true;
-        if (!grid.childElementCount) grid.append(element('p', '', 'These rewards were already added to your inventory.'));
         const done = action('Done');
-        rewards.append(grid, done);
-        panel.append(title, rewards);
+        rewards.append(done);
+        panel.append(title, art, rewards);
         overlay.append(panel);
         document.body.append(overlay);
+        let shake;
+        const reveal = result => {
+            if (!result.childElementCount) result.append(element('p', '', 'These rewards were already added to your inventory.'));
+            rewards.prepend(result);
+            animateReveal(art, rewards, result);
+        };
         const close = () => {
             overlay.remove();
             onClose();
@@ -225,27 +262,64 @@
         overlay.addEventListener('keydown', event => {
             if (event.key === 'Tab') {
                 event.preventDefault();
-                (rewards.hidden ? overlay : done).focus();
+                (rewards.hidden ? shake && !shake.disabled ? shake : overlay : done).focus();
             } else if (event.key === 'Escape') {
                 event.preventDefault();
                 event.stopPropagation();
                 close();
             }
         });
-        overlay.focus({ preventScroll: true });
-        animateReveal(rewards, grid, rarity);
+        if (!gift) {
+            overlay.focus({ preventScroll: true });
+            reveal(grid);
+            return;
+        }
+        const status = element('p', 'lb43-gift-progress');
+        status.setAttribute('role', 'status');
+        const updateStatus = state => {
+            status.textContent = `${crateLabel(state.rarity)} · ${state.taps} / ${DAILY_GIFT_TAPS} shakes`;
+        };
+        updateStatus(gift.state);
+        shake = action('Shake crate');
+        rewards.before(status, shake);
+        shake.addEventListener('click', () => {
+            const result = gift.onShake();
+            if (!result) return close();
+            setCrateArt(art, result.state.rarity);
+            updateStatus(result.state);
+            if (!reducedMotion()) {
+                art.classList.remove('lb43-crate-shaking');
+                void art.offsetWidth;
+                art.classList.add('lb43-crate-shaking');
+            }
+            if (!result.grid) return;
+            shake.disabled = true;
+            overlay.focus({ preventScroll: true });
+            const finish = () => {
+                if (!overlay.isConnected) return;
+                status.remove();
+                shake.remove();
+                title.textContent = crateLabel(result.state.rarity);
+                reveal(result.grid);
+            };
+            if (reducedMotion()) finish();
+            else window.setTimeout(finish, DAILY_GIFT_SHAKE_MS);
+        });
+        shake.focus({ preventScroll: true });
     }
 
-    function mountDailyGift({ button, getSave, ready, save, claimAfterPaint }) {
+    function mountDailyGift({ button, getSave, ready, save, claimAfterPaint, onShake, openGift }) {
         const text = document.getElementById(button.getAttribute('aria-describedby'));
         let clockCheckpoint;
         function refresh() {
             const state = giftStatus(getSave());
             const status = ready() ? state.status : 'loading';
-            button.dataset.status = status;
-            button.setAttribute('aria-disabled', String(status !== 'available'));
+            const actionable = status === 'available' || status === 'in-progress';
+            button.dataset.status = actionable ? 'available' : status;
+            button.setAttribute('aria-disabled', String(!actionable));
             text.textContent = {
                 available: 'Gift ready', claimed: 'Claimed',
+                'in-progress': 'Gift in progress',
                 'clock-blocked': 'Check system clock', loading: 'Checking save…',
             }[status];
             return state;
@@ -253,16 +327,32 @@
         function claim() {
             if (!ready() || button.closest('.hidden') || document.querySelector('.lb-reward-overlay')) return;
             const state = refresh();
-            if (state.status !== 'available') return;
+            if (!['available', 'in-progress'].includes(state.status)) return;
             return claimAfterPaint(button, () => {
                 if (!ready() || document.querySelector('.lb-reward-overlay')) return;
                 const state = refresh();
-                if (state.status !== 'available') return;
+                if (!['available', 'in-progress'].includes(state.status)) return;
                 const data = getSave();
-                data.lastDailyGift = state.day;
-                grantCrate(data, rollRarity(), { source: 'daily' });
+                data.pendingDailyGift ??= { day: state.day, taps: 0, rarity: 'common' };
                 save();
                 refresh();
+                showCrateReveal(data.pendingDailyGift.rarity, 1, null, () => button.focus({ preventScroll: true }), {
+                    state: data.pendingDailyGift,
+                    onShake() {
+                        if (data !== getSave() || giftStatus(data).status !== 'in-progress') return null;
+                        onShake();
+                        const next = shakeGift(data.pendingDailyGift);
+                        let grid;
+                        if (next.taps === DAILY_GIFT_TAPS) {
+                            data.lastDailyGift = next.day;
+                            data.pendingDailyGift = null;
+                            grid = openGift(next.rarity);
+                        } else data.pendingDailyGift = next;
+                        save();
+                        refresh();
+                        return { state: next, grid };
+                    },
+                });
             });
         }
         button.addEventListener('click', claim);
@@ -285,5 +375,5 @@
         return { refresh, claim };
     }
 
-    window.LBCrates = Object.freeze({ giftStatus, observeTime, rollRarity, giftContents, levelRarity, missionRarity, grantDailyGift, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
+    window.LBCrates = Object.freeze({ giftStatus, observeTime, rollRarity, shakeGift, restoreGift, giftContents, levelRarity, missionRarity, grantDailyGift, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
 })();

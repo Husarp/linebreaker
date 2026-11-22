@@ -13,7 +13,7 @@ Linebreaker/
 ├── style.css           # Style — układ, animacje, motywy
 ├── assets/
 │   ├── music.json      # Katalog utworów (tytuł, artysta, kategoria, tagi)
-│   └── *.mp3           # Pliki audio (menu / game / intense)
+│   └── music/*.ogg     # Prywatne pliki Ogg Opus (menu / game / intense)
 ├── missions_design.md  # Szczegółowy opis systemu misji
 ├── README.md           # Ten plik
 ├── CHANGELOG.md        # Historia zmian
@@ -237,7 +237,7 @@ Przechowuje wszystkie wyniki z normalnych gier. Wyświetla top 50 z podium (top 
 
 ### Muzyka i dźwięk
 
-Oryginalna ścieżka syntezowana: `menu`, `game` i `intense`. Kompilacja wydania używa `assets/music.release.json` i nie zawiera lokalnych MP3. Zobacz [dokumentację muzyki](docs/MUSIC.md).
+Oryginalna ścieżka syntezowana: `menu`, `game` i `intense`. Kompilacja wydania używa `assets/music.release.json` i nie zawiera prywatnych nagrań. Zobacz [dokumentację muzyki](docs/MUSIC.md).
 
 **SFX:** 11 syntezowanych dźwięków (Web Audio API): clear, drop, levelup, click, gameover, unlock, gift, booster, achievement, rankup, newrank.
 

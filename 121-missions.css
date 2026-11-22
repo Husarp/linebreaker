@@ -166,7 +166,7 @@
     background: var(--lb-key);
     box-shadow: var(--lb-key-shadow);
 }
-.mq-board-actions #mq-change-toggle { align-self: start; }
+.mq-swap-control { display: flex; align-items: center; gap: var(--lb-space-sm); color: var(--lb-muted); font-size: var(--lb-type-small); }
 #missions-overlay #mq-change-toggle { min-inline-size: 76px; white-space: nowrap; }
 #missions-overlay #mq-change-toggle[aria-pressed='true'] { --lb-control-edge: var(--lb-label); --lb-control-face: var(--lb-track); }
 .mq-list-head { color: var(--lb-muted); font-size: var(--lb-type-small); margin-block-end: var(--lb-space-sm); }

@@ -144,7 +144,7 @@
             remove('sfx-inv-preview');
             window.closeInventory();
         });
-        add('daily-gift', dailyGift, () => { byId('lb43-crate-banner').textContent = ''; });
+        add('daily-gift', dailyGift, () => remove('daily-gift-crate-overlay'));
         add('level-crate', levelCrate, closeCrate);
         add('level-up', levelUp, () => remove('level-up-popup-overlay'));
         add('mission-crate', missionCrate, closeCrate);

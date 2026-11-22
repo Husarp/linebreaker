@@ -1,17 +1,17 @@
 {
   "menu": [
-    { "file": "Rest Area.mp3",                                                               "artist": null,            "title": "Rest Area",                          "tags": ["chill"] },
-    { "file": "UNITY.mp3",                                                                   "artist": "Kupla",         "title": "Unity",                              "tags": ["chill","electronic"] },
-    { "file": "Ultimate Angler StreetPass Fishing OST - 04 - Fishing Log.mp3",               "artist": null,            "title": "Fishing Log",                        "tags": ["retro","chill"] },
-    { "file": "nico's nextbots ost - video game lobby w dashie.mp3",                         "artist": "nicopatty",     "title": "Nextbots OST",                       "tags": ["upbeat","retro"] },
-    { "file": "とんでもマウンテン Mount Amazing 2.mp3",                                        "artist": "Soichi Terada", "title": "Mount Amazing 2",                    "tags": ["retro","upbeat"] },
-    { "file": "OMORI OST - 056 I Think My Dad Shops Here.mp3",                              "artist": "Slime Girls",   "title": "I Think My Dad Shops Here",          "tags": ["chill","electronic"] },
-    { "file": "Minecraft Volume Alpha - 11 - Mice on Venus.mp3",                            "artist": "C418",          "title": "Mice on Venus",                      "tags": ["chill"] },
-    { "file": "Minecraft Volume Alpha - 7 - Haggstrom.mp3",                                 "artist": "C418",          "title": "Haggstrom",                          "tags": ["chill"] }
+    { "file": "Rest Area.ogg",                                                               "artist": null,            "title": "Rest Area",                          "tags": ["chill"] },
+    { "file": "UNITY.ogg",                                                                   "artist": "Kupla",         "title": "Unity",                              "tags": ["chill","electronic"] },
+    { "file": "Ultimate Angler StreetPass Fishing OST - 04 - Fishing Log.ogg",               "artist": null,            "title": "Fishing Log",                        "tags": ["retro","chill"] },
+    { "file": "nico's nextbots ost - video game lobby w dashie.ogg",                         "artist": "nicopatty",     "title": "Nextbots OST",                       "tags": ["upbeat","retro"] },
+    { "file": "とんでもマウンテン Mount Amazing 2.ogg",                                        "artist": "Soichi Terada", "title": "Mount Amazing 2",                    "tags": ["retro","upbeat"] },
+    { "file": "OMORI OST - 056 I Think My Dad Shops Here.ogg",                              "artist": "Slime Girls",   "title": "I Think My Dad Shops Here",          "tags": ["chill","electronic"] },
+    { "file": "Minecraft Volume Alpha - 11 - Mice on Venus.ogg",                            "artist": "C418",          "title": "Mice on Venus",                      "tags": ["chill"] },
+    { "file": "Minecraft Volume Alpha - 7 - Haggstrom.ogg",                                 "artist": "C418",          "title": "Haggstrom",                          "tags": ["chill"] }
   ],
   "game": [
-    { "file": "OMORI OST - 086 World's End Valentine.mp3",                                   "artist": "Slime Girls",   "title": "World's End Valentine",              "tags": ["chill"] },
-    { "file": "Classic Block Theme.mp3",                               "artist": null,            "title": "Classic Block Theme",              "tags": ["retro","upbeat"] },
-    { "file": "Block Theme (Hardcore Remix).mp3",                                                 "artist": null,            "title": "Block Theme (Hardcore Remix)",            "tags": ["electronic","upbeat"] }
+    { "file": "OMORI OST - 086 World's End Valentine.ogg",                                   "artist": "Slime Girls",   "title": "World's End Valentine",              "tags": ["chill"] },
+    { "file": "Classic Block Theme.ogg",                               "artist": null,            "title": "Classic Block Theme",              "tags": ["retro","upbeat"] },
+    { "file": "Block Theme (Hardcore Remix).ogg",                                                 "artist": null,            "title": "Block Theme (Hardcore Remix)",            "tags": ["electronic","upbeat"] }
   ]
 }

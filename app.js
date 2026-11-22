@@ -2435,7 +2435,7 @@
                 } catch (error) { console.warn(`Music file could not be checked (${url}):`, error); }
             }
             if (!buf) return null;
-            const name = track.title || track.file?.replace(/\.mp3$/i, '');
+            const name = track.title || track.file?.replace(/\.ogg$/i, '');
             if (name && !_trackPool.has(name)) _trackPool.set(name, { buf, artist: track.artist || '', tags: track.tags || [] });
             return name;
         }));
@@ -2484,12 +2484,15 @@
             _qaDemo.mount({
                 run: startQARun, resetRun: resetQARun, alert: customAlert, confirm: customConfirm,
                 tracksReady: _initTrackCatalog,
-                levelUp: () => _showLevelUpRewardPopup(getLevelInfo(saveData.totalXP).level, _generateLevelBoxRewards()),
-                levelCrate: () => previewCrate(LBCrates.levelRarity(getLevelInfo(saveData.totalXP).level), { source: 'level' }),
-                missionCrate: () => previewCrate(LBCrates.missionRarity(6, false), { source: 'mission', amount: MQ_DAILY_MILESTONES[0].reward.amount }),
+                levelUp: () => {
+                    const level = getLevelInfo(saveData.totalXP).level;
+                    _showLevelUpRewardPopup(level, _rankRewards(Math.max(2, level - 4), level), () => {});
+                },
+                levelCrate: () => previewCrate('rare', { source: 'rank' }),
+                missionCrate: () => _openMissionCrate(MQ_DAILY_MILESTONES[0], false),
                 closeCrate() {
                     document.getElementById('inventory-crate-overlay')?.remove();
-                    closeInventory();
+                    if (!document.getElementById('inventory-overlay').classList.contains('hidden')) closeInventory();
                 },
                 dailyGift() {
                     saveData.lastDailyGift = _qaDemo.previousDate();
@@ -2627,6 +2630,7 @@
         seasonPass.observe(saveData);
         LBCrates.observeTime(saveData);
         dailyGift.refresh();
+        if (dailyGiftReady) _scheduleRankRewards();
         setTimeout(_checkGlowNotifications, 100);
         _checkMissionsRefresh();
         _reminders?.refresh();
@@ -2640,6 +2644,7 @@
         checkAchievementsOnLoad();
         document.getElementById('file-setup-overlay')?.classList.add('hidden');
         refreshMenuUtilities(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
+        _scheduleRankRewards();
     }
 
     async function showFileSetup(existingHandle) {
@@ -3278,50 +3283,54 @@
         saveData.totalXP += amount;
         _processLevelUps(oldLevel, getLevelInfo(saveData.totalXP).level);
     }
+    const RANK_REWARD_BOOSTER = '1.5x_game';
+    let rankRewardTimer;
+    function _rankRewards(from, through) {
+        const fifths = Math.floor(through / 5) - Math.floor((from - 1) / 5);
+        const rankChanges = RANKS.filter(({ maxLvl }) => maxLvl + 1 >= from && maxLvl + 1 <= through).length;
+        return [
+            ...Object.entries({ common: through - from + 1 - fifths + 2 * rankChanges, rare: fifths + rankChanges, epic: rankChanges })
+                .map(([rarity, amount]) => ({ type: 'crate', label: LBCrates.crateLabel(rarity), rarity, amount })),
+            { type: 'universal_parts', label: 'Universal Part', rarity: 'rare', amount: 3 * rankChanges },
+            { type: 'booster', key: RANK_REWARD_BOOSTER, ...BOOSTER_INFO[RANK_REWARD_BOOSTER], amount: rankChanges },
+        ].filter(reward => reward.amount > 0);
+    }
+
     function _processLevelUps(oldLevel, newLevel) {
-        // Level-up milestone rewards
-        const LEVEL_MILESTONE_REWARDS = {
-            11: [{ type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Silver milestone reward', rarity:'rare' }],
-            21: [{ type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Gold milestone reward', rarity:'rare' }],
-            31: [{ type:'skin', key:'shadow', icon:'🎨', label:'Shadow Skin', desc:'Unlocked at Emerald!', rarity:'rare' }, { type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Emerald milestone reward', rarity:'rare' }],
-            41: [{ type:'skin', key:'holo', icon:'🎨', label:'Holo Skin', desc:'Unlocked at Sapphire!', rarity:'rare' }, { type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Sapphire milestone reward', rarity:'rare' }],
-            51: [{ type:'universal_parts', amount:6, icon:'⭐', label:'+6 Universal Parts', desc:'Ruby milestone reward', rarity:'rare' }],
-            61: [{ type:'ghostColor', key:'ghostColor', icon:'👻', label:'Colored Ghost', desc:'Unlocked at Amethyst!', rarity:'epic' }, { type:'universal_parts', amount:5, icon:'⭐', label:'+5 Universal Parts', desc:'Amethyst milestone reward', rarity:'epic' }],
-            71: [{ type:'universal_parts', amount:8, icon:'⭐', label:'+8 Universal Parts', desc:'Diamond milestone reward', rarity:'legendary' }],
-            81: [{ type:'universal_parts', amount:10, icon:'⭐', label:'+10 Universal Parts', desc:'Celestite milestone reward', rarity:'legendary' }],
-        };
-        const MID_TIER_BOOSTER = {
-            5:  '1.25x_game',
-            15: '1.25x_game',
-            25: '1.5x_game',
-            35: '1.5x_game',
-            45: '1.5x_game',
-            55: '2xp_game',
-            65: '2xp_game',
-        };
-        let _levelUpRewards = [];
-        for (let lv = Math.max(oldLevel, saveData.levelRewardsThrough || oldLevel) + 1; lv <= newLevel; lv++) {
-            if (LEVEL_MILESTONE_REWARDS[lv]) {
-                LEVEL_MILESTONE_REWARDS[lv].forEach(r => {
-                    if (r.type === 'stylePack') { giveItemDirectly('stylePack', r.key); _levelUpRewards.push(r); }
-                    else if (r.type === 'skin') { giveItemDirectly('skin', r.key); _levelUpRewards.push(r); }
-                    else if (r.type === 'ghostColor') { giveItemDirectly('ghostColor', r.key); _levelUpRewards.push(r); }
-                    else if (r.type === 'universal_parts') { addUniversalParts(r.amount); _levelUpRewards.push(r); }
-                });
-            }
-            if (MID_TIER_BOOSTER[lv]) {
-                addBoosterToSave(MID_TIER_BOOSTER[lv]);
-                const bInfo = BOOSTER_INFO[MID_TIER_BOOSTER[lv]];
-                _levelUpRewards.push({ icon:'⚡', label:bInfo.label, desc:`Level ${lv} reward`, rarity: bInfo.rarity });
-            }
-            if (Object.hasOwn(LEVEL_MILESTONE_REWARDS, lv) || lv % 10 === 0) {
-                LBCrates.grantCrate(saveData, LBCrates.levelRarity(lv), { source: 'level' });
-            }
-        }
+        const from = Math.max(oldLevel, saveData.levelRewardsThrough || oldLevel) + 1;
         saveData.levelRewardsThrough = Math.max(saveData.levelRewardsThrough || oldLevel, newLevel);
-        if (_levelUpRewards.length > 0) {
-            setTimeout(() => _showLevelUpRewardPopup(newLevel, _levelUpRewards), 2500);
-        }
+        if (from > newLevel) return;
+        saveData.pendingRankRewards = { from: saveData.pendingRankRewards?.from ?? from, through: newLevel };
+        _scheduleRankRewards();
+    }
+
+    function _scheduleRankRewards(delay = 2500) {
+        clearTimeout(rankRewardTimer);
+        if (!saveData.pendingRankRewards) return;
+        const profile = saveData;
+        rankRewardTimer = setTimeout(() => {
+            if (profile !== saveData || !profile.pendingRankRewards) return;
+            if (_gameInProgress || document.querySelector('.lb-reward-overlay:not(#level-up-popup-overlay), dialog[open]')) {
+                _scheduleRankRewards(500);
+                return;
+            }
+            const { from, through } = profile.pendingRankRewards;
+            _showLevelUpRewardPopup(through, _rankRewards(from, through), () => {
+                if (profile !== saveData || !profile.pendingRankRewards) return;
+                const pending = profile.pendingRankRewards;
+                profile.pendingRankRewards = null;
+                for (const { type, key, rarity, amount } of _rankRewards(pending.from, pending.through)) {
+                    if (type === 'crate') {
+                        const stock = profile.storedCrates ??= [];
+                        for (let index = 0; index < amount; index++) stock.push({ rarity, source: 'rank' });
+                    } else if (type === 'universal_parts') addUniversalParts(amount);
+                    else addBoosterToSave(key, amount);
+                }
+                saveDataToFile();
+                if (!document.getElementById('inventory-overlay').classList.contains('hidden')) _populateInventoryOther();
+                _checkGlowNotifications();
+            });
+        }, delay);
     }
 
     function devSetXP() { devSetXPorLevel(); }
@@ -4483,6 +4492,13 @@
             row.addEventListener('click', () => playFn(row.dataset.sfx));
         });
     }
+    function _grantRarityCrate(rarity, daily) {
+        return LBCrates.grantDailyGift(saveData, LBCrates.giftContents(rarity), {
+            pickParts: count => _weightedPickParts(_getPartsEligibleItems(), count), addPart: addPartsToItem,
+            partName: _partItemName, addUniversal: addUniversalParts, addBooster: addBoosterToSave, boosterInfo: BOOSTER_INFO,
+        }, daily);
+    }
+
     function _openStoredCrates(rarity) {
         const inventory = document.getElementById('inventory-overlay');
         if (inventory.classList.contains('hidden') || inventory._invTab !== 'crates' || document.querySelector('.lb-reward-overlay')) return;
@@ -4494,10 +4510,7 @@
             if (crate.source === 'legacy') return crate.rewards;
             if (crate.source === 'level') return _generateLevelBoxRewards();
             if (crate.source === 'mission') return _grantMissionCrateParts(crate.amount);
-            return LBCrates.grantDailyGift(saveData, LBCrates.giftContents(crate.rarity), {
-                pickParts: count => _weightedPickParts(_getPartsEligibleItems(), count), addPart: addPartsToItem,
-                partName: _partItemName, addUniversal: addUniversalParts, addBooster: addBoosterToSave, boosterInfo: BOOSTER_INFO,
-            }, crate.source === 'daily');
+            return _grantRarityCrate(crate.rarity, crate.source === 'daily');
         });
         saveDataToFile();
         _populateInventoryOther();
@@ -8327,6 +8340,7 @@
         if (currentGameMode === 'fun') {
             // fun_squared tracking (only count games where at least 1 line was cleared)
             if (linesClearedThisGame >= 1) saveData.stats.funGamesPlayed = (saveData.stats.funGamesPlayed || 0) + 1;
+            _updateMissionProgress({ funRuns: 1 });
             // Track best-ever stats for achievement progress bars
             if (gameTime > (saveData.stats.bestSurvivalTime || 0)) saveData.stats.bestSurvivalTime = gameTime;
             if (_maxLineStreakThisGame > (saveData.stats.bestLineStreak || 0)) saveData.stats.bestLineStreak = _maxLineStreakThisGame;
@@ -9004,7 +9018,7 @@
     };
     function skipSong() { /* song skipping disabled */ }
 
-    function _showLevelUpRewardPopup(level, rewards) {
+    function _showLevelUpRewardPopup(level, rewards, collect) {
         const { rank, name } = _rewardRankIdentity(level);
         const points = getShapePoints(150, 150, 114, rank.shape)?.map(point => point.join(',')).join(' ');
         const emblem = rank === CELESTITE_RANK
@@ -9020,7 +9034,7 @@
         overlay.style.setProperty('--lb105-rank', rank.c);
         overlay.innerHTML = `<div class="lb105-level-panel lb-block-dialog">
             <header class="lb105-level-header">
-                <h2 id="lb105-level-title" class="lb-block-dialog-title">Level up!</h2>
+                <h2 id="lb105-level-title" class="lb-block-dialog-title">Rewards to collect</h2>
                 <div class="lb105-level-emblem">
                     <svg class="lb135-halo-emblem" viewBox="0 0 300 300" aria-hidden="true">
                         <defs>
@@ -9040,26 +9054,28 @@
                 <strong class="lb105-level-rank">${name}</strong>
             </header>
             <div class="lb105-level-rewards lb-scroll-fade" role="region" aria-label="Level rewards"></div>
-            <div class="lb-block-dialog-actions"><button type="button" class="lb-block-btn lb-block-btn--primary">Awesome!</button></div>
+            <div class="lb-block-dialog-actions"><button type="button" class="lb-block-btn lb-block-btn--primary">Collect</button></div>
         </div>`;
         const scroller = overlay.querySelector('.lb105-level-rewards');
-        scroller.append(_crateRewardGrid(rewards.map(reward => {
-            const boosterKey = reward.icon === '⚡' && Object.keys(BOOSTER_INFO).find(key => BOOSTER_INFO[key].label === reward.label);
-            return boosterKey ? { ...reward, type: 'booster', key: boosterKey } : reward;
-        }), true));
+        scroller.append(_crateRewardGrid(rewards));
         const updateTabStop = () => { scroller.tabIndex = scroller.scrollHeight > scroller.clientHeight ? 0 : -1; };
-        const dismiss = overlay.querySelector('button');
+        const button = overlay.querySelector('button');
         const previousFocus = document.activeElement;
         const close = () => {
             overlay.remove();
             previousFocus?.focus({ preventScroll: true });
         };
-        dismiss.addEventListener('click', close);
-        overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+        button.addEventListener('click', () => { collect(); close(); }, { once: true });
+        overlay.addEventListener('keydown', event => {
+            if (event.key === 'Escape' || event.key === 'Tab') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (event.key === 'Tab') (scroller.tabIndex === 0 && document.activeElement === button ? scroller : button).focus();
+            }
+        });
         document.body.appendChild(overlay);
         updateTabStop();
-        dismiss.focus({ preventScroll: true });
+        button.focus({ preventScroll: true });
         if ('ResizeObserver' in window) {
             const resize = new ResizeObserver(() => overlay.isConnected ? updateTabStop() : resize.disconnect());
             resize.observe(scroller);
@@ -9243,6 +9259,11 @@
         { id: 'w_raw_xp_hard',    tier: 'hard',   title: 'Weekly XP Grinder',  desc: 'Earn {n} raw XP in games',                      metric: 'rawXP',    target: 4000, pts: 25, cumulative: true },
         { id: 'w_total_xp_hard',  tier: 'hard',   title: 'Weekly XP Surge',    desc: 'Earn {n} total XP in games (with multipliers)', metric: 'totalXP',  target: 5500, pts: 25, cumulative: true },
     ];
+    const DAILY_MODE_QUESTS = [
+        { id: 'ghost_lines', tier: 'easy', title: 'Ghost Guide', desc: 'Clear {n} lines with Ghost Piece on in Normal', metric: 'ghostLines', target: 5, pts: 2, minLevel: 11 },
+        { id: 'mirror_lines', tier: 'easy', title: 'Mirror Match', desc: 'Clear {n} lines with Mirror on in Normal', metric: 'mirrorLines', target: 5, pts: 2, minLevel: 11 },
+        { id: 'fun_run', tier: 'easy', title: 'Just for Fun', desc: 'Finish a Fun run with at least 1 line cleared', metric: 'funRuns', target: 1, pts: 2, minLevel: 11 },
+    ];
     let DAILY_QUEST_POOL = FALLBACK_DAILY_QUESTS;
     let WEEKLY_MISSION_POOL = FALLBACK_WEEKLY_MISSIONS;
     async function _loadMissionCatalog() {
@@ -9278,7 +9299,7 @@
                 desc: def.tier === 'secret' ? def.desc : _makeMissionDesc(def.metric, def.desc, target),
             };
         };
-        const daily = new Map(DAILY_QUEST_POOL.map(def => [def.id, def]));
+        const daily = new Map([...DAILY_QUEST_POOL, ...DAILY_MODE_QUESTS].map(def => [def.id, def]));
         const weekly = new Map(WEEKLY_MISSION_POOL.map(def => [def.id, def]));
         missions.daily.quests = missions.daily.quests.map(state => {
             const def = daily.get(state.id);
@@ -9297,7 +9318,6 @@
         { pts: 60,  reward: { type: 'parts', amount: 2  }, label: '+2 Parts'  },
         { pts: 90,  reward: { type: 'parts', amount: 4  }, label: '+4 Parts'  },
         { pts: 120, reward: { type: 'parts', amount: 7  }, label: '+7 Parts'  },
-        { pts: 150, reward: { type: 'parts', amount: 10 }, label: '+10 Parts' },
     ];
     const MQ_WEEKLY_GOLDEN_THRESHOLD = 180; // pts above this earn 1 universal part each
 
@@ -9305,8 +9325,8 @@
     const MQ_SPECIAL_BOX_PARTS = 5;
     function _defaultMissions() {
         return {
-            daily:   { quests: [], secret: null, lastRefreshDate: '', changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: false },
-            weekly:  { missions: [], weekKey: '', changeUsed: false, points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: false, pendingUniversalParts: 0, universalPtsTracked: 0 },
+            daily:   { quests: [], secret: null, lastRefreshDate: '', swapDate: '', pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: false },
+            weekly:  { missions: [], weekKey: '', swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: false, pendingUniversalParts: 0, universalPtsTracked: 0 },
             streaks: { daily: 0 },
             stats:   { totalCompleted: 0, byTier: { easy: 0, normal: 0, hard: 0, secret: 0 }, weeklyCompleted: 0, totalPts: 0, completionHistory: {} },
             specialBox: { pts: 0 },
@@ -9356,7 +9376,7 @@
         return template.replace('{n}', val);
     }
     function _missionTarget(q, mult) {
-        const rankMult = ['maxSpeed', 'maxCombo'].includes(q.metric) ? 1 : mult;
+        const rankMult = ['maxSpeed', 'maxCombo', 'funRuns'].includes(q.metric) ? 1 : mult;
         return _applyVariation(q.target * rankMult);
     }
     function _missionMetricKey({ metric }) {
@@ -9369,6 +9389,22 @@
         if (secret) usedMetrics.add(_missionMetricKey(secret));
         return pool.filter(m => m.tier === current.tier && m.id !== current.id && !usedMetrics.has(_missionMetricKey(m)));
     }
+
+    function _availableDailyModes() {
+        const level = getLevelInfo(saveData.totalXP).level;
+        return DAILY_MODE_QUESTS.filter(quest => quest.minLevel <= level);
+    }
+
+    function _extraDailyQuest(quests) {
+        const used = new Set(quests.map(_missionMetricKey));
+        const modes = _availableDailyModes().filter(quest => !used.has(_missionMetricKey(quest)));
+        const pool = modes.length ? modes : DAILY_QUEST_POOL.filter(quest => quest.tier === 'easy' && !used.has(_missionMetricKey(quest)));
+        const quest = _shuffleArr(pool)[0];
+        if (!quest) return null;
+        const target = _missionTarget(quest, _missionRankMult());
+        return { ...quest, target, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(quest.metric, quest.desc, target) };
+    }
+
     function _generateDailyQuests() {
         const mult = _missionRankMult();
         const byTier = t => DAILY_QUEST_POOL.filter(q => q.tier === t);
@@ -9387,6 +9423,11 @@
                 const scaled = _missionTarget(q, mult);
                 quests.push({ ...q, target: scaled, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(q.metric, q.desc, scaled) });
             }
+        }
+        const extra = _extraDailyQuest(quests);
+        if (extra) {
+            quests.push(extra);
+            usedMetrics.add(_missionMetricKey(extra));
         }
         // Secret quest: 30% chance; assign a display tier (normal or hard) — title/desc hidden
         let secret = null;
@@ -9468,9 +9509,16 @@
               const _regDone = m.daily.quests?.filter(q => q.completed).length || 0;
               if ((m.daily.secret?.completed) && _regDone === 0) _tryU('mq_lazy_lucky'); }
             const { quests, secret } = _generateDailyQuests();
-            m.daily = { quests, secret, lastRefreshDate: today, changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: true };
+            m.daily = { quests, secret, lastRefreshDate: today, swapDate: '', pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: true };
             if (m.specialBox) m.specialBox.excessTracked = 0;
             changed = true;
+        }
+        if (m.daily.quests.length === 5 && !m.daily.quests.some(quest => DAILY_MODE_QUESTS.some(mode => mode.id === quest.id))) {
+            const extra = _extraDailyQuest(m.daily.secret ? [...m.daily.quests, m.daily.secret] : m.daily.quests);
+            if (extra) {
+                m.daily.quests.push(extra);
+                changed = true;
+            }
         }
         if (!m.weekly.isoWeekKey) { m.weekly.isoWeekKey = true; changed = true; }
         if (m.weekly.weekKey !== thisWeek) {
@@ -9484,7 +9532,7 @@
               if (_hardDone >= 1 && _nonHardDone === 0 && wm.length > 0) _tryU('mq_hard_they_said');
             }
             const missions = _generateWeeklyMissions();
-            m.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
+            m.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
             changed = true;
         }
         if (changed) saveDataToFile();
@@ -9517,6 +9565,8 @@
         }
         return {
             rawXP: rawGameplayXPThisGame, totalXP,
+            ghostLines: settings.optGhost ? linesClearedThisGame : 0,
+            mirrorLines: settings.optMirror ? linesClearedThisGame : 0,
             blocksPlaced: blocksPlacedThisGame, linesCleared: linesClearedThisGame,
             score: Math.round(score), gameTime, maxSpeed: speedLevel,
             hardDrops: _hardDropsThisGame, maxCombo: _maxComboThisGame, quads: _quadrasThisGame,
@@ -9628,7 +9678,7 @@
     window.addEventListener('resize', () => _syncRunMissions());
 
     function _updateMissionProgress(metrics) {
-        if (!saveData.missions || currentGameMode === 'fun' || linesClearedThisGame === 0) return;
+        if (!saveData.missions || linesClearedThisGame === 0) return;
         _checkMissionsRefresh();
         const m = saveData.missions;
         let _completedThisCall = 0;
@@ -9743,7 +9793,8 @@
         blocksPlaced: 'lb-metric-blocks', bottomTwoRows: 'lb-metric-blocks', bottomQuarter: 'lb-metric-blocks',
         linesCleared: 'lb-run-icon-lines', doubles: 'lb-run-icon-lines', triples: 'lb-run-icon-lines',
         quads: 'lb-run-icon-lines', quadStreak: 'lb-run-icon-lines', perfectClear: 'lb-run-icon-lines',
-        score: 'lb-metric-trophy', gameTime: 'lb-metric-clock', gamesPlayed: 'lb-metric-gamepad',
+        ghostLines: 'lb-run-icon-lines', mirrorLines: 'lb-run-icon-lines',
+        score: 'lb-metric-trophy', gameTime: 'lb-metric-clock', gamesPlayed: 'lb-metric-gamepad', funRuns: 'lb-metric-gamepad',
         maxSpeed: 'lb-run-icon-speed', gamesReachedSpeed2: 'lb-run-icon-speed',
         gamesReachedSpeed3: 'lb-run-icon-speed', gamesReachedSpeed4: 'lb-run-icon-speed',
         maxCombo: 'lb-metric-combo', gamesWithCombo4: 'lb-metric-combo', rawXP: 'lb-metric-total-xp', totalXP: 'lb-metric-total-xp',
@@ -9802,7 +9853,7 @@
         });
         if (isWeekly) {
             const pending = saveData.missions?.weekly?.pendingUniversalParts || 0;
-            const content = `${_missionCrateMarker('mythic', points <= goal && !pending)}<span aria-hidden="true">${goal}+</span>`;
+            const content = `<img class="mq-ms-crate${points <= goal && !pending ? ' mq-ms-crate--locked' : ''}" src="${LBArtPack.universalPart}" alt=""><span aria-hidden="true">${goal}+</span>`;
             const label = `${goal}+ points: earn +1 Universal Part per extra point`;
             markers.push(pending > 0
                 ? `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} Universal Part${pending !== 1 ? 's' : ''}">${content}<span class="mq-ms-claimed" aria-hidden="true">+${escapeHtml(pending)}</span></button>`
@@ -9889,9 +9940,11 @@
         el.querySelector('#mq-board-period').textContent = weekly ? 'Weekly objectives' : 'Daily objectives';
         el.querySelector('#mq-list-meta').textContent = `${entries.filter(quest => quest.completed).length} / ${entries.length} complete`;
         const swap = el.querySelector('#mq-change-toggle');
+        const swapUsed = _missionSwapUsed(period);
         swap.setAttribute('aria-pressed', String(swapping));
-        swap.disabled = !!period.changeUsed && !swapping;
-        swap.textContent = swapping ? 'Cancel swap' : period.changeUsed ? 'Swap used' : 'Swap';
+        swap.disabled = swapUsed && !swapping;
+        swap.textContent = swapping ? 'Cancel swap' : 'Swap';
+        el.querySelector('#mq-swaps-left').textContent = swapUsed ? '0 swaps left today' : '1 swap left today';
 
         const active = _sortQuests(entries.filter(quest => !quest.ptsClaimed));
         const completed = _sortQuests(entries.filter(quest => quest.ptsClaimed));
@@ -9928,13 +9981,13 @@
         if (!el) return;
         const tab = document.getElementById('missions-overlay')?._mTab || 'daily';
         const now = new Date();
-        const ms = window.LBNotifications.nextReset(now, tab !== 'daily') - now;
-        if (ms <= 0) {
-            _checkMissionsRefresh();
-            const _ovEl = document.getElementById('missions-overlay');
-            if (_ovEl && !_ovEl.classList.contains('hidden')) renderMissionsOverlay(tab);
+        const missions = saveData.missions;
+        if (missions && (missions.daily.lastRefreshDate !== LBSave.localDate(now) || missions.weekly.weekKey !== _missionWeekKey())) {
+            window._exitChangeMode();
+            renderMissionsOverlay(tab);
             return;
         }
+        const ms = window.LBNotifications.nextReset(now, tab !== 'daily') - now;
         const totalSec = Math.floor(ms / 1000);
         const d = Math.floor(totalSec / 86400);
         const h = Math.floor((totalSec % 86400) / 3600);
@@ -9950,6 +10003,8 @@
     window._mqChangeMode = false;
 
     window._toggleChangeMode = function() {
+        const weekly = document.getElementById('missions-overlay')._mTab === 'weekly';
+        if (!window._mqChangeMode && _missionSwapUsed(saveData.missions?.[weekly ? 'weekly' : 'daily'])) return;
         window._mqChangeMode = !window._mqChangeMode;
         renderMissionsOverlay();
         if (window._mqChangeMode) document.querySelector('#missions-body .mq-change-overlay')?.focus();
@@ -9961,7 +10016,7 @@
 
     window._mqOverlayClick = function(e) {
         if (!window._mqChangeMode) return;
-        if (e.target.closest('.mq-card-wrap') || e.target.closest('#mq-change-toggle')) return;
+        if (e.target.closest('.mq-card-wrap, .mq-swap-control')) return;
         window._toggleChangeMode();
     };
 
@@ -10029,11 +10084,14 @@
         cancel.onclick = () => close();
     }
 
+    const _missionSwapUsed = period => !!period?.swapDate && period.swapDate >= _missionDateKey();
+
     function _swapCandidates(index, isWeekly) {
         const period = saveData.missions?.[isWeekly ? 'weekly' : 'daily'];
         const list = isWeekly ? period?.missions : period?.quests;
-        if (period?.changeUsed || !list?.[index] || list[index].completed || list[index].tier === 'secret') return [];
-        return _missionSwapPool(isWeekly ? WEEKLY_MISSION_POOL : DAILY_QUEST_POOL, list, index, isWeekly ? null : period.secret);
+        if (_missionSwapUsed(period) || !list?.[index] || list[index].completed || list[index].tier === 'secret') return [];
+        const pool = isWeekly ? WEEKLY_MISSION_POOL : [...DAILY_QUEST_POOL, ..._availableDailyModes()];
+        return _missionSwapPool(pool, list, index, isWeekly ? null : period.secret);
     }
 
     window._changeMission = function(index, isWeekly) {
@@ -10041,20 +10099,19 @@
         const missionPeriod = saveData.missions[isWeekly ? 'weekly' : 'daily'];
         const list = isWeekly ? missionPeriod.missions : missionPeriod.quests;
         const original = list[index];
-        const period = isWeekly ? 'week' : 'day';
         _mqConfirm(
             'CHANGE MISSION?',
             'This will replace the selected mission with a new one of the same tier.',
-            `You can only use this once per ${period}.`,
+            'You can swap one daily mission and one weekly mission each day.',
             () => {
                 _checkMissionsRefresh();
                 if (saveData.missions[isWeekly ? 'weekly' : 'daily'] !== missionPeriod || list[index] !== original) return;
                 const [replacement] = _shuffleArr(_swapCandidates(index, isWeekly));
                 if (!replacement) return;
-                const mult = ['maxSpeed', 'maxCombo'].includes(replacement.metric) ? 1 : _missionRankMult();
+                const mult = ['maxSpeed', 'maxCombo', 'funRuns'].includes(replacement.metric) ? 1 : _missionRankMult();
                 const target = _niceRound(replacement.target * mult);
                 list[index] = { ...replacement, target, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(replacement.metric, replacement.desc, target) };
-                missionPeriod.changeUsed = true;
+                missionPeriod.swapDate = _missionDateKey();
                 saveDataToFile();
                 window._exitChangeMode();
                 renderMissionsOverlay();
@@ -10089,6 +10146,7 @@
     window._claimMissionMilestone = function(pts, isWeekly, silent = false, button) {
         if (button) return _claimAfterPaint(button, () => window._claimMissionMilestone(pts, isWeekly, silent));
         if (!saveData.missions) return;
+        if (!silent && document.querySelector('.lb-reward-overlay')) return;
         const m = saveData.missions;
         const milestones = isWeekly ? MQ_WEEKLY_MILESTONES : MQ_DAILY_MILESTONES;
         const ms = milestones.find(x => x.pts === pts);
@@ -10098,13 +10156,24 @@
         const currentPts = isWeekly ? (m.weekly.points || 0) : (m.daily.pointsToday || 0);
         if (currentPts < pts) return;
         claimed.push(pts);
-        LBCrates.grantCrate(saveData, LBCrates.missionRarity(pts, isWeekly), { source: 'mission', amount: ms.reward.amount });
-        saveDataToFile();
-        if (!silent && !document.getElementById('missions-overlay').classList.contains('hidden')) {
-            renderMissionsOverlay(isWeekly ? 'weekly' : 'daily');
-            _checkGlowNotifications();
-        }
+        _openMissionCrate(ms, isWeekly, silent);
     };
+
+    function _openMissionCrate(ms, isWeekly, silent = false) {
+        const cards = _grantMissionCrateParts(ms.reward.amount);
+        saveDataToFile();
+        if (silent) return;
+        const overlay = document.getElementById('missions-overlay');
+        const opener = document.activeElement;
+        if (!overlay.classList.contains('hidden')) {
+            renderMissionsOverlay(isWeekly ? 'weekly' : 'daily');
+        }
+        _checkGlowNotifications();
+        playSFX('gift');
+        LBCrates.showCrateReveal(LBCrates.missionRarity(ms.pts, isWeekly), 1, _crateRewardGrid(cards), () => {
+            (opener?.isConnected ? opener : overlay.querySelector('#mq-menu')).focus({ preventScroll: true });
+        });
+    }
 
     function _grantMissionCrateParts(amount) {
         const rewards = [];
@@ -10824,7 +10893,7 @@
         if (!saveData.missions) saveData.missions = _defaultMissions();
         const { quests, secret } = _generateDailyQuests();
         const today = _missionDateKey();
-        saveData.missions.daily = { quests, secret, lastRefreshDate: today, changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: true };
+        saveData.missions.daily = { quests, secret, lastRefreshDate: today, swapDate: '', pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: true };
         saveDataToFile();
         if (!document.getElementById('missions-overlay').classList.contains('hidden')) renderMissionsOverlay('daily');
         customAlert('Daily missions reset!', 'DEV MODE');
@@ -10833,7 +10902,7 @@
         if (!saveData.missions) saveData.missions = _defaultMissions();
         const missions = _generateWeeklyMissions();
         const thisWeek = _missionWeekKey();
-        saveData.missions.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
+        saveData.missions.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
         saveDataToFile();
         if (!document.getElementById('missions-overlay').classList.contains('hidden')) renderMissionsOverlay('weekly');
         customAlert('Weekly missions reset!', 'DEV MODE');
@@ -10953,7 +11022,7 @@
                 ${block('Earn run XP', '<p>Clear <strong>at least one line in Normal</strong>. Your score and any personal-best bonus count toward run XP.</p><p>Total XP unlocks levels, ranks, rewards and modifiers.</p>')}
                 ${block('Rank ladder', table('Rank ladder', ['Rank', 'Levels', 'XP / level'], rankRows))}`],
             ['missions', 'Missions & milestones', `
-                ${block('Play & claim', '<p>Play <strong>Normal</strong> to progress missions. Daily points count toward weekly milestones. Daily quests refresh each day and weekly missions reset on Monday.</p><p>Claim rewards in <strong>Missions</strong>. Use <strong>Change</strong> to swap eligible missions, not hidden secret quests.</p>')}
+                ${block('Play & claim', '<p>Play <strong>Normal</strong> to progress most missions, or <strong>Fun</strong> for objectives that ask for it. Daily points count toward weekly milestones. Daily quests refresh each day and weekly missions reset on Monday.</p><p>Claim rewards in <strong>Missions</strong>. Each day you can swap one eligible daily mission and one eligible weekly mission. Secret quests cannot be swapped.</p>')}
                 ${block('Daily milestones', milestones(MQ_DAILY_MILESTONES))}
                 ${block('Weekly milestones', milestones(MQ_WEEKLY_MILESTONES))}
                 ${block('Extra rewards', `<p><strong>Bonus Box:</strong> Earn ${MQ_SPECIAL_BOX_PARTS} universal parts for every ${MQ_SPECIAL_BOX_CAP} points past the last daily milestone.</p><p><strong>Golden Zone:</strong> Claim one universal part per weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD}.</p>`)}`],
@@ -10968,7 +11037,7 @@
                 ${block('XP multipliers', definitions(BOOSTER_KEYS.map(key => [BOOSTER_META[key].label, `×${BOOSTER_INFO[key].mult} run XP`])))}`],
             ['modes', 'Game modes & modifiers', `
                 ${block('Normal', `<p>Play on a ${COLS_NORMAL} × ${VISIBLE_ROWS} board for <strong>XP, mission progress</strong> and Normal leaderboard scores.</p>`)}
-                ${block('Fun', `<p>Set the board to ${settingRange('fun-cols')} columns × ${settingRange('fun-rows')} rows and starting level ${settingRange('fun-speed')}. Fun has its own leaderboard and counts toward some achievements, but gives <strong>no run XP or mission progress</strong>.</p>`)}
+                ${block('Fun', `<p>Set the board to ${settingRange('fun-cols')} columns × ${settingRange('fun-rows')} rows and starting level ${settingRange('fun-speed')}. Fun has its own leaderboard and counts toward some achievements and Fun missions, but gives <strong>no run XP</strong>.</p>`)}
                 ${block('Modifiers', `<p>Toggle unlocked options before a run. In <strong>Normal</strong>, percentages add together and affect score and run XP. In <strong>Fun</strong>, modifiers change play only.</p>${definitions(modifiers)}`)}`],
             ['glossary', 'Glossary', `
                 ${block('Line clear names', '<p><strong>Single, Double, Triple and Quad</strong> mean 1, 2, 3 or 4 lines cleared in one placement.</p>')}
@@ -11194,6 +11263,13 @@
         button: document.getElementById('lb43-daily-gift'), getSave: () => saveData,
         claimAfterPaint: _claimAfterPaint,
         ready: () => dailyGiftReady && !_gameInProgress, save: saveDataToFile,
+        onShake: () => playSFX('drop'),
+        openGift(rarity) {
+            const cards = _grantRarityCrate(rarity, true);
+            checkProgressAchievements();
+            _checkGlowNotifications();
+            return _crateRewardGrid(cards);
+        },
     });
 
     _setLoadProgress(5, 'Initializing…');

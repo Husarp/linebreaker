@@ -33,14 +33,12 @@ it('shows grouped converted parts in Inventory while escaping reward text', asyn
   expect(card.querySelector('b')).toBeNull();
 });
 
-it('shows mission milestone conversions and restores pending level milestone conversions from save', async () => {
+it('shows mission milestone conversions and restores pending level milestone conversions from save', () => {
   const missions = api.defaultMissions();
   missions.daily.pointsToday = 6;
   api.setup({ save: { parts: cappedParts(), missions } });
   window.Math.random = () => 0;
   window._claimMissionMilestone(6, false);
-  await window.openInventory('crates');
-  document.querySelector('[data-crate-rarity="common"]').click();
   const card = document.querySelector('#inventory-crate-overlay .lb-block-reward');
   expect(card.querySelector('.lb64-reward-name').textContent).toBe('Universal Part');
   expect(card.querySelector('.lb-block-reward-amount').textContent).toBe('×0.2');

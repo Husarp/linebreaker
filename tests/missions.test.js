@@ -69,7 +69,7 @@ it.each([
   expect(done.querySelector('img').getAttribute('src')).toBe(`assets/ui/crates/${LBCrates.missionRarity(claimed, tab === 'weekly')}.png`);
   expect(done.querySelector('.mq-ms-claimed')).not.toBeNull();
   expect(future.getAttribute('aria-label')).toBe(`${locked} points: locked crate`);
-  expect(future.querySelector('.mq-ms-crate--locked').getAttribute('src')).toBe(`assets/ui/crates/${tab === 'daily' ? 'mythic' : 'common'}.png`);
+  expect(future.querySelector('.mq-ms-crate--locked').getAttribute('src')).toBe(`assets/ui/crates/${tab === 'daily' ? 'rare' : 'common'}.png`);
   expect(selector(locked, 'button')).toBeNull();
 });
 
@@ -89,32 +89,35 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
     game.w._changeMission(index, tab === 'weekly');
     return index;
   };
-  expect(toggle().classList.contains('btn-secondary')).toBe(true);
+  expect(toggle().classList.contains('lb-block-btn')).toBe(true);
+  const remaining = () => document.querySelector('#mq-swaps-left').textContent;
+  expect(remaining()).toBe('1 swap left today');
   game.w._toggleChangeMode();
   const index = select();
   const tier = period[list][index].tier;
   document.querySelector('#mq-confirm-cancel').click();
   const current = () => api.save.missions[tab];
-  expect(current().changeUsed).toBe(false);
+  expect(current().swapDate).toBe('');
   expect(current()[list].map(mission => mission.id)).toEqual(before);
   select();
   document.querySelector('#mq-confirm-ok').click();
   expect(document.querySelector('#mq-confirm-overlay').classList.contains('hidden')).toBe(true);
-  expect(current().changeUsed).toBe(true);
+  expect(current().swapDate).toBe(api.missionDateKey());
+  expect(remaining()).toBe('0 swaps left today');
   expect(toggle().disabled).toBe(true);
   expect(current()[list][index]).toMatchObject({ tier, progress: 0, completed: false, ptsClaimed: false });
   expect(current()[list][index].id).not.toBe(before[index]);
   expect(current()[list].filter((mission, slot) => slot !== index).map(mission => mission.id)).toEqual(before.filter((_, slot) => slot !== index));
   expect(current()[points]).toBe(total);
   expect(api.save.universalParts).toBe(parts);
-  expect(api.save.missions[tab === 'daily' ? 'weekly' : 'daily'].changeUsed).toBe(false);
+  expect(api.save.missions[tab === 'daily' ? 'weekly' : 'daily'].swapDate).toBe('');
   const after = current()[list][index];
   game.w._changeMission(index, tab === 'weekly');
   document.querySelector('#mq-confirm-ok').click();
   expect(current()[list][index]).toEqual(after);
 });
 
-it('greys the weekly golden-zone crate until points exceed 180 and keeps the universal-parts claim', () => {
+it('shows the golden-zone Universal Part, not a crate, and keeps the claim above 180 points', () => {
   api.refreshMissions();
   const save = api.save;
   const weekly = save.missions.weekly;
@@ -125,13 +128,13 @@ it('greys the weekly golden-zone crate until points exceed 180 and keeps the uni
   game.w.renderMissionsOverlay('weekly');
   const locked = document.querySelector('[data-mqctip]');
   expect(locked.getAttribute('aria-label')).toContain('180+ points');
-  expect(locked.querySelector('.mq-ms-crate--locked').src).toContain('/crates/mythic.png');
+  expect(locked.querySelector('.mq-ms-crate--locked').src).toContain('/parts/universal-part-128.png');
   weekly.points++;
   weekly.pendingUniversalParts = 1;
   api.setSave(save);
   game.w.renderMissionsOverlay('weekly');
   const claim = [...document.querySelectorAll('.mq-ms-claim-btn')].find(button => button.getAttribute('aria-label').startsWith('Collect +1 Universal Part'));
-  expect(claim.querySelector('img').src).toContain('/crates/mythic.png');
+  expect(claim.querySelector('img').src).toContain('/parts/universal-part-128.png');
 });
 
 it('rolls full daily and weekly sets without repeated objectives', () => {
@@ -141,7 +144,7 @@ it('rolls full daily and weekly sets without repeated objectives', () => {
   for (let sample = 0; sample < 384; sample++) {
     const {quests, secret} = api.generateDailyQuests();
     const weekly = api.generateWeeklyMissions();
-    expect(quests).toHaveLength(5);
+    expect(quests).toHaveLength(6);
     expect(weekly).toHaveLength(6);
     for (const [missions, seen] of [[secret ? [...quests, secret] : quests, dailySeen], [weekly, weeklySeen]]) {
       const metrics = missions.map(({metric}) => metric);
@@ -167,6 +170,102 @@ it('rolls full daily and weekly sets without repeated objectives', () => {
       expect(targets[1]).toBeLessThan(targets[2]);
     }
   }
+});
+
+it('migrates spent swaps, then resets each at local midnight without replacing weekly missions', () => {
+  const { w } = game;
+  const RealDate = w.Date;
+  let now = new RealDate(2026, 10, 17, 23, 59).getTime();
+  w.Date = class extends RealDate {
+    constructor(...args) { super(...(args.length ? args : [now])); }
+    static now() { return now; }
+  };
+  api.refreshMissions();
+  const oldSave = api.save;
+  for (const tab of ['daily', 'weekly']) {
+    delete oldSave.missions[tab].swapDate;
+    oldSave.missions[tab].changeUsed = true;
+  }
+  const originalWeeklyIds = oldSave.missions.weekly.missions.map(mission => mission.id);
+  const originalDailyIds = oldSave.missions.daily.quests.map(mission => mission.id);
+  api.applyLoadedData(oldSave);
+  expect(api.save.missions.daily.swapDate).toBe('2026-11-17');
+  expect(api.save.missions.weekly.swapDate).toBe('2026-11-17');
+  const migrated = w.LBSave.serializeSave(api.save);
+  expect(migrated.missions.weekly).not.toHaveProperty('changeUsed');
+  api.applyLoadedData(migrated);
+  w.renderMissionsOverlay('weekly');
+  const { document } = w;
+  expect(document.querySelector('#mq-change-toggle').disabled).toBe(true);
+  now = new RealDate(2026, 10, 18).getTime();
+  w.renderMissionsOverlay('weekly');
+  expect(document.querySelector('#mq-swaps-left').textContent).toBe('1 swap left today');
+  expect(document.querySelector('#mq-change-toggle').disabled).toBe(false);
+  expect(api.save.missions.weekly.missions.map(mission => mission.id)).toEqual(originalWeeklyIds);
+  w.renderMissionsOverlay('daily');
+  expect(document.querySelector('#mq-swaps-left').textContent).toBe('1 swap left today');
+  expect(api.save.missions.daily.quests.map(mission => mission.id)).not.toEqual(originalDailyIds);
+});
+
+it('includes one unlocked mode objective alongside five regular dailies and restores it by ID', () => {
+  const modeIds = new Set();
+  api.seed(123);
+  for (let sample = 0; sample < 12; sample++) {
+    const { quests } = api.generateDailyQuests();
+    expect(quests).toHaveLength(6);
+    expect(['fun_run', 'ghost_lines', 'mirror_lines']).not.toContain(quests.at(-1).id);
+  }
+  api.setSave({ ...api.save, totalXP: 64000 });
+  api.refreshMissions();
+  for (let sample = 0; sample < 64; sample++) modeIds.add(api.generateDailyQuests().quests.at(-1).id);
+  expect([...modeIds].sort()).toEqual(['fun_run', 'ghost_lines', 'mirror_lines']);
+  const save = api.save;
+  const legacy = { ...save, missions: { ...save.missions, daily: { ...save.missions.daily, quests: save.missions.daily.quests.slice(0, 5) } } };
+  api.applyLoadedData(game.w.LBSave.serializeSave(legacy));
+  const after = api.save.missions.daily.quests;
+  expect(after).toHaveLength(6);
+  expect(after.slice(0, 5).map(quest => quest.id)).toEqual(legacy.missions.daily.quests.map(quest => quest.id));
+  api.applyLoadedData(game.w.LBSave.serializeSave(api.save));
+  expect(api.save.missions.daily.quests.at(-1)).toEqual(after.at(-1));
+});
+
+it('credits mode objectives only in their matching runs and leaves normal progress alone in Fun', () => {
+  const { w } = game;
+  const missions = api.defaultMissions();
+  missions.daily.lastRefreshDate = api.missionDateKey();
+  missions.weekly.weekKey = api.missionWeekKey();
+  missions.weekly.isoWeekKey = true;
+  const objective = metric => ({ id: metric, title: metric, tier: 'easy', metric, target: 1, pts: 2, progress: 0 });
+  missions.daily.quests = ['ghostLines', 'mirrorLines', 'funRuns', 'gamesPlayed'].map(objective);
+  missions.weekly.missions = [objective('gamesPlayed')];
+  api.setup({ save: { totalXP: 64000, missions } });
+  const progress = () => api.save.missions.daily.quests.map(quest => quest.progress);
+  const clearSingle = () => {
+    const cells = Array.from({ length: 22 }, () => Array(10).fill(0));
+    cells[21].fill(2);
+    api.setBoard(cells);
+    api.sweep();
+    game.advance(200);
+    api.gameOver();
+  };
+  w.openModeSelect();
+  w.selectMode('fun');
+  api.gameOver();
+  expect(progress()).toEqual([0, 0, 0, 0]);
+  api.setup({ save: api.save });
+  clearSingle();
+  expect(progress()).toEqual([0, 0, 1, 0]);
+  expect(api.save.totalXP).toBe(64000);
+  expect(api.save.missions.weekly.missions[0].progress).toBe(0);
+  api.setup({ save: api.save });
+  w.selectMode('normal');
+  for (const key of ['optGhost', 'optMirror']) {
+    const control = w.document.querySelector(`input[data-play-modifier="${key}"]`);
+    if (!control.checked) control.click();
+  }
+  clearSingle();
+  expect(progress()).toEqual([1, 1, 1, 1]);
+  expect(api.save.missions.weekly.missions[0].progress).toBe(1);
 });
 
 it('excludes same-kind rerolls, including a daily secret and weekly speed variants', () => {
