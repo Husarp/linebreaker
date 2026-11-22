@@ -33,29 +33,6 @@
 #main-title .lb122-logo { width: min(76vw, 320px); }
 #lb122-logo-button:active .lb122-logo { filter: brightness(1.24); }
 .lb122-menu-heading { position: relative; padding-bottom: 13px; }
-#splash-quote {
-    position: absolute;
-    top: calc(100% - 57px);
-    right: 0;
-    width: max-content;
-    max-width: min(52vw, 220px);
-    font: 700 clamp(8px, calc(min(50vw, 220px) / var(--splash-length, 1)), 12px)/1.25 var(--bb-font-pixel);
-    color: #ffff55;
-    text-align: end;
-    text-shadow: 1px 2px #17150d;
-    pointer-events: none;
-    user-select: none;
-    transform-origin: right center;
-    transform: rotate(-17deg);
-    animation: splashPulse 2.5s ease-in-out infinite;
-}
-@keyframes splashPulse {
-    50% { transform: rotate(-17deg) scale(1.06); }
-}
-@media (prefers-reduced-motion: reduce) {
-    #splash-quote { animation: none; }
-}
-
 #menu-xp-bar-wrap {
     position: relative;
     width: 80%;
@@ -126,7 +103,7 @@
     color: var(--bb-muted);
     font: 500 9px/1.3 var(--font-body);
 }
-#lb43-daily-gift[data-status="clock-blocked"] + .lb43-gift-status { color: var(--warning); }
+#lb43-daily-gift[data-status="clock-blocked"] .lb43-gift-status { color: var(--warning); }
 .lb43-gift-marker {
     display: none;
     place-items: center;

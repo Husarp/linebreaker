@@ -31,6 +31,11 @@
         await page.setViewportSize(viewport);
         await page.goto(url.href);
         await page.waitForFunction(() => window.__LB_QA && document.querySelector('#loading-screen').style.display === 'none');
+        const matchingQuotes = await page.evaluate(() => {
+            const loadingQuote = document.querySelector('#loading-quote')?.textContent.trim();
+            return loadingQuote && loadingQuote === document.querySelector('#splash-quote')?.textContent.trim();
+        });
+        if (!matchingQuotes) fail('Loading and menu do not show the same daily quote');
         if (theme !== 'dark') {
             await page.evaluate(() => window.__LB_QA.open('settings-display'));
             await page.locator(`[data-ui-theme="${theme}"]`).click();
@@ -211,18 +216,34 @@
                 await wallpaper.selectOption(original);
             }
             if (name === 'menu') {
-                const navigationFits = await page.locator('.lb-menu-nav button').evaluateAll(rows => rows.length === 4 && rows.every(row => {
+                const navigationFits = await page.locator('#menu-overlay button:has(> .lb-ledger-chevron)').evaluateAll(rows => rows.length >= 6 && rows.every(row => {
                     const chevron = row.querySelector('.lb-ledger-chevron');
-                    if (!chevron || getComputedStyle(chevron).borderInlineEndWidth === '0px') return false;
                     const hadNotification = row.hasAttribute('data-ready');
+                    row.removeAttribute('data-ready');
+                    const idle = getComputedStyle(chevron).display !== 'none' && getComputedStyle(row, '::after').content !== '""';
                     row.setAttribute('data-ready', '');
                     const dot = getComputedStyle(row, '::after');
-                    const ready = dot.content === '""' && parseFloat(dot.width) > 0 && dot.maskImage === 'none'
-                        && getComputedStyle(chevron).borderInlineEndWidth !== '0px';
+                    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+                    const ready = dot.content === '""' && parseFloat(dot.width) > 0
+                        && dot.animationName === (reducedMotion ? 'none' : 'lb-menu-ready-pulse')
+                        && getComputedStyle(chevron).display === 'none';
                     row.toggleAttribute('data-ready', hadNotification);
-                    return ready;
+                    return idle && ready;
                 }));
-                if (!navigationFits) fail('Menu destinations do not show independent chevrons and notification dots');
+                if (!navigationFits) fail('Ready menu destinations must replace their chevron with a motion-aware dot');
+                const menuDesign = await page.evaluate(() => {
+                    const box = selector => document.querySelector(selector).getBoundingClientRect();
+                    const clipped = selector => getComputedStyle(document.querySelector(selector)).clipPath.startsWith('polygon(');
+                    const banner = box('.lb-menu-banner');
+                    const logo = box('#lb122-logo-button');
+                    const sticker = box('#splash-quote');
+                    return clipped('.lb-xp-track') && clipped('.lb-xp-fill') && clipped('#splash-quote')
+                        && logo.top - banner.top < banner.height / 3 && logo.bottom <= sticker.top
+                        && Math.abs(sticker.right - banner.right) <= 1 && sticker.bottom < banner.bottom
+                        && ['missions', 'inventory', 'achievements', 'stats'].every(name =>
+                            getComputedStyle(document.getElementById(`btn-${name}`)).backgroundImage.includes(`menu-${name}.svg`));
+                });
+                if (!menuDesign) fail('Menu banner, cut XP bar, or art tiles do not match the r9 treatment');
                 const seasonCopyFits = await page.locator('.lb-menu-season-copy').evaluate(copy => {
                     const range = document.createRange();
                     return [...copy.children].every(label => {
@@ -235,13 +256,15 @@
                 if (!seasonCopyFits) fail('Menu Season Pass label wraps or overlaps reward art');
                 await page.locator('#lb43-daily-gift').scrollIntoViewIfNeeded();
                 const fits = await page.evaluate(() => {
-                    const corner = document.querySelector('.lb43-gift-corner').getBoundingClientRect();
+                    const gift = document.querySelector('#lb43-daily-gift').getBoundingClientRect();
+                    const stats = document.querySelector('#btn-stats').getBoundingClientRect();
                     const player = document.querySelector('#music-widget').getBoundingClientRect();
-                    const bottomInset = parseFloat(getComputedStyle(document.querySelector('#menu-overlay')).paddingBottom);
-                    return corner.width > 0 && corner.right <= innerWidth - 12 && corner.bottom <= innerHeight - bottomInset + 1
-                        && corner.left >= player.right + 6 && player.height > 0;
+                    const near = (first, second) => Math.abs(first - second) <= 1;
+                    return gift.width >= 44 && gift.height >= 44 && stats.width > gift.width && player.height > 0
+                        && near(gift.top, stats.top) && near(gift.bottom, stats.bottom) && gift.right < stats.left
+                        && player.top > gift.bottom && near(player.left, gift.left) && near(player.right, stats.right);
                 });
-                if (!fits) fail('Daily Gift does not fit clear of the music player and safe area');
+                if (!fits) fail('Daily Gift must sit left of Stats, above the full-width music card');
                 await page.locator('#btn-season-pass').click();
                 await page.locator('#season-pass-overlay').waitFor({ state: 'visible', timeout: 3000 })
                     .catch(() => fail('Season Pass card did not open the Season Pass view'));
@@ -249,6 +272,26 @@
                     window.closeMissions();
                     document.querySelector('#menu-overlay .menu-scale-wrapper').scrollTop = 0;
                 });
+            }
+            if (name === 'game' && viewport.width <= 600 && viewport.width < viewport.height) {
+                const alignedHud = await page.evaluate(() => {
+                    const box = selector => document.querySelector(selector).getBoundingClientRect();
+                    const near = (first, second) => Math.abs(first - second) <= 1;
+                    const board = box('#game-container');
+                    const tiles = ['#pc-next-wrap', '.lb-hud-score', '.lb-hud-lines', '.lb-hud-time'].map(box);
+                    const speed = box('.lb-hud-level');
+                    const pause = box('.btn-pause-pc');
+                    const hold = box('#hold-panel');
+                    const topBuffer = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lb-space-sm'));
+                    return board.width > 0 && near(board.left, tiles[0].left) && near(board.right, tiles[3].right)
+                        && tiles[0].top >= box('.lb-top-band').bottom + topBuffer - 1
+                        && tiles.every(tile => near(tile.width, tiles[0].width) && near(tile.top, tiles[0].top) && tile.bottom < board.top)
+                        && [speed, pause, ...(hold.width > 0 ? [hold] : [])].every(tile =>
+                            near(tile.width, tiles[0].width) && near(tile.top, speed.top) && tile.top >= board.bottom)
+                        && near(speed.left, tiles[0].left) && near(pause.left, tiles[3].left)
+                        && (hold.width === 0 || near(hold.left, tiles[1].left));
+                });
+                if (!alignedHud) fail('Phone HUD columns do not align to the board or preserve the top buffer');
             }
             if (name === 'game-over') {
                 const actionsFit = await page.locator('#go-overlay .go-actions').evaluate(actions => {

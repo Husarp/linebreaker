@@ -17,12 +17,11 @@
         --hud-inner-width: calc(100vw - var(--hud-left) - var(--hud-right));
         --hud-frame: 6px;
         --hud-board-width: min(var(--hud-inner-width), calc(max(0px, var(--hud-board-room) - var(--hud-frame)) * var(--hud-ratio) + var(--hud-frame)));
-        --hud-strip-width: min(var(--hud-inner-width), max(244px, var(--hud-board-width)));
-        grid-template-columns: repeat(12, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         grid-template-rows: var(--hud-preview-row) auto var(--hud-stat-row);
         grid-template-areas: none;
         gap: var(--hud-gap) 5px;
-        padding: var(--hud-top) calc(var(--hud-right) + (var(--hud-inner-width) - var(--hud-strip-width)) / 2) var(--hud-bottom) calc(var(--hud-left) + (var(--hud-inner-width) - var(--hud-strip-width)) / 2);
+        padding: var(--hud-top) calc(var(--hud-right) + (var(--hud-inner-width) - var(--hud-board-width)) / 2) var(--hud-bottom) calc(var(--hud-left) + (var(--hud-inner-width) - var(--hud-board-width)) / 2);
     }
 
     .lb-touch #app.active-game {
@@ -30,14 +29,14 @@
         grid-template-rows: var(--hud-preview-row) auto var(--hud-stat-row) var(--hud-control-row);
     }
 
-    #app #hold-panel { grid-area: 1 / 1 / 2 / 4; position: relative; }
-    #app #pc-next-wrap { grid-area: 1 / 4 / 2 / 7; flex-wrap: nowrap; }
+    #app #hold-panel { grid-area: 3 / 2; position: relative; }
+    #app #pc-next-wrap { grid-area: 1 / 1; flex-wrap: nowrap; }
     #app #pc-next-wrap > .label { flex-basis: auto; }
-    #app .lb-hud-score { grid-area: 1 / 7 / 2 / 10; }
-    #app .lb-hud-lines { grid-area: 1 / 10 / 2 / 13; }
-    #app .lb-hud-time { grid-area: 3 / 1 / 4 / 5; }
-    #app .lb-hud-level { grid-area: 3 / 5 / 4 / 9; }
-    #app .btn-pause-pc { grid-area: 3 / 9 / 4 / 13; flex-direction: row; gap: 5px; font-size: 13px; }
+    #app .lb-hud-score { grid-area: 1 / 2; }
+    #app .lb-hud-lines { grid-area: 1 / 3; }
+    #app .lb-hud-time { grid-area: 1 / 4; }
+    #app .lb-hud-level { grid-area: 3 / 1; }
+    #app .btn-pause-pc { grid-area: 3 / 4; flex-direction: column; gap: 1px; font-size: 11px; }
 
     #app .lb-hud-tile { padding-inline: 4px; }
     #app .lb-hud-hold-slot { height: 32px; }

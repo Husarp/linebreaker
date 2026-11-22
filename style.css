@@ -1258,7 +1258,6 @@ body[data-pack="pixel"] .mt-enable-btn {
 /* ===== LOADING SCREEN ===== */
 #loading-screen {
     position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 9999;
-    background: #0a0a0f;
     display: flex; align-items: center; justify-content: center;
     transition: opacity 0.55s ease;
     padding: 16px;
@@ -1266,48 +1265,21 @@ body[data-pack="pixel"] .mt-enable-btn {
 }
 #loading-screen.ls-hidden { opacity: 0; pointer-events: none; }
 #ls-inner { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 26rem; }
-#ls-blocks { display: flex; gap: 5px; margin-bottom: 4px; }
-.ls-block {
-    width: 14px; height: 14px;
-    background: var(--c);
-    box-shadow: 0 0 8px var(--c);
-    animation: ls-bounce 0.9s ease-in-out infinite;
-}
-.ls-block:nth-child(1) { animation-delay: 0s; }
-.ls-block:nth-child(2) { animation-delay: 0.1s; }
-.ls-block:nth-child(3) { animation-delay: 0.2s; }
-.ls-block:nth-child(4) { animation-delay: 0.3s; }
-.ls-block:nth-child(5) { animation-delay: 0.4s; }
-.ls-block:nth-child(6) { animation-delay: 0.5s; }
-.ls-block:nth-child(7) { animation-delay: 0.6s; }
-@keyframes ls-bounce {
-    0%, 100% { transform: translateY(0); opacity: 0.5; }
-    50% { transform: translateY(-10px); opacity: 1; }
-}
-#ls-title {
-    font-family: 'Press Start 2P', 'Orbitron', sans-serif;
-    font-size: 1.3rem; color: #fff; letter-spacing: 0.12em;
-    text-shadow: 0 0 20px rgba(0,255,255,0.5);
-}
+#ls-title { position: relative; width: min(72vw, 210px); padding-bottom: 18px; }
+#ls-title img { display: block; width: 100%; height: auto; }
 #ls-bar-wrap {
-    width: 180px; height: 4px;
-    background: rgba(255,255,255,0.1);
+    width: min(100%, 210px); height: 6px;
     border-radius: 2px; overflow: hidden;
 }
 #ls-bar {
     height: 100%; width: 0%;
-    background: linear-gradient(90deg, #00ffff, #cc33ff);
-    border-radius: 2px;
     transition: width 0.35s ease;
 }
-#ls-status {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 0.7rem; color: #b1b1c4; letter-spacing: 0.08em; text-align: center;
-}
+#ls-status { text-align: center; }
 #ls-actions:not([hidden]) { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; }
 #ls-actions [hidden] { display: none; }
 #ls-actions button { margin: 4px; }
-.ls-stalled .ls-block { animation-play-state: paused; }
+.ls-stalled #ls-bar { transition: none; }
 /* SCORE FLY ANIMATION */
 @keyframes scoreFly {
     0%   { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1);   }
@@ -1728,7 +1700,6 @@ body[data-pack="pixel"] .mt-enable-btn {
 
 /* Linebreaker title sizing at the existing menu and game widths. */
 #main-title { font-size: clamp(0.9rem, 4vw, 1.35rem); }
-#ls-title { font-size: clamp(0.85rem, 3.5vw, 1.3rem); }
 #start-text-container { font-size: clamp(1rem, 4vw, 1.5rem); }
 
 .mq-swap-disabled { background: #11111a !important; color: #555 !important; border-color: #292933 !important; opacity: 1 !important; box-shadow: none !important; }

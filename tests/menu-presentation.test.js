@@ -110,6 +110,15 @@ it('renders the real rank, level, XP and current season in the menu', async () =
   } finally { close(); }
 });
 
+it('shows the same nonempty daily quote during loading and on the menu banner', async () => {
+  const { w, close } = await loadGame();
+  try {
+    const bannerQuote = w.document.querySelector('.lb-menu-banner > #splash-quote').textContent;
+    expect(bannerQuote.trim()).not.toBe('');
+    expect(w.document.querySelector('#loading-screen #loading-quote').textContent).toBe(bannerQuote);
+  } finally { close(); }
+});
+
 it('restores the saved wallpaper preference and shares the settings icon', async () => {
   let motion;
   const { w, close } = await loadGame(true, null, null, { movingBackground: false }, null, window => {

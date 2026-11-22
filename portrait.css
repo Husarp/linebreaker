@@ -57,7 +57,6 @@
     #menu-overlay .menu-scale-wrapper > div:has(#btn-play) > div { width: 100%; max-width: 360px; }
     #music-widget { width: 100%; max-width: 320px; }
     #mw-controls button { min-width: 44px; }
-    #splash-quote { max-width: 100%; }
     #dev-list { width: calc(100vw - 32px) !important; }
     /* Existing HUD nodes form two compact rows above the centred well. */
     #app.active-game {
