@@ -8,7 +8,7 @@ it('labels the Settings breadcrumb for its actual return destination', async () 
     const back = w.document.getElementById('settings-back');
     w.openSettings();
     expect(back.textContent.trim()).toBe('Menu');
-    expect(back.querySelector('use').getAttribute('href')).toBe('#lb-topbar-home');
+    expect(back.querySelector('use').getAttribute('href')).toBe('#lb-topbar-arrow');
 
     w.closeSettings();
     w.document.getElementById('settings-overlay').dispatchEvent(new w.Event('animationend'));
@@ -16,7 +16,7 @@ it('labels the Settings breadcrumb for its actual return destination', async () 
     const fromPause = w.document.getElementById('pause-settings');
     w.Function(fromPause.getAttribute('onclick'))();
     expect(back.textContent.trim()).toBe('Back');
-    expect(back.querySelector('use').getAttribute('href')).toBe('#lb-topbar-parent');
+    expect(back.querySelector('use').getAttribute('href')).toBe('#lb-topbar-arrow');
   } finally {
     game.close();
   }
@@ -24,6 +24,22 @@ it('labels the Settings breadcrumb for its actual return destination', async () 
 
 let game;
 afterEach(() => game?.close());
+
+it('uses the same back key across screens and preserves the relative font size setting', async () => {
+  game = await loadGame();
+  const { w } = game;
+  for (const back of w.document.querySelectorAll('.lb-block-topbar .lb-block-back')) {
+    expect(back.querySelector('use').getAttribute('href')).toBe('#lb-topbar-arrow');
+    expect(back.getAttribute('aria-label') || back.textContent.trim()).not.toBe('');
+  }
+  const fontScale = () => Number(w.document.documentElement.style.getPropertyValue('--font-scale'));
+  w.onSettingChange('fontSize', '5');
+  expect(fontScale()).toBe(1);
+  w.onSettingChange('fontSize', '3');
+  expect(fontScale()).toBeCloseTo(.8);
+  w.onSettingChange('fontSize', '7');
+  expect(fontScale()).toBeCloseTo(1.2);
+});
 
 it('toggles settings through their labels and restores the switch states on reopening', async () => {
   game = await loadGame();

@@ -87,9 +87,13 @@
                     content.selectNodeContents(title);
                     const ink = content.getBoundingClientRect();
                     const lineHeight = parseFloat(getComputedStyle(title).lineHeight);
-                    const header = title.closest('.lb-block-topbar').getBoundingClientRect();
-                    return ink.left < Math.max(0, bounds.left, header.left) - 1
-                        || ink.right > Math.min(innerWidth, bounds.right, header.right) + 1
+                    const header = title.closest('.lb-block-topbar');
+                    const headerBounds = header.getBoundingClientRect();
+                    const endControls = [...header.querySelectorAll('.lb-topbar-meta, .lb-info-btn')]
+                        .filter(control => control.getClientRects().length)
+                        .map(control => control.getBoundingClientRect().left);
+                    return ink.left < Math.max(0, bounds.left, headerBounds.left) - 1
+                        || ink.right > Math.min(innerWidth, bounds.right, headerBounds.right, ...endControls) + 1
                         || bounds.height > lineHeight + 1;
                 }).map(title => title.textContent.trim());
             });
@@ -219,6 +223,16 @@
                     return ready;
                 }));
                 if (!navigationFits) fail('Menu destinations do not show independent chevrons and notification dots');
+                const seasonCopyFits = await page.locator('.lb-menu-season-copy').evaluate(copy => {
+                    const range = document.createRange();
+                    return [...copy.children].every(label => {
+                        range.selectNodeContents(label);
+                        const ink = range.getBoundingClientRect();
+                        return ink.width > 0 && ink.right <= copy.getBoundingClientRect().right + 1
+                            && label.getBoundingClientRect().height <= parseFloat(getComputedStyle(label).lineHeight) + 1;
+                    });
+                });
+                if (!seasonCopyFits) fail('Menu Season Pass label wraps or overlaps reward art');
                 await page.locator('#lb43-daily-gift').scrollIntoViewIfNeeded();
                 const fits = await page.evaluate(() => {
                     const corner = document.querySelector('.lb43-gift-corner').getBoundingClientRect();

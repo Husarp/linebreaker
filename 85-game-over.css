@@ -73,7 +73,7 @@
 }
 
 #go-overlay .go-stat-rows dd { text-align: right; }
-#go-overlay :is(#go-xp-row .go-icon, #go-total-xp) { color: var(--bb-rarity-legendary); }
+#go-overlay #go-xp-row .go-icon { color: var(--bb-rarity-legendary); }
 
 #go-overlay #go-record-bonus .go-icon { color: var(--bb-rarity-legendary); }
 

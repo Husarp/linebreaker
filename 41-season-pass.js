@@ -106,6 +106,12 @@
         return !state.blocked && state.season.points >= stage.points ? 'claimable' : 'locked';
     }
 
+    function summarizeTrack(stages, { period, season }) {
+        const current = stages.findLast(stage => stage.day <= period.day && stage.points <= season.points);
+        const next = stages.find(stage => !Object.hasOwn(season.claimed, stage.day));
+        return { current, next };
+    }
+
     function rollReward(config, tier, inventory, random = Math.random) {
         const parts = new Map(inventory.parts.map(({ key, remaining }) => [key, remaining]));
         const pick = options => options[Math.floor(random() * options.length)];
@@ -144,5 +150,5 @@
     }
 
     globalThis.LBSeason = { DAY, DAYS, EPOCH, CLOCK_TOLERANCE, exclusiveSkin, emptySeason, timestamp, seasonWindow,
-        sanitizeSeason, seasonState, storeState, observe, creditMissionPoints, prepareConfig, stageStatus, rollReward, claimStage };
+        sanitizeSeason, seasonState, storeState, observe, creditMissionPoints, prepareConfig, stageStatus, summarizeTrack, rollReward, claimStage };
 })();

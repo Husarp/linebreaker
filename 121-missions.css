@@ -28,31 +28,9 @@
     inset: auto var(--mq-end) 0 var(--mq-start);
     border-block-end: var(--lb-border) dashed var(--lb-rule);
 }
-.mq-header .lb-topbar-crumb {
-    flex: 1;
-    column-gap: var(--lb-space-md);
-    row-gap: var(--lb-space-xs);
-}
-#missions-overlay .mq-header .lb-block-back { width: 44px; height: 44px; padding: 0; }
-#missions-overlay .mq-header .lb-block-back svg { width: 18px; height: 18px; }
-.mq-header-meta {
-    margin: 0;
-    color: var(--lb-utility);
-    font: 750 var(--lb-type-micro)/1.3 var(--lb-font-body);
-    letter-spacing: .07em;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-@media (max-width: 360px) {
-    #missions-overlay { --mq-inset: var(--lb-space-md); }
-    .mq-header .lb-topbar-crumb { column-gap: var(--lb-space-sm); }
-}
-@media (min-width: 361px) {
-    #missions-overlay .mq-header .lb-topbar-title { font-size: 1.5rem !important; }
-}
-.mq-board-actions [data-tab='season'] svg {
-    inline-size: 18px;
-    block-size: 18px;
+#missions-overlay .mq-season-link > svg {
+    inline-size: 20px;
+    block-size: 20px;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.8;
@@ -91,12 +69,12 @@
     background-position: center;
 }
 .mq-board h2 {
-    margin-block: var(--lb-space-xs);
+    margin-block: 5px 4px;
     color: var(--lb-art-ink);
     font: 400 1.3125rem/1.18 var(--lb-font-heading);
     letter-spacing: -.045em;
 }
-.mq-board p { max-inline-size: 34ch; color: var(--lb-art-ink); font-size: var(--lb-type-small); }
+.mq-board p { max-inline-size: 34ch; color: var(--lb-art-ink); font: 400 var(--lb-type-small)/1.32 var(--lb-font-body); }
 #mq-countdown {
     display: inline-flex;
     flex: none;
@@ -111,7 +89,7 @@
     font-variant-numeric: tabular-nums;
 }
 #mq-countdown svg { inline-size: 17px; block-size: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; }
-#mq-countdown small { display: block; color: var(--lb-art-label); font-size: .5rem; letter-spacing: .08em; text-transform: uppercase; }
+#mq-countdown small { display: block; margin-block-start: 2px; color: var(--lb-art-label); font-size: .5rem; letter-spacing: .08em; text-transform: uppercase; }
 #mq-countdown[data-urgency='soon'] { color: var(--lb-utility); }
 #mq-countdown[data-urgency='urgent'] { color: var(--lb-danger); }
 
@@ -161,8 +139,34 @@
     --lb-control-face: var(--lb-panel);
     --lb-button-shadow: var(--lb-card-shadow);
 }
-.mq-board-actions { justify-content: start; flex-wrap: wrap; }
-.mq-board-actions [data-tab='season'] { display: inline-flex; align-items: center; gap: var(--lb-space-sm); }
+.mq-board-actions { flex-direction: column; align-items: stretch; }
+#missions-overlay .mq-season-link {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) 36px;
+    gap: 11px;
+    min-height: 62px;
+    padding: 9px 11px !important;
+    text-align: start;
+    letter-spacing: normal;
+    text-transform: none;
+    --lb-control-face: var(--lb-panel);
+    --lb-button-shadow: var(--lb-card-shadow);
+}
+.mq-season-link strong { font: 700 .9375rem/1.25 var(--lb-font-body); }
+.mq-season-link small { display: block; color: var(--lb-muted); font: 400 .6875rem/1.32 var(--lb-font-body); }
+.mq-season-link > svg { color: var(--lb-label); }
+.mq-season-key {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    color: var(--lb-label);
+    border: var(--lb-border) solid var(--lb-rule);
+    border-radius: var(--lb-radius);
+    background: var(--lb-key);
+    box-shadow: var(--lb-key-shadow);
+}
+.mq-board-actions #mq-change-toggle { align-self: start; }
 #missions-overlay #mq-change-toggle { min-inline-size: 76px; white-space: nowrap; }
 #missions-overlay #mq-change-toggle[aria-pressed='true'] { --lb-control-edge: var(--lb-label); --lb-control-face: var(--lb-track); }
 .mq-list-head { color: var(--lb-muted); font-size: var(--lb-type-small); margin-block-end: var(--lb-space-sm); }
@@ -190,10 +194,9 @@
     --lb-icon-frame-size: 36px;
     --lb-icon-frame-ink: var(--lb-label);
 }
-.mq-card .mq-card-title { color: var(--lb-ink); font: 750 .9375rem/1.25 var(--lb-font-body); }
+.mq-card .mq-card-title { color: var(--lb-ink); font: 700 .9375rem/1.25 var(--lb-font-body); }
 .mq-card .mq-card-desc { color: var(--lb-muted); font: var(--lb-type-small)/1.32 var(--lb-font-body); margin-block-start: 2px; }
-.mq-card-value { display: grid; justify-items: end; gap: var(--lb-space-xs); }
-.mq-card .mq-pts { color: var(--lb-utility); font: 750 var(--lb-type-small)/1.2 var(--lb-font-body); white-space: nowrap; }
+.mq-card-value { display: grid; justify-items: end; align-self: start; gap: 2px; }
 .mq-card .mq-tier-badge {
     margin: 0;
     border: 0;
@@ -210,22 +213,13 @@
     grid-column: 2 / -1;
 }
 .mq-card-progress .lb-block-progress { min-inline-size: 0; flex: 1; }
-.mq-card-progress-value { color: var(--lb-muted); font: var(--lb-type-micro)/1.2 var(--lb-font-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mq-card-progress-value { min-width: 37px; text-align: end; color: var(--lb-muted); font: var(--lb-type-micro)/1.2 var(--lb-font-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mq-card-action { display: flex; justify-content: end; align-items: center; grid-column: 2 / -1; }
 .mq-card:has(.mq-card-progress) .mq-card-action--claim { grid-column: 3; }
 .mq-card:has(.mq-card-action--claim) .mq-card-progress { grid-column: 2; }
 .mq-card-action .mq-change-overlay { position: static; }
-#missions-overlay .mq-card-action--claim .mq-pts-claim-btn {
-    position: relative;
-    min-height: 29px;
-    min-width: 48px;
-    padding: 0 var(--lb-space-sm) !important;
-    font: 750 .6875rem/1 var(--lb-font-body);
-}
-#missions-overlay .mq-pts-claim-btn::before { content: ''; position: absolute; inset: -8px 0; }
 .mq-claimed { color: var(--lb-label); font: 650 var(--lb-type-small)/1.25 var(--lb-font-body); }
-#missions-body :is(.mq-completed, #mq-bonus-box) { margin-block-start: var(--lb-space-md); }
-#missions-body .mq-completed { margin-block-end: var(--lb-space-sm); }
+#missions-body .mq-completed { margin-block: var(--lb-space-md) var(--lb-space-sm); }
 .mq-board-details { display: grid; gap: var(--lb-space-md); }
 .mq-streak-summary, .mq-calendar { display: grid; gap: var(--lb-space-sm); }
 #missions-overlay .mq-streak-half { display: flex; justify-content: start; gap: var(--lb-space-sm); padding-inline: var(--lb-space-sm); }

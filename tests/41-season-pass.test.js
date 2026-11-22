@@ -5,7 +5,7 @@ import { loadGame } from './loader.js';
 
 const {
   DAY, DAYS, EPOCH, CLOCK_TOLERANCE, seasonWindow, seasonState, stageStatus, emptySeason,
-  creditMissionPoints, claimStage, storeState, prepareConfig, rollReward,
+  creditMissionPoints, claimStage, storeState, prepareConfig, summarizeTrack, rollReward,
 } = globalThis.LBSeason;
 const data = JSON.parse(readFileSync(new URL('../data/season.json', import.meta.url), 'utf8'));
 const config = prepareConfig(data);
@@ -15,6 +15,20 @@ const inventory = {
 };
 let game;
 afterEach(() => game?.close());
+
+it('distinguishes the highest reached stage from the next unclaimed reward', () => {
+  const now = EPOCH + 7 * DAY;
+  const save = { season: { ...emptySeason(1), points: 67 } };
+  storeState(save, claimStage(save, config, 1, now, inventory, () => 0));
+  expect(summarizeTrack(config.stages, seasonState(save, now))).toEqual({
+    current: config.stages[7],
+    next: config.stages[1],
+  });
+  expect(summarizeTrack(config.stages, seasonState({}, now))).toEqual({
+    current: undefined,
+    next: config.stages[0],
+  });
+});
 
 it('uses exact UTC days and resets progress only on the next 30-day season', () => {
   expect(seasonWindow(EPOCH)).toEqual({ id: 1, start: EPOCH, day: 1, daysLeft: 30 });
@@ -174,6 +188,8 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   const seasonTab = missions.querySelector('[data-tab="season"]');
   const weeklyTab = missions.querySelector('[data-tab="weekly"]');
   const missionView = w.document.getElementById('mq-mission-view');
+  await vi.waitFor(() => expect(seasonTab.querySelector('small').textContent).toBe('Stage 30 · Next reward at 8 SP'));
+  expect(w.document.getElementById('lb-menu-season-stage').textContent).toBe('Stage 30 · View rewards');
   seasonTab.click();
   await vi.waitFor(() => expect(w.document.querySelectorAll('.sp-card')).toHaveLength(30));
   const overlay = w.document.getElementById('season-pass-overlay');
@@ -188,7 +204,7 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   const meter = overlay.querySelector('.sp-hero .sp-meter');
   const progress = meter.querySelector('progress');
   const progressText = meter.querySelector('#sp-progress-text');
-  expect(overlay.querySelector('[aria-current="step"] h3').textContent).toBe('Stage 1: Common reward');
+  expect(overlay.querySelector('[aria-current="step"] h3').textContent).toBe('Stage 1: Common Crate');
   expect(overlay.querySelector('[aria-current="step"] .sp-step').textContent).toBe('01');
   expect(overlay.querySelector('#sp-title').textContent).toBe('Stage 30');
   expect(progressText.textContent).toBe('8 / 8 SP to stage 01');

@@ -133,7 +133,7 @@
 <div id="pause-overlay" class="overlay hidden lb-run-overlay" style="z-index: 999;" role="dialog" aria-modal="true" aria-labelledby="pause-title">
     <div class="lb-run-panel lb-block-dialog">
         <div class="lb-run-heading">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14m8-14v14"/></svg>
+            <span class="lb-ledger-icon-frame lb-ledger-key" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14m8-14v14"/></svg></span>
             <div><span class="lb-topbar-kicker" id="pause-mode">Normal run</span><h1 class="lb-block-dialog-title" id="pause-title">Paused</h1></div>
         </div>
         <p>Your run is held right here.</p>
@@ -186,7 +186,7 @@
             <button type="button" class="lb-block-btn lb-ledger-action" id="btn-settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg><span>Settings</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
         </nav>
         <button type="button" class="lb-block-btn lb-menu-season" id="btn-season-pass" onclick="window.openMissions('season')">
-            <span class="lb-menu-season-copy"><span class="lb-menu-kicker" id="lb-menu-season-date"></span><strong>Season Pass</strong><small>Season Prism at Stage 30 · View rewards</small></span>
+            <span class="lb-menu-season-copy"><span class="lb-menu-kicker" id="lb-menu-season-date"></span><strong>Season Pass</strong><small id="lb-menu-season-stage">View rewards</small></span>
             <img src="assets/ui/crates/rare.png" width="65" height="65" alt="">
             <span class="lb-ledger-chevron" aria-hidden="true"></span>
         </button>
@@ -285,7 +285,7 @@
 <svg width="0" height="0" class="lb-run-icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     <symbol id="lb-icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
     <symbol id="lb-topbar-home" viewBox="0 0 24 24"><path d="m3 11 9-7 9 7M5 10v10h14V10M10 20v-6h4v6"/></symbol>
-    <symbol id="lb-topbar-parent" viewBox="0 0 24 24"><path d="m8 5-5 5 5 5M3 10h11a5 5 0 0 1 0 10h-3"/></symbol>
+    <symbol id="lb-topbar-arrow" viewBox="0 0 24 24"><path d="M19 12H5m6-6-6 6 6 6"/></symbol>
     <symbol id="lb-topbar-next" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
     <symbol id="lb-icon-update" viewBox="0 0 24 24"><path d="M5 19h14M12 3v12m-5-5 5 5 5-5"/></symbol>
     <symbol id="lb-icon-inventory" viewBox="0 0 24 24"><path d="m12 3 9 5v8l-9 5-9-5V8l9-5Zm0 18v-8m-9-5 9 5 9-5"/></symbol>
@@ -315,7 +315,7 @@
 <div id="stats-overlay" class="overlay hidden lb-fullscreen" data-lb-bar-screen role="region" aria-labelledby="stats-title">
     <header class="lb-header lb-block-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
-            <button class="lb-block-back" type="button" onclick="window.closeStats()"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg>Menu</button>
+            <button class="lb-block-back" type="button" onclick="window.closeStats()" aria-label="Menu"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
             <span class="lb-topbar-kicker" aria-hidden="true">Run records</span>
             <h1 class="lb-topbar-title" id="stats-title">Statistics</h1>
         </div>
@@ -371,11 +371,11 @@
 <div id="inventory-overlay" class="lb-r3 overlay hidden lb-fullscreen" data-lb-bar-screen style="z-index: 1004;">
     <header class="lb-header lb-block-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
-            <button type="button" class="btn-back lb-block-back" onclick="window.closeInventory()" aria-label="Menu"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg></button>
+            <button type="button" class="btn-back lb-block-back" onclick="window.closeInventory()" aria-label="Menu"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
             <span class="lb-topbar-kicker" aria-hidden="true">Collection</span>
             <h1 class="lb-topbar-title">Inventory</h1>
         </div>
-        <span class="lb-collection-quantity" id="inventory-quantity">0 owned</span>
+        <span class="lb-topbar-meta" id="inventory-quantity">0 owned</span>
         <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About the inventory" data-control-tip="About the inventory"></button>
     </header>
     <div class="lb-inventory-content lb-scroll-fade" tabindex="0">
@@ -392,7 +392,7 @@
 
         <div id="inventory-crates" role="tabpanel" aria-labelledby="inventory-tab-crates" data-invtab-content="crates">
             <section class="lb-collection-feature">
-                <div><span class="lb-collection-label">Locker</span><h2>Stored crates</h2><p>Crates open when claimed. Rewards go straight into your collection.</p></div>
+                <div><span class="lb-collection-label">Locker</span><h2>Stored crates</h2><p>Crates open when claimed.</p></div>
                 <img src="assets/ui/crates/rare.png" alt="">
             </section>
             <div class="lb-collection-rule"><span class="lb-collection-label">Crates</span><span class="lb-collection-label">Quantity</span></div>
@@ -449,13 +449,13 @@
 <div id="missions-overlay" class="overlay hidden" data-lb-bar-screen onclick="window._mqOverlayClick(event)">
     <header class="lb-header lb-block-topbar mq-header" data-lb-topbar>
         <div class="lb-topbar-crumb">
-            <button type="button" class="btn-back lb-block-back" id="mq-menu" aria-label="Menu" onclick="window.closeMissions()"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg></button>
-            <button type="button" class="btn-back lb-block-back" id="mq-back" aria-label="Back to missions" hidden><svg aria-hidden="true"><use href="#lb-topbar-parent"/></svg></button>
+            <button type="button" class="btn-back lb-block-back" id="mq-menu" aria-label="Menu" onclick="window.closeMissions()"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
+            <button type="button" class="btn-back lb-block-back" id="mq-back" aria-label="Back to missions" hidden><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
             <span class="lb-topbar-kicker" aria-hidden="true">Objectives</span>
             <h1 class="lb-topbar-title">Missions</h1>
         </div>
-        <p class="mq-header-meta" id="mq-list-meta"></p>
-        <p class="mq-header-meta" id="sp-day" hidden></p>
+        <p class="lb-topbar-meta" id="mq-list-meta"></p>
+        <p class="lb-topbar-meta" id="sp-day" hidden></p>
     </header>
     <div id="mq-mission-view" class="lb-scroll-fade">
         <div class="mq-shell">
@@ -477,9 +477,17 @@
                 <div id="missions-body"></div>
             </section>
             <div class="mq-board-actions" role="group" aria-label="Mission actions">
+                <button type="button" class="lb-block-btn mq-season-link" data-tab="season" aria-pressed="false" aria-controls="season-pass-overlay">
+                    <svg aria-hidden="true"><use href="#lb-season-flag"/></svg>
+                    <span><strong>Season Pass</strong><small id="mq-season-stage">View rewards</small></span>
+                    <span class="mq-season-key" aria-hidden="true"><span class="lb-ledger-chevron"></span></span>
+                </button>
                 <button type="button" id="mq-change-toggle" class="lb-block-btn btn-secondary" aria-pressed="false" onclick="event.stopPropagation();window._toggleChangeMode()">Swap</button>
-                <button type="button" class="lb-block-btn" data-tab="season" aria-pressed="false" aria-controls="season-pass-overlay"><svg aria-hidden="true"><use href="#lb-season-flag"/></svg>Season Pass</button>
             </div>
+            <section id="mq-bonus-box" class="lb-block-card">
+                <div class="mq-list-head"><h3 class="lb-block-section-title">Bonus Box</h3><span></span></div>
+                <progress class="lb-block-progress" aria-label="Bonus Box progress"></progress>
+            </section>
             <section class="lb-block-card" aria-labelledby="mq-milestones-title">
                 <div class="mq-list-head">
                     <h2 class="lb-block-section-title" id="mq-milestones-title">Mission milestones</h2>
@@ -513,7 +521,7 @@
 <div id="settings-overlay" class="lb-r3 overlay hidden lb-fullscreen" data-lb-bar-screen style="z-index: 1004;">
     <header class="lb-header lb-block-topbar lb102-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
-            <button type="button" id="settings-back" class="btn-back lb-block-back"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg><span class="lb-visually-hidden">Menu</span></button>
+            <button type="button" id="settings-back" class="btn-back lb-block-back"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg><span class="lb-visually-hidden">Menu</span></button>
             <span class="lb-topbar-kicker">Preferences</span>
             <h1 class="lb-topbar-title">Settings</h1>
         </div>
@@ -862,7 +870,7 @@
         <div class="lb69-panel lb-block-panel">
             <header class="lb69-header lb-block-topbar">
                 <div class="lb-topbar-crumb">
-                    <button type="button" class="lb-block-back" onclick="window.closeModeSelect()"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg>Menu</button>
+                    <button type="button" class="lb-block-back" onclick="window.closeModeSelect()" aria-label="Menu"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
                     <span class="lb-topbar-kicker" aria-hidden="true">Linebreaker</span>
                     <h1 class="lb-topbar-title" id="play-title">Select Mode</h1>
                 </div>
@@ -930,7 +938,7 @@
 <div id="playlist-overlay" class="lb-r3 overlay hidden lb-fullscreen" data-lb-bar-screen style="z-index: 1010;">
     <header class="lb-block-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
-            <button type="button" class="btn-back lb-block-back" onclick="window.closePlaylistPanel()"><svg aria-hidden="true"><use href="#lb-topbar-parent"/></svg>Back</button>
+            <button type="button" class="btn-back lb-block-back" onclick="window.closePlaylistPanel()" aria-label="Back"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
             <span class="lb-topbar-kicker" aria-hidden="true">Music library</span>
             <h1 class="lb-topbar-title">Playlist</h1>
         </div>
@@ -973,7 +981,7 @@
 <div id="rules-overlay" class="overlay hidden lb-help" data-lb-bar-screen role="dialog" aria-modal="true" aria-labelledby="help-title">
     <header class="lb-help-header lb-block-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
-            <button type="button" id="help-back" class="lb-block-back" onclick="window.closeHelp()"><svg aria-hidden="true"><use href="#lb-topbar-parent"/></svg>Back</button>
+            <button type="button" id="help-back" class="lb-block-back" onclick="window.closeHelp()" aria-label="Back"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
             <span class="lb-topbar-kicker" aria-hidden="true">Linebreaker</span>
             <h1 class="lb-topbar-title" id="help-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M9 7h7m-7 4h4" stroke-width="1.3"/></svg>Game Help</h1>
         </div>
@@ -989,10 +997,10 @@
     <div class="go-dialog">
         <header class="go-heading lb-block-topbar">
             <div class="lb-topbar-crumb">
-                <button type="button" class="lb-block-back" onclick="window.resetGameToMenu()" aria-label="Menu"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg></button>
+                <button type="button" class="lb-block-back" onclick="window.resetGameToMenu()" aria-label="Menu"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
                 <span class="lb-topbar-kicker">Run summary</span><h1 class="lb-topbar-title" id="go-title">Game Over</h1>
             </div>
-            <span id="go-mode">Normal</span>
+            <span class="lb-topbar-meta" id="go-mode">Normal</span>
         </header>
         <div class="go-dialog-body lb-scroll-fade" role="region" aria-label="Run results" tabindex="0">
             <section class="go-score-card lb-block-card" aria-label="Scores">
@@ -1011,8 +1019,8 @@
             <section id="go-rewards" aria-labelledby="go-rewards-title">
                 <div class="go-rewards-heading"><h2 class="lb-topbar-kicker" id="go-rewards-title">Run rewards</h2><span class="lb-topbar-kicker">Earned</span></div>
                 <dl class="go-reward-ledger">
-                    <div id="go-xp-row"><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-total-xp"/></svg><span>Player XP<small id="go-xp-progress"></small></span></dt><dd id="go-total-xp" aria-live="polite">+0 XP</dd></div>
-                    <div id="go-record-bonus" hidden><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Record bonus</span></dt><dd id="go-record-bonus-xp"></dd></div>
+                    <div id="go-xp-row"><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-total-xp"/></svg><span>Player XP<small id="go-xp-progress"></small></span></dt><dd class="lb-ledger-tag" id="go-total-xp" aria-live="polite">+0 XP</dd></div>
+                    <div id="go-record-bonus" hidden><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Record bonus</span></dt><dd class="lb-ledger-tag" id="go-record-bonus-xp"></dd></div>
                 </dl>
             </section>
             <section id="go-boost-row" class="go-panel lb-block-panel" aria-labelledby="go-boost-title" hidden></section>
@@ -1088,7 +1096,7 @@
 <div id="achievements-overlay" class="overlay hidden" data-lb-bar-screen style="z-index: 1003; justify-content: flex-start; padding: 0; overflow: hidden; align-items: stretch;">
     <header class="lb-block-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
-            <button type="button" class="btn-back lb-block-back" onclick="window.closeAchievements()" aria-label="Menu"><svg aria-hidden="true"><use href="#lb-topbar-home"/></svg></button>
+            <button type="button" class="btn-back lb-block-back" onclick="window.closeAchievements()" aria-label="Menu"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
             <span class="lb-topbar-kicker" aria-hidden="true">Milestones</span>
             <h1 class="lb-topbar-title">Achievements</h1>
         </div>
@@ -1140,7 +1148,7 @@
 <div id="tutorial-overlay" class="lb-r3 overlay hidden lb-fullscreen" data-lb-bar-screen style="z-index: 1008;" aria-labelledby="tutorial-title">
     <header class="lb-header lb-block-topbar lb102-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
-            <button type="button" class="btn-back lb-block-back" onclick="window.closeTutorial()"><svg aria-hidden="true"><use href="#lb-topbar-parent"/></svg>Back</button>
+            <button type="button" class="btn-back lb-block-back" onclick="window.closeTutorial()" aria-label="Back"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
             <span class="lb-topbar-kicker" aria-hidden="true">Linebreaker</span>
             <h1 class="lb-topbar-title" id="tutorial-title"><svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polygon points="10 8 16 11 10 14 10 8" fill="currentColor" opacity="0.7"/></svg>Tutorials</h1>
         </div>
@@ -1158,7 +1166,7 @@
 <div id="credits-overlay" class="overlay hidden lb-fullscreen" data-lb-bar-screen aria-labelledby="credits-title">
     <header class="lb-header lb-block-topbar" data-lb-topbar>
         <div class="lb-topbar-crumb">
-            <button type="button" class="btn-back lb-block-back" onclick="window.closeCredits()"><svg aria-hidden="true"><use href="#lb-topbar-parent"/></svg>Back</button>
+            <button type="button" class="btn-back lb-block-back" onclick="window.closeCredits()" aria-label="Back"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
             <span class="lb-topbar-kicker" aria-hidden="true">Linebreaker</span>
             <h1 class="lb-topbar-title" id="credits-title">Credits &amp; About</h1>
         </div>

@@ -229,14 +229,14 @@ describe('achievement screen', () => {
     expect(query('#ach-list').textContent).toContain('Nothing here yet.');
     expect(query('#ach-list').textContent).toContain('PENDING REWARDS');
     const rareReward = query('.ach-pending-row[data-rarity="rare"]');
-    expect(rareReward.querySelector('.ach-pending-rarity').textContent).toBe('RARE');
-    expect(rareReward.querySelector('.ach-pending-name').textContent).toBe('Mirror Universe');
+    expect(rareReward.querySelector('.lb-ledger-rarity-label').textContent).toBe('RARE');
+    expect(rareReward.querySelector('strong').textContent).toBe('Mirror Universe');
     for (const reward of query('#ach-list').querySelectorAll('.ach-pending-row')) {
       expect(reward.textContent).not.toMatch(/\bXP\b/);
     }
     expect(rareReward.querySelector('button').getAttribute('aria-label')).toBe('Claim Mirror Universe');
     expect(game.api.save.totalXP).toBe(0);
-    const claim = [...query('#ach-list').querySelectorAll('button')].find(button => button.textContent === 'CLAIM');
+    const claim = query('.ach-pending-row .lb-ledger-claim');
     claim.click();
     claim.click();
     expect(claim.getAttribute('aria-busy')).toBe('true');
@@ -246,7 +246,7 @@ describe('achievement screen', () => {
     expect(game.api.save.totalXP).toBe(500);
     expect(game.api.save.pendingAchievementClaims.map(claim => claim.id)).toEqual(['games', 'sec_symmetric_board']);
     filter('locked');
-    [...query('#ach-list').querySelectorAll('button')].find(button => button.textContent === 'CLAIM ALL').click();
+    query('.ach-pending-head .lb-ledger-claim').click();
     game.advance(100);
     expect(game.api.save.totalXP).toBe(2000);
     expect(game.api.save.pendingAchievementClaims).toEqual([]);

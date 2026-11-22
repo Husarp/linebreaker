@@ -106,7 +106,7 @@ it('renders the real rank, level, XP and current season in the menu', async () =
     expect(document.querySelector('.go-score-card').style.getPropertyValue('--lb-theme-art-landscape')).toContain('forest-landscape.jpg');
     expect(document.querySelector('.bg-gradient').style.getPropertyValue('--lb-theme-art-landscape')).toContain('default-landscape.jpg');
     const { id, day } = w.LBSeason.seasonWindow(w.Date.now());
-    expect(document.getElementById('lb-menu-season-date').textContent).toBe(`Season ${String(id).padStart(2, '0')} · Day ${String(day).padStart(2, '0')} / ${w.LBSeason.DAYS}`);
+    expect(document.getElementById('lb-menu-season-date').textContent).toBe(`Season ${String(id).padStart(2, '0')} · Day ${day} of ${w.LBSeason.DAYS}`);
   } finally { close(); }
 });
 

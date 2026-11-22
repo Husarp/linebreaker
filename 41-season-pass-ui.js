@@ -1,5 +1,5 @@
 (() => {
-    const { DAY, DAYS, observe, claimStage, storeState, stageStatus, prepareConfig, exclusiveSkin } = window.LBSeason;
+    const { DAY, DAYS, observe, claimStage, storeState, stageStatus, prepareConfig, seasonState, summarizeTrack, exclusiveSkin } = window.LBSeason;
     const title = value => value[0].toUpperCase() + value.slice(1);
     const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
     const clockDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -58,8 +58,21 @@
         const notice = find('#sp-notice');
         const loading = find('#sp-loading');
         const announcement = find('#sp-announcement');
+        const menuStage = document.getElementById('lb-menu-season-stage');
+        const missionStage = document.getElementById('mq-season-stage');
         let config, configRequest, timer, previous, saveCheckpoint;
         const isOpen = () => !screen.hidden;
+
+        async function updatePreview() {
+            await loadConfig();
+            if (!config) return;
+            const state = seasonState(getSave(), Date.now());
+            const { current, next } = summarizeTrack(config.stages, state);
+            const stage = current ? `Stage ${stageNumber(current.day)}` : '';
+            const requirement = next ? `Next reward at ${points.format(next.points)} SP` : 'All rewards claimed';
+            menuStage.textContent = stage ? `${stage} · View rewards` : 'View rewards';
+            missionStage.textContent = stage ? `${stage} · ${requirement}` : requirement;
+        }
 
         function rewardLabel(reward) {
             const { type, key, amount, tier, contents } = reward;
@@ -112,9 +125,8 @@
             if (!config) return;
 
             const stages = config.stages.map(stage => ({ ...stage, status: stageStatus(stage, state) }));
-            const next = stages.find(stage => stage.status !== 'claimed');
-            const currentStage = stages.reduce((day, stage) => stage.day <= period.day && stage.points <= season.points ? stage.day : day, 0);
-            find('#sp-title').textContent = currentStage ? `Stage ${stageNumber(currentStage)}` : 'Season progress';
+            const { current, next } = summarizeTrack(stages, state);
+            find('#sp-title').textContent = current ? `Stage ${stageNumber(current.day)}` : 'Season progress';
             const progressBar = find('progress');
             progressBar.hidden = !next;
             if (next) {
@@ -155,13 +167,13 @@
                 card.innerHTML = `<span class="sp-step" aria-hidden="true">${stageNumber(day)}</span>
                     <div class="sp-row lb-block-card">
                         <img class="sp-reward-icon" src="assets/ui/crates/${tier === 'exclusive' ? 'mythic' : tier}.png" alt="" width="39" height="39" decoding="async">
-                        <h3><span class="sp-sr-only">Stage ${day}: </span>${tier === 'exclusive' ? exclusiveSkin.name : `${title(tier)} reward`}</h3>
+                        <h3><span class="sp-sr-only">Stage ${day}: </span>${tier === 'exclusive' ? exclusiveSkin.name : `${title(tier)} Crate`}</h3>
                     </div>`;
                 const row = card.querySelector('.sp-row');
                 if (status === 'claimable') {
                     const button = document.createElement('button');
                     button.type = 'button';
-                    button.className = 'sp-claim lb-block-btn lb-block-btn--primary';
+                    button.className = 'sp-claim lb-block-btn lb-block-btn--primary lb-ledger-claim';
                     button.dataset.spDay = day;
                     button.setAttribute('aria-label', `Claim stage ${day} ${tier} reward`);
                     button.textContent = 'Claim';
@@ -174,7 +186,7 @@
                     details.className = 'sp-state lb-block-expand';
                     details.open = openDetails.has(String(day));
                     const label = claimed ? `Stage ${day} claimed: Show reward` : `Stage ${day}: ${reason}, ${requirement}`;
-                    details.innerHTML = `<summary aria-label="${label}">${day === next?.day ? requirement : icon(claimed ? 'lb-reward-check' : 'play-icon-lock')}</summary>
+                    details.innerHTML = `<summary class="lb-ledger-tag" aria-label="${label}">${day === next?.day ? requirement : icon(claimed ? 'lb-reward-check' : 'play-icon-lock')}</summary>
                         <p class="lb-block-expand-body${claimed ? ' sp-receipt' : ''}"></p>`;
                     details.querySelector('p').textContent = claimed ? rewardLabel(season.claimed[day]) : `${reason} · ${requirement}`;
                     row.append(details);
@@ -203,8 +215,8 @@
             render(state, now);
         }
 
-        async function loadConfig() {
-            if (config || configRequest) return;
+        function loadConfig() {
+            if (config || configRequest) return configRequest;
             retry.hidden = true;
             loading.textContent = 'Loading reward track…';
             const bounded = window.LBStartup?.bounded || ((label, action) => action());
@@ -212,17 +224,17 @@
                 const response = await fetch('data/season.json');
                 if (!response.ok) throw new Error('Could not load the reward track');
                 return prepareConfig(await response.json());
-            });
-            try {
-                config = await configRequest;
+            }).then(loaded => {
+                config = loaded;
                 loading.textContent = '';
                 if (isOpen()) refresh();
-            } catch {
+            }).catch(() => {
                 loading.textContent = 'The reward track could not load. Try again.';
                 retry.hidden = false;
-            } finally {
+            }).finally(() => {
                 configRequest = null;
-            }
+            });
+            return configRequest;
         }
 
         function close() {
@@ -266,7 +278,7 @@
                 refresh(true);
             });
         });
-        return { open, close };
+        return { open, close, updatePreview };
     }
 
     window.LBSeasonUI = { mount };

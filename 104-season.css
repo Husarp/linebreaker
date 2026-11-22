@@ -38,7 +38,8 @@
     color: var(--lb-muted);
     font-size: var(--lb-type-small);
 }
-.sp-season-details > div { flex: 1 0 auto; }
+.sp-season-details > div { flex: 0 0 100%; font: 400 var(--lb-type-small)/1.32 var(--lb-font-body); }
+.sp-season-details .sp-jump { min-block-size: 34px; font: 650 var(--lb-type-small)/1.25 var(--lb-font-body); }
 .sp-track-header {
     display: flex;
     align-items: center;
@@ -83,16 +84,17 @@
     padding: 5px var(--lb-space-sm);
 }
 .sp-card[data-next] .sp-row { --bb-frame-edge: var(--lb-meter); }
-.sp-row h3 { grid-column: 2; color: var(--lb-ink); font: 750 .9375rem/1.25 var(--lb-font-body); }
+.sp-row h3 { grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--lb-ink); font: 700 .9375rem/1.25 var(--lb-font-body); }
+.sp-row > .sp-claim { width: auto; margin: 0; }
 .sp-reward-icon { object-fit: contain; }
 .sp-card:is([data-state='locked'], [data-state='future']) .sp-reward-icon { opacity: .65; }
-.sp-state { color: var(--lb-utility); font: 750 .6875rem/1.2 var(--lb-font-body); }
 .sp-state-icon { inline-size: 16px; block-size: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.sp-state summary { display: flex; align-items: center; justify-content: end; min-inline-size: 44px; padding: 0; list-style: none; white-space: nowrap; }
+.sp-state summary { position: relative; list-style: none; cursor: pointer; }
+.sp-state summary::after { content: ''; position: absolute; inset: -7px -4px; }
 .sp-state summary::-webkit-details-marker { display: none; }
 .sp-state[open] { grid-column: 1 / -1; }
-.sp-state[open] summary { position: absolute; inset-block-start: 5px; inset-inline-end: var(--lb-space-sm); }
-.sp-row:has(.sp-state[open]) h3 { padding-inline-end: 44px; }
+.sp-state[open] summary { position: absolute; inset-block-start: 12px; inset-inline-end: var(--lb-space-sm); }
+.sp-row:has(.sp-state[open]) h3 { margin-inline-end: 44px; }
 .sp-state .lb-block-expand-body { color: var(--lb-muted); padding: var(--lb-space-xs) 0; font-size: var(--lb-type-small); }
 .sp-step {
     z-index: 1;
@@ -103,7 +105,7 @@
     border-radius: var(--lb-radius);
     background: var(--lb-key);
     color: var(--lb-label);
-    font: 650 var(--lb-type-small)/1 var(--lb-font-heading);
+    font: 400 var(--lb-type-small)/1 var(--lb-font-heading);
 }
 .sp-card[data-next] .sp-step { border-color: var(--lb-meter); background: var(--lb-action); color: var(--lb-on-action); }
 .sp-card:not(:last-child)::before, .sp-card:not(:first-child)::after {

@@ -50,24 +50,6 @@
 .ach-pending-row[data-rarity="legendary"] { --ach-rarity: var(--bb-rarity-legendary); }
 .ach-pending-row[data-rarity="mythic"] { --ach-rarity: var(--bb-rarity-mythic); }
 
-.ach-pending-rarity {
-    justify-self: start;
-    padding: 3px 5px;
-    border-radius: var(--radius-pill);
-    background: var(--bb-face);
-    color: var(--ach-rarity);
-    font-size: clamp(10px, .5rem, 11px);
-    font-weight: 750;
-}
-
-.ach-pending-name {
-    color: var(--bb-ink);
-    font-size: clamp(12px, .625rem, 14px);
-    font-weight: 650;
-    line-height: 1.25;
-    text-align: center;
-}
-
 .ach-pending-xp {
     color: var(--ach-rarity);
     font-size: clamp(12px, .65rem, 14px);

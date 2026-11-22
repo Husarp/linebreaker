@@ -867,7 +867,7 @@
 
     function applyFontSize(size) {
         const map = { '1':0.78,'2':0.91,'3':1.04,'4':1.17,'5':1.30,'6':1.43,'7':1.56,'8':1.76,'9':1.95,'10':2.15 };
-        document.documentElement.style.setProperty('--font-scale', map[size] || 1.30);
+        document.documentElement.style.setProperty('--font-scale', (map[size] || map['5']) / map['5']);
     }
     function applyGameScale(size) {
         const map = { '1':0.42,'2':0.49,'3':0.56,'4':0.63,'5':0.70,'6':0.77,'7':0.84,'8':0.94,'9':1.05,'10':1.15 };
@@ -2257,7 +2257,8 @@
         const { id, day } = seasonPass.seasonWindow(Date.now());
         const date = document.getElementById('lb-menu-season-date');
         const format = number => String(number).padStart(2, '0');
-        date.textContent = id ? `Season ${format(id)} · Day ${format(day)} / ${seasonPass.DAYS}` : 'Season Calendar';
+        date.textContent = id ? `Season ${format(id)} · Day ${day} of ${seasonPass.DAYS}` : 'Season Calendar';
+        _seasonScreen.updatePreview();
     }
     function refreshMenuUtilities() {
         dailyGiftReady = true;
@@ -3878,7 +3879,6 @@
         settingsTitle.textContent = activeSettingsCategory?.title || 'Settings';
         settingsKicker.textContent = activeSettingsCategory ? 'Settings' : 'Preferences';
         const isBack = activeSettingsCategory || settingsFromPause;
-        settingsBack.querySelector('use').setAttribute('href', isBack ? '#lb-topbar-parent' : '#lb-topbar-home');
         settingsBack.querySelector('span').textContent = isBack ? 'Back' : 'Menu';
         settingsScroll.scrollTop = 0;
     }
@@ -4390,7 +4390,7 @@
             return `<div class="lb-block-card lb-inventory-booster" data-rarity="${meta.rarity}">
                 <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(key)}</div>
                 <div class="lb-inventory-booster-copy"><strong>${meta.label}</strong><span class="lb-exchange-rarity">${meta.rarity}</span></div>
-                <span class="lb-collection-quantity">×${count}</span>
+                <span class="lb-collection-quantity lb-ledger-tag">×${count}</span>
                 ${nextKey ? `<button type="button" class="lb-block-btn lb-block-btn--primary" aria-label="Exchange ${meta.label}" data-exchange-booster="${i}" ${count < 3 ? 'disabled' : ''}>Exchange</button>` : ''}
             </div>`;
         }).join('');
@@ -6488,7 +6488,8 @@
             if (saveData.pendingAchievementClaims.length > 1) {
                 const claimAllBtn = document.createElement('button');
                 claimAllBtn.className = 'lb-block-btn lb-block-btn--primary';
-                claimAllBtn.textContent = 'CLAIM ALL';
+                claimAllBtn.classList.add('lb-ledger-claim');
+                claimAllBtn.textContent = 'Claim all';
                 claimAllBtn.addEventListener('click', () => _claimAfterPaint(claimAllBtn, () => {
                     let totalXpGained = 0;
                     const claims = [...saveData.pendingAchievementClaims];
@@ -6513,10 +6514,10 @@
                 const card = document.createElement('div');
                 card.className = 'ach-pending-row';
                 card.dataset.rarity = rarity;
-                const nameHtml = `<span class="ach-pending-rarity">${rc.label}</span><span class="ach-pending-name">${escapeHtml(claim.name)}</span>`;
+                const nameHtml = `<div class="ach-row-copy"><strong>${escapeHtml(claim.name)}</strong><small class="lb-ledger-rarity-label">${rc.label}</small></div>`;
                 const claimBtn = document.createElement('button');
-                claimBtn.className = 'lb-block-btn';
-                claimBtn.textContent = 'CLAIM';
+                claimBtn.className = 'lb-block-btn lb-block-btn--primary lb-ledger-claim';
+                claimBtn.textContent = 'Claim';
                 claimBtn.setAttribute('aria-label', `Claim ${claim.name}`);
                 claimBtn.addEventListener('click', () => _claimAfterPaint(claimBtn, () => {
                     const idx = saveData.pendingAchievementClaims.indexOf(claim);
@@ -6667,7 +6668,7 @@
             wrap.innerHTML = `${art}
                 <span class="ach-row-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small>${meter}</span>
                 <span class="ach-card-state">${isUnlocked
-                    ? '<svg viewBox="0 0 16 16" role="img" aria-label="Unlocked"><path d="m3 8 3 3 7-7"/></svg>'
+                    ? '<span class="lb-ledger-tag"><svg viewBox="0 0 24 24" role="img" aria-label="Unlocked"><use href="#lb-reward-check"/></svg></span>'
                     : progressText ? `<small>${escapeHtml(progressText)}</small>`
                     : '<svg class="lb-ledger-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>'}</span>`;
             const iconEl = wrap.querySelector('.ach-card-icon');
@@ -9823,7 +9824,7 @@
         const format = q.metric === 'gameTime' ? _fmtMissionTime : String;
         const pointLabel = `+${escapeHtml(q.pts)} SP`;
         const reward = claimed ? '<span class="mq-claimed">✓ Claimed</span>' : ready && !swapping
-            ? `<button type="button" class="mq-pts-claim-btn lb-block-btn lb-block-btn--primary" aria-label="Claim ${pointLabel}" onclick="window._claimQuestPts(${escapeHtml(JSON.stringify(String(q.id)))},${!!isWeekly},null,this)">Claim</button>` : '';
+            ? `<button type="button" class="mq-pts-claim-btn lb-block-btn lb-block-btn--primary lb-ledger-claim" aria-label="Claim ${pointLabel}" onclick="window._claimQuestPts(${escapeHtml(JSON.stringify(String(q.id)))},${!!isWeekly},null,this)">Claim</button>` : '';
         const swap = canSwap ? `<button type="button" class="mq-change-overlay lb-block-btn" aria-label="Swap ${escapeHtml(q.desc)}" onclick="window._changeMission(${index},${!!isWeekly})">Swap</button>` : '';
         const meter = isSecret ? '' : `<div class="mq-card-progress">
             <progress class="lb-block-progress" aria-label="${missionTitle} progress" max="${target}" value="${progress}"></progress>
@@ -9831,9 +9832,9 @@
         </div>`;
         return `<div class="mq-card-wrap"${index == null ? '' : ` data-mission-slot="${index}"`}>
             <article class="mq-card lb-block-card" data-tier="${escapeHtml(tier)}"${ready && !swapping ? ' data-ready' : ''}>
-                <span class="lb-ledger-icon-frame" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#${icon}"/></svg></span>
+                <span class="lb-ledger-icon-frame lb-ledger-key" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#${icon}"/></svg></span>
                 <div class="mq-card-text"><h3 class="mq-card-title">${missionTitle}</h3><p class="mq-card-desc">${desc}</p></div>
-                <div class="mq-card-value"><span class="mq-pts">${pointLabel}</span><span class="mq-tier-badge">${escapeHtml(tier)}</span></div>
+                <div class="mq-card-value"><span class="mq-pts lb-ledger-tag">${pointLabel}</span><span class="mq-tier-badge">${escapeHtml(tier)}</span></div>
                 ${meter}${reward || swap ? `<div class="mq-card-action${ready && !swapping ? ' mq-card-action--claim' : ''}">${reward}${swap}</div>` : ''}
             </article>
         </div>`;
@@ -9969,6 +9970,7 @@
         const swapping = !!window._mqChangeMode;
         const view = el.querySelector('#mq-mission-view');
         view.hidden = isSeason;
+        if (!isSeason) _seasonScreen.updatePreview();
         el.querySelector('.lb-topbar-title').textContent = isSeason ? 'Season Pass' : 'Missions';
         el.querySelector('.lb-topbar-kicker').textContent = isSeason ? 'Rewards' : 'Objectives';
         el.querySelector('#mq-menu').hidden = isSeason;
@@ -10030,17 +10032,18 @@
         const active = _sortQuests(entries.filter(quest => !quest.ptsClaimed));
         const completed = _sortQuests(entries.filter(quest => quest.ptsClaimed));
         const bonus = m.specialBox?.pts || 0;
+        const bonusBox = view.querySelector('#mq-bonus-box');
+        const bonusProgress = bonusBox.querySelector('progress');
+        bonusBox.querySelector('.mq-list-head span').textContent = `${bonus} / ${MQ_SPECIAL_BOX_CAP}`;
+        bonusProgress.max = MQ_SPECIAL_BOX_CAP;
+        bonusProgress.value = Math.min(bonus, MQ_SPECIAL_BOX_CAP);
         const body = el.querySelector('#missions-body');
         const beforeClaim = !opening && previousTab === tab && !el.classList.contains('hidden')
             && typeof body.animate === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
             ? missionCardPositions(body) : null;
         body.innerHTML = `<div class="mq-cards">${active.map(quest => _missionQuestCard(quest, quest === period.secret ? 'secret' : quests.indexOf(quest), weekly)).join('')}</div>
             ${completed.length ? `<h3 class="lb-block-section-title mq-completed">Completed</h3>
-                <div class="mq-cards">${completed.map(quest => _missionQuestCard(quest, null, weekly)).join('')}</div>` : ''}
-            <section id="mq-bonus-box" class="lb-block-card">
-                <div class="mq-list-head"><h3 class="lb-block-section-title">Bonus Box</h3><span>${escapeHtml(bonus)} / ${MQ_SPECIAL_BOX_CAP}</span></div>
-                <progress class="lb-block-progress" aria-label="Bonus Box progress" max="${MQ_SPECIAL_BOX_CAP}" value="${Math.min(bonus, MQ_SPECIAL_BOX_CAP)}"></progress>
-            </section>`;
+                <div class="mq-cards">${completed.map(quest => _missionQuestCard(quest, null, weekly)).join('')}</div>` : ''}`;
         if (beforeClaim) animateMissionClaims(body, beforeClaim);
         for (const star of milestones.querySelectorAll('[data-mqctip]')) {
             bindInfoPreview(star, () => {
