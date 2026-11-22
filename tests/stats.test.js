@@ -36,7 +36,7 @@ it('opens on general stats and switches exactly four panels by click or keyboard
   expect(byId('cal-instructions')).toBeNull();
 });
 
-it('gives raw-stat tiles decorative icons shared with game over and Missions', () => {
+it('gives raw-stat tiles decorative icons shared with Missions', () => {
   const icons = all('.lb-metric-grid dt svg');
   expect(icons).toHaveLength(11);
   const symbols = icons.map(icon => {
@@ -47,7 +47,7 @@ it('gives raw-stat tiles decorative icons shared with game over and Missions', (
   });
   expect(new Set(symbols).size).toBe(11);
   expect(query('#stat-lines').previousElementSibling.querySelector('use').getAttribute('href'))
-    .toBe(query('#go-overlay .lb-run-icon--lines use').getAttribute('href'));
+    .toBe('#lb-run-icon-lines');
   game.w.openMissions();
   const streak = query('.lb-metric-streak .lb-metric-icon');
   expect(streak.getAttribute('aria-hidden')).toBe('true');
@@ -197,9 +197,8 @@ it('preserves leaderboard pagination, pin and unpin actions, and the Fun mode bo
   expect(query('#pinned-list .lb-pin-icon svg').getAttribute('width')).toBe('20');
   expect(query('#pinned-list .lb-pin-icon img').alt).toBe('#1');
   for (const icon of ['lines', 'speed']) {
-    const reference = query(`#go-overlay .lb-run-icon--${icon} use`).getAttribute('href');
-    expect(query(`#pinned-list .lb-run-icon--${icon} use`).getAttribute('href')).toBe(reference);
-    expect(byId(reference.slice(1))).not.toBeNull();
+    expect(query(`#pinned-list .lb-run-icon--${icon} use`).getAttribute('href')).toBe(`#lb-run-icon-${icon}`);
+    expect(byId(`lb-run-icon-${icon}`)).not.toBeNull();
   }
   query('#pinned-list .lb-row').click();
   byId('score-pin-popup').click();

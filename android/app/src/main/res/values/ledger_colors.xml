@@ -10,4 +10,10 @@
     <color name="lb_ledger_action">#5dfde3</color>
     <color name="lb_ledger_rule">#7196b1</color>
     <color name="lb_ledger_focus">#aefdf5</color>
+    <color name="lb_circuit_page">#071421</color>
+    <color name="lb_circuit_edge">#365873</color>
+    <color name="lb_circuit_danger">#ff9e92</color>
+    <color name="lb_circuit_green_label">#bee1ae</color>
+    <color name="lb_circuit_green_action">#b7d9a1</color>
+    <color name="lb_circuit_green_focus">#e1f6ce</color>
 </resources>

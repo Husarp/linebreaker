@@ -106,7 +106,6 @@
 
 .lb-playlist-tag {
     border-radius: 3px;
-    overflow-wrap: anywhere;
 }
 
 @media (max-width: 599px) {

@@ -245,10 +245,10 @@ it.each([
     const get = id => w.document.getElementById(id);
     const pause = get('pause-overlay');
     const confirm = get('custom-confirm');
-    const actions = [...pause.querySelectorAll('.lb-run-icons button')];
-    expect(actions.map(button => button.getAttribute('aria-label'))).toEqual(['Restart run', 'Settings', 'Main menu via run results']);
-    expect(actions.every(button => !button.textContent.trim() && button.dataset.controlTip && button.querySelector('svg[aria-hidden="true"]'))).toBe(true);
-    const action = actions.find(button => button.getAttribute('aria-label') === label);
+    const actions = [...pause.querySelectorAll('.lb-pause-actions button')];
+    expect(actions.map(button => button.textContent)).toEqual(['Resume', 'Settings', 'Main Menu', 'Restart run']);
+    expect(actions.every(button => button.querySelector('svg[aria-hidden="true"]'))).toBe(true);
+    const action = actions.find(button => (button.getAttribute('aria-label') || button.textContent) === label);
     const invoke = w.Function(`return ${action.getAttribute('onclick')}`);
     const respond = async (buttonId, pending) => {
       get(buttonId).click();
@@ -277,7 +277,7 @@ it('focuses and activates overlay buttons and handles Back without sending game 
     const { w, api } = game;
     showRun(game);
     const pause = w.document.getElementById('pause-overlay');
-    const [resume, restart] = pause.querySelectorAll('button');
+    const [resume, settings, menu, restart] = pause.querySelectorAll('button');
     let activations = 0;
     restart.addEventListener('click', () => activations++);
     let connected = pad([9]);
@@ -288,6 +288,12 @@ it('focuses and activates overlay buttons and handles Back without sending game 
     const original = api.state.player;
     step(13);
     expect(w.document.activeElement).toBe(resume);
+    step();
+    step(13);
+    expect(w.document.activeElement).toBe(settings);
+    step();
+    step(13);
+    expect(w.document.activeElement).toBe(menu);
     step();
     step(13);
     expect(w.document.activeElement).toBe(restart);

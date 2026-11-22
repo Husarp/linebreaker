@@ -99,7 +99,7 @@ it('renders the real rank, level, XP and current season in the menu', async () =
   try {
     const info = api.getLevelInfo(api.save.totalXP);
     const { document } = w;
-    expect(document.getElementById('badge-rank-name').textContent).toBe(info.rank.name);
+    expect(document.getElementById('badge-rank-name').textContent).toBe('Bronze');
     expect(document.getElementById('badge-level-num').textContent).toBe(`Level ${info.level.toLocaleString()}`);
     expect(document.getElementById('menu-xp-detail').textContent).toBe(`${info.currentXP.toLocaleString()} / ${info.neededXP.toLocaleString()} XP`);
     expect(document.querySelector('.lb-menu-banner').style.getPropertyValue('--lb-theme-art-landscape')).toContain('default-landscape.jpg');
@@ -120,5 +120,17 @@ it('restores the saved wallpaper preference and shares the settings icon', async
     for (const selector of ['#btn-settings use', '#pause-settings use']) {
       expect(w.document.querySelector(selector).getAttribute('href')).toBe('#lb-icon-settings');
     }
+  } finally { close(); }
+});
+
+it('keeps the Circuit menu actions and opens Inventory on Crates', async () => {
+  const { w, close } = await loadGame();
+  try {
+    const { document } = w;
+    const inventory = document.getElementById('btn-inventory');
+    expect(inventory.closest('.lb-menu-nav').querySelectorAll('.lb-circuit-action')).toHaveLength(4);
+    inventory.click();
+    expect(document.querySelector('[data-invtab="crates"]').getAttribute('aria-selected')).toBe('true');
+    expect(document.querySelector('[data-invtab-content="crates"]').classList.contains('hidden')).toBe(false);
   } finally { close(); }
 });

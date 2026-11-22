@@ -53,7 +53,6 @@
     background: var(--surface-2);
     border-radius: var(--radius-sm);
     min-width: 0;
-    overflow-wrap: anywhere;
 }
 #stats-overlay .lb-stats-metrics dt { color: var(--text-muted); font-size: var(--text-sm); }
 #stats-overlay .lb-stats-metrics dd {
@@ -126,12 +125,10 @@
     color: var(--text);
     font: 700 var(--text-body)/var(--leading-title) var(--font-display);
     font-variant-numeric: tabular-nums;
-    overflow-wrap: anywhere;
 }
 #stats-overlay :is(.lb-rank, .lb-detail, .lb-date, .lb-pts, .lb-stats-meta, .lb-empty) {
     color: var(--text-muted);
     font: 400 var(--text-sm)/var(--leading) var(--font-body);
-    overflow-wrap: anywhere;
 }
 #stats-overlay .lb-pts { opacity: 1; }
 #stats-overlay .lb-date { grid-area: 1 / 3; }

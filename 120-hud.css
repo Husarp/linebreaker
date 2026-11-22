@@ -48,7 +48,6 @@
     max-width: 100%;
     color: var(--accent-bright);
     font: 400 clamp(12px, 1.55vw, 18px)/1.2 var(--bb-font-pixel);
-    overflow-wrap: anywhere;
     text-shadow: none;
 }
 

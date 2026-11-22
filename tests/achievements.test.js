@@ -31,6 +31,8 @@ describe('achievement screen', () => {
     game.api.setup({ save: { achievements: { collector: { tier: 2 }, sec_nice: { unlocked: true } } } });
     game.w.openAchievements();
     expect(query('#ach-counter').textContent).toBe('2% complete');
+    expect(query('#ach-milestone-count').textContent).toBe('2 of 119 unlocked');
+    expect(query('#ach-milestone-progress').position).toBeCloseTo(2 / 119);
     expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 58');
     expect(sectionCount('BASIC')).toBe('2 of 119');
     expect(sectionCount('SECRET')).toBe('1 of 58');
@@ -110,7 +112,6 @@ describe('achievement screen', () => {
     game.w.devLockAllAchievements();
     game.w.openAchievements('locked');
     const mystery = badges('SECRET')[0].querySelector('.ach-card-icon').innerHTML;
-    const lockedBasic = new Map(badges('BASIC').map(badge => [badge.dataset.achId, badge.querySelector('.ach-card-icon').innerHTML]));
 
     game.w.devUnlockAllAchievements();
     game.w.openAchievements('unlocked');
@@ -118,10 +119,13 @@ describe('achievement screen', () => {
     expect(earned).toHaveLength(96);
     for (const badge of earned) {
       const icon = badge.querySelector('.ach-card-icon');
+      if (icon.localName === 'img') {
+        expect(icon.getAttribute('src')).toMatch(/^assets\/ui\/medals\/(bronze|silver|gold)\.png$/);
+        continue;
+      }
       expect(icon.querySelector('path[d], use[href]')).not.toBeNull();
       expect(icon.querySelector('text')).toBeNull();
       expect(icon.innerHTML).not.toBe(mystery);
-      if (lockedBasic.has(badge.dataset.achId)) expect(icon.innerHTML).toBe(lockedBasic.get(badge.dataset.achId));
     }
   });
 

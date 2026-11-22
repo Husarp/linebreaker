@@ -47,7 +47,6 @@
     margin-top: 4px;
     font: 650 1rem/1.2 var(--font-display);
     font-variant-numeric: tabular-nums;
-    overflow-wrap: anywhere;
 }
 
 #stats-overlay .lb-metric-grid .lb-stats-comparison { font: 550 .67rem/1.2 var(--font-body); }

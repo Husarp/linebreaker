@@ -17,7 +17,7 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
   const card = () => game.w.document.querySelector('[data-mission-slot="0"]');
   const claim = card().querySelector('.mq-card-action--claim > button.lb-block-btn--primary');
   expect(claim.textContent).toBe('Claim');
-  expect(claim.getAttribute('aria-label')).toBe(`Claim +${mission.pts} pts`);
+  expect(claim.getAttribute('aria-label')).toBe(`Claim +${mission.pts} SP`);
   const progress = card().querySelector('progress');
   expect(progress.value).toBe(mission.target);
   expect(progress.max).toBe(mission.target);
@@ -32,18 +32,21 @@ it('shows the current period on the board and returns to it from Season Pass', (
   const {document} = game.w;
   game.w.renderMissionsOverlay('daily');
   const select = period => document.querySelector(`#missions-overlay [data-tab="${period}"]`);
-  const title = () => document.getElementById('mq-board-title').textContent;
-  expect(title()).toBe('Today’s board');
+  const periodLabel = () => document.getElementById('mq-board-period').textContent;
+  expect(document.getElementById('mq-board-title').textContent).toBe('Mission log');
+  expect(periodLabel()).toBe('Daily objectives');
   expect(document.querySelector('#mq-countdown time').dateTime).toMatch(/^P/);
   select('weekly').click();
-  expect(title()).toBe('This week’s board');
+  expect(periodLabel()).toBe('Weekly objectives');
   expect(select('weekly').getAttribute('aria-pressed')).toBe('true');
   select('season').click();
   expect(document.querySelector('#missions-overlay .lb-topbar-title').textContent).toBe('Season Pass');
   expect(document.getElementById('mq-mission-view').hidden).toBe(true);
+  expect(document.getElementById('mq-list-meta').hidden).toBe(true);
   document.getElementById('mq-back').click();
   expect(document.getElementById('season-pass-overlay').hidden).toBe(true);
-  expect(title()).toBe('This week’s board');
+  expect(periodLabel()).toBe('Weekly objectives');
+  expect(document.getElementById('mq-list-meta').textContent).toMatch(/^\d+ \/ \d+ complete$/);
   expect(select('weekly').getAttribute('aria-pressed')).toBe('true');
 });
 

@@ -72,6 +72,23 @@ const fileFor = {
 };
 const fetchDemoAssets = async path => ({ ok: Boolean(fileFor[path]), json: async () => JSON.parse(readFileSync(new URL(`../${fileFor[path]}`, import.meta.url))) });
 
+it('mirrors the accent to compatible Android shells without changing it on wallpaper selection', async () => {
+  const setCircuitAccent = vi.fn().mockRejectedValue(new Error('Older shell'));
+  game = await loadGame(true, null, {
+    isNativePlatform: () => true,
+    isPluginAvailable: name => name === 'Ota',
+    Plugins: { Ota: { setCircuitAccent } },
+  });
+  const { w } = game;
+  expect(setCircuitAccent).toHaveBeenLastCalledWith({ accent: 'dark' });
+  w.document.querySelector('[data-ui-theme="green"]').click();
+  expect(setCircuitAccent).toHaveBeenLastCalledWith({ accent: 'green' });
+  const callCount = setCircuitAccent.mock.calls.length;
+  w.onSettingChange('themeBackground', 'ocean');
+  expect(setCircuitAccent).toHaveBeenCalledTimes(callCount);
+  expect(w.document.documentElement.dataset.lbUiTheme).toBe('green');
+});
+
 it.each(['?dev&cutout', '?demo&cutout'])('does not enable the QA API or mock cutout with %s', async query => {
   const invoke = vi.fn().mockResolvedValue(null);
   game = await loadGame(false, invoke, null, undefined, null, window => window.history.replaceState(null, '', query));
@@ -157,9 +174,16 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
   }
   const bonus = get('go-record-bonus');
   expect(bonus.hidden).toBe(false);
-  expect(bonus.parentElement.className).toBe('go-stat-rows');
+  expect(bonus.parentElement.className).toBe('go-reward-ledger');
   expect(bonus.querySelector('dt').textContent).toBe('Record bonus');
   expect(bonus.querySelector('dd').textContent).toBe(`+${(1854).toLocaleString()} XP`);
+  expect(get('go-mode').textContent).toBe('Normal');
+  expect(get('go-time').textContent).toBe('04:26');
+  expect(get('go-record-label').hidden).toBe(false);
+  expect(get('go-record-medal').hidden).toBe(false);
+  expect(get('go-total-xp').textContent).toMatch(/^\+.+ XP$/);
+  const level = game.api.getLevelInfo(game.api.save.totalXP);
+  expect(get('go-xp-progress').textContent).toBe(`${level.currentXP.toLocaleString()} / ${level.neededXP.toLocaleString()} XP to next level`);
   expect(get('go-achievements-new').querySelector('.go-ach-icon').hasAttribute('style')).toBe(false);
   await qa.open('menu');
   await qa.open('transfer');
@@ -192,8 +216,9 @@ it('opens the documented screenshot targets through real UI handlers', async () 
     menu: '#menu-overlay', play: '#mode-select-overlay', 'play-fun': '#mode-select-overlay[data-mode="fun"]',
     'settings-home': '.lb102-directory', settings: '#settings-game', 'settings-controls': '#settings-controls', 'settings-audio': '#settings-audio',
     'settings-display': '#settings-display', 'settings-notifications': '#settings-notifications', 'settings-updates': '#settings-updates', 'settings-about': '#settings-about',
-    'whats-new-notice': '.lb184-banner', inventory: '[data-invtab-content="blocks"]',
-    'inventory-colors': '[data-invtab-content="colors"]', 'inventory-other': '[data-invtab-content="other"]',
+    'whats-new-notice': '.lb184-banner', inventory: '[data-invtab-content="crates"]', 'inventory-blocks': '[data-invtab-content="blocks"]',
+    'inventory-colors': '[data-invtab-content="colors"]', 'inventory-boosters': '[data-invtab-content="boosters"]',
+    'inventory-parts': '[data-invtab-content="parts"]', 'inventory-other': '[data-invtab-content="other"]',
     stats: '#general-stats-container', leaderboard: '#leaderboard-container', pinned: '#pinned-container', highscores: '#highscores-container',
     missions: '#missions-overlay', 'missions-weekly': '#missions-overlay', 'mission-confirm': '#mq-confirm-overlay',
     'season-pass': '#season-pass-overlay', achievements: '#achievements-overlay', playlist: '#playlist-overlay',
@@ -288,7 +313,8 @@ it('updates the open season countdown at precision boundaries and rollover', asy
     w.dispatchEvent(new w.Event('focus'));
     expect(countdown.textContent).toBe(label);
   }
-  expect(w.document.querySelector('#sp-season').textContent).toBe(`Season ${period.id + 1} · Day 1 / 30`);
+  expect(w.document.querySelector('#sp-season').textContent).toBe(`Season ${String(period.id + 1).padStart(2, '0')}`);
+  expect(w.document.querySelector('#sp-day').textContent).toBe('Day 1 / 30');
 });
 
 it('equips owned inventory cards without separate Equip buttons', async () => {
@@ -354,10 +380,11 @@ it('shows plain booster balances and puts the cost inside the exchange dialog', 
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w, api } = game;
   api.setSave({ ...api.save, boosters: { ...api.save.boosters, '1.25x_game': 7 } });
-  await w.__LB_QA.open('inventory-other');
-  const inventory = w.document.getElementById('inventory-other-content');
+  await w.__LB_QA.open('inventory-boosters');
+  const inventory = w.document.getElementById('inventory-boosters');
   const common = inventory.querySelector('[aria-label="Exchange 1.25× Booster"]');
-  expect(common.closest('.lb-inventory-booster').querySelector('.lb-inventory-booster-stock').textContent.trim()).toBe('x7');
+  expect(common.closest('.lb-inventory-booster').querySelector('.lb-inventory-booster-stock').textContent.trim()).toBe('×7');
+  expect(inventory.querySelector('.lb-collection-rule').textContent).toContain(`${Object.values(api.save.boosters).reduce((sum, count) => sum + count, 0)} owned`);
   expect(inventory.textContent).not.toContain('Cost: 3 boosters');
   expect(common.disabled).toBe(false);
   expect(inventory.querySelector('[aria-label="Exchange 1.5× Booster"]').disabled).toBe(true);

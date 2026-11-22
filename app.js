@@ -759,6 +759,10 @@
     function syncUiTheme() {
         for (const button of uiThemeButtons) button.setAttribute('aria-pressed', String(button.dataset.uiTheme === settings.uiTheme));
         document.documentElement.dataset.lbUiTheme = settings.uiTheme;
+        const native = window.Capacitor;
+        if (!_qaDemo && native?.isPluginAvailable?.('Ota')) {
+            void native.Plugins.Ota.setCircuitAccent?.({ accent: settings.uiTheme })?.catch(() => {});
+        }
     }
     for (const button of uiThemeButtons) button.onclick = () => onSettingChange('uiTheme', button.dataset.uiTheme);
     const _movingBackgroundToggle = document.getElementById('setting-moving-background');
@@ -781,7 +785,7 @@
         };
     }
     function syncWallpaperArt(theme) {
-        for (const element of [document.querySelector('.bg-gradient'), document.querySelector('.lb-menu-banner')]) {
+        for (const element of document.querySelectorAll('.bg-gradient, .lb-menu-banner, .go-score-card')) {
             LBArtPack.applyThemeBackground(element, theme, settings.themeBackground);
         }
     }
@@ -3826,24 +3830,24 @@
     const settingsScroll = document.querySelector('.lb102-settings-scroll');
     const settingsBack = document.getElementById('settings-back');
     const settingsTitle = document.querySelector('#settings-overlay .lb-topbar-title');
+    const settingsKicker = document.querySelector('#settings-overlay .lb-topbar-kicker');
     const settingsCategories = new Map([
-        ['controls', 'Controls', 'Touch, gestures, vibration', 'game', '<path d="M3 6h18v12H3zM6 10h2m3 0h2m3 0h2M6 14h2m3 0h7"/>', 'key bindings gameplay assistance timing'],
-        ['display', 'Display', 'Wallpaper, effects, accent', 'game', '<path d="M3 4h18v13H3zM8 21h8m-4-4v4"/>', 'wallpaper theme palette accent cyan green motion screen'],
-        ['audio', 'Audio', 'Music, effects, tempo', 'game', '<path d="M3 9h4l5-4v14l-5-4H3zM16 9a4 4 0 0 1 0 6m2-9a8 8 0 0 1 0 12"/>', 'sound volume mute sfx'],
-        ['notifications', 'Notifications', 'Reminders, updates', 'app', '<path d="M4 17h16l-2-3v-4a6 6 0 0 0-12 0v4zm6 3a2 2 0 0 0 4 0"/>', 'daily weekly streak missions'],
-        ['updates', 'Updates', 'Save data and app version', 'app', '<path d="M12 3 4 6v5c0 5 3 8 8 10 5-2 8-5 8-10V6zM9 12l2 2 4-4"/>', 'install release notes help credits transfer reset'],
+        ['controls', 'Controls', 'Touch, gestures, vibration', 'game', '<path d="M2 7h20v10H2zm4 5h6m-3-3v6m7-2v.1m3-2v.1"/>', 'key bindings gameplay assistance timing'],
+        ['display', 'Display', 'Background, effects, contrast', 'game', '<path d="M3 4h18v13H3zm5 16h8m-4-3v3"/>', 'wallpaper theme palette accent cyan green motion screen'],
+        ['audio', 'Audio', 'Music, effects, tempo', 'game', '<path d="M3 9h4l5-4v14l-5-4H3zm13-1a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>', 'sound volume mute sfx'],
+        ['notifications', 'Notifications', 'Reminders, updates', 'app', '<path d="M7 10a5 5 0 0 1 10 0v3l2 3H5l2-3zm3 9h4"/>', 'daily weekly streak missions'],
+        ['updates', 'Data & updates', 'Save data and app version', 'app', '<path d="M4 5l8-3 8 3v7c0 5-8 10-8 10s-8-5-8-10z"/>', 'install release notes help credits transfer reset'],
         ['game', 'Gameplay', '', '', '', '', 'controls'],
         ['about', 'Save data and help', '', '', '', '', 'updates'],
     ].map(([key, title, summary, group, icon, keywords, parent]) => {
         const page = document.getElementById(`settings-${key}`);
         const button = group ? document.createElement('button') : document.querySelector(`[data-settings-subpage="${key}"]`);
         if (group) {
-            const label = key === 'updates' ? 'Data & updates' : title;
             button.type = 'button';
             button.className = 'lb-block-btn lb-ledger-row';
             button.dataset.settingsCategory = key;
-            button.dataset.settingsSearch = `${label} ${summary} ${keywords}`.toLowerCase();
-            button.innerHTML = `<svg aria-hidden="true" viewBox="0 0 24 24">${icon}</svg><span><strong>${escapeHtml(label)}</strong><small>${summary}</small></span><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#lb-topbar-next"/></svg>`;
+            button.dataset.settingsSearch = `${title} ${summary} ${keywords}`.toLowerCase();
+            button.innerHTML = `<svg aria-hidden="true" viewBox="0 0 24 24">${icon}</svg><span><strong>${escapeHtml(title)}</strong><small>${summary}</small></span><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#lb-topbar-next"/></svg>`;
             settingsMenu.querySelector(`[data-settings-group="${group}"]`).append(button);
         }
         button.setAttribute('aria-controls', page.id);
@@ -3865,6 +3869,7 @@
         settingsMenu.hidden = !!activeSettingsCategory;
         for (const category of settingsCategories.values()) category.page.hidden = category !== activeSettingsCategory;
         settingsTitle.textContent = activeSettingsCategory?.title || 'Settings';
+        settingsKicker.textContent = activeSettingsCategory ? 'Settings' : 'Preferences';
         const isBack = activeSettingsCategory || settingsFromPause;
         settingsBack.querySelector('use').setAttribute('href', isBack ? '#lb-topbar-parent' : '#lb-topbar-home');
         settingsBack.querySelector('span').textContent = isBack ? 'Back' : 'Menu';
@@ -3939,7 +3944,7 @@
         });
         document.querySelectorAll('[data-invtab-content]').forEach(p => p.classList.toggle('hidden', p.dataset.invtabContent !== tab));
         if (_prevInvTab !== tab) _invOv.querySelector('.lb-inventory-content').scrollTop = 0;
-        if (tab === 'other') _populateInventoryOther();
+        if (['boosters', 'parts', 'other'].includes(tab)) _populateInventoryOther();
         if (tab === 'blocks' || tab === 'colors' || tab === 'fonts') _populateVisualCustomize();
         clearInterval(inventoryPreviewTimer);
         if (tab === 'blocks' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
@@ -3950,7 +3955,7 @@
             }, 2500);
         }
         if (_prevInvTab && _prevInvTab !== tab) {
-            const _ord = ['blocks', 'colors', 'other'];
+            const _ord = ['crates', 'boosters', 'parts', 'blocks', 'colors', 'other'];
             const _oi = _ord.indexOf(_prevInvTab), _ni = _ord.indexOf(tab);
             const _p = document.querySelector(`[data-invtab-content="${tab}"]`);
             if (_p) _animateIn(_p, _ni > _oi ? 'tab-slide-in-right' : 'tab-slide-in-left');
@@ -4336,7 +4341,18 @@
     function _populateInventoryOther() {
         const container = document.getElementById('inventory-other-content');
         if (!container) return;
+        const boosterPanel = document.getElementById('inventory-boosters');
+        const partsPanel = document.getElementById('inventory-parts');
         const boosters = saveData.boosters || {};
+        const ownedBoosters = BOOSTER_KEYS.reduce((total, key) => total + (boosters[key] || 0), 0);
+        const boosterTypes = BOOSTER_KEYS.filter(key => boosters[key] > 0).length;
+        const locker = (category, detail, art, quantity, help = '') => `
+            <section class="lb-collection-feature">
+                <div><span class="lb-collection-label">Locker</span><h2>Stored ${category.toLowerCase()}</h2><p>${detail}</p></div>${art}
+            </section>
+            <div class="lb-collection-rule">
+                <span class="lb-collection-label">${category}</span>${help}<span>${quantity} owned</span>
+            </div>`;
 
         // Universal parts section
         const _uniVal = saveData.universalParts || 0;
@@ -4359,8 +4375,8 @@
             const count = boosters[key] || 0;
             const nextKey = BOOSTER_KEYS[i + 1];
             return `<div class="lb-block-card lb-inventory-booster" data-rarity="${meta.rarity}">
+                <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(key)} <span>×${escapeHtml(count)}</span></div>
                 <strong>${meta.label}</strong>
-                <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(key)} <span>x${escapeHtml(count)}</span></div>
                 <span class="lb-exchange-rarity">${meta.rarity}</span>
                 ${nextKey ? `<button type="button" class="lb-block-btn lb-block-btn--primary" aria-label="Exchange ${meta.label}" data-exchange-booster="${i}" ${count < 3 ? 'disabled' : ''}>Exchange</button>` : ''}
             </div>`;
@@ -4386,18 +4402,18 @@
                 '', p.key, p.packId);
         }).join('');
 
+        partsPanel.innerHTML = locker('Parts', 'Universal parts unlock items or exchange for XP.', _exchangePartsIcon(), Number(_uniVal.toFixed(1))) + uniRow;
+        boosterPanel.innerHTML = locker('Boosters', `${boosterTypes} ${boosterTypes === 1 ? 'type' : 'types'} in your collection`,
+            LBArtPack.boosterIcon(BOOSTER_KEYS.find(key => boosters[key] > 0) || BOOSTER_KEYS[0]), ownedBoosters,
+            '<button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" data-control-tip="About boosters"></button>') +
+            `<div class="lb-inventory-boosters">${boosterHtml}</div>`;
         container.innerHTML = `
-            ${uniRow}
-            <section class="lb-block-card lb-inventory-section lb-inventory-boosters">
-                <h2 class="lb-block-section-title lb-help-label">Boosters <button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" data-control-tip="About boosters"></button></h2>
-                ${boosterHtml}
-            </section>
             <section id="inventory-sfx-packs" class="lb-block-card lb-inventory-section lb82-sfx-packs">
                 <h2 class="lb-block-section-title">SFX Packs</h2>
                 ${sfxPacksHtml}
             </section>`;
-        container.querySelector('[data-use-parts]').addEventListener('click', exchangeForXP ? openExchangeUniversalParts : openUseUniversalPart);
-        container.querySelectorAll('[data-exchange-booster]').forEach(button => button.addEventListener('click', () => {
+        partsPanel.querySelector('[data-use-parts]').addEventListener('click', exchangeForXP ? openExchangeUniversalParts : openUseUniversalPart);
+        boosterPanel.querySelectorAll('[data-exchange-booster]').forEach(button => button.addEventListener('click', () => {
             const index = Number(button.dataset.exchangeBooster);
             exchangeBoosters(BOOSTER_KEYS[index], BOOSTER_KEYS[index + 1]);
         }));
@@ -4415,7 +4431,7 @@
         const sfxList = [
             { name: 'clear', desc: 'Line clear' },
             { name: 'drop', desc: 'Block placed' },
-            { name: 'levelup', desc: 'Speed up' },
+            { name: 'levelup', desc: 'Run level up' },
             { name: 'click', desc: 'UI click' },
             { name: 'gameover', desc: 'Game over' },
             { name: 'unlock', desc: 'Item unlocked' },
@@ -4457,9 +4473,9 @@
         const allItems = _getAllPartsItems();
         const readyItems = allItems.filter(item => (saveData.parts?.[item.key] || 0) >= _getItemCost(item.key));
         // Tab glow: blocks tab has skins, colors tab has themes, other tab has ghostColor/gridStyle/music
-        const skinReady = readyItems.some(i => i.cat === 'skin');
-        const themeReady = readyItems.some(i => i.cat === 'theme');
-        const otherReady = readyItems.some(i => i.cat === 'ghostColor' || i.cat === 'gridStyle' || i.cat === 'btnStyle' || i.cat === 'music' || i.cat === 'sfxPack' || i.cat === 'palette');
+        const skinReady = readyItems.some(i => ['skin', 'ghostColor', 'gridStyle'].includes(i.cat));
+        const themeReady = readyItems.some(i => i.cat === 'theme' || i.cat === 'palette');
+        const otherReady = readyItems.some(i => i.cat === 'sfxPack');
         document.querySelectorAll('[data-invtab]').forEach(btn => {
             const tab = btn.dataset.invtab;
             const hasReady = (tab === 'blocks' && skinReady) || (tab === 'colors' && themeReady) || (tab === 'other' && otherReady);
@@ -5082,7 +5098,7 @@
             const realIdx = pins.length - 1 - ri;
             const div = document.createElement('button'); div.className = 'lb-row lb-stats-pin';
             const details = e.lines != null
-                ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed||1)}</span>`
+                ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}Level ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
             const noteHtml = e.note ? `<span class="lb-stats-meta">${escapeHtml(e.note)}</span>` : '';
             const matchesPin = entry => _sameRunStats(entry, e);
@@ -5166,7 +5182,7 @@
                 const e = lb[i];
                 const div = document.createElement('button'); div.className = 'lb-row';
                 const details = e.lines != null
-                    ? `<span class="lb-detail">${ico.time}${lbFmt(e.time)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines)} lines</span><span class="lb-detail">${ico.speed}speed ${escapeHtml(e.maxSpeed)}</span>`
+                    ? `<span class="lb-detail">${ico.time}${lbFmt(e.time)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines)} lines</span><span class="lb-detail">${ico.speed}Level ${escapeHtml(e.maxSpeed)}</span>`
                     : '';
                 div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock))}</span>`;
                 _bindScoreInfo(div, e, `#${i + 1}`);
@@ -5372,13 +5388,13 @@
         },
         {
             id: 'speed', cat: 'basic', name: 'Throttle', type: 'tiered',
-            counter: { path:'stats.bestMaxSpeed', label:'Best Speed (Normal)' },
+            counter: { path:'stats.bestMaxSpeed', label:'Highest Run Level (Normal)' },
             tiers: [
-                { rarity:'common',    name:'First Gear',  desc:'Reach speed 3 in Normal Mode',  check: g => g.maxSpeed >= 3  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:3  } },
-                { rarity:'rare',      name:'No Brakes',   desc:'Reach speed 5 in Normal Mode',  check: g => g.maxSpeed >= 5  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:5  } },
-                { rarity:'epic',      name:'Overdrive',   desc:'Reach speed 8 in Normal Mode',  check: g => g.maxSpeed >= 8  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:8  } },
-                { rarity:'legendary', name:'Supersonic',  desc:'Reach speed 12 in Normal Mode', check: g => g.maxSpeed >= 12 && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:12 } },
-                { rarity:'mythic',    name:'Turbo',       desc:'Reach speed 15 in Normal Mode', check: g => g.maxSpeed >= 15 && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:15 } },
+                { rarity:'common',    name:'First Gear',  desc:'Reach level 3 in Normal Mode',  check: g => g.maxSpeed >= 3  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:3  } },
+                { rarity:'rare',      name:'No Brakes',   desc:'Reach level 5 in Normal Mode',  check: g => g.maxSpeed >= 5  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:5  } },
+                { rarity:'epic',      name:'Overdrive',   desc:'Reach level 8 in Normal Mode',  check: g => g.maxSpeed >= 8  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:8  } },
+                { rarity:'legendary', name:'Supersonic',  desc:'Reach level 12 in Normal Mode', check: g => g.maxSpeed >= 12 && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:12 } },
+                { rarity:'mythic',    name:'Turbo',       desc:'Reach level 15 in Normal Mode', check: g => g.maxSpeed >= 15 && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:15 } },
             ],
         },
         // ── SINGLE ────────────────────────────────────────────────
@@ -5457,7 +5473,7 @@
             ],
         },
         {
-            id: 'speedrunner', cat: 'basic', name: 'Speedrunner', type: 'tiered',
+            id: 'speedrunner', cat: 'basic', name: 'Time Trial', type: 'tiered',
             counter: { path:'stats.bestSpeedrunnerTime', label:'Best Time (10 lines)', fmt:'time' },
             tiers: [
                 { rarity:'common',    name:'Runner',    desc:'Clear 10 lines in under 1 minute',   check: g => g.speedrunner <= 60,  progressDisplay:{ path:'stats.bestSpeedrunnerTime', target:60  } },
@@ -5683,7 +5699,7 @@
     {
         id: 'risky_break', cat: 'secret', name: 'No Risk, No Break', type: 'single',
         rarity: 'common', clue: 'Living on the edge.',
-        desc: 'Pause the game at speed 3 or higher.',
+        desc: 'Pause the game at run level 3 or higher.',
         check: () => false,
     },
     {
@@ -5899,7 +5915,7 @@
     {
         id: 'too_fast', cat: 'secret', name: 'Difficulty Spike', type: 'single',
         rarity: 'rare', clue: 'So close to the next gear.',
-        desc: 'Game over on the first line after a speed-up (at speed 3+).',
+        desc: 'Game over on the first line after reaching run level 3 or higher.',
         check: () => false,
     },
     {
@@ -6540,6 +6556,10 @@
         const completion = publicTotal ? Math.round(publicDone / publicTotal * 100) : 0;
         overlay.querySelector('#ach-counter').textContent = `${completion}% complete`;
         overlay.querySelector('#ach-secret-counter').textContent = `Secrets ${secretCounts.done} of ${secretCounts.total}`;
+        overlay.querySelector('#ach-milestone-count').textContent = `${publicDone} of ${publicTotal} unlocked`;
+        const milestoneProgress = overlay.querySelector('#ach-milestone-progress');
+        milestoneProgress.max = publicTotal || 1;
+        milestoneProgress.value = publicDone;
 
         const _RARITY_ORDER = { common:1, rare:2, epic:3, legendary:4, mythic:5 };
         function _getRarityOfItem(item) {
@@ -6623,11 +6643,17 @@
             if (!isSecretLocked) wrap.dataset.achId = ach.id;
             const icon = isSecretLocked ? achievementIcon('question') : ach.svgIcon;
             const state = isUnlocked ? 'Unlocked' : 'Locked';
-            const detail = isSecretLocked ? state : `${rc.label} · ${state}`;
+            const tier = ach.type === 'tiered' ? ach.tiers[isUnlocked ? curTier - 1 : curTier] : null;
+            const detail = isSecretLocked ? state : tier?.desc || ach.desc || rc.label;
+            const medal = tier && (rarity === 'common' ? 'bronze' : rarity === 'rare' ? 'silver' : 'gold');
             const meter = _progressFrac > 0 ? `<progress class="lb-block-progress" max="1" value="${_progressFrac}" aria-label="Achievement progress"></progress>` : '';
-            wrap.innerHTML = `<svg class="ach-card-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${icon}</svg>
+            const art = medal ? `<img class="ach-card-icon" src="assets/ui/medals/${medal}.png" alt="">`
+                : `<svg class="ach-card-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${icon}</svg>`;
+            wrap.innerHTML = `${art}
                 <span class="ach-row-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small>${meter}</span>
-                <svg class="lb-ledger-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>`;
+                <span class="ach-card-state"><small>${isSecretLocked ? '' : escapeHtml(rc.label)}</small>${isUnlocked
+                    ? '<svg viewBox="0 0 16 16" role="img" aria-label="Unlocked"><path d="m3 8 3 3 7-7"/></svg>'
+                    : '<svg class="lb-ledger-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>'}</span>`;
             const iconEl = wrap.querySelector('.ach-card-icon');
             bindInfoPreview(wrap, () => {
                 const dateLine = value => {
@@ -7273,7 +7299,7 @@
 
     function renderMenuRank(info, percent, totalXP) {
         const name = document.getElementById('badge-rank-name');
-        name.textContent = info.rank.name;
+        name.textContent = info.isCelestite ? 'Celestite' : _rewardRankIdentity(info.level).name;
         name.style.setProperty('--lb-rank-tone', info.rank.c);
         document.getElementById('badge-level-num').textContent = `Level ${info.level.toLocaleString()}`;
         document.getElementById('menu-xp-detail').textContent = info.isCelestite
@@ -7447,6 +7473,7 @@
         resetHeldInputs();
         isPaused = true;
         pauseMusic();
+        document.getElementById('pause-mode').textContent = currentGameMode === 'fun' ? 'Fun run' : 'Normal run';
         document.getElementById('pause-overlay').classList.remove('hidden');
         // risky_break: pause at speed 3+
         if (speedLevel >= 3 && !saveData.achievements?.['risky_break']?.unlocked) { unlockAchievement('risky_break'); saveDataToFile(); }
@@ -8214,11 +8241,14 @@
         label.textContent = text;
     }
     function _fmtScoreHTML(v){const i=Math.floor(v);const d=Math.round((v-i)*10);return i.toLocaleString()+(d>0?`<span style="font-size:0.6em;opacity:0.7;">.${d}</span>`:'');}
+    function formatRunClock(time) {
+        const minutes = String(Math.floor(time / 60)).padStart(2, '0');
+        const seconds = String(time % 60).padStart(2, '0');
+        return `${minutes}:${seconds}`;
+    }
     function updateUI() {
-        const minutes = String(Math.floor(gameTime / 60)).padStart(2, '0');
-        const seconds = String(gameTime % 60).padStart(2, '0');
         document.getElementById('pc-score').innerHTML = _fmtScoreHTML(score);
-        document.getElementById('pc-time').textContent = `${minutes}:${seconds}`;
+        document.getElementById('pc-time').textContent = formatRunClock(gameTime);
         document.getElementById('pc-lines').textContent = linesClearedThisGame;
         _renderHudLevel();
         const fun = currentGameMode === 'fun';
@@ -8265,14 +8295,26 @@
         });
     }
     
+    function _renderGoXP(xp, totalXP) {
+        const info = getLevelInfo(totalXP);
+        document.getElementById('go-total-xp').textContent = `+${xp.toLocaleString()} XP`;
+        document.getElementById('go-xp-progress').textContent = info.isCelestite
+            ? `${Math.floor(totalXP).toLocaleString()} total XP`
+            : `${Math.floor(info.currentXP).toLocaleString()} / ${info.neededXP.toLocaleString()} XP to next level`;
+    }
+
     function _renderGoStats(best, isRecord, funMode, xp, recordBonus = 0) {
         document.getElementById('go-score').textContent = Math.round(score).toLocaleString();
         document.getElementById('go-best-score').textContent = Math.round(best).toLocaleString();
-        document.getElementById('go-best-label').textContent = isRecord ? 'New best' : 'Best';
+        document.getElementById('go-record-label').hidden = !isRecord;
+        document.getElementById('go-record-medal').hidden = !isRecord;
+        document.getElementById('go-previous-best').hidden = isRecord;
+        document.getElementById('go-mode').textContent = funMode ? 'Fun' : 'Normal';
         document.getElementById('go-lines-cnt').textContent = linesClearedThisGame;
         document.getElementById('go-max-speed').textContent = speedLevel;
-        document.getElementById('go-total-xp').textContent = xp.toLocaleString();
-        document.getElementById('go-xp-row').hidden = funMode;
+        document.getElementById('go-time').textContent = formatRunClock(gameTime);
+        document.getElementById('go-rewards').hidden = funMode;
+        if (!funMode) _renderGoXP(xp, saveData.totalXP + xp);
         document.getElementById('go-pin-btn').hidden = funMode;
         const bonus = document.getElementById('go-record-bonus');
         bonus.hidden = funMode || recordBonus <= 0;
@@ -8468,7 +8510,7 @@
         gainedXPThisRound += bonus;
         _grantXP(bonus);
         if (bonus > 0) _updateMissionProgress({ totalXP: bonus });
-        document.getElementById('go-total-xp').textContent = gainedXPThisRound.toLocaleString();
+        _renderGoXP(gainedXPThisRound, saveData.totalXP);
         _renderGoBoostRow(gainedXPThisRound);
         animateXPGain();
         saveDataToFile();
@@ -8616,6 +8658,7 @@
             if (screen === 'game-over') {
                 score = _bestScore() + 120;
                 linesClearedThisGame = 4;
+                gameTime = 266;
                 gameOver();
             }
             resolve();
@@ -9116,7 +9159,7 @@
         { id: 'score_300',      tier: 'easy',   title: 'Score Rookie',      desc: 'Score {n} points in one game',                     metric: 'score',          target: 300,  pts: 2 },
         { id: 'survive_90',     tier: 'easy',   title: 'Time Keeper',       desc: 'Survive for {n} in one game',                      metric: 'gameTime',       target: 90,   pts: 2 },
         { id: 'survive_120',    tier: 'easy',   title: 'Two Minutes',       desc: 'Survive for {n} in one game',                      metric: 'gameTime',       target: 120,  pts: 2 },
-        { id: 'reach_speed2',   tier: 'easy',   title: 'Pick Up the Pace',  desc: 'Reach speed level {n}',                            metric: 'maxSpeed',       target: 2,    pts: 2 },
+        { id: 'reach_speed2',   tier: 'easy',   title: 'Pick Up the Pace',  desc: 'Reach level {n} in a run',                          metric: 'maxSpeed',       target: 2,    pts: 2 },
         { id: 'hard_drops_5',   tier: 'easy',   title: 'Drop It',           desc: 'Hard-drop {n} times in one game',                  metric: 'hardDrops',      target: 5,    pts: 2 },
         { id: 'bottom2_30',     tier: 'easy',   title: 'Floor Lover',       desc: 'Place {n} blocks in the bottom 2 rows',      metric: 'bottomTwoRows',  target: 30,   pts: 2, cumulative: true },
         { id: 'games_7',        tier: 'easy',   title: 'Show Up',           desc: 'Complete {n} games',                         metric: 'gamesPlayed',    target: 7,    pts: 2, cumulative: true },
@@ -9134,7 +9177,7 @@
         { id: 'score_600',      tier: 'normal', title: 'Score Seeker',      desc: 'Score {n} points in one game',                     metric: 'score',          target: 600,  pts: 3 },
         { id: 'hard_drops_200', tier: 'normal', title: 'Free Fall',         desc: 'Hard-drop {n} times',                        metric: 'hardDrops',      target: 200,  pts: 3, cumulative: true },
         { id: 'survive_180',    tier: 'normal', title: 'Endurance',         desc: 'Survive for {n} in one game',                      metric: 'gameTime',       target: 180,  pts: 3 },
-        { id: 'reach_speed3',   tier: 'normal', title: 'Ramping Up',        desc: 'Reach speed level {n}',                            metric: 'maxSpeed',       target: 3,    pts: 3 },
+        { id: 'reach_speed3',   tier: 'normal', title: 'Ramping Up',        desc: 'Reach level {n} in a run',                          metric: 'maxSpeed',       target: 3,    pts: 3 },
         { id: 'quad_1',         tier: 'easy',   title: 'Quad Attempt',      desc: 'Clear 4 lines at once in one game',                metric: 'quads',          target: 1,    pts: 2 },
         { id: 'combo_5',        tier: 'normal', title: 'Chain Reaction',    desc: 'Get a {n}-combo in one game',                      metric: 'maxCombo',       target: 5,    pts: 3 },
         { id: 'bottom2_50',     tier: 'normal', title: 'Ground Level',      desc: 'Place {n} blocks in the bottom 2 rows',      metric: 'bottomTwoRows',  target: 50,   pts: 3, cumulative: true },
@@ -9154,7 +9197,7 @@
         { id: 'score_1000',     tier: 'hard',   title: 'Elite Score',       desc: 'Score {n} points in one game',                     metric: 'score',          target: 1000, pts: 5 },
         { id: 'hard_drops_350', tier: 'hard',   title: 'Gravity Master',    desc: 'Hard-drop {n} times',                        metric: 'hardDrops',      target: 350,  pts: 5, cumulative: true },
         { id: 'survive_300',    tier: 'hard',   title: 'Endurance Run',     desc: 'Survive for {n} in one game',                      metric: 'gameTime',       target: 300,  pts: 5 },
-        { id: 'reach_speed4',   tier: 'hard',   title: 'Ludicrous Speed',   desc: 'Reach speed level {n}',                            metric: 'maxSpeed',       target: 4,    pts: 5 },
+        { id: 'reach_speed4',   tier: 'hard',   title: 'Fourth Gear',       desc: 'Reach level {n} in a run',                          metric: 'maxSpeed',       target: 4,    pts: 5 },
         { id: 'quad_2',         tier: 'normal', title: 'Double Quad',       desc: 'Get {n} quad clears in one game', metric: 'quads',          target: 2,    pts: 3 },
         { id: 'quad_3',         tier: 'hard',   title: 'Triple Quad',       desc: 'Get {n} quad clears in one game', metric: 'quads',          target: 3,    pts: 5 },
         { id: 'combo_6',        tier: 'hard',   title: 'Combo God',         desc: 'Get a {n}-combo in one game',                      metric: 'maxCombo',       target: 6,    pts: 5 },
@@ -9171,12 +9214,12 @@
         { id: 'narrow_escape',    tier: 'secret', title: 'Narrow Escape',     desc: 'Survive 20 seconds with blocks in the top 4 rows',           metric: 'narrowEscape',   target: 1,  pts: 5 },
         { id: 'i_floor',          tier: 'secret', title: 'Floor Liner',       desc: 'Land an I-piece flat on the bottom row',                     metric: 'iFloor',         target: 1,  pts: 5 },
         { id: 'bottom_builder',   tier: 'secret', title: 'Deep Diver',        desc: 'Place 15 blocks in the bottom quarter of the board',         metric: 'bottomQuarter',  target: 15, pts: 5 },
-        { id: 'speed_run',        tier: 'secret', title: 'Speed Runner',      desc: 'Reach speed level 5 in under 3 minutes',                     metric: 'speedRun',       target: 1,  pts: 5 },
+        { id: 'speed_run',        tier: 'secret', title: 'Against the Clock', desc: 'Reach level 5 in under 3 minutes',                           metric: 'speedRun',       target: 1,  pts: 5 },
         { id: 'perfect_clear',    tier: 'secret', title: 'Perfect Clear',     desc: 'Clear the entire board in one game',                         metric: 'perfectClear',   target: 1,  pts: 5 },
         { id: 'no_soft',          tier: 'secret', title: 'Hard Only',         desc: 'Finish a game without using soft-drop',                      metric: 'noSoftDrop',     target: 1,  pts: 5 },
         { id: 'comeback_kid',     tier: 'secret', title: 'Comeback Kid',      desc: 'Have blocks reach the top 2 rows, then survive 60 more seconds', metric: 'comebackKid', target: 1, pts: 5 },
         { id: 'monochrome',       tier: 'secret', title: 'Monochrome',        desc: 'Place 20 blocks of the same piece type in one game',         metric: 'monochrome',     target: 1,  pts: 5 },
-        { id: 'speed_queen',      tier: 'secret', title: 'Speed Queen',       desc: 'Reach speed level 4 within the first 2 minutes',             metric: 'speedQueen',     target: 1,  pts: 5 },
+        { id: 'speed_queen',      tier: 'secret', title: 'Quick Climb',       desc: 'Reach level 4 within the first 2 minutes',                   metric: 'speedQueen',     target: 1,  pts: 5 },
         { id: 'minimalist',       tier: 'secret', title: 'Minimalist',        desc: 'Clear 8 lines using only singles — no doubles or better',     metric: 'minimalist',     target: 1,  pts: 5 },
         { id: 'quad_streak',      tier: 'secret', title: 'Quad Streak',       desc: 'Get 2 quad clears in a row',               metric: 'quadStreak',     target: 1,  pts: 5 },
         { id: 'flat_earth',       tier: 'secret', title: 'Flat Earther',      desc: 'Keep your max stack height under 5 for 60 seconds',          metric: 'flatEarth',      target: 1,  pts: 5 },
@@ -9191,7 +9234,7 @@
         { id: 'w_games_35',     tier: 'easy',   title: 'Warm-Up',           desc: 'Complete {n} games',                     metric: 'gamesPlayed',       target: 35,   pts: 10, cumulative: true  },
         { id: 'w_quads_5',      tier: 'easy',   title: 'Four-Line Habit',   desc: 'Get {n} quad clears',  metric: 'quads',             target: 5,    pts: 10, cumulative: true  },
         { id: 'w_survive_1200', tier: 'easy',   title: 'Short Session',     desc: 'Play for {n} total',                     metric: 'gameTime',          target: 1200, pts: 10, cumulative: true  },
-        { id: 'w_speed2_5',     tier: 'easy',   title: 'Getting Faster',    desc: 'Reach speed 2 in {n} separate games',    metric: 'gamesReachedSpeed2',target: 5,    pts: 10, cumulative: true  },
+        { id: 'w_speed2_5',     tier: 'easy',   title: 'Getting Faster',    desc: 'Reach level 2 in {n} separate games',    metric: 'gamesReachedSpeed2',target: 5,    pts: 10, cumulative: true  },
         { id: 'w_score_1500',   tier: 'easy',   title: 'Score Sprint',      desc: 'Score {n} points total',                 metric: 'score',             target: 1500, pts: 10, cumulative: true  },
         { id: 'w_raw_xp_easy',    tier: 'easy',   title: 'Weekly XP Warm-Up', desc: 'Earn {n} raw XP in games',                      metric: 'rawXP',    target: 1250, pts: 10, cumulative: true },
         { id: 'w_total_xp_easy',  tier: 'easy',   title: 'Weekly XP Kickstart', desc: 'Earn {n} total XP in games (with multipliers)', metric: 'totalXP',  target: 1750, pts: 10, cumulative: true },
@@ -9203,7 +9246,7 @@
         { id: 'w_quads_10',     tier: 'normal', title: 'Quad Collector',    desc: 'Get {n} quad clears',  metric: 'quads',             target: 10,   pts: 15, cumulative: true  },
         { id: 'w_tspin_3',      tier: 'normal', title: 'Spin Doctor',       desc: 'Perform {n} T-spins',                    metric: 'tSpins',            target: 2,    pts: 15, cumulative: true  },
         { id: 'w_combo4_4',     tier: 'normal', title: 'Weekly Combo',      desc: 'Get a 4+ combo in {n} separate games',   metric: 'gamesWithCombo4',   target: 4,    pts: 15, cumulative: true  },
-        { id: 'w_speed3_5',     tier: 'normal', title: 'Weekly Speed',      desc: 'Reach speed 3 in {n} separate games',    metric: 'gamesReachedSpeed3',target: 5,    pts: 15, cumulative: true  },
+        { id: 'w_speed3_5',     tier: 'normal', title: 'Third Gear',        desc: 'Reach level 3 in {n} separate games',    metric: 'gamesReachedSpeed3',target: 5,    pts: 15, cumulative: true  },
         { id: 'w_raw_xp_normal',  tier: 'normal', title: 'Weekly XP Builder',  desc: 'Earn {n} raw XP in games',                      metric: 'rawXP',    target: 2500, pts: 15, cumulative: true },
         { id: 'w_total_xp_normal', tier: 'normal', title: 'Weekly XP Momentum', desc: 'Earn {n} total XP in games (with multipliers)', metric: 'totalXP', target: 3500, pts: 15, cumulative: true },
         // HARD (pts: 25)
@@ -9214,7 +9257,7 @@
         { id: 'w_quads_15',     tier: 'hard',   title: 'Quad Legend',       desc: 'Get {n} quad clears',  metric: 'quads',             target: 15,   pts: 25, cumulative: true  },
         { id: 'w_tspin_5',      tier: 'hard',   title: 'T-Spin Streak',     desc: 'Perform {n} T-spins',                    metric: 'tSpins',            target: 3,    pts: 25, cumulative: true  },
         { id: 'w_survive_2400', tier: 'hard',   title: 'Weekly Warrior',    desc: 'Play for {n} total',                     metric: 'gameTime',          target: 2400, pts: 25, cumulative: true  },
-        { id: 'w_speed4_5',     tier: 'hard',   title: 'Speed Week',        desc: 'Reach speed 4 in {n} separate games',    metric: 'gamesReachedSpeed4',target: 5,    pts: 25, cumulative: true  },
+        { id: 'w_speed4_5',     tier: 'hard',   title: 'Higher Gear',       desc: 'Reach level 4 in {n} separate games',    metric: 'gamesReachedSpeed4',target: 5,    pts: 25, cumulative: true  },
         { id: 'w_combo4_5',     tier: 'hard',   title: 'Weekly Combo',      desc: 'Get a 4+ combo in {n} separate games',   metric: 'gamesWithCombo4',   target: 5,    pts: 25, cumulative: true  },
         { id: 'w_raw_xp_hard',    tier: 'hard',   title: 'Weekly XP Grinder',  desc: 'Earn {n} raw XP in games',                      metric: 'rawXP',    target: 4000, pts: 25, cumulative: true },
         { id: 'w_total_xp_hard',  tier: 'hard',   title: 'Weekly XP Surge',    desc: 'Earn {n} total XP in games (with multipliers)', metric: 'totalXP',  target: 5500, pts: 25, cumulative: true },
@@ -9249,7 +9292,7 @@
             const promoted = weekly && ((def.tier === 'easy' && state.tier === 'normal') || (def.tier === 'normal' && state.tier === 'hard'));
             const target = state.target || def.target;
             return {
-                ...def, ...state, target, tier: promoted ? state.tier : def.tier,
+                ...def, ...state, title: def.title, target, tier: promoted ? state.tier : def.tier,
                 pts: promoted ? (state.tier === 'normal' ? 15 : 25) : def.pts,
                 desc: def.tier === 'secret' ? def.desc : _makeMissionDesc(def.metric, def.desc, target),
             };
@@ -9780,7 +9823,7 @@
         const target = Math.max(1, q.target || 0);
         const progress = q.completed ? target : Math.min(target, Math.max(0, q.progress || 0));
         const format = q.metric === 'gameTime' ? _fmtMissionTime : String;
-        const pointLabel = `+${escapeHtml(q.pts)} pts`;
+        const pointLabel = `+${escapeHtml(q.pts)} SP`;
         const reward = claimed ? '<span class="mq-claimed">✓ Claimed</span>' : ready && !swapping
             ? `<button type="button" class="mq-pts-claim-btn lb-block-btn lb-block-btn--primary" aria-label="Claim ${pointLabel}" onclick="window._claimQuestPts(${escapeHtml(JSON.stringify(String(q.id)))},${!!isWeekly},null,this)">Claim</button>` : '';
         const swap = canSwap ? `<button type="button" class="mq-change-overlay lb-block-btn" aria-label="Swap ${escapeHtml(q.desc)}" onclick="window._changeMission(${index},${!!isWeekly})">Swap</button>` : '';
@@ -9932,6 +9975,8 @@
         el.querySelector('#mq-menu').hidden = isSeason;
         el.querySelector('#mq-menu').disabled = swapping;
         el.querySelector('#mq-back').hidden = !isSeason;
+        el.querySelector('#mq-list-meta').hidden = isSeason;
+        el.querySelector('#sp-day').hidden = !isSeason;
         el.querySelector('.mq-header .lb-info-btn').disabled = swapping;
         el.querySelectorAll('[data-tab]').forEach(button => {
             button.setAttribute('aria-pressed', String(button.dataset.tab === tab));
@@ -9949,8 +9994,7 @@
         const entries = !weekly && period.secret ? [...quests, period.secret] : quests;
         const milestones = el.querySelector('#mq-milestones');
         milestones.innerHTML = _missionProgressBar(points, weekly ? MQ_WEEKLY_MILESTONES : MQ_DAILY_MILESTONES, period.claimedMilestones, weekly);
-        el.querySelector('#mq-board-title').textContent = weekly ? 'This week’s board' : 'Today’s board';
-        el.querySelector('#mq-list-title').textContent = weekly ? 'Weekly missions' : 'Daily missions';
+        el.querySelector('#mq-board-period').textContent = weekly ? 'Weekly objectives' : 'Daily objectives';
         el.querySelector('#mq-list-meta').textContent = `${entries.filter(quest => quest.completed).length} / ${entries.length} complete`;
         const swap = el.querySelector('#mq-change-toggle');
         swap.setAttribute('aria-pressed', String(swapping));
@@ -11071,9 +11115,9 @@
                 ])}<p>In menus: use the D-pad to move focus, the bottom button to select and the right button to go back.</p>`)}
                 ${block('Sound settings', '<p>Adjust <strong>music and effects</strong> separately. Use the playlist to choose tracks.</p>', 'sound')}
                 ${block('Display settings', '<p>Change text size in <strong>Settings</strong>, screen shake and grid visibility under <strong>Gameplay</strong>, and equip cosmetics in <strong>Inventory</strong>.</p>', 'display')}`],
-            ['scoring', 'Scoring & speed', `
+            ['scoring', 'Scoring & run levels', `
                 ${block('Line clear points', `<p>Placing pieces earns points. <strong>Line clears</strong> add these base points:</p>${table('Base line clear points', ['Clear', 'Lines', 'Points'], _LINE_PTS.slice(1).map((points, index) => [lineNames[index], index + 1, points]))}`)}
-                ${block('Speed', `<p>Every <strong>${LINES_PER_SPEED} lines</strong>, pieces fall faster. Speed tops out at ${SPEED_MULTIPLIERS.length}; placement and clear points scale from ×${SPEED_MULTIPLIERS[0]} to ×${SPEED_MULTIPLIERS.at(-1)}.</p>`)}
+                ${block('Run levels', `<p>Every <strong>${LINES_PER_SPEED} lines</strong>, the run advances one level and pieces fall faster. Run levels top out at ${SPEED_MULTIPLIERS.length}; placement and clear points scale from ×${SPEED_MULTIPLIERS[0]} to ×${SPEED_MULTIPLIERS.at(-1)}.</p>`)}
                 ${block('Combos', `<p>Each line adds a combo step. After the first step, each adds <strong>${COMBO_STEP_POINTS} points</strong> before modifiers. A placement without a clear breaks the combo.</p>`)}`],
             ['ranks', 'Ranks & XP', `
                 ${block('Earn run XP', '<p>Clear <strong>at least one line in Normal</strong>. Your score and any personal-best bonus count before the streak multiplier.</p><p>Total XP unlocks levels, ranks, rewards and modifiers.</p>')}
@@ -11089,16 +11133,16 @@
                 ${block('What changes', '<p><strong>Streaks</strong> boost run XP. <strong>Modifiers</strong> change Normal scoring. <strong>Boosters</strong> multiply XP after the run.</p>')}`],
             ['boxes', 'Boxes & parts', `
                 ${block('Find & use parts', '<p>Earn parts from <strong>level boxes, milestones and missions</strong>. Each cosmetic has its own parts. Collect enough to unlock and equip it in Inventory.</p>')}
-                ${block('Universal parts', '<p>Fill in missing item parts in <strong>Inventory → Other</strong>. Once no part unlocks remain, trade universal parts for XP.</p>')}`],
+                ${block('Universal parts', '<p>Fill in missing item parts in <strong>Inventory → Parts</strong>. Once no part unlocks remain, trade universal parts for XP.</p>')}`],
             ['achievements', 'Achievements & rarities', `
                 ${block('Track & claim', '<p>Track goals and <strong>claim XP</strong> in Achievements. Secret goals stay hidden until you find them.</p>')}
                 ${block('Rarity rewards', `<p>Check each card for its exact reward.</p>${table('Standard XP by rarity', ['Rarity', 'XP'], Object.entries(RARITY_ACH).map(([id, { label }]) => [label, number(_ACH_XP[id])]))}`)}`],
             ['boosters', 'Boosters', `
-                ${block('Use a booster', '<p>Find boosters in <strong>Inventory → Other</strong>. Use one on the results screen after earning XP in <strong>Normal</strong>. It multiplies XP, not score.</p>')}
+                ${block('Use a booster', '<p>Find boosters in <strong>Inventory → Boosters</strong>. Use one on the results screen after earning XP in <strong>Normal</strong>. It multiplies XP, not score.</p>')}
                 ${block('XP multipliers', definitions(BOOSTER_KEYS.map(key => [BOOSTER_META[key].label, `×${BOOSTER_INFO[key].mult} run XP`])))}`],
             ['modes', 'Game modes & modifiers', `
                 ${block('Normal', `<p>Play on a ${COLS_NORMAL} × ${VISIBLE_ROWS} board for <strong>XP, mission progress</strong> and Normal leaderboard scores.</p>`)}
-                ${block('Fun', `<p>Set the board to ${settingRange('fun-cols')} columns × ${settingRange('fun-rows')} rows and starting speed ${settingRange('fun-speed')}. Fun has its own leaderboard and counts toward some achievements, but gives <strong>no run XP or mission progress</strong>.</p>`)}
+                ${block('Fun', `<p>Set the board to ${settingRange('fun-cols')} columns × ${settingRange('fun-rows')} rows and starting level ${settingRange('fun-speed')}. Fun has its own leaderboard and counts toward some achievements, but gives <strong>no run XP or mission progress</strong>.</p>`)}
                 ${block('Modifiers', `<p>Toggle unlocked options before a run. In <strong>Normal</strong>, percentages add together and affect score and run XP. In <strong>Fun</strong>, modifiers change play only.</p>${definitions(modifiers)}`)}`],
             ['glossary', 'Glossary', `
                 ${block('Line clear names', '<p><strong>Single, Double, Triple and Quad</strong> mean 1, 2, 3 or 4 lines cleared in one placement.</p>')}

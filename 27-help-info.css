@@ -46,7 +46,7 @@
 .lb-help-content ul { padding-inline-start: var(--space-6); }
 .lb-help-content dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-2) var(--space-3); }
 .lb-help-content dt { font-weight: 600; }
-.lb-help-content dd { margin: 0; overflow-wrap: anywhere; }
+.lb-help-content dd { margin: 0; }
 .lb-help-content :is(h2, h3):focus-visible { outline: var(--focus-width) solid var(--accent-bright); outline-offset: var(--focus-offset); }
 
 .lb-help-label { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }

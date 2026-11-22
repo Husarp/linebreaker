@@ -35,6 +35,7 @@ import com.getcapacitor.BridgeActivity
 import com.getcapacitor.ProcessedRoute
 import com.husarp.ota.core.*
 import com.husarp.linebreaker.BuildConfig
+import com.husarp.linebreaker.R
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -42,7 +43,7 @@ class MainActivity : BridgeActivity() {
     private val updater get() = (application as OtaApplication).updater
     private val handler = Handler(Looper.getMainLooper())
     private var resumed = false
-    private val ledger by lazy { NativeLedger.context(this) }
+    private val ledger get() = NativeLedger.context(this)
     private var recoveryDialog: AlertDialog? = null
     private var refreshRecoveryCheck: (() -> Unit)? = null
     private var updateBanner: NativeUpdateBanner? = null
@@ -79,7 +80,7 @@ class MainActivity : BridgeActivity() {
     private fun showStartupRecovery(reason: String) {
         updater.engine.log.add("Startup watchdog: ${updater.launch.version} ($reason)")
         val box = LinearLayout(ledger).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp,12.dp,20.dp,12.dp) }
-        val dialog = NativeLedger.dialog(ledger, "Linebreaker didn't start properly")
+        val dialog = NativeLedger.dialog(ledger, "Linebreaker didn't start properly", warning = true)
             .setView(ScrollView(ledger).apply { addView(box) }).setCancelable(false).create()
         val status = TextView(ledger).apply { text = "You can check for a fix without opening the game. Your saves stay." }
         val check = Button(ledger).apply { text = "Check for fix" }
@@ -211,13 +212,14 @@ class MainActivity : BridgeActivity() {
         })
         val webFrame = findViewById<FrameLayout>(android.R.id.content)
         updateBanner = NativeUpdateBanner(webFrame, ::dismissUpdateBanner)
-        loadingOverlay = LinearLayout(this).apply {
+        val startupTheme = ledger
+        loadingOverlay = LinearLayout(startupTheme).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(16.dp,12.dp,16.dp,12.dp); setBackgroundColor(Color.WHITE)
+            setPadding(16.dp,12.dp,16.dp,12.dp); background = NativeLedger.panel(startupTheme)
             elevation = 8.dp.toFloat()
-            addView(ProgressBar(this@MainActivity), LinearLayout.LayoutParams(24.dp,24.dp))
-            addView(TextView(this@MainActivity).apply {
-                text = "Starting ${updater.launch.version}…"; textSize = 14f; setTextColor(Color.DKGRAY)
+            addView(ProgressBar(startupTheme), LinearLayout.LayoutParams(24.dp,24.dp))
+            addView(TextView(startupTheme).apply {
+                text = "Starting ${updater.launch.version}…"; textSize = 14f; setTextColor(startupTheme.getColor(R.color.lb_ledger_ink))
                 setPadding(12.dp,0,0,0)
             })
             visibility = if (updater.engine.snapshot().trial && updater.watchdog.showLoading) View.VISIBLE else View.GONE
@@ -348,7 +350,7 @@ class MainActivity : BridgeActivity() {
         }
     }
     fun confirmReset(startupRecovery: Boolean = false) {
-        NativeLedger.dialog(ledger, "Reset to built-in version?")
+        NativeLedger.dialog(ledger, "Reset to built-in version?", warning = true)
             .setMessage("This removes downloaded updates and shows update setup again. Your saves stay.")
             .setPositiveButton("Reset") { _, _ ->
                 restartBundle(reset = true, startupRecovery = startupRecovery && updater.watchdog.reason != null)
@@ -486,6 +488,12 @@ class MainActivity : BridgeActivity() {
         maintenance.post { showNativeMessages() }
     }
     private val nativeSeen = mutableSetOf<String>()
+    internal fun setCircuitAccent(green: Boolean) {
+        if (NativeLedger.green(this) == green) return
+        NativeLedger.setGreen(this, green)
+        showNativeMessages()
+    }
+
     private fun dismissUpdateBanner(key: String) {
         nativeSeen.add(key)
         if (key.startsWith("app-installed:")) getSharedPreferences("native-update-messages", Context.MODE_PRIVATE)

@@ -42,7 +42,6 @@
 #go-overlay :is(.go-scoreline, .go-stat-rows) dd {
     margin: 0;
     font-weight: 750;
-    overflow-wrap: anywhere;
 }
 
 #go-overlay #go-score {

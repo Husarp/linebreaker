@@ -9,6 +9,12 @@ class OtaPlugin : Plugin() {
     private val eventSink: (String, JSObject) -> Unit = { name,data -> notifyListeners(name,data,true) }
     override fun load() { updater.subscribe(eventSink) }
     override fun handleOnDestroy() { updater.eventListeners.remove(eventSink) }
+    @PluginMethod fun setCircuitAccent(call: PluginCall) {
+        activity.runOnUiThread {
+            (activity as MainActivity).setCircuitAccent(call.getString("accent") == "green")
+            call.resolve()
+        }
+    }
     // Keep the original bridge methods for older signed web bundles.
     @PluginMethod fun getUpdateSettings(call: PluginCall) { call.resolve(updater.settingsJson()) }
     @PluginMethod fun setUpdateSettings(call: PluginCall) {

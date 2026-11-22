@@ -54,6 +54,7 @@
         const documented = docs.split('\n').filter(line => line.startsWith('|'))
             .flatMap(line => Array.from(line.matchAll(/`([^`]+)`/g), match => match[1]));
         if ([...names].sort().join() !== documented.sort().join()) fail('QA screen list differs from the documented targets');
+        await page.evaluate(() => document.fonts.ready);
 
         for (const name of names) {
             screen = name;
@@ -71,6 +72,87 @@
                     !control.getClientRects().length || control.getBoundingClientRect().top >= bandBottom - 1);
             });
             if (!clearsBand) fail('Header or menu content overlaps the top band');
+            const squeezedTitles = await page.evaluate(() => {
+                const titles = document.querySelectorAll('.lb-topbar-title, .lb-block-topbar > h1');
+                return [...titles].filter(title => {
+                    if (!title.getClientRects().length) return false;
+                    const bounds = title.getBoundingClientRect();
+                    const content = document.createRange();
+                    content.selectNodeContents(title);
+                    const ink = content.getBoundingClientRect();
+                    const lineHeight = parseFloat(getComputedStyle(title).lineHeight);
+                    const header = title.closest('.lb-block-topbar').getBoundingClientRect();
+                    return ink.left < Math.max(0, bounds.left, header.left) - 1
+                        || ink.right > Math.min(innerWidth, bounds.right, header.right) + 1
+                        || bounds.height > lineHeight + 1;
+                }).map(title => title.textContent.trim());
+            });
+            if (squeezedTitles.length) fail(`Header titles wrap or clip at ${viewport.width}px: ${squeezedTitles.join(', ')}`);
+            const textLayoutFailures = await page.evaluate(() => {
+                const issues = new Set();
+                const labelSelector = 'button, [role="button"], [role="tab"], nav a, [role="navigation"] a, h1, h2, h3, h4, h5, h6, [role="heading"]';
+                const labels = new Map();
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                const range = document.createRange();
+                const rectsFor = (node, start, end) => {
+                    range.setStart(node, start);
+                    range.setEnd(node, end);
+                    return [...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0);
+                };
+                const spansLines = rects => rects.some(rect => Math.abs(rect.top - rects[0].top) > 1);
+
+                for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                    const parent = node.parentElement;
+                    if (parent.namespaceURI !== document.body.namespaceURI || !node.data.trim() ||
+                        !parent.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+                    const rects = rectsFor(node, 0, node.length);
+                    if (!rects.length) continue;
+                    if (spansLines(rects)) {
+                        for (const word of node.data.matchAll(/[\p{L}\p{N}\p{M}]+(?:['’\u00ad\u200b][\p{L}\p{N}\p{M}]+)*/gu)) {
+                            if (spansLines(rectsFor(node, word.index, word.index + word[0].length))) {
+                                issues.add(`Word wraps internally: ${JSON.stringify(word[0])}`);
+                            }
+                        }
+                    }
+                    const label = parent.closest(labelSelector);
+                    if (!label) continue;
+                    const parts = labels.get(label) || [];
+                    parts.push({ text: node.data, rects });
+                    labels.set(label, parts);
+                }
+                for (const parts of labels.values()) {
+                    const text = parts.map(part => part.text).join('').trim();
+                    const rects = parts.flatMap(part => part.rects);
+                    const separateRows = Math.max(...rects.map(rect => rect.top)) >= Math.min(...rects.map(rect => rect.bottom)) - 1;
+                    if (/^\S+$/.test(text) && (separateRows || parts.some(part => spansLines(part.rects)))) {
+                        issues.add(`Single-word label exceeds one line: ${JSON.stringify(text)}`);
+                    }
+                }
+
+                const achievements = document.querySelector('#btn-achievements > span:not([aria-hidden])');
+                if (achievements?.checkVisibility()) {
+                    range.selectNodeContents(achievements);
+                    const ink = range.getBoundingClientRect();
+                    const bounds = achievements.getBoundingClientRect();
+                    if (achievements.textContent.trim() !== 'Achievements' || ink.left < bounds.left - 1 ||
+                        ink.right > Math.min(bounds.right, innerWidth) + 1 || achievements.scrollWidth > achievements.clientWidth + 1) {
+                        issues.add('Menu must show the complete Achievements label');
+                    }
+                }
+                return [...issues];
+            });
+            for (const issue of textLayoutFailures) fail(`${viewport.width}px: ${issue}`);
+            if (name === 'inventory' || name.startsWith('inventory-')) {
+                const tabsFit = await page.locator('.lb-inventory-tabs').evaluate(list => {
+                    const bounds = list.getBoundingClientRect();
+                    return list.scrollWidth <= list.clientWidth + 1 && [...list.children].every(tab => {
+                        const rect = tab.getBoundingClientRect();
+                        return rect.left >= bounds.left && rect.right <= Math.min(innerWidth, bounds.right)
+                            && tab.scrollWidth <= tab.clientWidth + 1;
+                    });
+                });
+                if (!tabsFit) fail('Inventory categories do not all fit in the segmented control');
+            }
             if (name === 'settings-home') {
                 const fits = await page.evaluate(() => {
                     const search = document.querySelector('.lb-ledger-search').getBoundingClientRect();
@@ -88,9 +170,31 @@
                 await search.fill('wallpaper');
                 const matches = await page.locator('.lb-ledger-list > button:visible').evaluateAll(rows => rows.map(row => row.dataset.settingsCategory));
                 if (matches.join() !== 'display') fail('Wallpaper search did not hide unrelated settings rows');
+                await search.fill('no such setting');
+                if (!await page.getByRole('status').filter({ hasText: 'No matching settings.' }).isVisible()) fail('Missing settings search empty state');
+                await search.fill('wallpaper green');
+                await page.locator('[data-settings-category="display"]').click();
+                if (!await page.getByRole('heading', { name: 'Display', exact: true }).isVisible()) fail('Search result did not open Display');
+                await page.locator('#settings-back').click();
+                if (await search.inputValue() !== 'wallpaper green' ||
+                    !await page.locator('[data-settings-category="display"]').evaluate(button => button === document.activeElement)) {
+                    fail('Back did not restore the active search and its result focus');
+                }
                 await search.clear();
             }
+            if (name === 'settings-display') {
+                const wallpaper = page.locator('#setting-theme-background');
+                const preview = page.locator('.lb102-wallpaper-preview');
+                const original = await wallpaper.inputValue();
+                await wallpaper.selectOption('plain');
+                if (await preview.evaluate(element => getComputedStyle(element).backgroundImage) !== 'none') fail('Plain wallpaper still shows artwork');
+                await wallpaper.selectOption('ocean');
+                if (!(await preview.evaluate(element => getComputedStyle(element).backgroundImage)).includes('ocean-')) fail('Wallpaper picker did not preview the selected art');
+                if (await page.locator('html').getAttribute('data-lb-ui-theme') !== accent) fail('Changing wallpaper also changed the accent');
+                await wallpaper.selectOption(original);
+            }
             if (name === 'menu') {
+                await page.locator('#lb43-daily-gift').scrollIntoViewIfNeeded();
                 const fits = await page.evaluate(() => {
                     const corner = document.querySelector('.lb43-gift-corner').getBoundingClientRect();
                     const player = document.querySelector('#music-widget').getBoundingClientRect();
@@ -102,15 +206,29 @@
                 await page.locator('#btn-season-pass').click();
                 await page.locator('#season-pass-overlay').waitFor({ state: 'visible', timeout: 3000 })
                     .catch(() => fail('Season Pass card did not open the Season Pass view'));
-                await page.evaluate(() => window.closeMissions());
+                await page.evaluate(() => {
+                    window.closeMissions();
+                    document.querySelector('#menu-overlay .menu-scale-wrapper').scrollTop = 0;
+                });
             }
             if (name === 'game-over') {
                 const actionsFit = await page.locator('#go-overlay .go-actions').evaluate(actions => {
-                    const dialog = actions.closest('.lb-block-dialog').getBoundingClientRect();
+                    const dialog = actions.closest('.go-dialog').getBoundingClientRect();
                     const footer = actions.getBoundingClientRect();
                     return footer.height >= 44 && footer.bottom <= dialog.bottom && footer.bottom <= innerHeight;
                 });
                 if (!actionsFit) fail('Run actions do not fit below the scrollable results');
+                const boostersFit = await page.locator('#go-overlay .go-dialog-body').evaluate(body => {
+                    const boosters = body.querySelector('.go-boost-list');
+                    if (!boosters) return false;
+                    const { bottom, top } = body.getBoundingClientRect();
+                    if (boosters.getBoundingClientRect().bottom > bottom) {
+                        body.scrollTop += boosters.getBoundingClientRect().bottom - bottom;
+                    }
+                    const row = boosters.getBoundingClientRect();
+                    return row.top >= top - 1 && row.bottom <= bottom + 1;
+                });
+                if (!boostersFit) fail('XP booster buttons cannot be brought fully into view above the run actions');
             }
             if (name === 'missions' || name === 'missions-weekly') {
                 const compact = await page.evaluate(() => {
@@ -124,16 +242,26 @@
                     const card = document.querySelector('.mq-board');
                     const selected = document.querySelector('.mq-board-controls [aria-pressed="true"][data-tab]');
                     const rows = [...document.querySelectorAll('#missions-body .mq-card')].slice(0, 2);
+                    const count = document.querySelector('.mq-header #mq-list-meta');
                     return card?.querySelector('time')?.dateTime && selected?.dataset.tab === period
-                        && rows.length === 2 && rows[0].getBoundingClientRect().left === rows[1].getBoundingClientRect().left;
+                        && selected.getBoundingClientRect().bottom <= card.getBoundingClientRect().top
+                        && /\d+ \/ \d+ complete/.test(count?.textContent) && !count.hidden
+                        && rows.length === 2 && rows[0].getBoundingClientRect().left === rows[1].getBoundingClientRect().left
+                        && !/\bspeed\b/i.test(document.getElementById('mq-mission-view').innerText);
                 }, name === 'missions' ? 'daily' : 'weekly');
                 if (!board) fail('Mission board is missing its timer, active period, or single-column cards');
             }
             if (name === 'season-pass') {
                 const track = await page.evaluate(() => {
                     const screen = document.getElementById('season-pass-overlay');
-                    return !screen.hidden && screen.querySelectorAll('.sp-card[data-rarity]').length === 30
-                        && screen.querySelector('.sp-header progress')?.getBoundingClientRect().width > 0;
+                    const rail = screen.querySelector('.sp-track');
+                    const next = rail.querySelector('[aria-current="step"]');
+                    const end = rail.querySelector('[data-stage="30"]');
+                    return !screen.hidden && rail.querySelectorAll('.sp-card[data-rarity]').length === 30
+                        && rail.scrollHeight > rail.clientHeight && rail.scrollWidth <= rail.clientWidth + 1
+                        && screen.querySelector('.sp-hero progress')?.getBoundingClientRect().width > 0
+                        && next?.querySelector('.sp-step')?.textContent === next?.dataset.stage.padStart(2, '0')
+                        && end?.querySelector('h3')?.textContent.includes('Season Prism');
                 });
                 if (!track) fail('Season Pass is missing the next-stage meter or rarity-labelled rewards');
             }

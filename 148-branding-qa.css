@@ -107,7 +107,7 @@ html[data-lb-qa-cutout='notch']::after {
 
     #play-score-panel { width: auto; min-width: 0; padding: var(--space-2); }
     #play-score-panel h2 { font-size: 10px; }
-    #play-score-panel :is(ul, p) { font-size: 11px; overflow-wrap: anywhere; }
+    #play-score-panel :is(ul, p) { font-size: 11px; }
     #mode-select-overlay[data-mode="fun"] .lb148-play-selection { grid-template-columns: minmax(0, 1fr); }
     #mode-select-overlay[data-mode="fun"] #play-score-panel { display: none; }
 }

@@ -50,7 +50,6 @@
 #inventory-overlay :is(.lb-inventory-heading, .lb-colors-card > header) {
     min-height: 26px;
     align-items: center;
-    overflow-wrap: anywhere;
 }
 
 @media (min-width: 650px) {

@@ -55,7 +55,7 @@ it('renders a fresh save with no chosen file as Bronze level 1', () => {
   expect(game.api.save.totalXP).toBe(0);
   game.api.drawRankBadge();
   expect(game.api.getLevelInfo(game.api.save.totalXP)).toMatchObject({level: 1, isCelestite: false, rank: {name: 'BRONZE'}});
-  expect(badgeText()).toEqual(['BRONZE', 'Level 1']);
+  expect(badgeText()).toEqual(['Bronze', 'Level 1']);
   expect(game.w.document.getElementById('menu-xp-bar-fill').style.width).toBe('0%');
 });
 
@@ -65,7 +65,7 @@ it('paints ten Gold badge shapes even when the menu first renders in a backgroun
   const firstCall = game.calls.length;
   game.api.drawRankBadge();
 
-  expect(badgeText()).toEqual(['GOLD', 'Level 30']);
+  expect(badgeText()).toEqual(['Gold IX', 'Level 30']);
   const blits = game.calls.slice(firstCall).filter(([method]) => method === 'drawImage');
   const emptyBadge = blits[0][1];
   const shapeOrigins = blits.filter(([, sprite]) => sprite === emptyBadge).map(([, , x, y]) => `${x},${y}`);
@@ -124,7 +124,7 @@ it('draws the cached Halo glow and thin inner line on filled Gold badges', () =>
 
 it('fills 63.6% of the active diamond at Silver level 14 with 1272 / 2000 XP', () => {
   const {cut, rotation} = readBadgeCut(17272);
-  expect(badgeText()).toEqual(['SILVER', 'Level 14']);
+  expect(badgeText()).toEqual(['Silver III', 'Level 14']);
   expect(game.api.getLevelInfo(17272)).toMatchObject({currentXP: 1272, neededXP: 2000, percent: .636});
   expect(orbitalArea(cut, rotation, {sides: 4})).toBeCloseTo(.636, 3);
 });
@@ -185,10 +185,10 @@ it('clears tapped XP help on scrolling and when navigating to another screen', (
 });
 
 it.each([
-  [37000, 23, 'GOLD'],
-  [473500, 72, 'DIAMOND'],
-  [640000, 81, 'CELESTITE'],
-])('renders XP %s and refreshes cached rank data after menu visibility changes', async (xp, level, rank) => {
+  [37000, 23, 'GOLD', 'Gold II'],
+  [473500, 72, 'DIAMOND', 'Diamond I'],
+  [640000, 81, 'CELESTITE', 'Celestite'],
+])('renders XP %s and refreshes cached rank data after menu visibility changes', async (xp, level, rank, label) => {
   const menu = game.w.document.getElementById('menu-overlay');
   menu.classList.add('hidden');
   await Promise.resolve();
@@ -197,15 +197,15 @@ it.each([
   await Promise.resolve();
   game.advance(16);
   expect(game.api.getLevelInfo(xp)).toMatchObject({level, rank: {name: rank}});
-  expect(badgeText()).toEqual([rank, `Level ${level}`]);
+  expect(badgeText()).toEqual([label, `Level ${level}`]);
   game.api.setSave({...game.api.save, totalXP: 0});
   game.api.drawRankBadge();
-  expect(badgeText()).toEqual(['BRONZE', 'Level 1']);
+  expect(badgeText()).toEqual(['Bronze', 'Level 1']);
 });
 
 it.each([undefined, NaN, Infinity])('treats invalid XP %s as a fresh badge instead of Celestite', xp => {
   game.api.setSave({...game.api.save, totalXP: xp});
   game.api.drawRankBadge();
-  expect(badgeText()).toEqual(['BRONZE', 'Level 1']);
+  expect(badgeText()).toEqual(['Bronze', 'Level 1']);
   expect(game.api.getLevelInfo(xp)).toMatchObject({level: 1, percent: 0, isCelestite: false});
 });

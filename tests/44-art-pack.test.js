@@ -78,8 +78,8 @@ it('uses the same tokens in the inventory and for eligible game-over boosters', 
     const images = selector => [...w.document.querySelectorAll(`${selector} .lb-booster-token`)]
       .map(image => image.getAttribute('src'));
 
-    w.inventoryTab('other');
-    expect(images('#inventory-other-content')).toEqual(Object.values(tokens));
+    w.inventoryTab('boosters');
+    expect(images('#inventory-boosters .lb-inventory-booster-stock')).toEqual(Object.values(tokens));
     expect(api.sweep()).toBe(true);
     advance(200);
     api.gameOver();
@@ -89,14 +89,16 @@ it('uses the same tokens in the inventory and for eligible game-over boosters', 
     const runXP = api.save.leaderboard[0].xp;
     expect(result('go-score').textContent).toBe('10');
     expect(result('go-best-score').textContent).toBe('10');
-    expect(result('go-best-label').textContent).toBe('New best');
+    expect(result('go-record-label').textContent).toBe('New personal best');
+    expect(result('go-record-label').hidden).toBe(false);
     expect(result('go-lines-cnt').textContent).toBe('1');
-    expect(result('go-total-xp').textContent).toBe(String(runXP));
+    expect(result('go-total-xp').textContent).toBe(`+${runXP} XP`);
 
     expect(result('go-boost-row').querySelector('[data-rarity="epic"]').getAttribute('onclick'))
       .toBe("window.useScoreBooster('2xp_game')");
     w.useScoreBooster('2xp_game');
-    expect(result('go-total-xp').textContent).toBe(String(2 * runXP));
+    expect(result('go-total-xp').textContent).toBe(`+${2 * runXP} XP`);
+    expect(result('go-xp-progress').textContent).toBe(`${2 * runXP} / 1,000 XP to next level`);
     expect(result('go-boost-row').hidden).toBe(true);
     expect(api.save.boosters['2xp_game']).toBe(0);
   } finally { close(); }

@@ -137,7 +137,7 @@
 .sp-card :is(.sp-state, .sp-threshold, .sp-receipt) { font-size: var(--text-sm); }
 .sp-card[data-state="claimed"] .sp-state { color: var(--success); }
 .sp-card[data-state="claimable"] .sp-state { color: var(--accent-bright); }
-.sp-card .sp-receipt { color: var(--text); overflow-wrap: anywhere; }
+.sp-card .sp-receipt { color: var(--text); }
 .sp-pass .sp-claim { width: 100%; margin-top: auto; background: var(--accent); color: var(--accent-ink); }
 .sp-highlight img { width: 88px; height: auto; border-radius: var(--radius-sm); }
 .sp-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

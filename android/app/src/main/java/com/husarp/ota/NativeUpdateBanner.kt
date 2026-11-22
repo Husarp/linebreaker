@@ -1,7 +1,6 @@
 package com.husarp.ota
 
 import android.content.res.ColorStateList
-import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
@@ -20,14 +19,11 @@ internal data class UpdateBannerItem(
 )
 
 internal class NativeUpdateBanner(private val host: FrameLayout, private val dismiss: (String) -> Unit) {
-    private val context = NativeLedger.context(host.context)
-    private val label = context.getColor(R.color.lb_ledger_label)
-    private val ink = context.getColor(R.color.lb_ledger_ink)
-    private val pixel = NativeLedger.heading(context)
     private var panel: View? = null
     private var progress: ProgressBar? = null
     private var key: String? = null
-    private val Int.dp get() = (this * context.resources.displayMetrics.density + .5f).toInt()
+    private var green = false
+    private val Int.dp get() = (this * host.resources.displayMetrics.density + .5f).toInt()
 
     fun clear() {
         panel?.let(host::removeView)
@@ -36,11 +32,12 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
 
     fun render(item: UpdateBannerItem?, top: Int, left: Int, right: Int) {
         if (item == null) { clear(); return }
+        val currentGreen = NativeLedger.green(host.context)
         val layout = FrameLayout.LayoutParams(
             minOf(448.dp, host.width.takeIf { it > 0 }?.minus(left + right + 24.dp) ?: 320.dp).coerceAtLeast(1),
             FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL
         ).apply { setMargins(left + 12.dp, top, right + 12.dp, 0) }
-        if (key == item.key) {
+        if (key == item.key && green == currentGreen) {
             val previous = panel?.layoutParams as? FrameLayout.LayoutParams
             if (previous == null || previous.topMargin != layout.topMargin || previous.leftMargin != layout.leftMargin ||
                 previous.rightMargin != layout.rightMargin || previous.width != layout.width) panel?.layoutParams = layout
@@ -49,15 +46,15 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
         }
         clear()
         key = item.key
+        green = currentGreen
+        val context = NativeLedger.context(host.context)
+        val label = NativeLedger.label(context)
+        val ink = context.getColor(R.color.lb_ledger_ink)
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(12.dp, 8.dp, 6.dp, 10.dp)
             elevation = 2.dp.toFloat()
-            background = GradientDrawable().apply {
-                cornerRadius = 3.dp.toFloat()
-                setColor(context.getColor(R.color.lb_ledger_panel))
-                setStroke(1.dp, context.getColor(R.color.lb_ledger_rule))
-            }
+            background = NativeLedger.panel(context)
         }
         fun dismissItem() { dismiss(item.key) }
         var down = 0f
@@ -75,7 +72,7 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
         val copy = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         row.addView(copy, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         copy.addView(TextView(context).apply {
-            text = item.title; textSize = 12f; typeface = pixel; setTextColor(label)
+            text = item.title; textSize = 12f; typeface = NativeLedger.heading(context); setTextColor(label)
             maxLines = 2; ellipsize = TextUtils.TruncateAt.END; accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         })
         copy.addView(TextView(context).apply { text = item.text; textSize = 14f; setTextColor(ink) })

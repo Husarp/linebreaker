@@ -52,7 +52,7 @@
     letter-spacing: normal;
     text-shadow: none;
     text-transform: uppercase;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
 }
 
 .lb-topbar-title > svg { flex: none; }

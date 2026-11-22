@@ -411,7 +411,6 @@ body[data-pack="pixel"] #custom-confirm .modal-text { font-family: var(--bb-font
     border: 0 !important;
     text-align: start;
 }
-.lb-playlist-track > * { overflow-wrap: anywhere; }
 .lb-playlist-track small { color: var(--bb-muted); font-size: var(--text-xs); }
 .lb-playlist-row .lb-playlist-track[aria-current="true"] { color: var(--accent-bright) !important; }
 .lb-playlist-row .lb-playlist-check { justify-self: center; }

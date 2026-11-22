@@ -15,7 +15,7 @@
 .lb149-dialog::-webkit-scrollbar-thumb { background: var(--bb-edge); }
 .lb149-dialog::backdrop { background: #080910cf; }
 .lb149-dialog h2 { margin: 0 0 .9rem; color: var(--accent-bright); font: 400 clamp(.75rem, 2vw, 1rem)/1.5 var(--bb-font-pixel); }
-.lb149-dialog p { margin: .55rem 0; overflow-wrap: anywhere; }
+.lb149-dialog p { margin: .55rem 0; }
 .lb149-dialog [data-notes] { white-space: pre-wrap; }
 .lb149-dialog dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .25rem .8rem; }
 .lb149-dialog dd { margin: 0; text-align: right; }

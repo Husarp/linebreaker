@@ -6,7 +6,7 @@
     align-items: center;
     gap: var(--space-2);
 }
-.lb-r3 .lb-controls-row .lb-btn { padding-inline: var(--space-2) !important; overflow-wrap: anywhere; }
+.lb-r3 .lb-controls-row .lb-btn { padding-inline: var(--space-2) !important; }
 .lb-controls-status { min-height: 1.5em; margin: 0; }
 .lb-r3 .lb-controls .lb-controls-warning { color: var(--danger) !important; }
 :is(button, [role="button"]).lb-gamepad-focus:focus {

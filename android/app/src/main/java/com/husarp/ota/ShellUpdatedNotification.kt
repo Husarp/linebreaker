@@ -63,7 +63,7 @@ object ShellUpdatedNotification {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notice=Notification.Builder(context,channel)
             .setSmallIcon(R.drawable.ic_stat_linebreaker)
-            .setColor(context.getColor(R.color.notification_accent))
+            .setColor(NativeLedger.label(context))
             .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(open).setAutoCancel(true).build()
