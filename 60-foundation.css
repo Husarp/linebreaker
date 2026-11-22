@@ -397,7 +397,7 @@ body[data-pack="pixel"] #custom-confirm .modal-text { font-family: var(--bb-font
 .lb-playlist-tools { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); position: relative; margin-bottom: var(--space-3); }
 #playlist-overlay .lb-playlist-tools .lb-block-section-title { font: 650 var(--text-body)/1.4 var(--font-body) !important; }
 .lb-playlist-tools .lb-block-info { position: static; }
-.lb-playlist-grid { display: grid; grid-template-columns: minmax(0, 1fr) 48px 48px minmax(116px, 21%); align-items: center; gap: var(--space-2); padding-inline: var(--space-2); }
+.lb-playlist-grid { display: grid; align-items: center; gap: var(--space-2); padding-inline: var(--space-2); }
 .lb-playlist-columns { padding-block: var(--space-2); border-radius: 4px 14px 0 0; background: var(--bb-heading); font: 650 var(--text-xs)/1.4 var(--font-body); text-transform: uppercase; }
 .lb-playlist-columns > :nth-child(2), .lb-playlist-columns > :nth-child(3) { text-align: center; }
 .lb-playlist-row { min-height: 58px; padding-block: 5px; background: var(--bb-panel); border-bottom: 1px solid var(--bb-edge); }
@@ -416,16 +416,9 @@ body[data-pack="pixel"] #custom-confirm .modal-text { font-family: var(--bb-font
 .lb-playlist-row .lb-playlist-check { justify-self: center; }
 #playlist-overlay .lb-playlist-check[aria-pressed="true"] { --bb-button-edge: var(--accent); --bb-button-ink: var(--accent-bright); --bb-button-face: color-mix(in srgb, var(--accent) 19%, var(--bb-face)); }
 .lb-playlist-check[aria-pressed="false"] svg { visibility: hidden; }
-.lb-playlist-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.lb-playlist-tag { padding: 1px 6px; border: 1px solid var(--tag-tone); border-radius: var(--radius-pill); color: color-mix(in srgb, var(--tag-tone) 58%, white); font: var(--text-xs)/1.35 var(--font-body); }
 .lb-playlist-loading { padding: var(--space-2); }
 
 @media (max-width: 599px) {
-    .lb-playlist-grid { grid-template-columns: minmax(0, 1fr) 48px 48px; }
-    .lb-playlist-row { row-gap: 0; }
-    .lb-playlist-columns > :last-child { display: none; }
-    .lb-playlist-tags { grid-column: 1 / -1; margin-inline-start: 4px; }
-    .lb-playlist-tags:not(:empty) { margin-bottom: 4px; }
     #settings-overlay .lb-controls-row { gap: 4px; }
     #settings-overlay .lb-controls-row.lb-muted { font-size: var(--text-xs); }
     #settings-overlay .lb-controls-row .lb-btn { font-size: clamp(.75rem, 3.4vw, .875rem) !important; }

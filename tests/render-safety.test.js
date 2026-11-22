@@ -130,7 +130,7 @@ it('keeps imported track metadata as text and passes the unchanged name to the p
   window.moveTrack = vi.fn();
   window.openPlaylistPanel();
   const playlist = document.querySelector('#playlist-panel-content');
-  const { title, artist, tags } = importedTrack;
+  const { title, artist } = importedTrack;
   const toggle = await vi.waitFor(() => {
     const button = [...playlist.querySelectorAll('button[aria-pressed]')].find(button => button.getAttribute('aria-label') === `Menu playlist: ${title}`);
     expect(button).toBeDefined();
@@ -139,7 +139,10 @@ it('keeps imported track metadata as text and passes the unchanged name to the p
   const row = toggle.closest('.lb-playlist-row');
   const metadata = row.querySelector('.lb-playlist-track');
   expect([...metadata.children].map(field => field.textContent)).toEqual([title, `by ${artist}`]);
-  expect([...row.querySelectorAll('.lb-playlist-tag')].map(chip => chip.textContent)).toEqual(tags);
+  expect([...playlist.querySelector('.lb-playlist-columns').children].map(column => column.textContent)).toEqual(['Track', 'Menu', 'Game']);
+  expect([...row.children].map(control => control.getAttribute('aria-label'))).toEqual([
+    `Play ${title}`, `Menu playlist: ${title}`, `Game playlist: ${title}`,
+  ]);
   expect(playlist.querySelector('[data-render-probe]')).toBeNull();
   toggle.click();
   expect(window.moveTrack).toHaveBeenCalledExactlyOnceWith('menu', title, false);

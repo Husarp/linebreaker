@@ -433,7 +433,7 @@
 }
 .lb-ledger-list > .lb-ledger-row:focus-visible { outline-offset: -3px; }
 
-.lb-game-root :is(.lb-pill, .lb-item-state, .lb-block-reward-amount, .lb-exchange-badge, .lb64-reward-tag, .lb-playlist-tag, .play-active-modifiers li) {
+.lb-game-root :is(.lb-pill, .lb-item-state, .lb-block-reward-amount, .lb-exchange-badge, .lb64-reward-tag, .play-active-modifiers li) {
     border-radius: var(--lb-radius);
 }
 .lb-game-root :is(.lb-block-reward-amount, .lb-exchange-badge) {
@@ -1299,7 +1299,6 @@ svg.lb-ledger-chevron {
     --lb-control-ink: var(--lb-label);
     --lb-control-edge: var(--lb-label);
 }
-.lb-game-root .lb-playlist-tag { border-color: var(--lb-rule); color: var(--lb-muted); }
 
 #rules-overlay .lb-help-layout { gap: 0; }
 #rules-overlay .lb-help-nav { padding: var(--lb-space-sm) var(--lb-space-md); }
@@ -1596,8 +1595,6 @@ svg.lb-ledger-chevron {
 #playlist-panel-content .lb-playlist-columns { background: var(--lb-track); color: var(--lb-muted); }
 #playlist-overlay > .lb148-playlist { gap: var(--lb-space-lg); padding-inline: max(var(--lb-folio-gutter), var(--lb-safe-left)) max(var(--lb-folio-gutter), var(--lb-safe-right)); }
 #playlist-overlay .lb-playlist-tools { border-block-end: var(--lb-border) dashed var(--lb-rule); }
-#playlist-overlay .lb-playlist-tag { padding: 0; border: 0; background: none; }
-#playlist-overlay .lb-playlist-tags { column-gap: var(--lb-space-sm); }
 #rules-overlay .lb-help-layout { width: min(100%, 960px); margin-inline: auto; gap: var(--lb-space-sm); }
 #rules-overlay .lb-help-content { padding-inline: max(var(--lb-folio-gutter), var(--lb-safe-left)) max(var(--lb-folio-gutter), var(--lb-safe-right)); }
 #rules-overlay .lb-help-topic > .lb-block-panel-head { border-block-end: var(--lb-border) dashed var(--lb-rule); }

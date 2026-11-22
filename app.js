@@ -10442,7 +10442,7 @@
         const allNames = [..._trackPool.keys()].sort((a, b) => a.localeCompare(b));
         const trackToggle = (on, ctx, name) => `<button type="button" class="lb-block-btn lb-block-btn--icon lb-playlist-check" data-playlist="${ctx === 'menu' ? 'menu' : 'game'}" aria-label="${ctx === 'menu' ? 'Menu' : 'Game'} playlist: ${escapeHtml(name)}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}',${escapeHtml(JSON.stringify(name))},${!on})">${svgCheck}</button>`;
         const header = `<div class="lb-playlist-grid lb-playlist-columns" aria-hidden="true">
-            <span>Track</span><span>Menu</span><span>Game</span><span>Tags</span>
+            <span>Track</span><span>Menu</span><span>Game</span>
         </div>`;
         const rows = allNames.map(name => {
             const entry = _trackPool.get(name);
@@ -10454,7 +10454,6 @@
             const gameOn = isAction ? actionPlaylist.includes(name) : gamePlaylist.includes(name);
             const gameCtx = isAction ? 'action' : 'game';
             const playMark = isPlaying ? '<span class="lb-playlist-equalizer" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
-            const tagChips = [...tags].sort().map(tag => `<span class="lb-playlist-tag">${escapeHtml(tag)}</span>`).join('');
             return `<div class="lb-playlist-grid lb-playlist-row">
                 <button type="button" class="lb-block-btn lb-playlist-track" aria-label="Play ${escapeHtml(name)}" ${isPlaying ? 'aria-current="true"' : ''} onclick="window.playTrackInPlaylist(${escapeHtml(JSON.stringify(name))})">
                     <span class="lb-playlist-track-title">${playMark}<span>${escapeHtml(name)}</span></span>
@@ -10462,7 +10461,6 @@
                 </button>
                 ${trackToggle(menuOn, 'menu', name)}
                 ${trackToggle(gameOn, gameCtx, name)}
-                <div class="lb-playlist-tags">${tagChips}</div>
             </div>`;
         }).join('');
         el.innerHTML = header + rows;
