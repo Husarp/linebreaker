@@ -160,11 +160,11 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
   await Promise.resolve();
   advance(100);
   await gift;
-  visible('daily-gift-overlay');
+  expect(get('lb43-crate-banner').textContent).toMatch(/crate added to your inventory/);
   await qa.open('level-crate');
-  visible('level-box-overlay');
+  visible('inventory-crate-overlay');
   await qa.open('mission-crate');
-  expect(w.document.querySelector('[aria-label="Earned rewards"]')).not.toBeNull();
+  visible('inventory-crate-overlay');
   for (const [name, id] of [['pause', 'pause-overlay'], ['game-over', 'go-overlay']]) {
     const opened = qa.open(name);
     await Promise.resolve();
@@ -227,7 +227,7 @@ it('opens the documented screenshot targets through real UI handlers', async () 
     'color-picker': '#color-picker-modal[open]', 'custom-palette': '#custom-palette-modal[open]', 'palette-preview': '#palette-view-modal', 'palette-editor': '#pal-edit-modal',
     'sfx-preview': '#sfx-preview-modal', 'sfx-panel': '#sfx-panel-modal', 'universal-parts': '#uni-modal-overlay',
     'universal-exchange': '#uni-xch-overlay', 'booster-exchange': '#exc-modal-overlay', 'inventory-sfx': '#sfx-inv-preview',
-    'daily-gift': '#daily-gift-overlay', 'level-crate': '#level-box-overlay', 'level-up': '#level-up-popup-overlay', 'mission-crate': '[aria-label="Earned rewards"]',
+    'daily-gift': '#lb43-crate-banner', 'level-crate': '#inventory-crate-overlay', 'level-up': '#level-up-popup-overlay', 'mission-crate': '#inventory-crate-overlay',
     'start-animation': '#start-animation-overlay', game: '#app.active-game', pause: '#pause-overlay', 'game-over': '#go-overlay',
   };
   expect(w.__LB_QA.list()).toEqual(Object.keys(targets));
@@ -242,13 +242,14 @@ it('opens the documented screenshot targets through real UI handlers', async () 
     expect(element, name).not.toBeNull();
     expect(element.closest('.hidden, [hidden]'), name).toBeNull();
     if (name === 'season-pass') {
-      expect(element.closest('#missions-overlay')?.querySelector('[data-tab="season"]').getAttribute('aria-pressed')).toBe('true');
+      expect(element.querySelector('.lb-topbar-title').textContent).toBe('Season Pass');
+      expect(w.document.getElementById('missions-overlay').classList.contains('hidden')).toBe(true);
     }
   }
   await expect(w.__LB_QA.open('typo')).rejects.toThrow('Unknown QA screen');
 }, 15_000);
 
-it('shows the level and rank division in level rewards and crates', async () => {
+it('shows the level and rank division in level rewards and the rarity in Inventory reveals', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w } = game;
   await w.__LB_QA.open('level-up');
@@ -262,7 +263,7 @@ it('shows the level and rank division in level rewards and crates', async () => 
   popup.querySelector('button').click();
   expect(popup.isConnected).toBe(false);
   await w.__LB_QA.open('level-crate');
-  expect(w.document.querySelector('#level-box-overlay h2').textContent).toBe('Gold IX milestone reward');
+  expect(w.document.querySelector('#inventory-crate-overlay h2').textContent).toBe('Rare crate');
 });
 
 it('shows the compact reset time above daily and weekly cards but not on Season', async () => {
@@ -283,7 +284,8 @@ it('shows the compact reset time above daily and weekly cards but not on Season'
   expect(timer.textContent).toBe('2d 5h 12m');
   expect(timer.dateTime).toBe('P2DT5H12M0S');
   w.document.querySelector('#missions-overlay [data-tab="season"]').click();
-  expect(countdown.closest('#mq-mission-view').hidden).toBe(true);
+  expect(countdown.closest('#missions-overlay').hasAttribute('inert')).toBe(true);
+  expect(w.document.querySelector('#season-pass-overlay #mq-countdown')).toBeNull();
 });
 
 it('updates the open season countdown at precision boundaries and rollover', async () => {
@@ -420,7 +422,7 @@ it('shows plain booster balances and puts the cost inside the exchange dialog', 
   expect(inventory.querySelector('[aria-label="Exchange 1.5× Booster"]').disabled).toBe(false);
   expect(quantityLabel.textContent).toBe('6 owned');
   await w.__LB_QA.open('inventory');
-  expect(quantityLabel.textContent).toBe('0 owned');
+  expect(quantityLabel.textContent).toBe('6 owned');
   await w.__LB_QA.open('inventory-blocks');
   expect(quantityLabel.hidden).toBe(true);
 });

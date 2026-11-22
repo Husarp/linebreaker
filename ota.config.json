@@ -5,7 +5,7 @@
   "channels": { "bundle": "channel", "shell": "shell-channel" },
   "artifacts": { "manifest": "manifest.json", "shellManifest": "shell.json", "apk": "LinebreakerShell-{code}.apk", "asset": "f-{sha256}.bin" },
   "updateUrls": { "bundle": null, "shell": null, "releases": null },
-  "build": { "shellApi": 1, "versionCode": 1300, "versionName": "1.3.0", "webVersion": "1.3.0", "minShellApi": 1, "message": "Ledger Forest brings dark and parchment themes, a redesigned menu and run results, and clearer missions, rewards, collections, and settings." },
+  "build": { "shellApi": 1, "versionCode": 1400, "versionName": "1.4.0", "webVersion": "1.4.0", "minShellApi": 1, "message": "Unlock Season Pass stages with mission points, open earned crates in Inventory, and enjoy better multitouch controls and music that doesn't overlap." },
   "signing": {
     "privateKey": "~/.keystores/linebreaker/ota-private.pem",
     "publicKey": "keys/public-key.b64",

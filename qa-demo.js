@@ -30,7 +30,7 @@
             seenFunRules: true,
             levelRewardsThrough: 30,
             lastDailyGift: previousDate(),
-            dailyGiftStreak: 3,
+            storedCrates: ['common', 'rare', 'rare', 'epic', 'legendary', 'mythic'].map(rarity => ({ rarity })),
             season: { id, points: 64, claimed: { ...(day >= 2 && { 1: receipt }), ...(day >= 4 && { 2: receipt }) } },
             missions,
             stats: {
@@ -71,7 +71,7 @@
         Object.assign(stats, { totalCompleted: 13, weeklyCompleted: 3, totalPts: 84 });
     }
 
-    function mount({ run, resetRun, tracksReady, alert, confirm, levelUp, levelCrate, closeLevelCrate, dailyGift }) {
+    function mount({ run, resetRun, tracksReady, alert, confirm, levelUp, levelCrate, missionCrate, closeCrate, dailyGift }) {
         const byId = id => document.getElementById(id);
         const click = selector => document.querySelector(selector).click();
         const screens = new Map();
@@ -144,13 +144,10 @@
             remove('sfx-inv-preview');
             window.closeInventory();
         });
-        add('daily-gift', dailyGift, () => remove('daily-gift-overlay'));
-        add('level-crate', levelCrate, closeLevelCrate);
+        add('daily-gift', dailyGift, () => { byId('lb43-crate-banner').textContent = ''; });
+        add('level-crate', levelCrate, closeCrate);
         add('level-up', levelUp, () => remove('level-up-popup-overlay'));
-        screen('mission-crate', 'missions-overlay', async () => { await missions('daily'); window._claimMissionMilestone(6, false); }, () => {
-            document.querySelector('.lb-reward-overlay[aria-label="Earned rewards"]')?.remove();
-            closeMissions();
-        });
+        add('mission-crate', missionCrate, closeCrate);
         for (const name of ['start-animation', 'game', 'pause', 'game-over']) add(name, () => run(name), resetRun);
 
         for (const button of document.querySelectorAll('#transfer-overlay button:not(.btn-back)')) {

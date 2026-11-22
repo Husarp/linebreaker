@@ -40,9 +40,8 @@ it('shows the current period on the board and returns to it from Season Pass', (
   expect(periodLabel()).toBe('Weekly objectives');
   expect(select('weekly').getAttribute('aria-pressed')).toBe('true');
   select('season').click();
-  expect(document.querySelector('#missions-overlay .lb-topbar-title').textContent).toBe('Season Pass');
-  expect(document.getElementById('mq-mission-view').hidden).toBe(true);
-  expect(document.getElementById('mq-list-meta').hidden).toBe(true);
+  expect(document.querySelector('#season-pass-overlay .lb-topbar-title').textContent).toBe('Season Pass');
+  expect(document.getElementById('missions-overlay').hasAttribute('inert')).toBe(true);
   document.getElementById('mq-back').click();
   expect(document.getElementById('season-pass-overlay').hidden).toBe(true);
   expect(periodLabel()).toBe('Weekly objectives');

@@ -77,22 +77,23 @@ it('renders imported scores, dates and pinned notes as literal text', () => {
   expect(document.querySelector('#lb-tooltip-global [data-render-probe]')).toBeNull();
 });
 
-it('renders achievement claims and saved reward cards as text and rejects an invalid rank color', () => {
+it('renders achievement claims and stored crate reward cards as text', async () => {
   game.setup({ save: {
     pendingAchievementClaims: [{ name: markup, xp: markup, rarity: 'rare' }],
-    pendingLevelBox: {
-      level: markup, rankName: markup, rankColor: invalidColor,
+    storedCrates: [{
+      rarity: 'rare', source: 'legacy',
       rewards: [{ icon: markup, label: markup, desc: markup, rarity: markup }]
-    }
+    }]
   } });
   window.openAchievements();
   const achievements = document.querySelector('#achievements-overlay');
   expect(achievements.textContent).toContain(markup);
   expect(achievements.querySelector('[data-render-probe]')).toBeNull();
-  game.showLevelBox();
-  const box = document.querySelector('#level-box-overlay');
-  expect(box.querySelector('.lb-rank-identity').textContent).toBe(markup);
-  expect(box.querySelector('.lb-rank-identity').style.color).toBe('rgb(255, 215, 0)');
+  window.closeAchievements();
+  const inventory = window.openInventory('crates');
+  await inventory;
+  document.querySelector('[data-crate-rarity="rare"]').click();
+  const box = document.querySelector('#inventory-crate-overlay');
   const card = box.querySelector('.lb-reward-card');
   for (const selector of ['.lb64-reward-name', '.lb64-reward-desc', '.lb-reward-rarity']) {
     expect(card.querySelector(selector).textContent).toBe(markup);

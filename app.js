@@ -745,7 +745,11 @@
                         }
                     } catch(e) { console.error('Save failed:', e); }
                 }
-            })().finally(() => { _saveWritePromise = null; window.LBAndroidUpdates?.syncSafety(); });
+            })().finally(() => {
+                _saveWritePromise = null;
+                if (!_otaSavePaused && _pendingSaveJSON !== null) return flushPendingSave();
+                window.LBAndroidUpdates?.syncSafety();
+            });
             window.LBAndroidUpdates?.syncSafety();
         }
         return _saveWritePromise;
@@ -2472,19 +2476,20 @@
         if (_qaDemo) {
             applyLoadedData(_qaDemo.createSave(defaultSaveData, _defaultMissions()), false);
             _qaDemo.seedMissions(saveData.missions);
+            const previewCrate = async (rarity, details) => {
+                saveData.storedCrates.unshift({ rarity, ...details });
+                await openInventory('crates');
+                _openStoredCrates(rarity);
+            };
             _qaDemo.mount({
                 run: startQARun, resetRun: resetQARun, alert: customAlert, confirm: customConfirm,
                 tracksReady: _initTrackCatalog,
                 levelUp: () => _showLevelUpRewardPopup(getLevelInfo(saveData.totalXP).level, _generateLevelBoxRewards()),
-                levelCrate() {
-                    const { level, rank } = getLevelInfo(saveData.totalXP);
-                    saveData.pendingLevelBox = { level, rankName: rank.name, rankColor: rank.c, rewards: _generateLevelBoxRewards() };
-                    _showLevelBox();
-                },
-                closeLevelCrate() {
-                    document.getElementById('level-box-overlay')?.remove();
-                    saveData.pendingLevelBox = null;
-                    _levelBoxShowing = false;
+                levelCrate: () => previewCrate(LBCrates.levelRarity(getLevelInfo(saveData.totalXP).level), { source: 'level' }),
+                missionCrate: () => previewCrate(LBCrates.missionRarity(6, false), { source: 'mission', amount: MQ_DAILY_MILESTONES[0].reward.amount }),
+                closeCrate() {
+                    document.getElementById('inventory-crate-overlay')?.remove();
+                    closeInventory();
                 },
                 dailyGift() {
                     saveData.lastDailyGift = _qaDemo.previousDate();
@@ -2618,6 +2623,7 @@
             if (!saveData.pinnedScores) saveData.pinnedScores = [];
             if (!saveData.achievements) saveData.achievements = {};
         }
+        LBCrates.migratePendingCrates(saveData);
         seasonPass.observe(saveData);
         LBCrates.observeTime(saveData);
         dailyGift.refresh();
@@ -3234,70 +3240,11 @@
             return { ...reward, amount: reward.amount ?? 1 };
         }), rankUnlockText);
     }
-    function _checkMilestoneBoxes() {
-        if ((!saveData.pendingMilestoneReward && !saveData.pendingMilestoneBoxes?.length) || _levelBoxShowing) return;
-        const lv = saveData.pendingMilestoneReward?.level || saveData.pendingMilestoneBoxes[0];
-        _showMilestoneBox(lv);
-    }
     function _rewardRankIdentity(level) {
         const rank = RANKS[Math.floor((level - 1) / 10)] || CELESTITE_RANK;
         const division = rank === CELESTITE_RANK ? level : (level - 1) % 10;
         const name = rank.name[0] + rank.name.slice(1).toLowerCase();
         return { rank, name: division ? `${name} ${_toRoman(division)}` : name };
-    }
-    function _showMilestoneBox(lv) {
-        if (_levelBoxShowing || dailyGift.isOpen()) return;
-        _levelBoxShowing = true;
-        let box = saveData.pendingMilestoneReward;
-        if (!box) {
-            box = { level: lv, rewards: _generateLevelBoxRewards() };
-            saveData.pendingMilestoneReward = box;
-            saveData.pendingMilestoneBoxes.shift();
-            saveDataToFile();
-        }
-        const rewards = box.rewards;
-        const overlay = document.createElement('div');
-        overlay.className = 'lb-reward-overlay lb64-crate-overlay';
-        overlay.setAttribute('role', 'dialog');
-        overlay.setAttribute('aria-modal', 'true');
-        overlay.setAttribute('aria-label', 'Earned rewards');
-        overlay.id = 'level-box-overlay';
-        const panel = document.createElement('div');
-        panel.className = 'lb64-crate-panel lb-block-dialog';
-        const { rank, name } = _rewardRankIdentity(lv);
-        panel.innerHTML = `
-            <h2 class="lb64-crate-title"><span class="lb-rank-identity" style="color:${rank.c}">${name}</span> milestone reward</h2>
-            <p class="lb64-crate-kicker">Level ${escapeHtml(lv)}</p>
-            <p class="lb64-crate-subtitle">Every 10 levels</p>
-        `;
-        const preOpen = document.createElement('div');
-        preOpen.id = 'lb-pre-open';
-        preOpen.innerHTML = '<button id="lb-open-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Open crate</button>';
-        panel.appendChild(preOpen);
-        const rewardsDiv = document.createElement('div');
-        rewardsDiv.id = 'lb-rewards-grid';
-        rewardsDiv.style.cssText = 'display:none;';
-        const grid = _crateRewardGrid(rewards);
-        rewardsDiv.innerHTML = '<button id="lb-claim-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Claim</button>';
-        rewardsDiv.prepend(grid);
-        panel.appendChild(rewardsDiv);
-        overlay.appendChild(panel);
-        document.body.appendChild(overlay);
-        _animateIn(panel, 'anim-in-down');
-        LBCrates.bindReveal(preOpen, rewardsDiv, grid, LBCrates.levelRarity(lv));
-        const claim = () => {
-            overlay.remove();
-            _levelBoxShowing = false;
-            saveData.pendingMilestoneReward = null;
-            saveDataToFile();
-            drawRankBadge();
-            _populateVisualCustomize();
-            // Show next pending milestone box if any
-            if (saveData.pendingMilestoneReward || saveData.pendingMilestoneBoxes?.length) {
-                setTimeout(() => _checkMilestoneBoxes(), 400);
-            }
-        };
-        rewardsDiv.querySelector('button').addEventListener('click', event => _claimAfterPaint(event.currentTarget, claim));
     }
     function _generateLevelBoxRewards() {
         const rewards = [];
@@ -3326,13 +3273,6 @@
         return rewards;
     }
 
-    function _queueLevelBox(box) {
-        if (!saveData.pendingLevelBox) saveData.pendingLevelBox = box;
-        else {
-            if (!saveData.pendingLevelBoxes) saveData.pendingLevelBoxes = [];
-            saveData.pendingLevelBoxes.push(box);
-        }
-    }
     function _grantXP(amount) {
         const oldLevel = getLevelInfo(saveData.totalXP).level;
         saveData.totalXP += amount;
@@ -3374,83 +3314,14 @@
                 const bInfo = BOOSTER_INFO[MID_TIER_BOOSTER[lv]];
                 _levelUpRewards.push({ icon:'⚡', label:bInfo.label, desc:`Level ${lv} reward`, rarity: bInfo.rarity });
             }
-            // Level box at each new rarity tier start
-            const _LEVEL_BOX_BOUNDARIES = [11, 21, 31, 41, 51, 61, 71, 81];
-            if (_LEVEL_BOX_BOUNDARIES.includes(lv)) {
-                const _boxRankInfo = { rank: RANKS[(lv - 1) / 10] || CELESTITE_RANK };
-                const _boxRewards = _generateLevelBoxRewards();
-                _queueLevelBox({ level: lv, rankName: _boxRankInfo.rank.name, rankColor: _boxRankInfo.rank.c, rewards: _boxRewards });
-            }
-            // Milestone box every 10th level (10, 20, 30, ...)
-            if (lv % 10 === 0) {
-                if (!saveData.pendingMilestoneBoxes) saveData.pendingMilestoneBoxes = [];
-                if (!saveData.pendingMilestoneBoxes.includes(lv)) saveData.pendingMilestoneBoxes.push(lv);
+            if (Object.hasOwn(LEVEL_MILESTONE_REWARDS, lv) || lv % 10 === 0) {
+                LBCrates.grantCrate(saveData, LBCrates.levelRarity(lv), { source: 'level' });
             }
         }
         saveData.levelRewardsThrough = Math.max(saveData.levelRewardsThrough || oldLevel, newLevel);
         if (_levelUpRewards.length > 0) {
             setTimeout(() => _showLevelUpRewardPopup(newLevel, _levelUpRewards), 2500);
         }
-        if (saveData.pendingLevelBox) {
-            const _boxDelay = _levelUpRewards.length > 0 ? 4500 : 2500;
-            setTimeout(() => _showLevelBox(), _boxDelay);
-        }
-        if (saveData.pendingMilestoneReward || saveData.pendingMilestoneBoxes?.length) {
-            const _mDelay = (_levelUpRewards.length > 0 ? 4500 : 2500) + (saveData.pendingLevelBox ? 2000 : 0);
-            setTimeout(() => _checkMilestoneBoxes(), _mDelay);
-        }
-    }
-
-    let _levelBoxShowing = false;
-    function _showLevelBox() {
-        if (_levelBoxShowing || dailyGift.isOpen() || !saveData.pendingLevelBox) return;
-        _levelBoxShowing = true;
-        const { level, rankName, rankColor: savedRankColor, rewards } = saveData.pendingLevelBox;
-        const identity = Number.isInteger(level) && level > 0 ? _rewardRankIdentity(level) : null;
-        const rankColor = identity?.rank.c ?? hexColor(savedRankColor, '#ffd700');
-
-        const overlay = document.createElement('div');
-        overlay.className = 'lb-reward-overlay lb64-crate-overlay';
-        overlay.setAttribute('role', 'dialog');
-        overlay.setAttribute('aria-modal', 'true');
-        overlay.setAttribute('aria-label', 'Earned rewards');
-        overlay.id = 'level-box-overlay';
-        const panel = document.createElement('div');
-        panel.className = 'lb64-crate-panel lb-block-dialog';
-        panel.innerHTML = `
-            <h2 class="lb64-crate-title"><span class="lb-rank-identity" style="color:${rankColor}">${escapeHtml(identity?.name ?? rankName)}</span> milestone reward</h2>
-            <p class="lb64-crate-subtitle">Level ${escapeHtml(level)}</p>
-        `;
-
-        const preOpen = document.createElement('div');
-        preOpen.id = 'lb-pre-open';
-        preOpen.innerHTML = '<button id="lb-open-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Open crate</button>';
-        panel.appendChild(preOpen);
-
-        const rewardsDiv = document.createElement('div');
-        rewardsDiv.id = 'lb-rewards-grid';
-        rewardsDiv.style.cssText = 'display:none;';
-        const grid = _crateRewardGrid(rewards);
-        rewardsDiv.innerHTML = '<button id="lb-claim-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Claim</button>';
-        rewardsDiv.prepend(grid);
-        panel.appendChild(rewardsDiv);
-        overlay.appendChild(panel);
-        document.body.appendChild(overlay);
-        _animateIn(panel, 'anim-in-down');
-
-        LBCrates.bindReveal(preOpen, rewardsDiv, grid, LBCrates.levelRarity(level));
-
-        const claim = () => {
-            overlay.remove();
-            _levelBoxShowing = false;
-            saveData.pendingLevelBox = (saveData.pendingLevelBoxes || []).shift() || null;
-            setTimeout(() => _showLevelBox(), 0);
-            saveDataToFile();
-            drawRankBadge();
-            _populateVisualCustomize();
-        };
-
-        rewardsDiv.querySelector('button').addEventListener('click', event => _claimAfterPaint(event.currentTarget, claim));
     }
 
     function devSetXP() { devSetXPorLevel(); }
@@ -3489,7 +3360,6 @@
     }
     function devResetDailyGift() {
         saveData.lastDailyGift = null;
-        saveData.dailyGiftStreak = 0;
         dailyGift.refresh();
         saveDataToFile();
         customAlert('Daily gift reset! Gift is now available.', 'DEV');
@@ -4495,7 +4365,9 @@
         // Universal parts section
         const _uniVal = saveData.universalParts || 0;
         const activeTab = document.getElementById('inventory-overlay')._invTab;
-        const stockTotals = { crates: 0, boosters: ownedBoosters, parts: Number(_uniVal.toFixed(1)) };
+        const crates = saveData.storedCrates || [];
+        const stockTotals = { crates: crates.length, boosters: ownedBoosters, parts: Number(_uniVal.toFixed(1)) };
+        if (activeTab === 'crates') LBCrates.renderLocker(document.getElementById('inventory-crates'), crates, _openStoredCrates);
         if (Object.hasOwn(stockTotals, activeTab)) {
             document.getElementById('inventory-quantity').textContent = `${stockTotals[activeTab].toLocaleString('en-US')} owned`;
         }
@@ -4611,6 +4483,33 @@
             row.addEventListener('click', () => playFn(row.dataset.sfx));
         });
     }
+    function _openStoredCrates(rarity) {
+        const inventory = document.getElementById('inventory-overlay');
+        if (inventory.classList.contains('hidden') || inventory._invTab !== 'crates' || document.querySelector('.lb-reward-overlay')) return;
+        const stock = saveData.storedCrates || [];
+        const index = rarity ? stock.findIndex(crate => crate.rarity === rarity) : 0;
+        if (!stock.length || index < 0) return;
+        const crates = stock.splice(index, rarity ? 1 : stock.length);
+        const cards = crates.flatMap(crate => {
+            if (crate.source === 'legacy') return crate.rewards;
+            if (crate.source === 'level') return _generateLevelBoxRewards();
+            if (crate.source === 'mission') return _grantMissionCrateParts(crate.amount);
+            return LBCrates.grantDailyGift(saveData, LBCrates.giftContents(crate.rarity), {
+                pickParts: count => _weightedPickParts(_getPartsEligibleItems(), count), addPart: addPartsToItem,
+                partName: _partItemName, addUniversal: addUniversalParts, addBooster: addBoosterToSave, boosterInfo: BOOSTER_INFO,
+            }, crate.source === 'daily');
+        });
+        saveDataToFile();
+        _populateInventoryOther();
+        _checkGlowNotifications();
+        playSFX('gift');
+        LBCrates.showCrateReveal(crates[0].rarity, crates.length, _crateRewardGrid(cards), () => {
+            const next = inventory.querySelector(rarity ? `[data-crate-rarity="${rarity}"]` : '.lb43-open-all:not([hidden])');
+            (next || inventory.querySelector('[data-crate-rarity]') || document.getElementById('inventory-tab-crates')).focus({ preventScroll: true });
+        });
+        checkProgressAchievements();
+    }
+
     function _checkGlowNotifications() {
         // Check if any parts item is ready to unlock (parts >= cost)
         const allItems = _getAllPartsItems();
@@ -4625,7 +4524,7 @@
             btn.classList.toggle('glow-notify', hasReady);
         });
         // Inventory button glow in main menu
-        const invReady = readyItems.length > 0;
+        const invReady = readyItems.length > 0 || Boolean(saveData.storedCrates?.length);
         document.getElementById('btn-inventory').toggleAttribute('data-ready', invReady);
         // Achievements button glow when there are pending XP claims
         _checkAchGlow();
@@ -7424,12 +7323,6 @@
         renderMenuRank(info, displayPercent, saveData.totalXP);
         if (!badgeMenu.classList.contains('hidden')) renderBadgeFrame();
         // Show pending level box if any
-        if (saveData.pendingLevelBox && !_levelBoxShowing && !document.getElementById('level-box-overlay')) {
-            setTimeout(() => _showLevelBox(), 600);
-        }
-        if ((saveData.pendingMilestoneReward || saveData.pendingMilestoneBoxes?.length) && !_levelBoxShowing && !document.getElementById('level-box-overlay')) {
-            setTimeout(() => _checkMilestoneBoxes(), saveData.pendingLevelBox ? 2000 : 600);
-        }
     }
 
     function animateXPGain() {
@@ -8793,6 +8686,7 @@
         closeInfo();
         if (controlsEditor.cancel()) return;
         switch (overlay.id) {
+            case 'inventory-crate-overlay': overlay.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); return;
             case 'start-animation-overlay': return;
             case 'pause-overlay': pauseFromInput(overlay); return;
             case 'mode-select-overlay': closeModeSelect(); return;
@@ -9963,6 +9857,7 @@
     }
 
     function renderMissionsOverlay(tab, opening = false) {
+        if (tab === 'season') return window.openSeasonPass(document.querySelector('#missions-overlay [data-tab="season"]'));
         closeInfo();
         if (!saveData.missions) saveData.missions = _defaultMissions();
         _checkMissionsRefresh();
@@ -9973,32 +9868,16 @@
         tab = tab || previousTab || 'daily';
         if (window._mqChangeMode && tab !== previousTab) return;
         el._mTab = tab;
-        const isSeason = tab === 'season';
         const weekly = tab === 'weekly';
         const swapping = !!window._mqChangeMode;
         const view = el.querySelector('#mq-mission-view');
-        view.hidden = isSeason;
-        if (!isSeason) _seasonScreen.updatePreview();
-        el.querySelector('.lb-topbar-title').textContent = isSeason ? 'Season Pass' : 'Missions';
-        el.querySelector('.lb-topbar-kicker').textContent = isSeason ? 'Rewards' : 'Objectives';
-        el.querySelector('#mq-menu').hidden = isSeason;
+        _seasonScreen.updatePreview();
         el.querySelector('#mq-menu').disabled = swapping;
-        el.querySelector('#mq-back').hidden = !isSeason;
-        el.querySelector('#mq-list-meta').hidden = isSeason;
-        el.querySelector('#sp-day').hidden = !isSeason;
         view.querySelector('.lb-info-btn').disabled = swapping;
         el.querySelectorAll('[data-tab]').forEach(button => {
-            button.setAttribute('aria-pressed', String(button.dataset.tab === tab));
+            if (button.dataset.tab !== 'season') button.setAttribute('aria-pressed', String(button.dataset.tab === tab));
             button.disabled = swapping;
-            if (button.dataset.tab === 'season') button.hidden = isSeason;
         });
-        if (isSeason) {
-            if (opening) el._mBoardTab = 'daily';
-            el._mSeasonFromBoard = !opening;
-            return _seasonScreen.open();
-        }
-        _seasonScreen.close();
-        el._mBoardTab = tab;
         if (opening || previousTab !== tab) view.scrollTop = 0;
 
         const period = weekly ? m.weekly : m.daily;
@@ -10048,7 +9927,6 @@
         const el = document.getElementById('mq-countdown');
         if (!el) return;
         const tab = document.getElementById('missions-overlay')?._mTab || 'daily';
-        if (tab === 'season') return;
         const now = new Date();
         const ms = window.LBNotifications.nextReset(now, tab !== 'daily') - now;
         if (ms <= 0) {
@@ -10088,6 +9966,7 @@
     };
 
     window.openMissions = function(tab = 'daily') {
+        if (tab === 'season') return window.openSeasonPass();
         window._mqChangeMode = false;
         const overlay = document.getElementById('missions-overlay');
         overlay.classList.remove('hidden');
@@ -10096,44 +9975,38 @@
         return fillScreenAfterPaint(overlay, () => renderMissionsOverlay(tab, true));
     };
     window.closeMissions = function() {
+        if (_seasonScreen.isOpen()) return _seasonScreen.close();
         if (window._mqChangeMode) return;
         hideMenuScreen(document.getElementById('missions-overlay'));
-        _seasonScreen.close();
         clearInterval(_missionCountdownInterval);
         _missionCountdownInterval = null;
     };
     window.renderMissionsOverlay = renderMissionsOverlay;
     document.querySelectorAll('#missions-overlay [data-tab]').forEach(button => {
-        button.addEventListener('click', () => {
-            renderMissionsOverlay(button.dataset.tab);
-            if (button.dataset.tab === 'season') document.getElementById('mq-back').focus();
-        });
-    });
-    document.getElementById('mq-back').addEventListener('click', () => {
-        const overlay = document.getElementById('missions-overlay');
-        renderMissionsOverlay(overlay._mBoardTab || 'daily');
-        overlay.querySelector(overlay._mSeasonFromBoard ? '[data-tab="season"]' : '#mq-menu').focus();
+        if (button.dataset.tab === 'season') button.removeAttribute('aria-pressed');
+        button.addEventListener('click', () => renderMissionsOverlay(button.dataset.tab));
     });
 
     const _seasonScreen = window.LBSeasonUI.mount({
         getSave: () => saveData,
         save: saveDataToFile,
         claimAfterPaint: _claimAfterPaint,
+        onNavigate: closeInfo,
         partName: _partItemName,
         boosterName: key => BOOSTER_INFO[key]?.label || key,
-        inventory: () => ({
-            parts: _getAllPartsItems().map(({ key }) => ({ key, remaining: _getItemCost(key) - (saveData.parts?.[key] || 0) })),
-            boosters: Object.keys(BOOSTER_INFO),
-            skins: [seasonPass.exclusiveSkin.key],
-            ownedSkins: saveData.ownedSkins || [],
-        }),
-        grant({ type, key, amount }) {
-            if (type === 'parts') addPartsToItem(key, amount);
-            if (type === 'universal_parts') addUniversalParts(amount);
-            if (type === 'booster') addBoosterToSave(key, amount);
-            if (type === 'skin') giveItemDirectly('skin', key);
+        grantSkin: key => giveItemDirectly('skin', key),
+        grantCrate(tier) {
+            LBCrates.grantCrate(saveData, tier);
+            return { type: 'crate', tier };
         },
     });
+    window.openSeasonPass = function(opener) {
+        const source = opener?.closest('.overlay, [id$="-overlay"]') || LBGamepad.topOverlay()
+            || document.getElementById('menu-overlay');
+        const trigger = opener || (source.id === 'menu-overlay' ? document.getElementById('btn-season-pass')
+            : source.contains(document.activeElement) ? document.activeElement : source.querySelector('.lb-block-back'));
+        return _seasonScreen.open(trigger, source);
+    };
 
     function _mqConfirm(title, msg, note, onOk) {
         const ov = document.getElementById('mq-confirm-overlay');
@@ -10225,27 +10098,32 @@
         const currentPts = isWeekly ? (m.weekly.points || 0) : (m.daily.pointsToday || 0);
         if (currentPts < pts) return;
         claimed.push(pts);
-        const r = ms.reward;
+        LBCrates.grantCrate(saveData, LBCrates.missionRarity(pts, isWeekly), { source: 'mission', amount: ms.reward.amount });
+        saveDataToFile();
+        if (!silent && !document.getElementById('missions-overlay').classList.contains('hidden')) {
+            renderMissionsOverlay(isWeekly ? 'weekly' : 'daily');
+            _checkGlowNotifications();
+        }
+    };
+
+    function _grantMissionCrateParts(amount) {
         const rewards = [];
-        if (r.type === 'parts') {
-            for (let i = 0; i < r.amount; i++) {
-                const items = _getAllPartsItems();
-                if (!items.length) {
-                    addUniversalParts(1);
-                    rewards.push({ icon:'⭐', label:'+1 Universal Part', desc:'All items collected', rarity:'rare' });
-                    continue;
-                }
-                const item = items[Math.floor(Math.random() * items.length)];
-                if (_grantRewardPart(item.key)) {
-                    rewards.push(_partConversion(item.key, 1));
-                } else {
-                    rewards.push({ type: 'parts', key: item.key, label:`+1 Part: ${_partItemName(item.key)}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
-                }
+        for (let count = 0; count < amount; count++) {
+            const items = _getAllPartsItems();
+            if (!items.length) {
+                addUniversalParts(1);
+                rewards.push({ icon:'⭐', label:'+1 Universal Part', desc:'All items collected', rarity:'rare' });
+                continue;
+            }
+            const item = items[Math.floor(Math.random() * items.length)];
+            if (_grantRewardPart(item.key)) {
+                rewards.push(_partConversion(item.key, 1));
+            } else {
+                rewards.push({ type: 'parts', key: item.key, label:`+1 Part: ${_partItemName(item.key)}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
             }
         }
-        saveDataToFile();
-        if (!silent) _showMilestoneRewardBox(ms, isWeekly, rewards);
-    };
+        return rewards;
+    }
 
     window._claimWeeklyUniversalParts = function(silent = false, button) {
         if (button) return _claimAfterPaint(button, () => window._claimWeeklyUniversalParts(silent));
@@ -10423,43 +10301,6 @@
         el.appendChild(banner);
         setTimeout(() => banner.classList.add('mq-reward-show'), 10);
         setTimeout(() => { banner.classList.remove('mq-reward-show'); setTimeout(() => banner.remove(), 400); }, 2200);
-    }
-
-    function _showMilestoneRewardBox(ms, isWeekly, rewards) {
-        const overlay = document.createElement('div');
-        overlay.className = 'lb-reward-overlay lb64-crate-overlay lb64-mission-crate';
-        overlay.setAttribute('role', 'dialog');
-        overlay.setAttribute('aria-modal', 'true');
-        overlay.setAttribute('aria-label', 'Earned rewards');
-        const panel = document.createElement('div');
-        panel.className = 'lb64-crate-panel lb-block-dialog';
-        const typeLabel = isWeekly ? 'Weekly milestone' : 'Daily milestone';
-        panel.innerHTML = `
-            <p class="lb64-crate-kicker">${typeLabel}</p>
-            <h2 class="lb64-crate-title">${escapeHtml(ms.pts)} points</h2>
-            <p class="lb64-crate-subtitle">Milestone reached!</p>
-        `;
-        const preOpen = document.createElement('div');
-        preOpen.innerHTML = '<button id="ms-open-btn" type="button" class="lb64-action lb-block-btn lb-block-btn--primary">Open crate</button>';
-        panel.appendChild(preOpen);
-        const rewardsDiv = document.createElement('div');
-        rewardsDiv.style.display = 'none';
-        const grid = _crateRewardGrid(rewards);
-        const claimBtn = document.createElement('button');
-        claimBtn.type = 'button';
-        claimBtn.className = 'lb64-action lb-block-btn lb-block-btn--primary';
-        claimBtn.textContent = 'Claim';
-        rewardsDiv.append(grid, claimBtn);
-        panel.appendChild(rewardsDiv);
-        overlay.appendChild(panel);
-        document.body.appendChild(overlay);
-
-        LBCrates.bindReveal(preOpen, rewardsDiv, grid, LBCrates.missionRarity(ms.pts, isWeekly));
-        claimBtn.onclick = () => _claimAfterPaint(claimBtn, () => {
-            overlay.remove();
-            renderMissionsOverlay(isWeekly ? 'weekly' : 'daily');
-            _checkGlowNotifications();
-        });
     }
 
     // ===== PLAYLIST PANEL =====
@@ -10946,7 +10787,6 @@
     window.openCredits = function() { const _crEl = document.getElementById('credits-overlay'); if (!_crEl) return; _crEl.classList.remove('hidden'); _animateIn(_crEl, 'anim-in-right'); };
     if (_devMode) {
     window.devTriggerMilestone = function() {
-        if (_levelBoxShowing || document.getElementById('level-box-overlay')) { customAlert('A box is already showing!', 'DEV'); return; }
         const _MS = {
             11: { rankName:'Silver',   rankColor:'#aaaaaa', rewards:[{ type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Silver milestone reward', rarity:'rare' }] },
             21: { rankName:'Gold',     rankColor:'#ffd700', rewards:[{ type:'universal_parts', amount:3, icon:'⭐', label:'+3 Universal Parts', desc:'Gold milestone reward', rarity:'rare' }] },
@@ -10975,8 +10815,8 @@
             const lv = parseInt(btn.dataset.msLv);
             const m = _MS[lv];
             if (!m) return;
-            _queueLevelBox({ level: lv, rankName: m.rankName, rankColor: m.rankColor, rewards: m.rewards });
-            _showLevelBox();
+            LBCrates.grantCrate(saveData, LBCrates.levelRarity(lv), { source: 'level' });
+            saveDataToFile();
         });
         document.body.appendChild(_sel);
     };
@@ -11339,19 +11179,21 @@
     }
 
     let dailyGiftReady = false;
+    let crateBannerTimer;
+    document.addEventListener('lb-crate-added', ({ detail: { data, rarity } }) => {
+        if (data !== saveData) return;
+        document.getElementById('btn-inventory').setAttribute('data-ready', '');
+        const inventory = document.getElementById('inventory-overlay');
+        if (!inventory.classList.contains('hidden') && inventory._invTab === 'crates') _populateInventoryOther();
+        const banner = document.getElementById('lb43-crate-banner');
+        banner.textContent = `${LBCrates.crateLabel(rarity)} added to your inventory`;
+        clearTimeout(crateBannerTimer);
+        crateBannerTimer = setTimeout(() => { banner.textContent = ''; }, 2600);
+    });
     const dailyGift = LBCrates.mountDailyGift({
         button: document.getElementById('lb43-daily-gift'), getSave: () => saveData,
         claimAfterPaint: _claimAfterPaint,
-        ready: () => dailyGiftReady && !_gameInProgress, save: saveDataToFile, onClose: drawRankBadge,
-        grant(plan) {
-            const cards = LBCrates.grantDailyGift(saveData, plan, {
-                pickParts: count => _weightedPickParts(_getPartsEligibleItems(), count), addPart: addPartsToItem,
-                partName: _partItemName, addUniversal: addUniversalParts, addBooster: addBoosterToSave, boosterInfo: BOOSTER_INFO,
-            });
-            playSFX('gift');
-            checkProgressAchievements();
-            return cards;
-        },
+        ready: () => dailyGiftReady && !_gameInProgress, save: saveDataToFile,
     });
 
     _setLoadProgress(5, 'Initializing…');
@@ -11424,7 +11266,7 @@
             generateDailyQuests: _generateDailyQuests, generateWeeklyMissions: _generateWeeklyMissions,
             missionSwapPool: _missionSwapPool,
             autoClaimMissions: _autoClaimMissions, modeXpMultiplier: _calcModeXpMult,
-            showLevelBox: _showLevelBox
+            processLevelUps: _processLevelUps,
         };
     }
 })();

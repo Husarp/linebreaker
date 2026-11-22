@@ -20,12 +20,12 @@ it('converts owned parts and formats both singular and grouped conversions', () 
   expect(api.rewardLabel({ type: 'converted_parts', key: 'ghostColor', amount: 5 })).toBe('<s>+5 parts (Colored Ghost)</s> → +1 universal part');
 });
 
-it('shows grouped converted parts in a level box while escaping reward text', () => {
+it('shows grouped converted parts in Inventory while escaping reward text', async () => {
   const reward = { type: 'converted_parts', key: 'retro<b>', amount: 2, icon: '<b>icon</b>', desc: '<b>desc</b>', rarity: '<b>rarity</b>' };
-  api.setup({ save: { pendingLevelBox: { level: 10, rankName: 'Test rank', rewards: [reward] } } });
-  api.showLevelBox();
-  document.getElementById('lb-open-btn').click();
-  const card = document.querySelector('#level-box-overlay .lb-reward-card');
+  api.setup({ save: { storedCrates: [{ rarity: 'common', source: 'legacy', rewards: [reward] }] } });
+  await window.openInventory('crates');
+  document.querySelector('[data-crate-rarity="common"]').click();
+  const card = document.querySelector('#inventory-crate-overlay .lb-reward-card');
   expect(card.querySelector('.lb64-reward-name').textContent).toBe('Universal Part');
   expect(card.querySelector('.lb-block-reward-amount').textContent).toBe('×0.4');
   expect(card.querySelector('.lb64-reward-desc').textContent).toBe('From duplicate Retro<b> parts');
@@ -33,13 +33,15 @@ it('shows grouped converted parts in a level box while escaping reward text', ()
   expect(card.querySelector('b')).toBeNull();
 });
 
-it('shows mission milestone conversions and restores pending level milestone conversions from save', () => {
+it('shows mission milestone conversions and restores pending level milestone conversions from save', async () => {
   const missions = api.defaultMissions();
   missions.daily.pointsToday = 6;
   api.setup({ save: { parts: cappedParts(), missions } });
   window.Math.random = () => 0;
   window._claimMissionMilestone(6, false);
-  const card = document.querySelector('.lb64-mission-crate .lb-block-reward');
+  await window.openInventory('crates');
+  document.querySelector('[data-crate-rarity="common"]').click();
+  const card = document.querySelector('#inventory-crate-overlay .lb-block-reward');
   expect(card.querySelector('.lb64-reward-name').textContent).toBe('Universal Part');
   expect(card.querySelector('.lb-block-reward-amount').textContent).toBe('×0.2');
   expect(card.querySelector('.lb64-reward-desc').textContent).toBe('From duplicate Glass parts');

@@ -72,6 +72,7 @@
 </head>
 <body>
 <div class="lb-top-band" aria-hidden="true"></div>
+<div id="lb43-crate-banner" role="status" aria-atomic="true"></div>
 
 <!-- LOADING SCREEN -->
 <div id="loading-screen">
@@ -388,11 +389,11 @@
 
         <div id="inventory-crates" role="tabpanel" aria-labelledby="inventory-tab-crates" data-invtab-content="crates">
             <section class="lb-collection-feature">
-                <div><span class="lb-collection-label">Locker</span><h2>Stored crates</h2><p>Crates open when claimed.</p></div>
+                <div><span class="lb-collection-label">Locker</span><h2>Stored crates</h2><p>Open your earned crates here.</p></div>
                 <img src="assets/ui/crates/rare.png" alt="">
             </section>
-            <div class="lb-collection-rule"><span class="lb-collection-label">Crates</span><span class="lb-collection-label">Quantity</span></div>
-            <div class="lb-block-card lb-collection-empty">No crates in storage.</div>
+            <div class="lb-collection-rule"><span class="lb-collection-label">Crates</span><button type="button" class="lb-block-btn lb43-open-all" hidden>Open all</button></div>
+            <div class="lb43-locker-list"></div>
         </div>
         <div id="inventory-boosters" role="tabpanel" aria-labelledby="inventory-tab-boosters" data-invtab-content="boosters" class="hidden"></div>
         <div id="inventory-parts" role="tabpanel" aria-labelledby="inventory-tab-parts" data-invtab-content="parts" class="hidden"></div>
@@ -1163,7 +1164,7 @@
         <div class="lb-block-panel lb80-credits-edition">
             <strong>LINEBREAKER</strong>
             <span>RPG Edition</span>
-            <span class="lb80-credits-version" data-update-version>Version 1.2.0</span>
+            <span class="lb80-credits-version" data-update-version>Version 1.4.0</span>
         </div>
         <section class="lb-block-card lb80-credits-card" aria-labelledby="credits-team">
             <h2 class="lb-block-section-title" id="credits-team">Created by</h2>

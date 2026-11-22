@@ -7,22 +7,26 @@
     stroke-linejoin: round;
 }
 
-.lb43-gift-overlay {
+#lb43-crate-banner:not(:empty) {
     position: fixed;
-    inset: 0;
-    z-index: 3100;
-    display: grid;
-    place-items: center;
-    background: #000d;
+    inset-block-start: calc(var(--lb-band-height) + var(--lb-space-sm));
+    inset-inline: max(var(--lb-space-md), var(--lb-safe-left)) max(var(--lb-space-md), var(--lb-safe-right));
+    z-index: 3500;
+    width: fit-content;
+    margin-inline: auto;
+    padding: var(--lb-space-sm) var(--lb-space-md);
+    border: 1px solid var(--lb-rule);
+    border-radius: var(--lb-radius);
+    background: var(--lb-panel);
+    color: var(--lb-ink);
+    box-shadow: var(--lb-card-shadow);
+    font: 600 var(--lb-type-body)/1.4 var(--lb-font-body);
     text-align: center;
+    pointer-events: none;
 }
-.lb43-gift-panel { padding: 24px; border: 1px solid var(--border); border-radius: var(--radius-md); }
-.lb43-gift-panel h2 { font: 700 24px / 1.25 var(--font-display); }
-.lb43-gift-overlay :is(.lb43-gift-streak, .lb64-reward-tag) { display: none; }
-.lb43-gift-grid { display: grid; margin-bottom: 16px; }
-.lb43-gift-card { border: 1px solid var(--lb43-tone, var(--border)); border-radius: var(--radius-md); }
-.lb43-gift-icon { display: block; margin-bottom: 4px; }
-.lb43-gift-card strong { font-size: 14px; line-height: 1.3; }
+.lb43-locker-list { display: grid; gap: var(--lb-space-sm); margin-block-start: var(--lb-space-sm); }
+#inventory-crates .lb43-locker-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; }
+.lb43-locker-art { display: block; width: 48px; height: 48px; object-fit: contain; }
 
 .lb43-crate {
     margin: 0 auto 12px;

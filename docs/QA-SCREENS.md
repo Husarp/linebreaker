@@ -20,7 +20,9 @@ await page.evaluate(() => window.__LB_QA.open('settings'));
 | Inventory and dialogs | `inventory` (Crates), `inventory-blocks`, `inventory-colors`, `inventory-boosters`, `inventory-parts`, `inventory-other` (SFX Packs), `palette-preview`, `palette-editor`, `custom-palette`, `inventory-sfx`, `universal-parts`, `universal-exchange`, `booster-exchange` |
 | Stats and scores | `stats`, `leaderboard`, `pinned`, `highscores` |
 | Progression | `missions`, `missions-weekly`, `mission-confirm`, `season-pass`, `achievements`, `level-up` |
-| Crates | `daily-gift`, `level-crate`, `mission-crate` |
+| Crates | `daily-gift` (menu grant banner), `inventory` (stocked Locker), `level-crate`, `mission-crate` (Inventory reveals) |
+
+Season Pass integration: call `LBCrates.grantCrate(saveData, rarity)` with a lowercase rarity, then persist the crate and the claim receipt together with the caller's normal save. The grant does not open or pay out a crate.
 | Music and help | `playlist`, `help`, `tutorial`, `credits` |
 | Generic dialogs | `alert`, `confirm` |
 

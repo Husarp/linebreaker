@@ -5,21 +5,17 @@ import { loadGame } from './loader.js';
 
 const {
   DAY, DAYS, EPOCH, CLOCK_TOLERANCE, seasonWindow, seasonState, stageStatus, emptySeason,
-  creditMissionPoints, claimStage, storeState, prepareConfig, summarizeTrack, rollReward,
+  creditMissionPoints, claimStage, claimBonus, bonusProgress, storeState, prepareConfig, summarizeTrack,
 } = globalThis.LBSeason;
 const data = JSON.parse(readFileSync(new URL('../data/season.json', import.meta.url), 'utf8'));
 const config = prepareConfig(data);
-const inventory = {
-  parts: [{ key: 'glass', remaining: 0 }, { key: 'shadow', remaining: 5 }],
-  boosters: ['1.25x_game', '1.5x_game', '2xp_game'], skins: ['season-prism'], ownedSkins: [],
-};
 let game;
 afterEach(() => game?.close());
 
 it('distinguishes the highest reached stage from the next unclaimed reward', () => {
   const now = EPOCH + 7 * DAY;
   const save = { season: { ...emptySeason(1), points: 67 } };
-  storeState(save, claimStage(save, config, 1, now, inventory, () => 0));
+  storeState(save, claimStage(save, config, 1, now));
   expect(summarizeTrack(config.stages, seasonState(save, now))).toEqual({
     current: config.stages[7],
     next: config.stages[1],
@@ -39,80 +35,91 @@ it('uses exact UTC days and resets progress only on the next 30-day season', () 
   expect(seasonWindow(rollover)).toEqual({ id: 2, start: rollover, day: 1, daysLeft: 30 });
   const save = { season: emptySeason(1) };
   creditMissionPoints(save, 8, rollover - 1);
-  storeState(save, claimStage(save, config, 1, rollover - 1, inventory, () => 0));
-  expect(seasonState(save, rollover - 1).season).toMatchObject({ points: 8, claimed: { 1: { type: 'parts' } } });
+  storeState(save, claimStage(save, config, 1, rollover - 1));
+  expect(seasonState(save, rollover - 1).season).toMatchObject({ points: 8, claimed: { 1: { type: 'crate' } } });
   expect(seasonState(save, rollover).season).toEqual(emptySeason(2));
   creditMissionPoints(save, 3, rollover);
   expect(save.season).toEqual({ ...emptySeason(2), points: 3 });
 });
 
-it('requires the points threshold and rolls once without spending points', () => {
-  const now = EPOCH + DAY;
+it('requires the points threshold and grants once without spending points', () => {
+  const now = EPOCH;
   const save = { season: { ...emptySeason(1), points: 7 } };
-  const random = vi.fn(() => 0.3);
+  const grant = vi.fn(tier => ({ type: 'crate', tier }));
   expect(stageStatus(config.stages[0], seasonState(save, now))).toBe('locked');
-  expect(claimStage(save, config, 1, now, inventory, random).reward).toBeUndefined();
+  expect(claimStage(save, config, 1, now, grant).reward).toBeUndefined();
   creditMissionPoints(save, 1, now);
   expect(stageStatus(config.stages[0], seasonState(save, now))).toBe('claimable');
-  const result = claimStage(save, config, 1, now, inventory, random);
+  const result = claimStage(save, config, 1, now, grant);
   storeState(save, result);
-  expect(result.reward).toEqual({ type: 'universal_parts', amount: 1 });
+  expect(result.reward).toEqual({ type: 'crate', tier: 'common' });
   expect(save.season.points).toBe(8);
   expect(stageStatus(config.stages[0], seasonState(save, now))).toBe('claimed');
-  expect(claimStage(save, config, 1, now, inventory, random).reward).toBeUndefined();
-  expect(random).toHaveBeenCalledTimes(1);
+  expect(claimStage(save, config, 1, now, grant).reward).toBeUndefined();
+  expect(grant).toHaveBeenCalledExactlyOnceWith('common');
 });
 
 it('latches a rollback greater than ten minutes until the last observed time', () => {
   const now = EPOCH + 32 * DAY;
   const save = { season: { ...emptySeason(2), points: 240 }, lastSeenTime: now };
   expect(seasonState(save, now - CLOCK_TOLERANCE).blocked).toBe(false);
-  const blocked = claimStage(save, config, 1, now - CLOCK_TOLERANCE - 1, inventory);
+  const blocked = claimStage(save, config, 1, now - CLOCK_TOLERANCE - 1);
   expect(blocked).toMatchObject({ blocked: true, lastSeenTime: now, seasonBlockedUntil: now });
   expect(blocked.reward).toBeUndefined();
   storeState(save, blocked);
   expect(seasonState(save, EPOCH + 28 * DAY).season).toBe(save.season);
   expect(seasonState(save, now - 1).blocked).toBe(true);
   expect(seasonState(save, now).blocked).toBe(false);
-  expect(claimStage(save, config, 1, now, inventory).reward).toBeDefined();
+  expect(claimStage(save, config, 1, now).reward).toBeDefined();
 });
 
-it('rejects future-stage attempts and preserves the clock lock until that day opens', () => {
-  const now = EPOCH + 6 * DAY;
-  const unlock = EPOCH + 7 * DAY;
-  const save = { season: { ...emptySeason(1), points: 240 }, lastSeenTime: now };
-  const blocked = claimStage(save, config, 8, now, inventory);
-  expect(blocked).toMatchObject({ blocked: true, seasonBlockedUntil: unlock, lastSeenTime: now });
-  expect(blocked.reward).toBeUndefined();
-  storeState(save, blocked);
-  expect(claimStage(save, config, 1, unlock - 1, inventory).reward).toBeUndefined();
-  expect(claimStage(save, config, 8, unlock, inventory).reward).toBeDefined();
-  expect(stageStatus(config.stages[8], seasonState(save, unlock))).toBe('future');
-});
-
-it('unlocks stages in threshold order and only after the corresponding UTC day arrives', () => {
+it('unlocks stages by points even on the first day, without requiring earlier claims', () => {
   const save = { season: emptySeason(1) };
-  const dayTwo = EPOCH + DAY;
-  const statuses = now => config.stages.slice(0, 3).map(stage => stageStatus(stage, seasonState(save, now)));
-  creditMissionPoints(save, 15, dayTwo);
-  expect(statuses(dayTwo)).toEqual(['claimable', 'locked', 'future']);
-  creditMissionPoints(save, 1, dayTwo);
-  expect(statuses(dayTwo)).toEqual(['claimable', 'claimable', 'future']);
-  creditMissionPoints(save, 8, dayTwo);
-  expect(statuses(dayTwo + DAY - 1)).toEqual(['claimable', 'claimable', 'future']);
-  expect(statuses(dayTwo + DAY)).toEqual(['claimable', 'claimable', 'claimable']);
+  const statuses = () => config.stages.slice(0, 3).map(stage => stageStatus(stage, seasonState(save, EPOCH)));
+  creditMissionPoints(save, 15, EPOCH);
+  expect(statuses()).toEqual(['claimable', 'locked', 'locked']);
+  creditMissionPoints(save, 9, EPOCH);
+  expect(statuses()).toEqual(['claimable', 'claimable', 'claimable']);
+  creditMissionPoints(save, 216, EPOCH);
+  expect(claimStage(save, config, 30, EPOCH).reward).toEqual({ type: 'skin', key: 'season-prism' });
+  expect(claimStage({ ...save, ownedSkins: ['season-prism'] }, config, 30, EPOCH).reward).toEqual({ type: 'crate', tier: 'legendary' });
 });
 
-it('uses the tier pool and skips ineligible parts, boosters and cosmetic duplicates', () => {
-  expect(rollReward(config, 'rare', inventory, () => 0)).toEqual({ type: 'parts', key: 'shadow', amount: 2 });
-  expect(rollReward(config, 'rare', inventory, () => 0.5)).toEqual({ type: 'booster', key: '1.5x_game', amount: 1 });
-  expect(rollReward(config, 'rare', { ...inventory, parts: [], boosters: [] }, () => 0)).toEqual({ type: 'universal_parts', amount: 2 });
-  expect(rollReward(config, 'legendary', inventory, () => 0.99)).toEqual({ type: 'crate', tier: 'legendary', contents: [
-    { type: 'parts', key: 'shadow', amount: 5 }, { type: 'universal_parts', amount: 4 }, { type: 'booster', key: '2xp_game', amount: 1 },
-  ] });
-  expect(rollReward(config, 'exclusive', inventory, () => 0)).toEqual({ type: 'skin', key: 'season-prism' });
-  expect(rollReward(config, 'exclusive', { ...inventory, ownedSkins: ['season-prism'] }, () => 0)).toMatchObject({ type: 'crate', tier: 'legendary' });
+it('grants the specified crate at each stage without changing the points curve', () => {
+  const tiers = {
+    common: [1, 2, 3, 4, 6, 8, 9, 11, 12, 13, 16, 17, 19, 21, 22, 24, 27],
+    rare: [5, 7, 14, 18, 23, 26], epic: [10, 15, 25, 28], legendary: [20], mythic: [29],
+  };
+  const save = { season: { ...emptySeason(1), points: 240 } };
+  expect(config.stages.map(stage => stage.points)).toEqual(Array.from({ length: 30 }, (_, index) => (index + 1) * 8));
+  for (const [tier, stages] of Object.entries(tiers)) {
+    for (const number of stages) expect(claimStage(save, config, number, EPOCH).reward).toEqual({ type: 'crate', tier });
+  }
   expect(() => prepareConfig({ ...data, stages: data.stages.slice(1) })).toThrow('Invalid season pass configuration');
+});
+
+it('banks repeatable rare chests at each final-stage increment and expires them at rollover', () => {
+  const save = { season: { ...emptySeason(1), points: 247 } };
+  const progress = now => bonusProgress(config, seasonState(save, now));
+  const grant = vi.fn(tier => ({ type: 'crate', tier }));
+  expect(progress(EPOCH)).toEqual({ ready: 0, points: 7 });
+  expect(claimBonus(save, config, EPOCH, grant).reward).toBeUndefined();
+  creditMissionPoints(save, 1, EPOCH);
+  expect(progress(EPOCH)).toEqual({ ready: 1, points: 0 });
+  creditMissionPoints(save, 10, EPOCH);
+  expect(progress(EPOCH)).toEqual({ ready: 2, points: 2 });
+  for (const ready of [1, 0]) {
+    const result = claimBonus(save, config, EPOCH, grant);
+    expect(result.reward).toEqual({ type: 'crate', tier: 'rare' });
+    storeState(save, result);
+    expect(progress(EPOCH)).toEqual({ ready, points: 2 });
+  }
+  expect(save.season).toMatchObject({ points: 258, bonusClaimed: 2 });
+  expect(claimBonus(save, config, EPOCH, grant).reward).toBeUndefined();
+  creditMissionPoints(save, 6, EPOCH);
+  expect(progress(EPOCH)).toEqual({ ready: 1, points: 0 });
+  expect(claimBonus(save, config, EPOCH + DAYS * DAY, grant).reward).toBeUndefined();
+  expect(grant.mock.calls).toEqual([['rare'], ['rare']]);
 });
 
 it('credits daily and weekly point claims once, including automatic recovery', async () => {
@@ -154,7 +161,7 @@ it('shows immediate mission claim feedback without crediting points until after 
   expect(claim.hasAttribute('aria-busy')).toBe(false);
 });
 
-it('round-trips v1 with clean receipts and a persisted clock notice deadline', async () => {
+it('migrates old saves without resetting points or already-claimed stage receipts', async () => {
   game = await loadGame();
   const { sanitizeSave, LBSave } = game.w;
   const defaults = game.api.save;
@@ -167,93 +174,126 @@ it('round-trips v1 with clean receipts and a persisted clock notice deadline', a
   const clock = { lastSeenTime: EPOCH + DAY, seasonBlockedUntil: EPOCH + 2 * DAY };
   const clean = sanitizeSave({ ...defaults, season, ...clock }, defaults);
   expect(clean).toMatchObject({ schemaVersion: 1, ...clock });
-  expect(clean.season).toEqual({ id: 1, points: 45, claimed: {
+  expect(clean.season).toEqual({ id: 1, points: 45, bonusClaimed: 0, claimed: {
     1: { type: 'crate', tier: 'common', contents: [{ type: 'parts', key: 'shadow', amount: 1 }] },
     30: { type: 'skin', key: 'season-prism' },
   } });
+  expect(seasonState(clean, clock.lastSeenTime)).toMatchObject({ blocked: false, seasonBlockedUntil: 0 });
+  expect(claimStage(clean, config, 1, clock.lastSeenTime).reward).toBeUndefined();
+  expect(claimStage(clean, config, 5, clock.lastSeenTime).reward).toEqual({ type: 'crate', tier: 'rare' });
   expect(sanitizeSave(LBSave.serializeSave(clean), defaults).season).toEqual(clean.season);
   expect(sanitizeSave({ schemaVersion: 1, lastSeenTime: Infinity }, defaults)).toMatchObject({ season: emptySeason(), lastSeenTime: 0, seasonBlockedUntil: 0 });
+});
+
+it('opens straight from the menu without mounting the Missions board, then returns to the menu card', async () => {
+  game = await loadGame(true, null, null, async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] }));
+  const { w } = game;
+  const menu = w.document.getElementById('menu-overlay');
+  const card = w.document.getElementById('btn-season-pass');
+  const missions = w.document.getElementById('missions-overlay');
+  const screen = w.document.getElementById('season-pass-overlay');
+  const mutations = new w.MutationObserver(() => {});
+  mutations.observe(missions, { attributes: true, attributeFilter: ['class'] });
+  const opened = w.Function(`return ${card.getAttribute('onclick')}`).call(card);
+  expect(screen.hidden).toBe(false);
+  expect(missions.classList.contains('hidden')).toBe(true);
+  expect(mutations.takeRecords()).toHaveLength(0);
+  expect(menu.hasAttribute('inert')).toBe(true);
+  await opened;
+  screen.querySelector('.lb-block-back').click();
+  expect(screen.hidden).toBe(true);
+  expect(missions.classList.contains('hidden')).toBe(true);
+  expect(menu.hasAttribute('inert')).toBe(false);
+  expect(w.document.activeElement).toBe(card);
+  mutations.disconnect();
 });
 
 it('opens from missions, rechecks a stale claim, and awards the exclusive skin after correction', async () => {
   game = await loadGame(true, null, null, async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] }));
   const { w, api, advance } = game;
   const afterPaint = () => { advance(16); advance(16); };
-  const firstMinute = EPOCH + 29 * DAY + 60_000;
+  const firstMinute = EPOCH + 60_000;
   let now = firstMinute;
   w.Date.now = () => now;
   api.setSave({ ...api.save, season: { ...emptySeason(1), points: 240 }, lastSeenTime: firstMinute });
-  w.openMissions();
+  await w.openMissions('weekly');
   const missions = w.document.getElementById('missions-overlay');
   const seasonTab = missions.querySelector('[data-tab="season"]');
   const weeklyTab = missions.querySelector('[data-tab="weekly"]');
   const missionView = w.document.getElementById('mq-mission-view');
+  const missionBoard = w.document.getElementById('missions-body').firstElementChild;
+  missionView.scrollTop = 120;
   await vi.waitFor(() => expect(seasonTab.querySelector('small').textContent).toBe('Stage 30 · Next reward at 8 SP'));
   expect(w.document.getElementById('lb-menu-season-stage').textContent).toBe('Stage 30 · View rewards');
   seasonTab.click();
-  await vi.waitFor(() => expect(w.document.querySelectorAll('.sp-card')).toHaveLength(30));
+  await vi.waitFor(() => expect(w.document.querySelectorAll('.sp-card[data-stage]')).toHaveLength(30));
   const overlay = w.document.getElementById('season-pass-overlay');
-  expect(missions.contains(overlay)).toBe(true);
-  expect(missions.hasAttribute('inert')).toBe(false);
+  expect(missions.contains(overlay)).toBe(false);
+  expect(missions.hasAttribute('inert')).toBe(true);
   expect(overlay.hidden).toBe(false);
-  expect(missionView.hidden).toBe(true);
-  expect(w.getComputedStyle(missionView).display).toBe('none');
-  expect(seasonTab.getAttribute('aria-pressed')).toBe('true');
+  expect(missionView.hidden).toBe(false);
   expect(w.document.activeElement.id).toBe('mq-back');
   expect(overlay.querySelector('.sp-points')).toBeNull();
   const meter = overlay.querySelector('.sp-hero .sp-meter');
   const progress = meter.querySelector('progress');
   const progressText = meter.querySelector('#sp-progress-text');
-  expect(overlay.querySelector('[aria-current="step"] h3').textContent).toBe('Stage 1: Common Crate');
-  expect(overlay.querySelector('[aria-current="step"] .sp-step').textContent).toBe('01');
+  expect(overlay.querySelector('[aria-current="step"] h3').textContent).toBe('Stage 30: Season Prism');
+  expect(overlay.querySelector('[aria-current="step"] .sp-step').textContent).toBe('30');
   expect(overlay.querySelector('#sp-title').textContent).toBe('Stage 30');
-  expect(progressText.textContent).toBe('8 / 8 SP to stage 01');
-  expect(progress.value).toBe(8);
-  const finalClaim = () => overlay.querySelector('[data-sp-day="30"]');
-  now -= 120_000;
+  expect(progressText.textContent).toBe('240 SP · All stages unlocked');
+  expect(progress.hidden).toBe(true);
+  expect(overlay.querySelector('[data-stage="29"] img').getAttribute('src')).toBe('assets/ui/crates/mythic.png');
+  expect(overlay.querySelector('[data-stage="30"] .sp-prism')).not.toBeNull();
+  const finalClaim = () => overlay.querySelector('[data-sp-claim="30"]');
+  now -= CLOCK_TOLERANCE + 1;
   finalClaim().click();
   expect(finalClaim().getAttribute('aria-busy')).toBe('true');
   afterPaint();
   expect(api.save.ownedSkins).not.toContain('season-prism');
   expect(overlay.querySelector('#sp-notice').textContent).toContain('Check your device date and time');
-  expect(overlay.querySelector('[data-tier="exclusive"]').dataset.state).toBe('future');
+  expect(overlay.querySelector('[data-tier="exclusive"]').dataset.state).toBe('locked');
   now = firstMinute;
-  overlay.querySelector('.sp-jump').click();
+  w.dispatchEvent(new w.Event('focus'));
   finalClaim().click();
   afterPaint();
   expect(api.save.season.claimed[30]).toEqual({ type: 'skin', key: 'season-prism' });
   expect(api.save.ownedSkins).toContain('season-prism');
   expect(finalClaim()).toBeNull();
-  overlay.querySelector('[data-sp-day="1"]').click();
+  const { storedCrates, parts, universalParts, boosters } = api.save;
+  overlay.querySelector('[data-sp-claim="1"]').click();
   afterPaint();
+  expect(api.save.season.claimed[1]).toEqual({ type: 'crate', tier: 'common' });
+  expect(api.save.storedCrates).toEqual([...storedCrates, { rarity: 'common' }]);
+  expect(api.save).toMatchObject({ parts, universalParts, boosters });
   const receipt = overlay.querySelector('[data-stage="1"] details');
   expect(receipt.querySelector('summary').getAttribute('aria-label')).toContain('Stage 1 claimed');
   expect(receipt.querySelector('.sp-receipt').textContent).not.toBe('');
   receipt.querySelector('summary').click();
   expect(receipt.open).toBe(true);
-  expect(progressText.textContent).toBe('16 / 16 SP to stage 02');
-  expect(progress.max).toBe(16);
+  expect(progressText.textContent).toBe('240 SP · All stages unlocked');
   api.setSave({ ...api.save, season: { ...api.save.season, points: 11 } });
-  weeklyTab.click();
-  seasonTab.click();
+  w.dispatchEvent(new w.Event('focus'));
   expect(progressText.textContent).toBe('11 / 16 SP to stage 02');
   expect(progress.value).toBe(11);
+  expect(progress.max).toBe(16);
   const locked = overlay.querySelector('[data-stage="2"] details');
   locked.querySelector('summary').click();
   expect(locked.open).toBe(true);
-  expect(locked.querySelector('.lb-block-expand-body').textContent).toBe('Needs points · 16 SP');
+  expect(locked.querySelector('.lb-block-expand-body').textContent).toBe('5 SP to go');
   w.document.getElementById('mq-back').click();
   expect(overlay.hidden).toBe(true);
   expect(missionView.hidden).toBe(false);
+  expect(missions.hasAttribute('inert')).toBe(false);
+  expect(w.document.getElementById('missions-body').firstElementChild).toBe(missionBoard);
+  expect(missionView.scrollTop).toBe(120);
   expect(weeklyTab.getAttribute('aria-pressed')).toBe('true');
-  expect(seasonTab.getAttribute('aria-pressed')).toBe('false');
   expect(w.document.activeElement).toBe(seasonTab);
   seasonTab.click();
   expect(overlay.querySelector('[data-tier="exclusive"]').dataset.state).toBe('claimed');
   w.closeMissions();
-  missions.dispatchEvent(new w.Event('animationend'));
   expect(overlay.hidden).toBe(true);
-  w.openMissions();
+  w.closeMissions();
+  await w.openMissions();
   expect(missions.querySelector('[data-tab="daily"]').getAttribute('aria-pressed')).toBe('true');
 });
 
@@ -274,13 +314,16 @@ it('fills the season track through reached thresholds and partway toward the nex
   expect(stage(9).style.getPropertyValue('--sp-incoming')).toBe('50%');
 });
 
-it('reports the visible stage range as the reward track scrolls', async () => {
+it('reports the visible stage range and only shows the jump arrow when its target is out of view', async () => {
   game = await loadGame(true, null, null, async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] }));
-  const { w } = game;
+  const { w, api } = game;
+  w.Date.now = () => EPOCH;
+  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 56 }, lastSeenTime: EPOCH });
   const track = w.document.querySelector('.sp-track');
   await w.openMissions('season');
-  const stages = track.querySelectorAll('.sp-card');
+  const stages = track.querySelectorAll('[data-stage]');
   const range = w.document.getElementById('sp-stage-range');
+  const jump = w.document.querySelector('.sp-jump');
   expect(stages).toHaveLength(30);
   track.getBoundingClientRect = () => ({ top: 0, bottom: 244 });
   stages.forEach((stage, index) => {
@@ -289,11 +332,48 @@ it('reports the visible stage range as the reward track scrolls', async () => {
       return { top, bottom: top + 55 };
     };
   });
-  for (const [offset, label] of [[0, 'Stage 01–04'], [6 * 63, 'Stage 07–10'], [26 * 63, 'Stage 27–30']]) {
+  for (const [offset, label, direction] of [[0, 'Stage 01–04', 'down'], [6 * 63, 'Stage 07–10', ''], [26 * 63, 'Stage 27–30', 'up']]) {
     track.scrollTop = offset;
     track.dispatchEvent(new w.Event('scroll'));
     expect(range.textContent).toBe(label);
+    expect(jump.hidden).toBe(!direction);
+    expect(jump.dataset.direction).toBe(direction);
   }
-  w.document.getElementById('mq-back').click();
-  expect(w.document.activeElement.id).toBe('mq-menu');
+  jump.click();
+  expect(jump.hidden).toBe(true);
+  expect(w.document.activeElement).toBe(stages[6]);
+});
+
+it('claims the rare overflow row repeatedly and retains count and remainder on reload', async () => {
+  game = await loadGame(true, null, null, async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] }));
+  const { w, api, advance } = game;
+  w.Date.now = () => EPOCH;
+  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 258 }, lastSeenTime: EPOCH });
+  await w.openMissions('season');
+  const bonus = () => w.document.querySelector('[data-bonus]');
+  expect(bonus().nextElementSibling).toBeNull();
+  expect(bonus().querySelector('h3').textContent).toBe('Bonus chest · every 8 SP');
+  expect(bonus().querySelector('img').getAttribute('src')).toBe('assets/ui/crates/rare.png');
+  const { universalParts, storedCrates } = api.save;
+  const giftStat = api.save.stats.rareItemsFromDailyBox;
+  for (const [count, label] of [[1, '2 ready · 2 / 8 SP'], [2, '1 ready · 2 / 8 SP']]) {
+    expect(bonus().querySelector('#sp-bonus-progress').textContent).toBe(label);
+    bonus().querySelector('button').click();
+    advance(16);
+    advance(16);
+    expect(api.save.season.bonusClaimed).toBe(count);
+  }
+  expect(api.save.universalParts).toBe(universalParts);
+  expect(api.save.storedCrates).toEqual([...storedCrates, { rarity: 'rare' }, { rarity: 'rare' }]);
+  expect(bonus().querySelector('button')).toBeNull();
+  expect(bonus().querySelector('progress').value).toBe(2);
+  const clean = w.sanitizeSave(w.LBSave.serializeSave(api.save), api.save);
+  expect(clean.season).toMatchObject({ points: 258, bonusClaimed: 2 });
+  expect(clean.storedCrates).toEqual(api.save.storedCrates);
+  w.closeMissions();
+  await w.openInventory('crates');
+  w.document.querySelector('.lb43-open-all').click();
+  expect(api.save.storedCrates).toEqual([]);
+  expect(api.save.universalParts).toBeGreaterThan(universalParts);
+  expect(api.save.stats.rareItemsFromDailyBox).toBe(giftStat);
 });

@@ -12,7 +12,7 @@
     const scoreKeys = ['highscoreHistory', 'pinnedScores', 'funLeaderboard', 'leaderboard'];
     const keyGroups = [
         ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'dailyGiftStreak', 'lastSeenTime', 'levelRewardsThrough', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
-        ['parts', 'universalParts', 'boosters', 'boxes', 'ghostColorUnlocked', 'ownedSkins', 'ownedThemes', 'ownedBtnStyles', 'ownedGridStyles', 'ownedSfxPacks', 'ownedPalettes', 'customPaletteOverrides', 'customPickerColors', 'customThemeColor', '_cpmBaseColor', '_cpmMode', 'menuPlaylist', 'gamePlaylist', 'actionPlaylist'],
+        ['parts', 'universalParts', 'boosters', 'boxes', 'storedCrates', 'ghostColorUnlocked', 'ownedSkins', 'ownedThemes', 'ownedBtnStyles', 'ownedGridStyles', 'ownedSfxPacks', 'ownedPalettes', 'customPaletteOverrides', 'customPickerColors', 'customThemeColor', '_cpmBaseColor', '_cpmMode', 'menuPlaylist', 'gamePlaylist', 'actionPlaylist'],
         ['missions'], ['season', 'lastSeenTime', 'seasonBlockedUntil'], ['achievements', 'pendingAchievementClaims'], ['stats'], scoreKeys,
     ];
     const saveKeys = keyGroups.flat();
@@ -192,7 +192,6 @@
             else if (/Color$/.test(key)) out[key] = colour(value, '#00ffff');
             else if (['_cpmMode'].includes(key)) out[key] = string(value);
         }
-        if (!out.lastDailyGift) out.dailyGiftStreak = 0;
         out.ownedSkins = [...new Set(list(out.ownedSkins).filter(key => typeof key === 'string' && Object.hasOwn(skins, key)))];
         for (const k of scoreKeys) out[k] = list(data[k]).filter(object).map(cleanScore);
         out.leaderboard.sort((first, second) => (second.score || 0) - (first.score || 0));
@@ -308,6 +307,13 @@
         out.pendingMilestoneReward = box(data.pendingMilestoneReward);
         out.pendingLevelBoxes = list(data.pendingLevelBoxes).map(box).filter(Boolean);
         out.pendingMilestoneBoxes = list(data.pendingMilestoneBoxes).filter(n => typeof n === 'number' && Number.isFinite(n) && n > 0).map(n => Math.floor(number(n, 0, 100000)));
+        out.storedCrates = list(data.storedCrates).flatMap(crate => {
+            if (!['common', 'rare', 'epic', 'legendary', 'mythic'].includes(crate?.rarity)) return [];
+            const { rarity, source } = crate;
+            if (source === 'legacy') return [{ rarity, source, rewards: list(crate.rewards).slice(0, 50).map(reward).filter(Boolean) }];
+            if (source === 'mission') return [{ rarity, source, amount: Math.floor(number(crate.amount, 0, 1000)) }];
+            return [{ rarity, ...(['daily', 'level'].includes(source) ? { source } : {}) }];
+        });
         return out;
     }
     window.sanitizeSave = sanitizeSave;
