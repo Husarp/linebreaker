@@ -90,6 +90,28 @@ it('retains the System choice while following live OS changes only in that mode'
   } finally { game.close(); }
 });
 
+it('offers every shipped wallpaper and updates both crops of the main-menu banner', async () => {
+  const { w, close } = await loadGame();
+  try {
+    const wallpaperNames = ['default', 'forest', 'ocean', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura'];
+    const banner = w.document.querySelector('.lb-menu-banner');
+    const options = [...w.document.querySelectorAll('#setting-theme-background-list [role="option"]')];
+    expect(options.map(option => option.dataset.value).sort()).toEqual([...wallpaperNames, 'image', 'plain'].sort());
+    for (const name of wallpaperNames) {
+      options.find(option => option.dataset.value === name).click();
+      expect(settings(w).themeBackground).toBe(name);
+      for (const orientation of ['landscape', 'portrait']) {
+        const path = `assets/ui/bg/${name}-${orientation}.jpg`;
+        expect(banner.style.getPropertyValue(`--lb-theme-art-${orientation}`)).toBe(`url("${path}")`);
+        expect(readFileSync(new URL(`../${path}`, import.meta.url)).length).toBeGreaterThan(0);
+      }
+    }
+    w.applyTheme('default');
+    options.find(option => option.dataset.value === 'image').click();
+    expect(banner.style.getPropertyValue('--lb-theme-art-portrait')).toContain('/default-portrait.jpg');
+  } finally { close(); }
+});
+
 const css = readFileSync(new URL('../ledger.css', import.meta.url), 'utf8');
 const colors = selector => Object.fromEntries([...css.split(`${selector} {`)[1].split('}')[0]
   .matchAll(/--lb-([\w-]+): #([\da-f]{6});/gi)].map(([, name, hex]) =>

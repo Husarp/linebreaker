@@ -188,9 +188,9 @@
     grid-column: 1;
     grid-row: 1 / 3;
     justify-items: center;
-    --lb-icon-frame-size: 34px;
-    --lb-icon-frame-ink: var(--lb-tone-ink, var(--lb-label));
 }
+.mq-patch { display: block; }
+[data-lb-ui-theme='light'] .mq-patch { --mq-patch-outline: #45372d; }
 .mq-card-icon .mq-pts { margin: 0; color: var(--lb-ink); font: var(--lb-type-micro)/1.3 var(--lb-font-pixel); }
 .mq-card .mq-card-title { color: var(--lb-ink); font: 700 .9375rem/1.25 var(--lb-font-body); }
 .mq-card .mq-card-desc { color: var(--lb-muted); font: var(--lb-type-small)/1.32 var(--lb-font-body); margin-block-start: 2px; }

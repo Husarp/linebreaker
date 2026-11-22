@@ -320,6 +320,9 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   expect(progressText.textContent).toBe('11 / 16 SP to stage 02');
   expect(progress.value).toBe(11);
   expect(progress.max).toBe(16);
+  const fills = [...meter.querySelector('.sp-meter-segments').children].map(segment =>
+    parseFloat(segment.style.getPropertyValue('--sp-day-fill')));
+  expect(fills).toEqual([...Array(21).fill(100), 31.25, ...Array(9).fill(0)]);
   const locked = overlay.querySelector('[data-stage="2"] details');
   locked.querySelector('summary').click();
   expect(locked.open).toBe(true);
@@ -339,6 +342,24 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   w.closeMissions();
   await w.openMissions();
   expect(missions.querySelector('[data-tab="daily"]').getAttribute('aria-pressed')).toBe('true');
+});
+
+it('redraws the meter for each local month without filling it for elapsed days', async () => {
+  let now = +new Date(2026, 0, 31, 12);
+  const fetchSeason = async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] });
+  game = await loadGame(true, null, null, fetchSeason, null, window => { window.Date.now = () => now; });
+  const { w, api } = game;
+  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 4 }, lastSeenTime: now });
+  await w.openSeasonPass();
+  const segments = w.document.querySelector('.sp-meter-segments');
+  expect(segments.children).toHaveLength(31);
+  expect(segments.children[15].style.getPropertyValue('--sp-day-fill')).toBe('50%');
+  for (const [year, month, length] of [[2026, 1, 28], [2026, 3, 30], [2028, 1, 29]]) {
+    now = +new Date(year, month, 1, 12);
+    w.dispatchEvent(new w.Event('focus'));
+    expect(segments.children).toHaveLength(length);
+    expect([...segments.children].every(day => day.style.getPropertyValue('--sp-day-fill') === '0%')).toBe(true);
+  }
 });
 
 it('fills the season track through reached thresholds and partway toward the next stage', async () => {

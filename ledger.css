@@ -633,10 +633,13 @@
     align-content: start;
     min-height: 282px;
     padding: clamp(24px, 5dvh, 38px) 0 0;
-    background: var(--lb-art-tint), var(--lb-theme-art-portrait, none) center 47% / cover no-repeat, var(--lb-art) !important;
+    background: var(--lb-art-tint), var(--lb-menu-art, var(--lb-theme-art-portrait, none)) center 47% / cover no-repeat, var(--lb-art) !important;
     border-color: var(--lb-action-rim) !important;
     box-shadow: 0 0 0 3px var(--lb-key) !important;
     color: var(--lb-art-ink);
+}
+@media (min-aspect-ratio: 1/1) {
+    #menu-overlay .lb-menu-banner { --lb-menu-art: var(--lb-theme-art-landscape, none); }
 }
 .lb-menu-kicker {
     font: 400 var(--lb-type-micro)/1.35 var(--lb-font-heading);
@@ -1188,7 +1191,7 @@ svg.lb-ledger-chevron {
 #achievements-overlay .ach-dates { min-height: 34px; font: 650 .6875rem/1.25 var(--lb-font-body); }
 #achievements-overlay :is(.ach-pending, .ach-group) { margin-block-end: var(--lb-space-md); }
 #achievements-overlay .ach-section-head { justify-content: space-between; margin: 0; }
-#achievements-overlay .ach-records { display: grid; gap: var(--lb-space-xs); padding: var(--lb-space-sm); }
+#achievements-overlay .ach-records { display: flex; flex-direction: column; gap: var(--lb-space-xs); padding: var(--lb-space-sm); }
 #achievements-overlay .ach-card {
     grid-template-columns: 24px minmax(0, 1fr) 16px;
     width: 100%;

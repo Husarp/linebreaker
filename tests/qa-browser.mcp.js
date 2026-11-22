@@ -217,20 +217,41 @@
             if (name === 'settings-display') {
                 const wallpaper = page.locator('#setting-theme-background');
                 const preview = page.locator('.lb102-wallpaper-preview');
-                const original = await wallpaper.inputValue();
-                await wallpaper.selectOption('plain');
+                const banner = page.locator('.lb-menu-banner');
+                const original = await wallpaper.evaluate(element => element.value);
+                const chooseWallpaper = async value => {
+                    await wallpaper.getByRole('button').click();
+                    await page.locator(`#setting-theme-background-list [data-value="${value}"]`).click();
+                };
+                const crop = viewport.width < viewport.height ? 'portrait' : 'landscape';
+                await chooseWallpaper('plain');
                 if (await preview.evaluate(element => getComputedStyle(element).backgroundImage) !== 'none') fail('Plain wallpaper still shows artwork');
-                await wallpaper.selectOption('ocean');
-                if (!(await preview.evaluate(element => getComputedStyle(element).backgroundImage)).includes('ocean-')) fail('Wallpaper picker did not preview the selected art');
+                if ((await banner.evaluate(element => getComputedStyle(element).backgroundImage)).includes('/bg/')) fail('Plain wallpaper still shows banner art');
+                for (const choice of ['default', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura', 'ocean']) {
+                    await chooseWallpaper(choice);
+                    if (!(await preview.evaluate(element => getComputedStyle(element).backgroundImage)).includes(`${choice}-landscape.jpg`) ||
+                        !(await banner.evaluate(element => getComputedStyle(element).backgroundImage)).includes(`${choice}-${crop}.jpg`)) {
+                        fail(`Wallpaper ${choice} did not update the preview and ${crop} banner`);
+                    }
+                }
                 if (await page.locator('html').getAttribute('data-lb-ui-theme') !== resolved) fail('Changing wallpaper also changed the theme');
                 const otherTheme = resolved === 'dark' ? 'light' : 'dark';
                 await page.locator(`[data-ui-theme="${otherTheme}"]`).click();
-                if (await wallpaper.inputValue() !== 'ocean' ||
+                if (await wallpaper.evaluate(element => element.value) !== 'ocean' ||
                     !(await preview.evaluate(element => getComputedStyle(element).backgroundImage)).includes('ocean-')) {
                     fail('Changing theme also changed the wallpaper');
                 }
                 await page.locator(`[data-ui-theme="${theme}"]`).click();
-                await wallpaper.selectOption(original);
+                await chooseWallpaper(original);
+            }
+            if (name === 'achievements') {
+                const singleColumn = await page.locator('.ach-records, .ach-pending-list').evaluateAll(lists =>
+                    lists.length > 0 && lists.every(list => {
+                        const rows = [...list.children].map(row => row.getBoundingClientRect());
+                        return rows.every((row, index) => row.height > 0 && (!index ||
+                            (Math.abs(row.left - rows[0].left) <= 1 && row.top >= rows[index - 1].bottom - 1)));
+                    }));
+                if (!singleColumn) fail('Achievements must have one record per line');
             }
             if (name === 'menu') {
                 const navigationFits = await page.locator('#menu-overlay button:has(> .lb-ledger-chevron)').evaluateAll(rows => rows.length >= 6 && rows.every(row => {
@@ -355,9 +376,10 @@
                     const colors = new Set(regular.map(card => getComputedStyle(card).backgroundColor));
                     return colors.size === new Set(regular.map(card => card.dataset.tier)).size
                         && cards.every(card => {
-                            const art = card.querySelector('.mq-card-icon svg')?.getBoundingClientRect();
+                            const art = card.querySelector('.mq-card-icon .mq-patch[viewBox="0 0 16 16"]')?.getBoundingClientRect();
                             const points = card.querySelector('.mq-card-icon .mq-pts');
-                            return art && points && points.getBoundingClientRect().top >= art.bottom && /\+\d+ SP/.test(points.textContent);
+                            return art?.width === 32 && art.height === 32 && points &&
+                                points.getBoundingClientRect().top >= art.bottom && /\+\d+ SP/.test(points.textContent);
                         });
                 });
                 if (!cardDesign) fail('Mission cards must tint their faces by difficulty and put SP below the icon');
@@ -369,9 +391,11 @@
                     const next = rail.querySelector('[aria-current="step"]');
                     const end = rail.querySelector('[data-stage="30"]');
                     const month = window.LBSeason.seasonWindow(Date.now());
+                    const meter = screen.querySelector('.sp-meter-segments');
+                    const [first, second] = [...meter.children].map(segment => segment.getBoundingClientRect());
                     return !screen.hidden && rail.querySelectorAll('.sp-card[data-rarity]').length === 30
                         && rail.scrollHeight > rail.clientHeight && rail.scrollWidth <= rail.clientWidth + 1
-                        && screen.querySelector('.sp-hero progress')?.getBoundingClientRect().width > 0
+                        && meter.childElementCount === month.days && first?.width > 0 && second.left > first.right
                         && next?.querySelector('.sp-step')?.textContent === next?.dataset.stage.padStart(2, '0')
                         && end?.querySelector('h3')?.textContent.includes('Season Prism')
                         && screen.querySelector('#sp-day')?.textContent === `Day ${month.day} / ${month.days}`;

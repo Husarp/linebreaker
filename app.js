@@ -914,8 +914,10 @@
     }
     function syncWallpaperArt(theme) {
         LBArtPack.applyThemeBackground(wallpaper.parentElement, theme, settings.themeBackground);
+        const banner = document.querySelector('.lb-menu-banner');
+        LBArtPack.applyThemeBackground(banner, theme, settings.themeBackground);
         const featureTheme = theme === 'default' ? 'forest' : theme;
-        for (const element of document.querySelectorAll('.lb-menu-banner, .go-score-card, #inventory-overlay, #achievements-overlay')) {
+        for (const element of document.querySelectorAll('.go-score-card, #inventory-overlay, #achievements-overlay')) {
             LBArtPack.applyThemeBackground(element, featureTheme, settings.themeBackground);
         }
     }
@@ -9840,17 +9842,6 @@
     }
 
     // ---- MISSIONS UI ----
-    const missionMetricIcons = {
-        blocksPlaced: 'lb-metric-blocks', bottomTwoRows: 'lb-metric-blocks', bottomQuarter: 'lb-metric-blocks',
-        linesCleared: 'lb-run-icon-lines', doubles: 'lb-run-icon-lines', triples: 'lb-run-icon-lines',
-        quads: 'lb-run-icon-lines', quadStreak: 'lb-run-icon-lines', perfectClear: 'lb-run-icon-lines',
-        ghostLines: 'lb-run-icon-lines', mirrorLines: 'lb-run-icon-lines',
-        score: 'lb-metric-trophy', gameTime: 'lb-metric-clock', gamesPlayed: 'lb-metric-gamepad', funRuns: 'lb-metric-gamepad',
-        maxSpeed: 'lb-run-icon-speed', gamesReachedSpeed2: 'lb-run-icon-speed',
-        gamesReachedSpeed3: 'lb-run-icon-speed', gamesReachedSpeed4: 'lb-run-icon-speed',
-        maxCombo: 'lb-metric-combo', gamesWithCombo4: 'lb-metric-combo', rawXP: 'lb-metric-total-xp', totalXP: 'lb-metric-total-xp',
-    };
-
     function _missionQuestCard(q, index, isWeekly) {
         const isSecret = q.tier === 'secret';
         const displayTier = isSecret ? (q.displayTier || 'normal') : (q.tier || 'normal');
@@ -9861,7 +9852,7 @@
         const canSwap = swapping && !isSecret && !q.completed && _swapCandidates(index, isWeekly).length > 0;
         const missionTitle = escapeHtml(isSecret && !q.completed ? '???' : q.title);
         const desc = isSecret && !q.completed ? 'Complete to reveal…' : escapeHtml(q.desc);
-        const icon = isSecret && !q.completed ? 'lb-metric-best-xp' : (missionMetricIcons[q.metric] || 'lb-metric-blocks');
+        const icon = LBMissionArt.forMetric(q.metric, isSecret && !q.completed);
         const target = Math.max(1, q.target || 0);
         const progress = q.completed ? target : Math.min(target, Math.max(0, q.progress || 0));
         const format = q.metric === 'gameTime' ? _fmtMissionTime : String;
@@ -9875,7 +9866,7 @@
         </div>`;
         return `<div class="mq-card-wrap"${index == null ? '' : ` data-mission-slot="${index}"`}>
             <article class="mq-card lb-block-card" data-tier="${escapeHtml(tier)}"${ready && !swapping ? ' data-ready' : ''}>
-                <div class="mq-card-icon"><span class="lb-ledger-icon-frame" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#${icon}"/></svg></span><span class="mq-pts">${pointLabel}</span></div>
+                <div class="mq-card-icon">${icon}<span class="mq-pts">${pointLabel}</span></div>
                 <div class="mq-card-text"><h3 class="mq-card-title">${missionTitle}</h3><p class="mq-card-desc">${desc}</p></div>
                 <span class="mq-tier-badge">${tier === 'normal' ? 'Medium' : escapeHtml(tier)}</span>
                 ${meter}${reward || swap ? `<div class="mq-card-action${ready && !swapping ? ' mq-card-action--claim' : ''}">${reward}${swap}</div>` : ''}

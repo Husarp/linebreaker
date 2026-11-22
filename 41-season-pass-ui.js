@@ -41,7 +41,10 @@
                     <h2 id="sp-title">Season progress</h2>
                     <div class="sp-meter" hidden>
                         <span id="sp-progress-text"></span>
-                        <progress class="lb-block-progress" aria-label="Season points to next stage" aria-describedby="sp-progress-text" max="1" value="0"></progress>
+                        <div class="sp-meter-bar">
+                            <progress class="lb-block-progress" aria-label="Season points to next stage" aria-describedby="sp-progress-text" max="1" value="0"></progress>
+                            <div class="sp-meter-segments" aria-hidden="true"></div>
+                        </div>
                     </div>
                 </header>
                 <p id="sp-notice" class="sp-notice" role="status" hidden></p>
@@ -150,10 +153,15 @@
             const nextUnlock = stages[current?.number || 0];
             find('#sp-title').textContent = current ? `Stage ${stageNumber(current.number)}` : 'Season progress';
             const progressBar = find('.sp-meter progress');
-            progressBar.hidden = !nextUnlock;
+            find('.sp-meter-bar').hidden = progressBar.hidden = !nextUnlock;
             if (nextUnlock) {
                 progressBar.max = nextUnlock.points;
                 progressBar.value = season.points;
+                const filledDays = progressBar.value / progressBar.max * period.days;
+                find('.sp-meter-segments').innerHTML = Array.from({ length: period.days }, (_, dayIndex) => {
+                    const fill = Math.max(0, Math.min(1, filledDays - dayIndex));
+                    return `<span style="--sp-day-fill:${fill * 100}%"></span>`;
+                }).join('');
             }
             find('#sp-progress-text').textContent = nextUnlock
                 ? `${points.format(season.points)} / ${points.format(nextUnlock.points)} SP to stage ${stageNumber(nextUnlock.number)}`

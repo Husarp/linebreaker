@@ -50,10 +50,18 @@
     color: var(--lb-art-label);
     font-size: var(--lb-type-small);
 }
-.sp-meter .lb-block-progress {
-    --lb-track: color-mix(in srgb, var(--lb-art-label) 45%, transparent);
-    --bb-meter-tone: var(--lb-art-label);
-    border: 0;
+.sp-meter-bar { position: relative; }
+.sp-meter-bar .lb-block-progress { position: absolute; inset: 0; opacity: 0; }
+.sp-meter-segments {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 2px;
+    block-size: 6px;
+}
+.sp-meter-segments > span {
+    background: linear-gradient(var(--lb-art-label), var(--lb-art-label)) left / var(--sp-day-fill) 100% no-repeat,
+        color-mix(in srgb, var(--lb-art-label) 45%, transparent);
 }
 .sp-season-details {
     display: flex;

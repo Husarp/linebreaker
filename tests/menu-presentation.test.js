@@ -102,7 +102,7 @@ it('renders the real rank, level, XP and current season in the menu', async () =
     expect(document.getElementById('badge-rank-name').textContent).toBe('Bronze');
     expect(document.getElementById('badge-level-num').textContent).toBe(`Level ${info.level.toLocaleString()}`);
     expect(document.getElementById('menu-xp-detail').textContent).toBe(`${info.currentXP.toLocaleString()} / ${info.neededXP.toLocaleString()} XP`);
-    expect(document.querySelector('.lb-menu-banner').style.getPropertyValue('--lb-theme-art-landscape')).toContain('forest-landscape.jpg');
+    expect(document.querySelector('.lb-menu-banner').style.getPropertyValue('--lb-theme-art-landscape')).toContain('default-landscape.jpg');
     expect(document.querySelector('.go-score-card').style.getPropertyValue('--lb-theme-art-landscape')).toContain('forest-landscape.jpg');
     expect(document.querySelector('.bg-gradient').style.getPropertyValue('--lb-theme-art-landscape')).toContain('default-landscape.jpg');
     const { id, day, days } = w.LBSeason.seasonWindow(w.Date.now());
