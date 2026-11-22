@@ -9,9 +9,10 @@ class OtaPlugin : Plugin() {
     private val eventSink: (String, JSObject) -> Unit = { name,data -> notifyListeners(name,data,true) }
     override fun load() { updater.subscribe(eventSink) }
     override fun handleOnDestroy() { updater.eventListeners.remove(eventSink) }
-    @PluginMethod fun setCircuitAccent(call: PluginCall) {
+    @PluginMethod fun setCircuitAccent(call: PluginCall) { call.resolve() }
+    @PluginMethod fun setUiTheme(call: PluginCall) {
         activity.runOnUiThread {
-            (activity as MainActivity).setCircuitAccent(call.getString("accent") == "green")
+            (activity as MainActivity).setUiTheme(call.getString("theme") == "light")
             call.resolve()
         }
     }

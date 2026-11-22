@@ -72,21 +72,21 @@ const fileFor = {
 };
 const fetchDemoAssets = async path => ({ ok: Boolean(fileFor[path]), json: async () => JSON.parse(readFileSync(new URL(`../${fileFor[path]}`, import.meta.url))) });
 
-it('mirrors the accent to compatible Android shells without changing it on wallpaper selection', async () => {
-  const setCircuitAccent = vi.fn().mockRejectedValue(new Error('Older shell'));
+it('mirrors the theme to compatible Android shells without changing it on wallpaper selection', async () => {
+  const setUiTheme = vi.fn().mockRejectedValue(new Error('Older shell'));
   game = await loadGame(true, null, {
     isNativePlatform: () => true,
     isPluginAvailable: name => name === 'Ota',
-    Plugins: { Ota: { setCircuitAccent } },
+    Plugins: { Ota: { setUiTheme } },
   });
   const { w } = game;
-  expect(setCircuitAccent).toHaveBeenLastCalledWith({ accent: 'dark' });
-  w.document.querySelector('[data-ui-theme="green"]').click();
-  expect(setCircuitAccent).toHaveBeenLastCalledWith({ accent: 'green' });
-  const callCount = setCircuitAccent.mock.calls.length;
+  expect(setUiTheme).toHaveBeenLastCalledWith({ theme: 'dark' });
+  w.document.querySelector('[data-ui-theme="light"]').click();
+  expect(setUiTheme).toHaveBeenLastCalledWith({ theme: 'light' });
+  const callCount = setUiTheme.mock.calls.length;
   w.onSettingChange('themeBackground', 'ocean');
-  expect(setCircuitAccent).toHaveBeenCalledTimes(callCount);
-  expect(w.document.documentElement.dataset.lbUiTheme).toBe('green');
+  expect(setUiTheme).toHaveBeenCalledTimes(callCount);
+  expect(w.document.documentElement.dataset.lbUiTheme).toBe('light');
 });
 
 it.each(['?dev&cutout', '?demo&cutout'])('does not enable the QA API or mock cutout with %s', async query => {

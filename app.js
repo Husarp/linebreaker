@@ -752,18 +752,23 @@
     let settings = { ...defaultSettings };
     const _themeBackgroundSelect = document.getElementById('setting-theme-background');
     const uiThemeButtons = document.querySelectorAll('#settings-display [data-ui-theme]');
+    const systemUiTheme = window.matchMedia?.('(prefers-color-scheme: light)');
     const wallpaperPreview = document.querySelector('.lb102-wallpaper-preview');
     for (const name of LBArtPack.wallpapers) {
         _themeBackgroundSelect.add(new Option(name[0].toUpperCase() + name.slice(1), name));
     }
     function syncUiTheme() {
         for (const button of uiThemeButtons) button.setAttribute('aria-pressed', String(button.dataset.uiTheme === settings.uiTheme));
-        document.documentElement.dataset.lbUiTheme = settings.uiTheme;
+        const theme = settings.uiTheme === 'system' ? (systemUiTheme?.matches ? 'light' : 'dark') : settings.uiTheme;
+        document.documentElement.dataset.lbUiTheme = theme;
         const native = window.Capacitor;
         if (!_qaDemo && native?.isPluginAvailable?.('Ota')) {
-            void native.Plugins.Ota.setCircuitAccent?.({ accent: settings.uiTheme })?.catch(() => {});
+            void native.Plugins.Ota.setUiTheme?.({ theme })?.catch(() => {});
         }
     }
+    const onSystemUiThemeChange = () => { if (settings.uiTheme === 'system') syncUiTheme(); };
+    if (systemUiTheme?.addEventListener) systemUiTheme.addEventListener('change', onSystemUiThemeChange);
+    else systemUiTheme?.addListener?.(onSystemUiThemeChange);
     for (const button of uiThemeButtons) button.onclick = () => onSettingChange('uiTheme', button.dataset.uiTheme);
     const _movingBackgroundToggle = document.getElementById('setting-moving-background');
     const wallpaper = document.querySelector('.lb-wallpaper');
@@ -4816,7 +4821,7 @@
             const gsFEl = document.getElementById('gamescale-step-fill'); if (gsFEl) gsFEl.style.width = ((parseInt(value)-1)/9*100).toFixed(1)+'%';
             saveSettingsDebounced(); return;
         } else if (key === 'uiTheme') {
-            if (value !== 'green' && value !== 'dark') return;
+            if (!['dark', 'light', 'system'].includes(value)) return;
             settings.uiTheme = value;
             syncUiTheme();
         } else if (key === 'themeBackground') {
@@ -7109,12 +7114,17 @@
     let _celestiteHalo;
     let _celestiteFillLUT;
 
-    const BADGE_NUMBERS = false;
-    function _drawBadgeNumber(ctx, x, y, level, color, fontSize = 8) {
-        if (!BADGE_NUMBERS) return;
-        const text = String(level);
+    const BADGE_LEVEL_LABEL = 'none';
+    function _badgeLevelLabel(info, mode = BADGE_LEVEL_LABEL) {
+        if (mode === 'roman') return _toRoman(info.lvlInRank);
+        return mode === 'number' ? String(info.level) : '';
+    }
+    function _drawBadgeLabel(ctx, x, y, info, color) {
+        const text = _badgeLevelLabel(info);
+        if (!text) return;
+        const fontSize = Math.min(52, 235 / text.length);
         ctx.save();
-        ctx.font = `${fontSize}px 'Press Start 2P', monospace`;
+        ctx.font = `${fontSize}px Silkscreen, monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
         const metrics = ctx.measureText(text);
@@ -7125,19 +7135,13 @@
         ctx.restore();
     }
 
-    function _drawBadgeCanvas(displayLevel, displayPercent, info, xpLabel, xpProgress) {
+    function _drawBadgeCanvas(displayPercent, info, xpLabel, xpProgress) {
         const ctx = rankCtx;
         const w = 300, h = 300; // CSS pixel dimensions (canvas is DPR-scaled internally)
         const cx = w / 2, cy = h / 2;
         const rankColor = info.isLegend ? '#ffffff' : info.rank.c;
         const shape = info.rank.shape;
-        const ORBIT_R = 108, SHAPE_R = 24, N = 10;
-        // groupStart: overridable for rank-transition preview
-        const groupStart = info._overrideGroupStart || Math.max(1, Math.floor((displayLevel - 1) / 10) * 10 + 1);
-
-        // Carousel: full rotation ~60s at 60fps (2π / 3600 per frame)
         _badgeTime++;
-        const carouselAngle = 0;
 
         ctx.clearRect(0, 0, w, h);
 
@@ -7254,46 +7258,30 @@
             }
 
             ctx.globalAlpha = 1;
-            if (pct >= 1) _drawBadgeNumber(ctx, cx, cy, displayLevel, info.rank.c, 13);
+            _drawBadgeLabel(ctx, cx, cy, info, rankColor);
             return;
         }
-        for (let i = 0; i < N; i++) {
-            const shapeLevel = groupStart + i;
-            const baseAngle = -Math.PI / 2 + Math.PI / N + (i / N) * Math.PI * 2 + carouselAngle;
+        const tilt = -Math.PI / 2 + Math.PI / 10 + info.lvlInRank * Math.PI / 5;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(114 / 24, 114 / 24);
+        _drawMiniShape(ctx, 0, 0, 24, shape, displayPercent, rankColor, tilt);
+        ctx.restore();
+        _drawBadgeLabel(ctx, cx, cy, info, rankColor);
 
-            const sx = cx + Math.cos(baseAngle) * ORBIT_R;
-            const sy = cy + Math.sin(baseAngle) * ORBIT_R;
-
-            const fill = shapeLevel < displayLevel ? 1 : shapeLevel === displayLevel ? displayPercent : 0;
-            const _shapeR = (shape && shape.rounded) ? Math.round(SHAPE_R * 1.38) : SHAPE_R;
-            _drawMiniShape(ctx, sx, sy, _shapeR, shape, fill, rankColor, baseAngle);
-            if (fill >= 1) _drawBadgeNumber(ctx, sx, sy, shapeLevel, rankColor);
-
-            // Draw XP transfer label near the currently-filling shape
-            if (xpLabel && shapeLevel === displayLevel) {
-                const prog = Math.min(1, Math.max(0, xpProgress || 0));
-                const textSize = Math.round(14 * (1 - prog));
-                if (textSize > 1) {
-                    // Offset away from orbit center
-                    const offDist = SHAPE_R + 10;
-                    const lx = sx + Math.cos(baseAngle) * offDist;
-                    const ly = sy + Math.sin(baseAngle) * offDist;
-                    ctx.save();
-                    ctx.font = `900 ${textSize}px 'Orbitron', sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    const alpha = Math.max(0, 1 - prog);
-                    ctx.globalAlpha = alpha;
-                    ctx.strokeStyle = '#000';
-                    ctx.lineWidth = 3;
-                    ctx.strokeText(xpLabel, lx, ly);
-                    ctx.fillStyle = rankColor || '#ffd700';
-                    ctx.shadowColor = rankColor || '#ffd700';
-                    ctx.shadowBlur = 6;
-                    ctx.fillText(xpLabel, lx, ly);
-                    ctx.restore();
-                }
-            }
+        const alpha = 1 - Math.min(1, Math.max(0, xpProgress || 0));
+        if (xpLabel && alpha > .07) {
+            ctx.save();
+            ctx.font = `${Math.round(52 * alpha)}px Silkscreen, monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 6;
+            ctx.strokeText(xpLabel, cx, cy + 70);
+            ctx.fillStyle = rankColor;
+            ctx.fillText(xpLabel, cx, cy + 70);
+            ctx.restore();
         }
     }
 
@@ -7323,8 +7311,8 @@
         }
 
         function renderBadgeFrame() {
-            _drawBadgeCanvas(info.level, displayPercent, info);
-            if (canAnimateBadge()) badgeAnimFrame = requestAnimationFrame(renderLoop);
+            _drawBadgeCanvas(displayPercent, info);
+            if ((info.isCelestite || info.isLegend) && canAnimateBadge()) badgeAnimFrame = requestAnimationFrame(renderLoop);
         }
 
         renderMenuRank(info, displayPercent, saveData.totalXP);
@@ -7355,7 +7343,7 @@
             const tempInfo = getLevelInfo(currentXP);
 
             // Draw +XP label on badge canvas near filling shape (shrinks as fill progresses)
-            _drawBadgeCanvas(tempInfo.level, tempInfo.percent, tempInfo, xpLabelText, ease);
+            _drawBadgeCanvas(tempInfo.percent, tempInfo, xpLabelText, ease);
             renderMenuRank(tempInfo, tempInfo.percent, currentXP);
 
             if (progress < 1) {
@@ -9053,9 +9041,8 @@
                         <use class="lb135-emblem-highlight" href="#lb135-emblem-shape"/>
                         <use class="lb135-emblem-inner" href="#lb135-emblem-shape"/>
                     </svg>
-                    ${BADGE_NUMBERS ? `<span aria-label="Level ${level}">${level}</span>` : ''}
                 </div>
-                ${BADGE_NUMBERS ? '' : `<span class="lb105-level-value">Level ${level}</span>`}
+                <span class="lb105-level-value">Level ${level}</span>
                 <strong class="lb105-level-rank">${name}</strong>
             </header>
             <div class="lb105-level-rewards lb-scroll-fade" role="region" aria-label="Level rewards"></div>
@@ -11371,6 +11358,7 @@
     _setLoadProgress(5, 'Initializing…');
     loadSettings();
     syncUiTheme();
+    if (BADGE_LEVEL_LABEL !== 'none') document.fonts?.load('52px Silkscreen').then(_syncBadgeLoop, () => {});
     const controlsEditor = LBControls.createEditor(document.getElementById('controls-settings'),
         () => settings.keyBindings, bindings => { settings.keyBindings = bindings; saveSettings(); });
     LBGamepad.start({ press: pressGameInput, release: releaseGameInput, back: backFromOverlay });
@@ -11431,7 +11419,7 @@
             seed(seed) { let n = seed >>> 0; Math.random = () => ((n = (Math.imul(n, 1664525) + 1013904223) >>> 0) / 4294967296); pieceBag = []; _nextQueue = []; },
             spawn: resetPlayer, move: playerMove, rotate: playerRotate, hardDrop: playerHardDrop,
             hold: doHold, drop: playerDrop, sweep: arenaSweep, tick(dtMs) { update(lastTime + dtMs); },
-            nextPiece: getNextPiece, gameOver, getLevelInfo, drawRankBadge,
+            nextPiece: getNextPiece, gameOver, getLevelInfo, drawRankBadge, badgeLevelLabel: _badgeLevelLabel,
             imageSkinAtlasCell, imageSkinTintKey, drawGameBlock, partsItems: _getAllPartsItems, partCost: _getItemCost,
             missionWeekKey: _missionWeekKey, missionDateKey: _missionDateKey,
             rewardLabel: _rewardLabel, grantRewardPart: _grantRewardPart, generateLevelBoxRewards: _generateLevelBoxRewards,

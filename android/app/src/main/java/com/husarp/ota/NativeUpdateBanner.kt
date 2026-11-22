@@ -22,7 +22,7 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
     private var panel: View? = null
     private var progress: ProgressBar? = null
     private var key: String? = null
-    private var green = false
+    private var light = false
     private val Int.dp get() = (this * host.resources.displayMetrics.density + .5f).toInt()
 
     fun clear() {
@@ -32,12 +32,12 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
 
     fun render(item: UpdateBannerItem?, top: Int, left: Int, right: Int) {
         if (item == null) { clear(); return }
-        val currentGreen = NativeLedger.green(host.context)
+        val currentLight = NativeLedger.light(host.context)
         val layout = FrameLayout.LayoutParams(
             minOf(448.dp, host.width.takeIf { it > 0 }?.minus(left + right + 24.dp) ?: 320.dp).coerceAtLeast(1),
             FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL
         ).apply { setMargins(left + 12.dp, top, right + 12.dp, 0) }
-        if (key == item.key && green == currentGreen) {
+        if (key == item.key && light == currentLight) {
             val previous = panel?.layoutParams as? FrameLayout.LayoutParams
             if (previous == null || previous.topMargin != layout.topMargin || previous.leftMargin != layout.leftMargin ||
                 previous.rightMargin != layout.rightMargin || previous.width != layout.width) panel?.layoutParams = layout
@@ -46,7 +46,7 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
         }
         clear()
         key = item.key
-        green = currentGreen
+        light = currentLight
         val context = NativeLedger.context(host.context)
         val label = NativeLedger.label(context)
         val ink = context.getColor(R.color.lb_ledger_ink)

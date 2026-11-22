@@ -123,12 +123,12 @@ it('restores the saved wallpaper preference and shares the settings icon', async
   } finally { close(); }
 });
 
-it('keeps the Circuit menu actions and opens Inventory on Crates', async () => {
+it('keeps the menu actions and opens Inventory on Crates', async () => {
   const { w, close } = await loadGame();
   try {
     const { document } = w;
     const inventory = document.getElementById('btn-inventory');
-    expect(inventory.closest('.lb-menu-nav').querySelectorAll('.lb-circuit-action')).toHaveLength(4);
+    expect(inventory.closest('.lb-menu-nav').querySelectorAll('.lb-ledger-action')).toHaveLength(4);
     inventory.click();
     expect(document.querySelector('[data-invtab="crates"]').getAttribute('aria-selected')).toBe('true');
     expect(document.querySelector('[data-invtab-content="crates"]').classList.contains('hidden')).toBe(false);

@@ -59,7 +59,7 @@ it('renders a fresh save with no chosen file as Bronze level 1', () => {
   expect(game.w.document.getElementById('menu-xp-bar-fill').style.width).toBe('0%');
 });
 
-it('paints ten Gold badge shapes even when the menu first renders in a background tab', () => {
+it('paints one centered Gold badge shape even when the menu first renders in a background tab', () => {
   Object.defineProperty(game.w.document, 'hidden', {configurable: true, value: true});
   game.api.setSave({...game.api.save, totalXP: 64000});
   const firstCall = game.calls.length;
@@ -69,10 +69,11 @@ it('paints ten Gold badge shapes even when the menu first renders in a backgroun
   const blits = game.calls.slice(firstCall).filter(([method]) => method === 'drawImage');
   const emptyBadge = blits[0][1];
   const shapeOrigins = blits.filter(([, sprite]) => sprite === emptyBadge).map(([, , x, y]) => `${x},${y}`);
-  expect(new Set(shapeOrigins).size).toBe(10);
+  expect(shapeOrigins).toHaveLength(1);
+  expect(game.calls.slice(firstCall)).toContainEqual(['translate', 150, 150]);
 });
 
-it('keeps numbers off all rank shapes, including fully filled shapes', () => {
+it('leaves the main-menu rank shape unlabeled by default at every fill level', () => {
   game.api.setSave({...game.api.save, totalXP: 64000});
   const labelsAt = fill => {
     const firstCall = game.calls.length;
@@ -82,6 +83,14 @@ it('keeps numbers off all rank shapes, including fully filled shapes', () => {
   expect(labelsAt(0)).toEqual([]);
   expect(labelsAt(0.999)).toEqual([]);
   expect(labelsAt(1)).toEqual([]);
+});
+
+it('formats optional badge labels as the rank division or the absolute level', () => {
+  const gold = game.api.getLevelInfo(64000);
+  expect(game.api.badgeLevelLabel(gold)).toBe('');
+  expect(game.api.badgeLevelLabel(gold, 'roman')).toBe('IX');
+  expect(game.api.badgeLevelLabel(gold, 'number')).toBe('30');
+  expect(game.api.badgeLevelLabel(game.api.getLevelInfo(640000), 'roman')).toBe('');
 });
 
 it('draws the cached Halo glow and thin inner line on filled Gold badges', () => {
@@ -97,7 +106,7 @@ it('draws the cached Halo glow and thin inner line on filled Gold badges', () =>
     ctx.stroke = () => strokes.push({width: ctx.lineWidth, blur: ctx.shadowBlur, color: ctx.strokeStyle, start});
     return ctx;
   };
-  game.api.setSave({...game.api.save, totalXP: 37000});
+  game.api.setSave({...game.api.save, totalXP: 37500});
   const firstCall = game.calls.length;
   game.api.drawRankBadge();
 
@@ -129,7 +138,7 @@ it('fills 63.6% of the active diamond at Silver level 14 with 1272 / 2000 XP', (
   expect(orbitalArea(cut, rotation, {sides: 4})).toBeCloseTo(.636, 3);
 });
 
-it.each([0, 10000, 30000, 65000, 120000, 200000, 310000, 455000])('keeps orbital rank at base XP %i area-proportional around the ring', base => {
+it.each([0, 10000, 30000, 65000, 120000, 200000, 310000, 455000])('keeps rank at base XP %i area-proportional', base => {
   const {rank, neededXP} = game.api.getLevelInfo(base);
   for (const slot of [0, 2, 5, 9]) {
     for (const fraction of [.005, .031, .17, .23, .5, .636, .88, .971, .995]) {

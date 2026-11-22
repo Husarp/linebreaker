@@ -1,19 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="lb_ledger_panel">#10263a</color>
-    <color name="lb_ledger_key">#142b40</color>
-    <color name="lb_ledger_track">#223f57</color>
-    <color name="lb_ledger_disabled">#223f57</color>
-    <color name="lb_ledger_ink">#edfaff</color>
-    <color name="lb_ledger_muted">#b0c7d8</color>
-    <color name="lb_ledger_label">#80efd9</color>
-    <color name="lb_ledger_action">#5dfde3</color>
-    <color name="lb_ledger_rule">#7196b1</color>
-    <color name="lb_ledger_focus">#aefdf5</color>
-    <color name="lb_circuit_page">#071421</color>
-    <color name="lb_circuit_edge">#365873</color>
-    <color name="lb_circuit_danger">#ff9e92</color>
-    <color name="lb_circuit_green_label">#bee1ae</color>
-    <color name="lb_circuit_green_action">#b7d9a1</color>
-    <color name="lb_circuit_green_focus">#e1f6ce</color>
+    <color name="lb_ledger_page">#141f1a</color>
+    <color name="lb_ledger_panel">#202e25</color>
+    <color name="lb_ledger_key">#2a3b2e</color>
+    <color name="lb_ledger_track">#334535</color>
+    <color name="lb_ledger_disabled">#384638</color>
+    <color name="lb_ledger_ink">#eef0de</color>
+    <color name="lb_ledger_muted">#b7c4ad</color>
+    <color name="lb_ledger_label">#bbdba9</color>
+    <color name="lb_ledger_action">#b7cf99</color>
+    <color name="lb_ledger_rule">#839478</color>
+    <color name="lb_ledger_focus">#d7edaf</color>
+    <color name="lb_ledger_edge">#586951</color>
+    <color name="lb_ledger_danger">#ff9e92</color>
 </resources>

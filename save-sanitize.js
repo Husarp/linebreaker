@@ -53,7 +53,7 @@
     }
     function cleanSettings(value) {
         const { bgStyle, bgBlockMotion, heavyBg, actionMusicMode, classicColors, ...settings } = object(value) ? value : {};
-        if ('uiTheme' in settings && settings.uiTheme !== 'green') settings.uiTheme = 'dark';
+        if ('uiTheme' in settings && !['dark', 'light', 'system'].includes(settings.uiTheme)) settings.uiTheme = 'dark';
         return settings;
     }
     const legacyListens = 'legacy:unattributed';

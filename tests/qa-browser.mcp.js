@@ -1,4 +1,4 @@
-(async (page, { viewport = { width: 390, height: 844 }, cutout, accent = 'dark', capture } = {}) => {
+(async (page, { viewport = { width: 390, height: 844 }, cutout, theme = 'dark', capture } = {}) => {
     const url = new URL('/index.html?dev&demo', page.url());
     if (cutout !== undefined) url.searchParams.set('cutout', cutout);
     const localCatalog = await (await page.request.get(new URL('/assets/music.json', url).href)).json();
@@ -31,23 +31,29 @@
         await page.setViewportSize(viewport);
         await page.goto(url.href);
         await page.waitForFunction(() => window.__LB_QA && document.querySelector('#loading-screen').style.display === 'none');
-        if (accent === 'green') {
+        if (theme !== 'dark') {
             await page.evaluate(() => window.__LB_QA.open('settings-display'));
-            await page.locator('[data-ui-theme="green"]').click();
+            await page.locator(`[data-ui-theme="${theme}"]`).click();
         }
         const chrome = await page.evaluate(() => {
             const band = document.querySelector('.lb-top-band');
-            const rail = getComputedStyle(band, '::after');
+            const style = getComputedStyle(band);
             const root = document.documentElement;
             return {
-                height: band.getBoundingClientRect().height, empty: !band.childNodes.length,
-                trace: rail.clipPath.startsWith('polygon('), accent: root.dataset.lbUiTheme,
+                top: band.getBoundingClientRect().top, height: band.getBoundingClientRect().height,
+                empty: !band.childNodes.length && ['::before', '::after'].every(part => getComputedStyle(band, part).content === 'none'),
+                image: style.backgroundImage, color: style.backgroundColor, pointers: style.pointerEvents,
+                theme: root.dataset.lbUiTheme, choice: document.querySelector('[data-ui-theme][aria-pressed="true"]')?.dataset.uiTheme,
+                systemLight: matchMedia('(prefers-color-scheme: light)').matches,
                 scheme: getComputedStyle(root).colorScheme,
             };
         });
         const expectedHeight = cutout === 'notch' ? 63 : cutout === 'hole' ? 55 : cutout === undefined ? 0 : 54;
-        if (chrome.height !== expectedHeight || !chrome.empty || !chrome.trace || chrome.scheme !== 'dark' || chrome.accent !== accent) {
-            fail(`Unexpected Circuit band or palette: ${JSON.stringify(chrome)}`);
+        const resolved = theme === 'system' ? (chrome.systemLight ? 'light' : 'dark') : theme;
+        const bandColor = resolved === 'light' ? 'rgb(33, 61, 52)' : 'rgb(16, 27, 23)';
+        if (chrome.top !== 0 || chrome.height !== expectedHeight || !chrome.empty || chrome.image !== 'none' ||
+            chrome.color !== bandColor || chrome.pointers !== 'none' || chrome.scheme !== resolved || chrome.theme !== resolved || chrome.choice !== theme) {
+            fail(`Unexpected Ledger band or theme: ${JSON.stringify(chrome)}`);
         }
         const names = await page.evaluate(() => window.__LB_QA.list());
         const docs = await (await page.request.get(new URL('/docs/QA-SCREENS.md', url).href)).text();

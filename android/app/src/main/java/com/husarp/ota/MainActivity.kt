@@ -488,9 +488,9 @@ class MainActivity : BridgeActivity() {
         maintenance.post { showNativeMessages() }
     }
     private val nativeSeen = mutableSetOf<String>()
-    internal fun setCircuitAccent(green: Boolean) {
-        if (NativeLedger.green(this) == green) return
-        NativeLedger.setGreen(this, green)
+    internal fun setUiTheme(light: Boolean) {
+        if (NativeLedger.light(this) == light) return
+        NativeLedger.setLight(this, light)
         showNativeMessages()
     }
 
@@ -558,8 +558,9 @@ class MainActivity : BridgeActivity() {
         val queue = items.filter { it.key !in nativeSeen }
         val next = queue.firstOrNull { it.key == activeBannerKey } ?: queue.firstOrNull()
         activeBannerKey = next?.key
-        val traceInset = if (safeArea.top > 0) 14.dp else 0
-        if (maintenance == null) banner.render(next, safeArea.top + traceInset, safeArea.left, safeArea.right)
+        val bandInset = maxOf(safeArea.top, systemTop)
+        val bandHeight = if (bandInset > 0) bandInset + 14.dp else 0
+        if (maintenance == null) banner.render(next, bandHeight, safeArea.left, safeArea.right)
         else banner.render(next, 0, 0, 0)
     }
     private fun updateFailure(vararg states: String) = states.firstOrNull {

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="lb_ledger_panel">#fff6e0</color>
+    <color name="lb_ledger_key">#ecdfbd</color>
+    <color name="lb_ledger_track">#dfd3b2</color>
+    <color name="lb_ledger_disabled">#ded6bd</color>
+    <color name="lb_ledger_ink">#223a31</color>
+    <color name="lb_ledger_muted">#4e5c49</color>
+    <color name="lb_ledger_label">#245a44</color>
+    <color name="lb_ledger_action">#245a44</color>
+    <color name="lb_ledger_rule">#746743</color>
+    <color name="lb_ledger_focus">#22665b</color>
+    <color name="lb_ledger_edge">#aa9d77</color>
+    <color name="lb_ledger_danger">#9d3328</color>
+</resources>

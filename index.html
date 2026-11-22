@@ -68,7 +68,7 @@
     <link rel="stylesheet" href="148-branding-qa.css">
     <link rel="stylesheet" href="149-ota.css">
     <link rel="stylesheet" href="165-safe-area.css">
-    <link rel="stylesheet" href="circuit.css">
+    <link rel="stylesheet" href="ledger.css">
 </head>
 <body>
 <div class="lb-top-band" aria-hidden="true"></div>
@@ -138,10 +138,10 @@
         </div>
         <p>Your run is held right here.</p>
         <div class="lb-pause-actions lb-block-dialog-actions" role="group" aria-label="Run actions">
-            <button type="button" class="lb-block-btn lb-block-btn--primary lb-circuit-action" onclick="window.resumeGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-play"/></svg><span>Resume</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-circuit-action" id="pause-settings" onclick="window.openSettings(true)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg><span>Settings</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-circuit-action" aria-label="Main menu via run results" onclick="window.quitGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-topbar-home"/></svg><span>Main Menu</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-circuit-action" onclick="window.restartPausedRun()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg><span>Restart run</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-block-btn--primary lb-ledger-action" onclick="window.resumeGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-play"/></svg><span>Resume</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action" id="pause-settings" onclick="window.openSettings(true)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg><span>Settings</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action" aria-label="Main menu via run results" onclick="window.quitGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-topbar-home"/></svg><span>Main Menu</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action" onclick="window.restartPausedRun()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg><span>Restart run</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
         </div>
     </div>
 </div>
@@ -176,12 +176,12 @@
                 </div>
             </div>
         </section>
-        <button type="button" class="lb-block-btn lb-block-btn--primary lb-circuit-action lb-menu-play" id="btn-play" onclick="window.openModeSelect()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-play"/></svg><span>Play</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+        <button type="button" class="lb-block-btn lb-block-btn--primary lb-ledger-action lb-menu-play" id="btn-play" onclick="window.openModeSelect()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-play"/></svg><span>Play</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
         <nav class="lb-menu-nav" aria-label="Main Menu">
-            <button type="button" class="lb-block-btn lb-circuit-action" id="btn-missions" onclick="window.openMissions()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Missions</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-circuit-action" id="btn-inventory" onclick="window.openInventory('crates')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM1 3h22v4H1zM8 11h8"/></svg><span>Inventory</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-circuit-action" id="btn-achievements" onclick="window.openAchievements()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v6a5 5 0 0 1-10 0zM7 5H3v1a4 4 0 0 0 4 4m10-5h4v1a4 4 0 0 1-4 4m-5 4v5m-5 2h10"/></svg><span>Achievements</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-circuit-action" id="btn-settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg><span>Settings</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action" id="btn-missions" onclick="window.openMissions()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Missions</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action" id="btn-inventory" onclick="window.openInventory('crates')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM1 3h22v4H1zM8 11h8"/></svg><span>Inventory</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action" id="btn-achievements" onclick="window.openAchievements()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v6a5 5 0 0 1-10 0zM7 5H3v1a4 4 0 0 0 4 4m10-5h4v1a4 4 0 0 1-4 4m-5 4v5m-5 2h10"/></svg><span>Achievements</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action" id="btn-settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg><span>Settings</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
         </nav>
         <button type="button" class="lb-block-btn lb-menu-season" id="btn-season-pass" onclick="window.openMissions('season')">
             <span class="lb-menu-season-copy"><span class="lb-menu-kicker" id="lb-menu-season-date"></span><strong>Season Pass</strong><small>Season Prism at Stage 30 · View rewards</small></span>
@@ -746,10 +746,11 @@
                     </div>
                 </div>
                 <div class="settings-row">
-                    <span id="settings-theme-label">Accent</span>
+                    <span id="settings-theme-label">Theme</span>
                     <div class="lb-block-tabs lb102-theme" aria-labelledby="settings-theme-label" role="group">
-                        <button type="button" class="lb-block-tab" data-ui-theme="dark" aria-pressed="true">Cyan</button>
-                        <button type="button" class="lb-block-tab" data-ui-theme="green" aria-pressed="false">Green</button>
+                        <button type="button" class="lb-block-tab" data-ui-theme="dark" aria-pressed="true">Dark</button>
+                        <button type="button" class="lb-block-tab" data-ui-theme="light" aria-pressed="false">Light</button>
+                        <button type="button" class="lb-block-tab" data-ui-theme="system" aria-pressed="false">System</button>
                     </div>
                 </div>
                 <label class="settings-row lb102-wallpaper-picker" for="setting-theme-background">
@@ -1009,9 +1010,9 @@
         </div>
 
         <div class="go-actions lb-block-dialog-actions">
-            <button type="button" class="lb-block-btn lb-block-btn--primary lb-circuit-action result-retry" onclick="window.startGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg><span>Play Again</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-circuit-action result-menu" onclick="window.resetGameToMenu()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-topbar-home"/></svg><span>Main Menu</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-circuit-action result-pin" onclick="window.pinCurrentScore()" id="go-pin-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-pin"/></svg><span>Pin score</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-block-btn--primary lb-ledger-action result-retry" onclick="window.startGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg><span>Play Again</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action result-menu" onclick="window.resetGameToMenu()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-topbar-home"/></svg><span>Main Menu</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action result-pin" onclick="window.pinCurrentScore()" id="go-pin-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-pin"/></svg><span>Pin score</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
         </div>
     </div>
 </div>
