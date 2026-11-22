@@ -170,7 +170,7 @@
                 </div>
             </div>
         </section>
-        <button type="button" class="lb-block-btn lb-block-btn--primary lb-ledger-action lb-menu-play" id="btn-play" onclick="window.openModeSelect()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-play"/></svg><span>Play</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+        <button type="button" class="lb-block-btn lb-block-btn--primary lb-ledger-action lb-menu-play" id="btn-play" onclick="window.openModeSelect()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-play"/></svg><span>Play</span></button>
         <nav class="lb-menu-nav" aria-label="Main Menu">
             <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-missions" onclick="window.openMissions()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Missions</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
             <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-inventory" onclick="window.openInventory('crates')"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-inventory"/></svg><span>Inventory</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
@@ -1055,8 +1055,10 @@
             </div>
         </div>
         <div class="glass-box lb-hud-tile lb-hud-level">
-            <div class="label" id="lb-hud-level-label">LV 1 · 0/10 lines</div>
-            <progress id="lb-hud-level-progress" class="lb-block-progress" aria-labelledby="lb-hud-level-label" max="10" value="0"></progress>
+            <span class="lb-visually-hidden" id="lb-hud-speed-status" role="status" aria-atomic="true">Speed 1</span>
+            <span class="lb-hud-speed-label" aria-hidden="true">Speed</span>
+            <span class="lb-hud-speed-caret" aria-hidden="true"></span>
+            <span id="lb-hud-speed-values" aria-hidden="true"><span></span><span></span><span>1</span><span>2</span></span>
         </div>
         <div class="glass-box lb-hud-tile lb-hud-lines"><div class="label">Lines</div><div class="value" id="pc-lines">0</div></div>
     </div>

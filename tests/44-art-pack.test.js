@@ -69,6 +69,41 @@ it('keeps the existing gradient when switching art modes', async () => {
   } finally { close(); }
 });
 
+it('puts a different wallpaper on PLAY for every explicit and equipped wallpaper, including wraparound', async () => {
+  const { api, w, close } = await loadGame();
+  try {
+    api.setup({ save: { ownedThemes: ['forest', 'sakura'] } });
+    const banner = w.document.querySelector('.lb-menu-banner');
+    const play = w.document.getElementById('btn-play');
+    const select = w.document.getElementById('setting-theme-background');
+    const choose = value => {
+      select.value = value;
+      select.dispatchEvent(new w.Event('change'));
+    };
+    const checkArt = (bannerName, playName) => {
+      for (const crop of ['portrait', 'landscape']) {
+        const property = `--lb-theme-art-${crop}`;
+        expect(banner.style.getPropertyValue(property)).toBe(bannerName ? `url("assets/ui/bg/${bannerName}-${crop}.jpg")` : '');
+        expect(play.style.getPropertyValue(property)).toBe(`url("assets/ui/bg/${playName}-${crop}.jpg")`);
+      }
+    };
+    w.openSettings();
+    for (const [index, choice] of art.wallpapers.entries()) {
+      choose(choice);
+      checkArt(choice, art.wallpapers[(index + 1) % art.wallpapers.length]);
+    }
+    choose('image');
+    w.applyTheme('forest');
+    checkArt('forest', 'fire');
+    w.applyTheme('sakura');
+    checkArt('sakura', 'default');
+    choose('plain');
+    checkArt(null, 'default');
+    expect(art.nextWallpaper('custom', 'image')).toBe('default');
+    expect(play.querySelector('.lb-ledger-chevron')).toBeNull();
+  } finally { close(); }
+});
+
 it('uses the same tokens in the inventory and for eligible game-over boosters', async () => {
   const { api, w, advance, close } = await loadGame();
   try {

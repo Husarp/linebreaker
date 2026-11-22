@@ -1,7 +1,13 @@
-import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {loadGame} from './loader.js';
-let game, a;
-beforeEach(async () => { game = await loadGame(); a = game.api; a.setup(); a.seed(12345); });
+let game, a, motion;
+beforeEach(async () => {
+  motion = {matches: false};
+  game = await loadGame(true, null, null, undefined, null, window => {
+    window.matchMedia = query => query === '(prefers-reduced-motion: reduce)' ? motion : {matches: false};
+  });
+  a = game.api; a.setup(); a.seed(12345);
+});
 afterEach(() => game?.close());
 const empty = () => Array.from({length:22}, () => Array(10).fill(0));
 describe('SRS-style rotation characterization', () => {
@@ -52,25 +58,47 @@ it('holds once until a placement', () => {
   expect(preview.getAttribute('aria-label')).toBe('Held piece');
   a.hold();expect(a.state.player.matrix).toEqual(first);
 });
-it('tracks line progress, resets it at the next level, and shows the cap', () => {
-  const progress = game.w.document.getElementById('lb-hud-level-progress');
-  const label = game.w.document.getElementById(progress.getAttribute('aria-labelledby'));
-  const clear = count => {
+it.each([false, true])('updates the rolling speed strip (reduced motion: %s)', reduced => {
+  motion.matches = reduced;
+  const status = game.w.document.getElementById('lb-hud-speed-status');
+  const digits = [...game.w.document.getElementById('lb-hud-speed-values').children];
+  const displayed = () => digits.slice(1).map(digit => digit.textContent);
+  const animation = {cancel: vi.fn()};
+  for (const digit of digits) digit.animate = vi.fn(() => animation);
+  const clearFour = () => {
     const cells = empty();
-    cells.slice(-count).forEach(row => row.fill(1));
+    cells.slice(-4).forEach(row => row.fill(1));
     a.setBoard(cells);
-    a.sweep();
+    expect(a.sweep()).toBe(true);
     game.advance(200);
   };
-  clear(4);
-  expect([progress.value, progress.max, label.textContent]).toEqual([4, 10, 'LV 1 · 4/10 lines']);
-  clear(4);
-  clear(3);
-  expect([progress.value, label.textContent]).toEqual([1, 'LV 2 · 1/10 lines']);
+
+  expect(displayed()).toEqual(['', '1', '2']);
+  expect(status.textContent).toBe('Speed 1');
+  clearFour();
+  clearFour();
+  expect(displayed()).toEqual(['', '1', '2']);
+  expect(digits[2].animate).not.toHaveBeenCalled();
+  clearFour();
+  expect(displayed()).toEqual(['1', '2', '3']);
+  expect(status.textContent).toBe('Speed 2');
+  if (reduced) {
+    for (const digit of digits) expect(digit.animate).not.toHaveBeenCalled();
+  } else {
+    expect(digits[2].animate).toHaveBeenCalledOnce();
+    const [from, to] = digits[2].animate.mock.calls[0][0];
+    expect([from.left, to.left]).toEqual(['calc(50% + 1 * var(--lb-speed-step))', 'calc(50% + 0 * var(--lb-speed-step))']);
+    expect(from.opacity).toBeLessThan(to.opacity);
+  }
+
   a.setup({speed: 15});
-  a.hardDrop();
-  game.advance(100);
-  expect([progress.value, label.textContent]).toEqual([10, 'LV 15 · Max']);
+  expect(displayed()).toEqual(['14', '15', '']);
+  expect(status.textContent).toBe('Speed 15');
+  a.setup();
+  expect(displayed()).toEqual(['', '1', '2']);
+  expect(status.textContent).toBe('Speed 1');
+  expect(digits[2].animate).toHaveBeenCalledTimes(reduced ? 0 : 1);
+  expect(animation.cancel).toHaveBeenCalledTimes(reduced ? 0 : 3);
 });
 
 it.each([false, true])('carries a held touch through a lock (line clear: %s) with fresh DAS', clearsLine => {

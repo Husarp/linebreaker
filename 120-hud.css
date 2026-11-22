@@ -88,14 +88,39 @@
 #hold-panel[data-empty] .lb-hud-hold-ghost { display: block; }
 #hold-panel[data-used] canvas { opacity: .45; }
 
-#app #lb-hud-level-label {
-    font: 700 11px/1.2 var(--font-body);
-    letter-spacing: 0;
-    text-transform: none;
-    text-align: center;
+#app .lb-hud-tile.lb-hud-level { gap: 2px; }
+.lb-hud-speed-label {
+    color: var(--lb-label);
+    font: 400 9px/1 var(--lb-font-heading);
 }
-
-#lb-hud-level-progress { flex: none; width: min(100%, 116px); height: 10px; padding: 1px; }
+.lb-hud-speed-caret {
+    width: 9px;
+    height: 5px;
+    flex: none;
+    background: var(--lb-label);
+    clip-path: polygon(0 0, 100% 0, 100% 40%, 67% 40%, 67% 75%, 56% 75%, 56% 100%, 44% 100%, 44% 75%, 33% 75%, 33% 40%, 0 40%);
+}
+#lb-hud-speed-values {
+    --lb-speed-step: 33.333%;
+    position: relative;
+    overflow: hidden;
+    flex: none;
+    width: min(100%, 80px);
+    height: 24px;
+    color: var(--lb-ink);
+    font: 400 clamp(18px, 5vw, 23px)/1 var(--lb-font-heading);
+}
+#lb-hud-speed-values > span {
+    position: absolute;
+    top: 50%;
+    left: calc(50% + var(--lb-speed-slot) * var(--lb-speed-step));
+    transform: translate(-50%, -50%) scale(.5);
+    opacity: .63;
+}
+#lb-hud-speed-values > :nth-child(1) { --lb-speed-slot: -2; opacity: 0; }
+#lb-hud-speed-values > :nth-child(2) { --lb-speed-slot: -1; }
+#lb-hud-speed-values > :nth-child(3) { --lb-speed-slot: 0; transform: translate(-50%, -50%); opacity: 1; }
+#lb-hud-speed-values > :nth-child(4) { --lb-speed-slot: 1; }
 
 #app .lb-hud-record { gap: 3px; }
 #app .lb-hud-record .value { font-size: .8rem; }

@@ -736,7 +736,17 @@
 #menu-overlay :is(.lb-menu-play, .lb-menu-nav button, #btn-stats)::before,
 #menu-overlay :is(.lb-menu-play, .lb-menu-nav button, #btn-stats):not([data-ready])::after { content: none; }
 #menu-overlay :is(.lb-menu-play, .lb-menu-nav button, #btn-stats):hover:not(:active) { transform: none; }
-#menu-overlay .lb-menu-play { animation: none; }
+.lb-game-root #menu-overlay .lb-block-btn.lb-menu-play {
+    --lb-control-face: linear-gradient(90deg, var(--lb-art) max(38%, 104px), color-mix(in srgb, var(--lb-art) 80%, transparent) 65%, transparent),
+        var(--lb-play-art, var(--lb-theme-art-portrait, none)) center 54% / cover no-repeat, var(--lb-art);
+    --lb-control-ink: var(--lb-art-ink);
+    --lb-button-shadow: var(--lb-action-shadow), inset 0 0 0 1px var(--lb-art-rule), inset 0 0 8px var(--lb-action-rim);
+    grid-template-columns: 20px minmax(0, 1fr);
+    animation: none;
+}
+@media (min-aspect-ratio: 1/1) {
+    #menu-overlay .lb-menu-play { --lb-play-art: var(--lb-theme-art-landscape, none); }
+}
 #menu-overlay .lb-menu-nav {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

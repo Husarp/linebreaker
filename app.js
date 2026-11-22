@@ -916,6 +916,7 @@
         LBArtPack.applyThemeBackground(wallpaper.parentElement, theme, settings.themeBackground);
         const banner = document.querySelector('.lb-menu-banner');
         LBArtPack.applyThemeBackground(banner, theme, settings.themeBackground);
+        LBArtPack.applyThemeBackground(document.getElementById('btn-play'), LBArtPack.nextWallpaper(theme, settings.themeBackground));
         const featureTheme = theme === 'default' ? 'forest' : theme;
         for (const element of document.querySelectorAll('.go-score-card, #inventory-overlay, #achievements-overlay')) {
             LBArtPack.applyThemeBackground(element, featureTheme, settings.themeBackground);
@@ -8230,7 +8231,7 @@
                 // Board clear check (after removing lines)
                 if (board.every(row => row.every(v => v === 0))) _boardClearedThisGame = true;
                 lineClear.finish();
-                updateUI();isAnimating=false;lastTime=performance.now();resetPlayer();
+                updateUI(oldSpeed);isAnimating=false;lastTime=performance.now();resetPlayer();
                 _checkMidGameAchievements();
             }, clearMs);return true
         }return false
@@ -8281,16 +8282,29 @@
         }
         drawGame(); requestAnimationFrame(update);
     }
-    function _renderHudLevel() {
-        const progress = document.getElementById('lb-hud-level-progress');
-        const label = document.getElementById('lb-hud-level-label');
-        const capped = speedLevel === SPEED_MULTIPLIERS.length;
-        const lines = capped ? LINES_PER_SPEED : linesClearedThisGame % LINES_PER_SPEED;
-        const text = `LV ${speedLevel} · ${capped ? 'Max' : `${lines}/${LINES_PER_SPEED} lines`}`;
-        if (label.textContent === text) return;
-        progress.max = LINES_PER_SPEED;
-        progress.value = lines;
-        label.textContent = text;
+    let hudSpeedRoll = [];
+    function _renderHudSpeed(previousSpeed = speedLevel) {
+        const status = document.getElementById('lb-hud-speed-status');
+        const text = `Speed ${speedLevel}`;
+        if (status.textContent === text) return;
+        status.textContent = text;
+        for (const animation of hudSpeedRoll) animation.cancel();
+        hudSpeedRoll = [];
+        const roll = speedLevel > previousSpeed && !reducedMotion?.matches;
+        const digits = document.getElementById('lb-hud-speed-values').children;
+        for (const [index, digit] of Array.from(digits).entries()) {
+            const slot = index - 2;
+            const value = speedLevel + slot;
+            digit.textContent = value >= 1 && value <= SPEED_MULTIPLIERS.length && (slot >= -1 || roll) ? value : '';
+            if (!roll || !digit.textContent || typeof digit.animate !== 'function') continue;
+            const start = value - previousSpeed;
+            const frame = position => ({
+                left: `calc(50% + ${position} * var(--lb-speed-step))`,
+                transform: `translate(-50%, -50%) scale(${position === 0 ? 1 : .5})`,
+                opacity: position === 0 ? 1 : Math.abs(position) === 1 ? .63 : 0,
+            });
+            hudSpeedRoll.push(digit.animate([frame(start), frame(slot)], { duration: 420, easing: 'cubic-bezier(.2,.72,.25,1)' }));
+        }
     }
     function _fmtScoreHTML(v){const i=Math.floor(v);const d=Math.round((v-i)*10);return i.toLocaleString()+(d>0?`<span style="font-size:0.6em;opacity:0.7;">.${d}</span>`:'');}
     function formatRunClock(time) {
@@ -8298,11 +8312,11 @@
         const seconds = String(time % 60).padStart(2, '0');
         return `${minutes}:${seconds}`;
     }
-    function updateUI() {
+    function updateUI(previousSpeed = speedLevel) {
         document.getElementById('pc-score').innerHTML = _fmtScoreHTML(score);
         document.getElementById('pc-time').textContent = formatRunClock(gameTime);
         document.getElementById('pc-lines').textContent = linesClearedThisGame;
-        _renderHudLevel();
+        _renderHudSpeed(previousSpeed);
         const fun = currentGameMode === 'fun';
         const record = fun ? (saveData.stats?.bestFunScore || 0) : _prevHighscore;
         const difference = score - record;
@@ -11360,6 +11374,7 @@
                 player = {pos: {x,y}, matrix: BASE_PIECES[type].map(r => r.map(v => v ? type : 0)), next: null};
                 _currentPieceType = type; pieceBag = []; _nextQueue = [];
                 score = 0; linesClearedThisGame = 0; rawGameplayXPThisGame = 0; speedLevel = speed; dropInterval = Math.floor(1000 / speed);
+                _renderHudSpeed();
                 dropCounter = 0; lastTime = performance.now(); currentScoreMultiplier = scoreMultiplier;
                 isPaused = false; isGameOver = false; isAnimating = false; _hardDropAnimating = false;
                 lineClear.reset();

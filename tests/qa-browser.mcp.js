@@ -218,20 +218,29 @@
                 const wallpaper = page.locator('#setting-theme-background');
                 const preview = page.locator('.lb102-wallpaper-preview');
                 const banner = page.locator('.lb-menu-banner');
+                const play = page.locator('#btn-play');
                 const original = await wallpaper.evaluate(element => element.value);
                 const chooseWallpaper = async value => {
                     await wallpaper.getByRole('button').click();
                     await page.locator(`#setting-theme-background-list [data-value="${value}"]`).click();
                 };
                 const crop = viewport.width < viewport.height ? 'portrait' : 'landscape';
+                const playArt = () => play.evaluate(element => getComputedStyle(element).backgroundImage);
                 await chooseWallpaper('plain');
                 if (await preview.evaluate(element => getComputedStyle(element).backgroundImage) !== 'none') fail('Plain wallpaper still shows artwork');
                 if ((await banner.evaluate(element => getComputedStyle(element).backgroundImage)).includes('/bg/')) fail('Plain wallpaper still shows banner art');
-                for (const choice of ['default', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura', 'ocean']) {
+                if (!(await playArt()).includes(`default-${crop}.jpg`)) fail('PLAY must still show art with a plain banner');
+                const wallpapers = ['default', 'ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura'];
+                for (const [index, choice] of wallpapers.entries()) {
                     await chooseWallpaper(choice);
                     if (!(await preview.evaluate(element => getComputedStyle(element).backgroundImage)).includes(`${choice}-landscape.jpg`) ||
                         !(await banner.evaluate(element => getComputedStyle(element).backgroundImage)).includes(`${choice}-${crop}.jpg`)) {
                         fail(`Wallpaper ${choice} did not update the preview and ${crop} banner`);
+                    }
+                    const next = wallpapers[(index + 1) % wallpapers.length];
+                    const playBackground = await playArt();
+                    if (!playBackground.includes(`${next}-${crop}.jpg`) || playBackground.includes(`${choice}-${crop}.jpg`)) {
+                        fail(`PLAY must use the next ${crop} wallpaper when the banner shows ${choice}`);
                     }
                 }
                 if (await page.locator('html').getAttribute('data-lb-ui-theme') !== resolved) fail('Changing wallpaper also changed the theme');
@@ -254,6 +263,12 @@
                 if (!singleColumn) fail('Achievements must have one record per line');
             }
             if (name === 'menu') {
+                const forestEdge = await page.getByRole('button', { name: 'Play', exact: true }).evaluate(button => {
+                    const style = getComputedStyle(button);
+                    return !button.querySelector('.lb-ledger-chevron') && style.backgroundImage.startsWith('linear-gradient(')
+                        && style.backgroundImage.includes('/bg/') && style.boxShadow.includes('inset');
+                });
+                if (!forestEdge) fail('PLAY must have scrimmed wallpaper and an inset rim without a chevron');
                 const navigationFits = await page.locator('#menu-overlay button:has(> .lb-ledger-chevron)').evaluateAll(rows => rows.length >= 6 && rows.every(row => {
                     const chevron = row.querySelector('.lb-ledger-chevron');
                     const hadNotification = row.hasAttribute('data-ready');
@@ -310,6 +325,29 @@
                     window.closeMissions();
                     document.querySelector('#menu-overlay .menu-scale-wrapper').scrollTop = 0;
                 });
+            }
+            if (name === 'game') {
+                const speedStrip = await page.locator('.lb-hud-level').evaluate(tile => {
+                    const status = tile.querySelector('[role="status"]');
+                    const caret = tile.querySelector('.lb-hud-speed-caret');
+                    const digits = tile.querySelector('#lb-hud-speed-values');
+                    const [, previous, current, next] = digits.children;
+                    const center = element => {
+                        const rect = element.getBoundingClientRect();
+                        return rect.left + rect.width / 2;
+                    };
+                    const clear = 'rgba(0, 0, 0, 0)';
+                    const caretStyle = getComputedStyle(caret);
+                    return status.textContent === 'Speed 1' && digits.getAttribute('aria-hidden') === 'true'
+                        && previous.textContent === '' && current.textContent === '1' && next.textContent === '2'
+                        && Math.abs(center(current) - center(caret)) <= 1 && center(next) > center(current)
+                        && caret.getBoundingClientRect().bottom <= current.getBoundingClientRect().top
+                        && current.getBoundingClientRect().height > next.getBoundingClientRect().height
+                        && Number(getComputedStyle(next).opacity) < Number(getComputedStyle(current).opacity)
+                        && getComputedStyle(digits).backgroundColor === clear && getComputedStyle(digits).backgroundImage === 'none'
+                        && caretStyle.backgroundImage === 'none' && caretStyle.backgroundColor !== clear && !tile.querySelector('progress');
+                });
+                if (!speedStrip) fail('HUD must show an unboxed rolling speed strip under one solid caret');
             }
             if (name === 'game' && viewport.width <= 600 && viewport.width < viewport.height) {
                 const alignedHud = await page.evaluate(() => {

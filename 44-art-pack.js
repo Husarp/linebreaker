@@ -8,6 +8,7 @@ window.LBArtPack = (() => {
     const backgrounds = new Set([
         'default', 'ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura',
     ]);
+    const wallpapers = Object.freeze([...backgrounds]);
 
     function boosterToken(key) {
         return Object.hasOwn(boosterTokens, key) ? `assets/ui/boosters/${boosterTokens[key]}.png` : null;
@@ -22,10 +23,18 @@ window.LBArtPack = (() => {
         return value === 'plain' || backgrounds.has(value) ? value : 'image';
     }
 
+    function wallpaperName(theme, mode) {
+        const choice = backgroundMode(mode);
+        return choice === 'image' ? theme : choice;
+    }
+
+    function nextWallpaper(theme, mode) {
+        return wallpapers[(wallpapers.indexOf(wallpaperName(theme, mode)) + 1) % wallpapers.length];
+    }
+
     function themeBackground(theme, mode, orientation = 'landscape') {
         const variant = orientation === 'portrait' ? 'portrait' : 'landscape';
-        const choice = backgroundMode(mode);
-        const wallpaper = choice === 'image' ? theme : choice;
+        const wallpaper = wallpaperName(theme, mode);
         return backgrounds.has(wallpaper) ? `assets/ui/bg/${wallpaper}-${variant}.jpg` : null;
     }
 
@@ -38,5 +47,5 @@ window.LBArtPack = (() => {
         }
     }
 
-    return { universalPart, boosterToken, boosterIcon, wallpapers: Object.freeze([...backgrounds]), backgroundMode, themeBackground, applyThemeBackground };
+    return { universalPart, boosterToken, boosterIcon, wallpapers, nextWallpaper, backgroundMode, themeBackground, applyThemeBackground };
 })();
