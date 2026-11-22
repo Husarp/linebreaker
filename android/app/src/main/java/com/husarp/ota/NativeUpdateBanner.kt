@@ -1,7 +1,6 @@
 package com.husarp.ota
 
-import android.graphics.Color
-import android.graphics.Typeface
+import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.view.Gravity
@@ -21,9 +20,10 @@ internal data class UpdateBannerItem(
 )
 
 internal class NativeUpdateBanner(private val host: FrameLayout, private val dismiss: (String) -> Unit) {
-    private val context = host.context
-    private val accent = Color.rgb(140, 235, 224)
-    private val pixel = runCatching { Typeface.createFromAsset(context.assets, "public/assets/fonts/PressStart2P-Regular.ttf") }.getOrDefault(Typeface.MONOSPACE)
+    private val context = NativeLedger.context(host.context)
+    private val label = context.getColor(R.color.lb_ledger_label)
+    private val ink = context.getColor(R.color.lb_ledger_ink)
+    private val pixel = NativeLedger.heading(context)
     private var panel: View? = null
     private var progress: ProgressBar? = null
     private var key: String? = null
@@ -52,9 +52,11 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(12.dp, 8.dp, 6.dp, 10.dp)
-            elevation = 12.dp.toFloat()
+            elevation = 2.dp.toFloat()
             background = GradientDrawable().apply {
-                cornerRadius = 5.dp.toFloat(); setColor(Color.rgb(38, 43, 39)); setStroke(1.dp, Color.rgb(119, 127, 118))
+                cornerRadius = 3.dp.toFloat()
+                setColor(context.getColor(R.color.lb_ledger_panel))
+                setStroke(1.dp, context.getColor(R.color.lb_ledger_rule))
             }
         }
         fun dismissItem() { dismiss(item.key) }
@@ -67,32 +69,33 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
             }
         }
         row.addView(ImageView(context).apply {
-            setImageResource(R.drawable.ic_update_notice); setColorFilter(accent)
+            setImageResource(R.drawable.ic_update_notice); setColorFilter(label)
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }, LinearLayout.LayoutParams(22.dp, 22.dp).apply { setMargins(0, 6.dp, 10.dp, 0) })
         val copy = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         row.addView(copy, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         copy.addView(TextView(context).apply {
-            text = item.title; textSize = 9f; typeface = pixel; setTextColor(accent)
-            isSingleLine = true; ellipsize = TextUtils.TruncateAt.END; accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            text = item.title; textSize = 12f; typeface = pixel; setTextColor(label)
+            maxLines = 2; ellipsize = TextUtils.TruncateAt.END; accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         })
-        copy.addView(TextView(context).apply { text = item.text; textSize = 14f; setTextColor(Color.WHITE) })
+        copy.addView(TextView(context).apply { text = item.text; textSize = 14f; setTextColor(ink) })
         if (item.downloading) {
             val bar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
                 max = 100; isIndeterminate = item.percent == null; progress = item.percent ?: 0
                 contentDescription = "Update download progress"
+                progressTintList = ColorStateList.valueOf(label)
+                indeterminateTintList = ColorStateList.valueOf(label)
             }
             progress = bar
             copy.addView(bar)
         }
         if (item.actionLabel != null) copy.addView(Button(context).apply {
-            text = item.actionLabel; isAllCaps = false; setTextColor(Color.WHITE)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(59, 73, 66))
+            text = item.actionLabel
             setOnClickListener { dismissItem(); item.action?.invoke() }
         })
         row.addView(Button(context).apply {
-            text = "✕"; contentDescription = "Dismiss update notice"; setTextColor(Color.WHITE)
-            setBackgroundColor(Color.TRANSPARENT); setPadding(0, 0, 0, 0)
+            text = "✕"; contentDescription = "Dismiss update notice"
+            setPadding(0, 0, 0, 0)
             setOnClickListener { dismissItem() }
         }, LinearLayout.LayoutParams(44.dp, 44.dp))
         host.addView(row, layout)

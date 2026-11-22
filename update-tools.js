@@ -79,7 +79,7 @@
   const sources = new Map();
   const dismissed = new Set();
   let banner, showing, swipe;
-  const getLabel = (version, ready = false) => `${ready ? 'Install' : 'Get'} update ${version}`;
+  const getLabel = (version, ready = false) => `${ready ? 'Install' : 'Download'} update ${version}`;
   const githubIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .8a11.2 11.2 0 0 0-3.54 21.83c.56.1.77-.24.77-.54v-2.09c-3.13.68-3.79-1.33-3.79-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.72 1.16 1.72 1.16 1 1.72 2.63 1.22 3.27.93.1-.73.39-1.22.71-1.5-2.5-.28-5.13-1.25-5.13-5.57 0-1.23.44-2.24 1.16-3.03-.12-.28-.5-1.43.11-2.99 0 0 .95-.3 3.08 1.16a10.7 10.7 0 0 1 5.61 0c2.14-1.46 3.08-1.16 3.08-1.16.61 1.56.23 2.71.11 2.99.72.79 1.16 1.8 1.16 3.03 0 4.33-2.64 5.28-5.15 5.56.4.35.76 1.03.76 2.08v3.1c0 .3.21.64.77.53A11.2 11.2 0 0 0 12 .8Z"/></svg>';
   const statusMarkup = '<div class="lb184-status"><span data-status></span> <span data-percent></span></div><progress class="lb-block-progress" aria-label="Update download progress" max="100" hidden></progress>';
   function setStatus(container, text, percent) {
@@ -199,7 +199,15 @@
     notices, queueNotice, getLabel, githubIcon, statusMarkup, setStatus, showNotes };
   const version = window.BUNDLE?.version;
   setReleaseNotes(version);
-  if (version && !window.__TAURI__ && window.Capacitor?.getPlatform?.() !== 'android' && !new URLSearchParams(location.search).has('demo')) {
-    showReleaseNotice(version, null, { upgraded: !!startupUpgrade(localStorage, 'lb149:web', version) });
+  const browser = version && !window.__TAURI__ && window.Capacitor?.getPlatform?.() !== 'android';
+  if (browser) {
+    const section = document.createElement('section');
+    section.className = 'settings-section lb-block-panel lb149-settings';
+    section.innerHTML = `<div class="lb149-actions lb184-toolbar"><button type="button" class="lb-block-btn">What's new</button></div><p>Reload the page to pick up browser updates.</p>`;
+    section.querySelector('button').onclick = () => showNotes(version, releaseNotes[version]);
+    document.getElementById('settings-updates')?.prepend(section);
+    if (!new URLSearchParams(location.search).has('demo')) {
+      showReleaseNotice(version, null, { upgraded: !!startupUpgrade(localStorage, 'lb149:web', version) });
+    }
   }
 })();

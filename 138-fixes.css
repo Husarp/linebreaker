@@ -7,27 +7,3 @@
 #daily-gift-overlay .mq-streak-flame { line-height: 1; }
 
 #start-wordmark.lb122-logo { width: min(82vw, 640px); }
-
-#season-pass-overlay .sp-card[data-reached]:not([data-state="claimed"]) .sp-step {
-    border-color: var(--accent);
-    background: var(--accent);
-}
-
-@media (orientation: landscape) and (min-width: 700px) {
-    #season-pass-overlay .sp-track { cursor: grab; user-select: none; }
-    #season-pass-overlay .sp-track.lb138-dragging,
-    #season-pass-overlay .sp-track.lb138-dragging * { cursor: grabbing; }
-    #season-pass-overlay .sp-card:not(:last-child)::before {
-        background: linear-gradient(to right, var(--accent) var(--sp-segment), var(--sp-track-edge) var(--sp-segment));
-    }
-}
-
-@media (orientation: portrait), (max-width: 699px) {
-    #season-pass-overlay .sp-card:not(:last-child)::before {
-        height: calc(50% + var(--sp-track-gap) + 3px);
-        background: linear-gradient(to bottom, var(--accent) var(--sp-outgoing), var(--sp-track-edge) var(--sp-outgoing));
-    }
-    #season-pass-overlay .sp-card:not(:first-child)::after {
-        background: linear-gradient(to bottom, var(--accent) var(--sp-incoming), var(--sp-track-edge) var(--sp-incoming));
-    }
-}

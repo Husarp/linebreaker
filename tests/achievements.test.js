@@ -87,7 +87,7 @@ describe('achievement screen', () => {
     expect(hover(badges('BASIC')[0])).toContain('Hooked');
   });
 
-  it('reuses one question-mark graphic until secrets unlock and draws a full progress outline only for the earned badge', () => {
+  it('reuses one question-mark graphic until secrets unlock and shows full progress only for the earned achievement', () => {
     const icon = badge => badge.querySelector('.ach-card-icon').innerHTML;
     game.w.openAchievements('locked');
     const allSecretIcons = new Set(badges('SECRET').map(icon));
@@ -99,8 +99,8 @@ describe('achievement screen', () => {
     expect(hover(nice)).toContain('Nice');
     expect(allSecretIcons.has(icon(nice))).toBe(false);
     expect(allSecretIcons.has(icon(mystery))).toBe(true);
-    expect(nice.querySelector('.ach-card-progress path').hasAttribute('stroke-dasharray')).toBe(false);
-    expect(mystery.querySelector('.ach-card-progress')).toBeNull();
+    expect(nice.querySelector('progress').position).toBe(1);
+    expect(mystery.querySelector('progress')).toBeNull();
   });
 
   it('provides artwork for every achievement without using text or placeholder glyphs for earned badges', async () => {
@@ -183,7 +183,7 @@ describe('achievement screen', () => {
     expect(hover(basic[1])).toContain('On the Board');
     filter('locked');
     const nextScoreBadge = badges('BASIC').find(badge => hover(badge).includes('Next: High Roller'));
-    expect(nextScoreBadge.querySelector('path[stroke-dasharray]').getAttribute('stroke-dasharray')).toBe('80 20');
+    expect(nextScoreBadge.querySelector('progress').position).toBe(0.8);
     filter('unlocked');
     expect(badges('BASIC').map(hover)).toHaveLength(2);
     expect(badges('BASIC').map(hover).some(text => text.includes('Next:'))).toBe(false);

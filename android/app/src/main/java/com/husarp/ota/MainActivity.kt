@@ -42,6 +42,7 @@ class MainActivity : BridgeActivity() {
     private val updater get() = (application as OtaApplication).updater
     private val handler = Handler(Looper.getMainLooper())
     private var resumed = false
+    private val ledger by lazy { NativeLedger.context(this) }
     private var recoveryDialog: AlertDialog? = null
     private var refreshRecoveryCheck: (() -> Unit)? = null
     private var updateBanner: NativeUpdateBanner? = null
@@ -77,15 +78,15 @@ class MainActivity : BridgeActivity() {
     }
     private fun showStartupRecovery(reason: String) {
         updater.engine.log.add("Startup watchdog: ${updater.launch.version} ($reason)")
-        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp,12.dp,20.dp,12.dp) }
-        val dialog = AlertDialog.Builder(this).setTitle("Linebreaker didn't start properly")
-            .setView(box).setCancelable(false).create()
-        val status = TextView(this).apply { text = "You can check for a fix without opening the game. Your saves stay." }
-        val check = Button(this).apply { text = "Check for fix" }
-        val reset = Button(this).apply { text = "Reset to built-in version" }
-        val wait = Button(this).apply { text = "Wait longer" }
-        val shell = Button(this).apply { text = "Open shell" }
-        val copy = Button(this).apply { text = "Copy logs"; setOnClickListener { copyLogs() } }
+        val box = LinearLayout(ledger).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp,12.dp,20.dp,12.dp) }
+        val dialog = NativeLedger.dialog(ledger, "Linebreaker didn't start properly")
+            .setView(ScrollView(ledger).apply { addView(box) }).setCancelable(false).create()
+        val status = TextView(ledger).apply { text = "You can check for a fix without opening the game. Your saves stay." }
+        val check = Button(ledger).apply { text = "Check for fix" }
+        val reset = Button(ledger).apply { text = "Reset to built-in version" }
+        val wait = Button(ledger).apply { text = "Wait longer" }
+        val shell = Button(ledger).apply { text = "Open shell" }
+        val copy = Button(ledger).apply { text = "Copy logs"; setOnClickListener { copyLogs() } }
         val alternatives = listOf(reset, wait, shell)
         var fix: Updater.StartupFix? = null
         var retryShell = false
@@ -346,7 +347,7 @@ class MainActivity : BridgeActivity() {
         }
     }
     fun confirmReset(startupRecovery: Boolean = false) {
-        AlertDialog.Builder(this).setTitle("Reset to built-in version?")
+        NativeLedger.dialog(ledger, "Reset to built-in version?")
             .setMessage("This removes downloaded updates and shows update setup again. Your saves stay.")
             .setPositiveButton("Reset") { _, _ ->
                 restartBundle(reset = true, startupRecovery = startupRecovery && updater.watchdog.reason != null)
@@ -356,24 +357,24 @@ class MainActivity : BridgeActivity() {
     private var refreshDebugSettings: (() -> Unit)? = null
     fun showSettings() {
         if (debugDialog?.isShowing == true) return
-        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp,8.dp,20.dp,8.dp) }
-        val versions = TextView(this).apply { text = "Playing version ${updater.launch.version}\nAndroid app ${BuildConfig.VERSION_NAME}" }
+        val box = LinearLayout(ledger).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp,8.dp,20.dp,8.dp) }
+        val versions = TextView(ledger).apply { text = "Playing version ${updater.launch.version}\nAndroid app ${BuildConfig.VERSION_NAME}" }
         val initial = updater.settingsJson()
         val switches = linkedMapOf<String, Switch>()
         val choices = linkedMapOf<String, Pair<Spinner, List<String>>>()
         box.addView(versions)
-        val checkStatus = TextView(this).apply { text = if (updater.checks.hasError()) "Could not check for updates" else "" }
-        val checkHelp = Button(this).apply {
+        val checkStatus = TextView(ledger).apply { text = if (updater.checks.hasError()) "Could not check for updates" else "" }
+        val checkHelp = Button(ledger).apply {
             text = "ⓘ"
             contentDescription = "Update connection help"
             visibility = if (updater.checks.hasError()) View.VISIBLE else View.GONE
             setOnClickListener {
-                AlertDialog.Builder(this@MainActivity).setTitle("Update connection help")
+                NativeLedger.dialog(ledger, "Update connection help")
                     .setMessage("Sign in to public Wi-Fi or try mobile data. Check your device date and time, then try again.")
                     .setPositiveButton("Close", null).show()
             }
         }
-        box.addView(LinearLayout(this).apply {
+        box.addView(LinearLayout(ledger).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(checkStatus, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(checkHelp, LinearLayout.LayoutParams(48.dp, 48.dp))
@@ -381,13 +382,13 @@ class MainActivity : BridgeActivity() {
         listOf("smallFixes" to "Small fixes: install automatically",
             "majorUpdates" to "New versions and big fixes: install automatically without asking",
             "shellUpdates" to "App updates: install automatically").forEach { (key,label) ->
-            val control = Switch(this).apply { text = label; isChecked = initial.getBoolean(key) }
+            val control = Switch(ledger).apply { text = label; isChecked = initial.getBoolean(key) }
             switches[key] = control; box.addView(control)
         }
         fun choice(key: String, label: String, values: List<String>, labels: List<String>) {
-            box.addView(TextView(this).apply { text = label })
-            val control = Spinner(this).apply {
-                adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, labels)
+            box.addView(TextView(ledger).apply { text = label })
+            val control = Spinner(ledger).apply {
+                adapter = ArrayAdapter(ledger, android.R.layout.simple_spinner_dropdown_item, labels)
                 setSelection(values.indexOf(initial.get(key).toString()))
             }
             choices[key] = control to values; box.addView(control)
@@ -396,13 +397,13 @@ class MainActivity : BridgeActivity() {
         choice("mobileLimitMb", "Automatic download limit on mobile data", listOf("0","5","20","50","-1"), listOf("Never","5 MB","20 MB","50 MB","No limit"))
         choice("checkFrequency", "Check for updates", listOf("open","1h","6h","24h","manual"),
             listOf("When the app opens","Every hour","Every 6 hours","Every day","Only when I tap Check now"))
-        box.addView(TextView(this).apply { text = "Only when I tap Check now disables all automatic checks, including critical fixes. Metered Wi-Fi counts as mobile data." })
-        val checkButton = Button(this).apply {
+        box.addView(TextView(ledger).apply { text = "Only when I tap Check now disables all automatic checks, including critical fixes. Metered Wi-Fi counts as mobile data." })
+        val checkButton = Button(ledger).apply {
             text = "Check for updates"
             setOnClickListener { updater.retryChecks() }
         }
         box.addView(checkButton)
-        val shellUpdate = Button(this).apply {
+        val shellUpdate = Button(ledger).apply {
             setOnClickListener {
                 if (!updater.safeToInterrupt) return@setOnClickListener
                 if (updater.shell.isReady()) updater.shell.installFromWeb(this@MainActivity)
@@ -412,15 +413,15 @@ class MainActivity : BridgeActivity() {
         fun refreshShellOffer() {
             val ready = updater.shell.manifest()?.takeIf { updater.shell.isReady() }?.versionName
             val available = updater.shell.availableState()?.optString("version")
-            shellUpdate.text = if (ready != null) "Install update $ready" else "Get update $available"
+            shellUpdate.text = if (ready != null) "Install update $ready" else "Download update $available"
             shellUpdate.visibility = if (ready != null || !available.isNullOrEmpty()) View.VISIBLE else View.GONE
             shellUpdate.isEnabled = updater.safeToInterrupt && !updater.shell.downloading
         }
         refreshShellOffer()
         box.addView(shellUpdate)
-        box.addView(Button(this).apply { text = "Restart"; setOnClickListener { restartBundle(startupRecovery = updater.watchdog.reason != null) } })
-        box.addView(Button(this).apply { text = "Logs"; setOnClickListener { showLogs() } })
-        box.addView(Button(this).apply {
+        box.addView(Button(ledger).apply { text = "Restart"; setOnClickListener { restartBundle(startupRecovery = updater.watchdog.reason != null) } })
+        box.addView(Button(ledger).apply { text = "Logs"; setOnClickListener { showLogs() } })
+        box.addView(Button(ledger).apply {
             text = "Simulate broken start (next launch only)"
             setOnClickListener {
                 val message = if (updater.simulateBrokenStart()) "Simulation armed. Restart the app to test recovery."
@@ -428,22 +429,22 @@ class MainActivity : BridgeActivity() {
                 Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
             }
         })
-        val reset = Button(this).apply {
+        val reset = Button(ledger).apply {
             text = "Reset to built-in version"
             setOnClickListener { confirmReset(startupRecovery = updater.watchdog.reason != null) }
         }
         box.addView(reset)
-        val closeShell = Button(this).apply { text = "Close"; contentDescription = "Close app maintenance" }
-        val shellHeader = LinearLayout(this).apply {
+        val closeShell = Button(ledger).apply { text = "Close"; contentDescription = "Close app maintenance" }
+        val shellHeader = LinearLayout(ledger).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(20.dp, 8.dp, 12.dp, 0)
-            addView(TextView(this@MainActivity).apply { text = "App maintenance"; textSize = 20f },
+            setPadding(0, 8.dp, 20.dp, 0)
+            addView(NativeLedger.title(ledger, "App maintenance"),
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(closeShell)
         }
-        val maintenance = FrameLayout(this).apply { addView(ScrollView(this@MainActivity).apply { addView(box) }) }
+        val maintenance = FrameLayout(ledger).apply { addView(ScrollView(ledger).apply { addView(box) }) }
         maintenanceBanner = NativeUpdateBanner(maintenance, ::dismissUpdateBanner)
-        val dialog = AlertDialog.Builder(this).setCustomTitle(shellHeader).setView(maintenance)
+        val dialog = NativeLedger.dialog(ledger).setCustomTitle(shellHeader).setView(maintenance)
             .setCancelable(true).setPositiveButton("Save",null).create()
         dialog.setCanceledOnTouchOutside(false)
         closeShell.setOnClickListener { dialog.cancel() }
@@ -532,15 +533,15 @@ class MainActivity : BridgeActivity() {
             items.add(if (appReady != null) UpdateBannerItem("app-ready:$version", "App update ready", "Version $version is ready to install.",
                 "Install update $version", { installWithNotificationPermission { updater.shell.installFromWeb(this) } })
             else UpdateBannerItem("app-offer:$version", "App update available", "Version $version · ${updater.formatSize(it.optLong("size"))}",
-                "Get update $version", { updater.shell.check(consent = true, downloadOnly = true) }))
+                "Download update $version", { updater.shell.check(consent = true, downloadOnly = true) }))
         }
         val staged = state.optJSONObject("staged")
         if (!state.optBoolean("busy")) (staged ?: state.optJSONObject("available"))?.let {
             val version = it.optString("version")
             items.add(when {
-                staged != null -> UpdateBannerItem("ready:$version", "Update ready", "Restart Linebreaker to finish updating.", "Install update $version", { restartBundle(startupRecovery = updater.watchdog.reason != null) })
+                staged != null -> UpdateBannerItem("ready:$version", "Update ready", "Restart Linebreaker to finish updating.", "Restart to apply", { restartBundle(startupRecovery = updater.watchdog.reason != null) })
                 it.optBoolean("needsShell") -> UpdateBannerItem("app-first:$version", "Update available", "Install the app update first to get version $version.")
-                else -> UpdateBannerItem("offer:$version", "Update available", "Version $version · ${updater.formatSize(it.optLong("size"))}", "Get update $version", updater::download)
+                else -> UpdateBannerItem("offer:$version", "Update available", "Version $version · ${updater.formatSize(it.optLong("size"))}", "Download update $version", updater::download)
             })
         }
         val error = updateFailure(updater.status, updater.shell.status)
@@ -572,9 +573,9 @@ class MainActivity : BridgeActivity() {
     }
     fun showLogs() {
         if (logDialog?.isShowing == true) return
-        logText = TextView(this).apply { textSize = 12f; typeface = android.graphics.Typeface.MONOSPACE; setTextIsSelectable(true); setPadding(12.dp,8.dp,12.dp,8.dp) }
-        val scroll = ScrollView(this).apply { addView(logText) }
-        logDialog = AlertDialog.Builder(this).setTitle("Updater logs · live") .setView(scroll)
+        logText = TextView(ledger).apply { textSize = 12f; typeface = android.graphics.Typeface.MONOSPACE; setTextIsSelectable(true); setPadding(20.dp,8.dp,20.dp,8.dp) }
+        val scroll = ScrollView(ledger).apply { addView(logText) }
+        logDialog = NativeLedger.dialog(ledger, "Updater logs · live").setView(scroll)
             .setPositiveButton("Close", null).setNeutralButton("Copy",null).setNegativeButton("Clear",null).create()
         logDialog!!.setOnShowListener {
             logDialog!!.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { copyLogs() }

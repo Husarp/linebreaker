@@ -24,6 +24,6 @@ await page.evaluate(() => window.__LB_QA.open('settings'));
 | Music and help | `playlist`, `help`, `tutorial`, `credits` |
 | Generic dialogs | `alert`, `confirm` |
 
-The fixture uses late Gold (level 30), one level below the final modifier unlocks, so Play shows both locked and unlocked options. Music uses the game’s enabled playlists; there is no separate track purchase system. `season-pass` opens Missions on the Season tab. The season follows the real calendar, so on its first day there is only one unlocked stage and no prior claim. Save setup and platform update dialogs are not screenshot targets.
+The fixture uses late Gold (level 30), one level below the final modifier unlocks, so Play shows both locked and unlocked options. Music uses the game’s enabled playlists; there is no separate track purchase system. `season-pass` opens the dedicated Season Pass screen. The season follows the real calendar, so on its first day there is only one unlocked stage and no prior claim. Save setup and platform update dialogs are not screenshot targets.
 
 Before staging a release, serve the repository root and open `index.html?dev&demo` in an owned work tab. Run `tests/qa-browser.mcp.js` as the Playwright MCP `browser_run_code_unsafe` callback (load the file or pass its contents as `code`). The sweep opens every target at 390×844, waits just over a second per target, and fails on browser errors or a regression in the Daily Gift or Mission Claim layout. Only 404s for local-only tracks are ignored. Allow at least 90 seconds for the sweep.

@@ -54,31 +54,59 @@
     max-width: 900px;
     margin-inline: auto;
 }
-.lb102-settings-content { padding: 16px max(16px, var(--lb-safe-right)) max(32px, var(--lb-safe-bottom)) max(16px, var(--lb-safe-left)); }
-.lb102-categories { display: grid; gap: 8px; max-width: 36rem; margin-inline: auto; }
-.lb102-categories[hidden], #notification-settings:not([hidden]) + .lb102-reminders-unavailable { display: none; }
-#settings-overlay .lb102-categories .lb-block-btn {
-    display: grid;
-    grid-template-columns: 22px minmax(0, 1fr) 16px;
-    text-align: start;
-    gap: 12px;
-    min-height: 60px;
-    padding-inline: 14px !important;
+.lb102-settings-content {
+    max-width: 38rem;
+    padding: var(--lb-space-lg) max(var(--lb-space-lg), var(--lb-safe-right)) max(var(--lb-space-2xl), var(--lb-safe-bottom)) max(var(--lb-space-lg), var(--lb-safe-left));
 }
-.lb102-categories svg { width: 100%; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
-#settings-overlay .lb102-categories strong { display: block; font: 400 .64rem/1.45 var(--bb-font-pixel); }
-#settings-overlay .lb102-categories small, #settings-overlay .lb102-reminders-unavailable { color: var(--bb-muted); font: .8rem/1.5 var(--font-body); }
-.lb102-categories small { display: block; margin-top: 3px; }
+#settings-overlay.lb-fullscreen { background: var(--lb-paper); }
+.lb102-directory, .lb102-categories { display: grid; gap: var(--lb-space-lg); }
+#settings-overlay [hidden], #notification-settings:not([hidden]) + .lb102-reminders-unavailable { display: none !important; }
+#settings-overlay .lb102-categories h2 { margin: 0 0 var(--lb-space-xs) 2px; }
+.lb102-categories .lb-ledger-row > svg { color: var(--lb-label); }
+#settings-overlay .lb102-categories strong { display: block; font: 650 var(--lb-type-body)/1.35 var(--lb-font-body); }
+#settings-overlay :is(.lb102-categories small, .lb102-reminders-unavailable, .lb102-no-results) {
+    color: var(--lb-muted);
+    font: var(--lb-type-small)/1.5 var(--lb-font-body);
+}
+.lb102-categories small { display: block; margin-top: var(--lb-space-xs); }
 #settings-overlay :is(.settings-title, #controls-title) {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    padding-block: 3px;
-    border: 1px solid var(--bb-edge);
-    border-bottom-width: var(--bb-stroke);
-    border-radius: var(--bb-cap);
-    box-shadow: inset 0 1px #fff2;
+    gap: var(--lb-space-sm);
+    background: transparent;
+    border: 0;
+    color: var(--lb-label);
+    font: 400 var(--lb-type-small)/1.4 var(--lb-font-heading) !important;
 }
+#settings-overlay .settings-row {
+    min-height: var(--target);
+    border-radius: 0;
+    column-gap: var(--lb-space-sm);
+}
+#settings-overlay .settings-row + .settings-row { border-top: var(--lb-border) dashed var(--lb-rule); }
+#settings-overlay .settings-row:hover { background: none; box-shadow: none; }
+#settings-overlay .settings-row > span:first-child:not(.toggle) { color: var(--lb-ink) !important; }
+#settings-overlay .settings-row:has(.lb102-theme) { grid-template-columns: auto minmax(0, 1fr); }
+#settings-overlay .lb102-theme { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#settings-overlay .lb102-theme button { padding-inline: var(--lb-space-xs) !important; font-size: var(--lb-type-small) !important; white-space: nowrap; }
+#settings-overlay .lb102-wallpaper-preview {
+    grid-column: 1 / -1;
+    display: block;
+    height: 72px;
+    border: var(--lb-border) solid var(--lb-rule);
+    border-radius: var(--lb-radius);
+    background: var(--lb-page) center / cover;
+}
+#settings-overlay .lb102-subpage.lb-ledger-row {
+    grid-template-columns: minmax(0, 1fr) var(--space-4);
+    width: 100%;
+    margin-top: var(--lb-space-md);
+}
+#settings-overlay .lb102-reminders-unavailable { padding: var(--lb-space-lg); margin: 0; }
+#settings-overlay .lb184-toolbar { margin-top: 0; }
+#settings-overlay .lb184-toolbar [data-github] { padding-inline: var(--lb-space-sm) !important; }
+#settings-overlay .lb102-about-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--lb-space-sm); }
+#settings-overlay .lb102-reset-note { color: var(--lb-muted); margin-block: 0 var(--lb-space-md); }
 #settings-overlay .lb102-controls-head {
     padding-block: 2px 6px;
     border-bottom: 1px solid var(--bb-edge);

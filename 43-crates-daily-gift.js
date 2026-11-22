@@ -191,7 +191,7 @@
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.setAttribute('aria-labelledby', 'lb43-gift-title');
-        const panel = element('div', 'lb64-crate-panel lb64-daily-panel lb-block-panel');
+        const panel = element('div', 'lb64-crate-panel lb64-daily-panel lb-block-dialog');
         const title = element('h2', 'lb64-crate-title', 'Daily Gift');
         title.id = 'lb43-gift-title';
         const preOpen = element('div', 'lb43-pre-open');

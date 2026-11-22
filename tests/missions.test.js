@@ -16,12 +16,35 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
 
   const card = () => game.w.document.querySelector('[data-mission-slot="0"]');
   const claim = card().querySelector('.mq-card-action--claim > button.lb-block-btn--primary');
-  expect(claim.textContent).toBe(`Claim +${mission.pts} pts`);
+  expect(claim.textContent).toBe('Claim');
+  expect(claim.getAttribute('aria-label')).toBe(`Claim +${mission.pts} pts`);
+  const progress = card().querySelector('progress');
+  expect(progress.value).toBe(mission.target);
+  expect(progress.max).toBe(mission.target);
   game.w.Function(claim.getAttribute('onclick')).call(claim);
   game.advance(1000);
   expect(api.save.missions[tab][points]).toBe(total + mission.pts);
   expect(api.save.missions[tab][list][0].ptsClaimed).toBe(true);
   expect(game.w.document.querySelector('#missions-body .mq-pts-claim-btn')).toBeNull();
+});
+
+it('shows the current period on the board and returns to it from Season Pass', () => {
+  const {document} = game.w;
+  game.w.renderMissionsOverlay('daily');
+  const select = period => document.querySelector(`#missions-overlay [data-tab="${period}"]`);
+  const title = () => document.getElementById('mq-board-title').textContent;
+  expect(title()).toBe('Today’s board');
+  expect(document.querySelector('#mq-countdown time').dateTime).toMatch(/^P/);
+  select('weekly').click();
+  expect(title()).toBe('This week’s board');
+  expect(select('weekly').getAttribute('aria-pressed')).toBe('true');
+  select('season').click();
+  expect(document.querySelector('#missions-overlay .lb-topbar-title').textContent).toBe('Season Pass');
+  expect(document.getElementById('mq-mission-view').hidden).toBe(true);
+  document.getElementById('mq-back').click();
+  expect(document.getElementById('season-pass-overlay').hidden).toBe(true);
+  expect(title()).toBe('This week’s board');
+  expect(select('weekly').getAttribute('aria-pressed')).toBe('true');
 });
 
 it.each([

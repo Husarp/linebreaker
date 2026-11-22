@@ -28,7 +28,7 @@
     function _skinAvailable(key) { return Object.hasOwn(SKIN_NAMES, key); }
     function _renderSkin() { return _skinAvailable(settings.skin) ? settings.skin : DEFAULT_BLOCK_SKIN; }
     const _devPanel = document.getElementById('dev-panel');
-    if (_devPanel && _devMode) _devPanel.style.display = 'flex';
+    if (_devPanel && _devMode && !_qaDemo) _devPanel.style.display = 'flex';
 
     const _hasFileAPI = !_qaDemo && 'showOpenFilePicker' in window; // false on Firefox/Safari
 
@@ -751,19 +751,20 @@
     defaultSettings.lineClearEffect = 'default';
     let settings = { ...defaultSettings };
     const _themeBackgroundSelect = document.getElementById('setting-theme-background');
-    const _uiThemeSelect = document.getElementById('setting-ui-theme');
+    const uiThemeButtons = document.querySelectorAll('#settings-display [data-ui-theme]');
+    const wallpaperPreview = document.querySelector('.lb102-wallpaper-preview');
     const _systemTheme = window.matchMedia?.('(prefers-color-scheme: light)');
     for (const name of LBArtPack.wallpapers) {
         _themeBackgroundSelect.add(new Option(name[0].toUpperCase() + name.slice(1), name));
     }
     function syncUiTheme() {
         settings.uiTheme = ['light', 'system'].includes(settings.uiTheme) ? settings.uiTheme : 'dark';
-        _uiThemeSelect.value = settings.uiTheme;
+        for (const button of uiThemeButtons) button.setAttribute('aria-pressed', String(button.dataset.uiTheme === settings.uiTheme));
         document.documentElement.dataset.lbUiTheme = settings.uiTheme === 'system'
             ? (_systemTheme?.matches ? 'light' : 'dark') : settings.uiTheme;
     }
     _systemTheme?.addEventListener?.('change', syncUiTheme);
-    _uiThemeSelect.addEventListener('change', () => onSettingChange('uiTheme', _uiThemeSelect.value));
+    for (const button of uiThemeButtons) button.onclick = () => onSettingChange('uiTheme', button.dataset.uiTheme);
     const _movingBackgroundToggle = document.getElementById('setting-moving-background');
     const wallpaper = document.querySelector('.lb-wallpaper');
     let wallpaperAnimation;
@@ -783,9 +784,16 @@
             if (document.hidden) wallpaperAnimation.pause();
         };
     }
+    function syncWallpaperArt(theme) {
+        for (const element of [document.querySelector('.bg-gradient'), document.querySelector('.lb-menu-banner')]) {
+            LBArtPack.applyThemeBackground(element, theme, settings.themeBackground);
+        }
+    }
     function syncWallpaper() {
+        const preview = LBArtPack.themeBackground(settings.theme, settings.themeBackground);
+        wallpaperPreview.style.backgroundImage = preview ? `url("${preview}")` : '';
         const enabled = settings.movingBackground !== false && !reducedMotion?.matches
-            && Boolean(LBArtPack.themeBackground(settings.theme, settings.themeBackground))
+            && Boolean(preview)
             && typeof wallpaper.animate === 'function';
         wallpaper.classList.toggle('lb-wallpaper--moving', enabled);
         if (!enabled) {
@@ -854,19 +862,10 @@
         const map = { '1':0.78,'2':0.91,'3':1.04,'4':1.17,'5':1.30,'6':1.43,'7':1.56,'8':1.76,'9':1.95,'10':2.15 };
         document.documentElement.style.setProperty('--font-scale', map[size] || 1.30);
     }
-    const menuScaleWrapper = document.querySelector('.menu-scale-wrapper');
-    function fitMenuToViewport() {
-        const menuHeight = menuScaleWrapper.offsetHeight;
-        const maxScale = menuHeight ? Math.max(0.1, (window.innerHeight - 32) / menuHeight) : 1;
-        menuScaleWrapper.style.setProperty('--menu-fit-scale', maxScale);
-    }
-    if (window.ResizeObserver) new ResizeObserver(fitMenuToViewport).observe(menuScaleWrapper);
     function applyGameScale(size) {
         const map = { '1':0.42,'2':0.49,'3':0.56,'4':0.63,'5':0.70,'6':0.77,'7':0.84,'8':0.94,'9':1.05,'10':1.15 };
         const baseScale = map[size] || 1.0;
         document.documentElement.style.setProperty('--game-scale', baseScale);
-        document.documentElement.style.setProperty('--menu-scale', 1.3 * baseScale);
-        fitMenuToViewport();
     }
     function applyBtnStyle(key) {
         const s = BTN_STYLES[key] || BTN_STYLES.square;
@@ -946,15 +945,11 @@
     }
     function _doApplyTheme(name, { persist = true } = {}) {
         const background = document.querySelector('.bg-gradient');
-        LBArtPack.applyThemeBackground(background, name, settings.themeBackground);
+        syncWallpaperArt(name);
         if (name === 'custom' && saveData.customThemeColor) {
             const _ch = hexColor(saveData.customThemeColor, '#ff00ff');
             document.documentElement.style.setProperty('--primary', _ch);
             document.documentElement.style.setProperty('--primary-dim', hexToRgba(_ch, 0.35));
-            const _r=parseInt(_ch.slice(1,3),16),_g=parseInt(_ch.slice(3,5),16),_b=parseInt(_ch.slice(5,7),16);
-            const _mx=Math.max(_r,_g,_b)/255,_mn=Math.min(_r,_g,_b)/255;let _h=0;
-            if(_mx!==_mn){const d=_mx-_mn;if(_mx===_r/255)_h=((_g/255-_b/255)/d+(_g<_b?6:0))/6;else if(_mx===_g/255)_h=((_b/255-_r/255)/d+2)/6;else _h=((_r/255-_g/255)/d+4)/6;}
-            const _pb=document.getElementById('btn-play');if(_pb)_pb.style.setProperty('--play-hue',Math.round(_h*360));
             settings.theme = 'custom';
             syncWallpaper();
             return;
@@ -963,24 +958,6 @@
         document.documentElement.style.setProperty('--primary', t.primary);
         document.documentElement.style.setProperty('--primary-dim', hexToRgba(t.primary, 0.35));
         background.style.background = t.bg;
-        const playBtn = document.getElementById('btn-play');
-        if (playBtn) {
-            // Use theme primary as base hue for the color cycle
-            // Parse hue from primary hex color
-            const r = parseInt(t.primary.slice(1,3)||'00',16);
-            const g = parseInt(t.primary.slice(3,5)||'ff',16);
-            const b = parseInt(t.primary.slice(5,7)||'ff',16);
-            const max = Math.max(r,g,b)/255, min = Math.min(r,g,b)/255;
-            let h = 0;
-            if (max !== min) {
-                const d = max - min;
-                if (max === r/255) h = ((g/255 - b/255)/d + (g < b ? 6 : 0)) / 6;
-                else if (max === g/255) h = ((b/255 - r/255)/d + 2) / 6;
-                else h = ((r/255 - g/255)/d + 4) / 6;
-            }
-            playBtn.style.setProperty('--play-hue', Math.round(h * 360));
-            playBtn.style.background = ''; // let CSS animation handle it
-        }
         settings.theme = name;
         syncWallpaper();
         if (persist) saveSettings();
@@ -2269,25 +2246,16 @@
     }
     // === END MUSIC SYSTEM ===
 
-    // Pulsowanie przycisku PLAY z cykliczną zmianą koloru
-    let _playBtnInterval = null;
-    function randomizePlayButton() {
+    function refreshSeasonCard() {
+        const { id, day } = seasonPass.seasonWindow(Date.now());
+        const date = document.getElementById('lb-menu-season-date');
+        const format = number => String(number).padStart(2, '0');
+        date.textContent = id ? `Season ${format(id)} · Day ${format(day)} / ${seasonPass.DAYS}` : 'Season Calendar';
+    }
+    function refreshMenuUtilities() {
         dailyGiftReady = true;
         dailyGift.refresh();
-        const btn = document.getElementById('btn-play');
-        if (!btn) return;
-        clearInterval(_playBtnInterval);
-        btn.classList.add('play-color-cycle');
-        if (!btn._shimmerListenerAttached) {
-            btn._shimmerListenerAttached = true;
-            btn.addEventListener('mouseenter', () => {
-                if (btn.classList.contains('shimmer-cooldown')) return;
-                setTimeout(() => {
-                    btn.classList.add('shimmer-cooldown');
-                    setTimeout(() => btn.classList.remove('shimmer-cooldown'), 1000);
-                }, 600);
-            });
-        }
+        refreshSeasonCard();
         if (!_widgetIntervalId) {
             _widgetIntervalId = setInterval(() => {
                 if (_currentMode === 'menu' && !settings.musicPaused && _trackDuration > 0) _updateMusicWidget();
@@ -2383,7 +2351,7 @@
                     return dailyGift.claim();
                 },
             });
-            randomizePlayButton(); drawRankBadge(); _checkGlowNotifications(); startMusic('menu');
+            refreshMenuUtilities(); drawRankBadge(); _checkGlowNotifications(); startMusic('menu');
             _dismissLoadingScreen();
             return;
         }
@@ -2525,7 +2493,7 @@
     function enterMenuAfterSave() {
         checkAchievementsOnLoad();
         document.getElementById('file-setup-overlay')?.classList.add('hidden');
-        randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
+        refreshMenuUtilities(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
     }
 
     async function showFileSetup(existingHandle) {
@@ -2591,7 +2559,7 @@
                     applyLoadedData(data);
                     checkAchievementsOnLoad();
                     overlay.classList.add('hidden');
-                    randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
+                    refreshMenuUtilities(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
                     _dismissLoadingScreen();
                     return; // skip showing overlay
                 }
@@ -2613,7 +2581,7 @@
                         applyLoadedData(data);
                         checkAchievementsOnLoad();
                         overlay.classList.add('hidden');
-                        randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
+                        refreshMenuUtilities(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
                         return;
                     }
                 } catch(e) { console.error('Load save error:', e); }
@@ -2640,7 +2608,7 @@
                     checkAchievementsOnLoad();
                     await saveHandleToIDB(handle);
                     overlay.classList.add('hidden');
-                    randomizePlayButton(); drawRankBadge(); _checkAchGlow(); startMusic();
+                    refreshMenuUtilities(); drawRankBadge(); _checkAchGlow(); startMusic();
                 } catch(e) { console.error('Open save error:', e); customAlert('Error loading save: ' + escapeHtml(e.message), 'ERROR', true); }
             };
             btnNew.onclick = async () => {
@@ -2657,7 +2625,7 @@
                     await saveDataToFile();
                     await saveHandleToIDB(handle);
                     overlay.classList.add('hidden');
-                    randomizePlayButton(); drawRankBadge(); startMusic();
+                    refreshMenuUtilities(); drawRankBadge(); startMusic();
                 } catch(e) {}
             };
         }
@@ -3155,7 +3123,7 @@
         overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-box-overlay';
         const panel = document.createElement('div');
-        panel.className = 'lb64-crate-panel lb-block-panel';
+        panel.className = 'lb64-crate-panel lb-block-dialog';
         const { rank, name } = _rewardRankIdentity(lv);
         panel.innerHTML = `
             <h2 class="lb64-crate-title"><span class="lb-rank-identity" style="color:${rank.c}">${name}</span> milestone reward</h2>
@@ -3308,7 +3276,7 @@
         overlay.setAttribute('aria-label', 'Earned rewards');
         overlay.id = 'level-box-overlay';
         const panel = document.createElement('div');
-        panel.className = 'lb64-crate-panel lb-block-panel';
+        panel.className = 'lb64-crate-panel lb-block-dialog';
         panel.innerHTML = `
             <h2 class="lb64-crate-title"><span class="lb-rank-identity" style="color:${rankColor}">${escapeHtml(identity?.name ?? rankName)}</span> milestone reward</h2>
             <p class="lb64-crate-subtitle">Level ${escapeHtml(level)}</p>
@@ -3856,30 +3824,45 @@
         });
     }
 
-    const settingsMenu = document.querySelector('.lb102-categories');
+    const settingsMenu = document.querySelector('.lb102-directory');
+    const settingsSearch = settingsMenu.querySelector('input');
+    const settingsGroups = [...settingsMenu.querySelectorAll('[data-settings-group]')];
     const settingsScroll = document.querySelector('.lb102-settings-scroll');
     const settingsBack = document.getElementById('settings-back');
     const settingsTitle = document.querySelector('#settings-overlay .lb-topbar-title');
     const settingsCategories = new Map([
-        ['game', 'Game', 'Gameplay and assistance', '<path d="M4 9h6V3h6v6h6v6H4z"/>'],
-        ['controls', 'Controls', 'Key bindings and timing', '<path d="M3 6h18v12H3zM6 10h2m3 0h2m3 0h2M6 14h2m3 0h7"/>'],
-        ['audio', 'Audio', 'Music and sound effects', '<path d="M3 9h4l5-4v14l-5-4H3zM16 9a4 4 0 0 1 0 6m2-9a8 8 0 0 1 0 12"/>'],
-        ['display', 'Display', 'Colors and motion', '<path d="M3 4h18v13H3zM8 21h8m-4-4v4"/>'],
-        ['notifications', 'Notifications', 'Mission and streak reminders', '<path d="M4 17h16l-2-3v-4a6 6 0 0 0-12 0v4zm6 3a2 2 0 0 0 4 0"/>'],
-        ['updates', 'Updates', 'Update checks and notes', '<use href="#lb-icon-update"/>'],
-        ['about', 'About', 'Help, credits and saves', '<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>'],
-    ].map(([key, title, summary, icon]) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'lb-block-btn lb-ledger-row';
-        button.dataset.settingsCategory = key;
+        ['controls', 'Controls', 'Touch, gestures, vibration', 'game', '<path d="M3 6h18v12H3zM6 10h2m3 0h2m3 0h2M6 14h2m3 0h7"/>', 'key bindings gameplay assistance timing'],
+        ['display', 'Display', 'Background, effects, contrast', 'game', '<path d="M3 4h18v13H3zM8 21h8m-4-4v4"/>', 'wallpaper theme dark light system motion screen'],
+        ['audio', 'Audio', 'Music, effects, tempo', 'game', '<path d="M3 9h4l5-4v14l-5-4H3zM16 9a4 4 0 0 1 0 6m2-9a8 8 0 0 1 0 12"/>', 'sound volume mute sfx'],
+        ['notifications', 'Notifications', 'Reminders, updates', 'app', '<path d="M4 17h16l-2-3v-4a6 6 0 0 0-12 0v4zm6 3a2 2 0 0 0 4 0"/>', 'daily weekly streak missions'],
+        ['updates', 'Updates', 'Save data and app version', 'app', '<path d="M12 3 4 6v5c0 5 3 8 8 10 5-2 8-5 8-10V6zM9 12l2 2 4-4"/>', 'install release notes help credits transfer reset'],
+        ['game', 'Gameplay', '', '', '', '', 'controls'],
+        ['about', 'Save data and help', '', '', '', '', 'updates'],
+    ].map(([key, title, summary, group, icon, keywords, parent]) => {
         const page = document.getElementById(`settings-${key}`);
+        const button = group ? document.createElement('button') : document.querySelector(`[data-settings-subpage="${key}"]`);
+        if (group) {
+            const label = key === 'updates' ? 'Data & updates' : title;
+            button.type = 'button';
+            button.className = 'lb-block-btn lb-ledger-row';
+            button.dataset.settingsCategory = key;
+            button.dataset.settingsSearch = `${label} ${summary} ${keywords}`.toLowerCase();
+            button.innerHTML = `<svg aria-hidden="true" viewBox="0 0 24 24">${icon}</svg><span><strong>${escapeHtml(label)}</strong><small>${summary}</small></span><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#lb-topbar-next"/></svg>`;
+            settingsMenu.querySelector(`[data-settings-group="${group}"]`).append(button);
+        }
         button.setAttribute('aria-controls', page.id);
-        button.innerHTML = `<svg aria-hidden="true" viewBox="0 0 24 24">${icon}</svg><span><strong>${title}</strong><small>${summary}</small></span><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#lb-topbar-next"/></svg>`;
         button.onclick = () => { showSettingsCategory(key); settingsBack.focus(); };
-        settingsMenu.append(button);
-        return [key, { title, button, page }];
+        return [key, { title, button, page, parent }];
     }));
+    function filterSettings() {
+        const terms = settingsSearch.value.trim().toLowerCase().split(/\s+/);
+        for (const group of settingsGroups) {
+            for (const button of group.children) button.hidden = !terms.every(term => button.dataset.settingsSearch.includes(term));
+            group.parentElement.hidden = [...group.children].every(button => button.hidden);
+        }
+        settingsMenu.querySelector('.lb102-no-results').hidden = settingsGroups.some(group => !group.parentElement.hidden);
+    }
+    settingsSearch.addEventListener('input', filterSettings);
     let activeSettingsCategory;
     function showSettingsCategory(key) {
         activeSettingsCategory = settingsCategories.get(key);
@@ -3893,10 +3876,10 @@
     }
     settingsBack.onclick = () => {
         if (!activeSettingsCategory) return closeSettings();
-        const { button } = activeSettingsCategory;
+        const { button, parent } = activeSettingsCategory;
         controlsEditor.cancel();
-        showSettingsCategory();
-        button.focus();
+        showSettingsCategory(parent);
+        (button.hidden ? settingsSearch : button).focus();
     };
     let inventoryPreviewTimer;
     let inventoryPreviewColor = 1;
@@ -4473,28 +4456,6 @@
             row.addEventListener('click', () => playFn(row.dataset.sfx));
         });
     }
-    function _updateBtnSweep(el, active) {
-        if (!el) return;
-        let sweep = el.querySelector('.btn-sweep');
-        if (active && !sweep) {
-            sweep = document.createElement('span');
-            sweep.className = 'btn-sweep';
-            el.insertBefore(sweep, el.firstChild);
-        } else if (!active && sweep) {
-            sweep.remove();
-        }
-    }
-    function _shakeNotifyBtn(el) {
-        if (!el) return;
-        el.classList.remove('btn-notify-shake');
-        void el.offsetWidth;
-        el.classList.add('btn-notify-shake');
-        el.addEventListener('animationend', function _sh(e) {
-            if (e.target !== el) return;
-            el.classList.remove('btn-notify-shake');
-            el.removeEventListener('animationend', _sh);
-        });
-    }
     function _checkGlowNotifications() {
         // Check if any parts item is ready to unlock (parts >= cost)
         const allItems = _getAllPartsItems();
@@ -4510,12 +4471,9 @@
         });
         // Inventory button glow in main menu
         const invReady = readyItems.length > 0;
-        const invBtn = document.querySelector('[onclick="window.openInventory()"]');
-        if (invBtn) { const _wgi = invBtn.classList.contains('glow-notify'); invBtn.classList.toggle('glow-notify', invReady); _updateBtnSweep(invBtn, invReady); if (invReady && !_wgi) _shakeNotifyBtn(invBtn); }
+        document.getElementById('btn-inventory').toggleAttribute('data-ready', invReady);
         // Achievements button glow when there are pending XP claims
-        const hasPendingClaims = (saveData.pendingAchievementClaims?.length || 0) > 0;
-        const achBtn = document.querySelector('[onclick="window.openAchievements()"]');
-        if (achBtn) { const _wga = achBtn.classList.contains('glow-notify'); achBtn.classList.toggle('glow-notify', hasPendingClaims); _updateBtnSweep(achBtn, hasPendingClaims); if (hasPendingClaims && !_wga) _shakeNotifyBtn(achBtn); }
+        _checkAchGlow();
         // Missions button glow when unclaimed milestones or quest XP available
         const _hasMissionReward = (() => {
             if (!saveData.missions) return false;
@@ -4534,8 +4492,7 @@
                 return hasD || hasW || hasNewVisit || hasUnclaimedPts || hasPendingUniParts;
             } catch(e) { return false; }
         })();
-        const missionsBtn = document.querySelector('[onclick="window.openMissions()"]');
-        if (missionsBtn) { const _wgm = missionsBtn.classList.contains('glow-notify'); missionsBtn.classList.toggle('glow-notify', _hasMissionReward); _updateBtnSweep(missionsBtn, _hasMissionReward); if (_hasMissionReward && !_wgm) _shakeNotifyBtn(missionsBtn); }
+        document.getElementById('btn-missions').toggleAttribute('data-ready', Boolean(_hasMissionReward));
     }
     function fillScreenAfterPaint(overlay, fill) {
         const request = {};
@@ -4626,15 +4583,7 @@
     }
     function _setXpBarFill(pct) {
         const fill = document.getElementById('menu-xp-bar-fill');
-        const notch = document.getElementById('menu-xp-bar-notch');
-        if (!fill) return;
-        fill.style.width = pct.toFixed(1) + '%';
-        const nearEnd = pct >= 97;
-        fill.style.borderRadius = nearEnd ? '4px' : '4px 0 0 4px';
-        if (notch) {
-            if (pct < 1 || nearEnd) { notch.style.display = 'none'; }
-            else { notch.style.display = ''; notch.style.left = pct.toFixed(1) + '%'; }
-        }
+        fill.style.width = `${Number(pct.toFixed(1))}%`;
     }
 
     let settingsFromPause = false;
@@ -4644,6 +4593,8 @@
         closeInfo();
         document.getElementById(fromPause ? 'pause-overlay' : 'menu-overlay').classList.add('hidden');
         overlay.classList.remove('hidden');
+        settingsSearch.value = '';
+        filterSettings();
         showSettingsCategory(category);
         return fillScreenAfterPaint(overlay, () => {
             if (!overlay.contains(document.activeElement)) settingsBack.focus({ preventScroll: true });
@@ -4857,7 +4808,7 @@
             syncUiTheme();
         } else if (key === 'themeBackground') {
             settings.themeBackground = LBArtPack.backgroundMode(value);
-            LBArtPack.applyThemeBackground(document.querySelector('.bg-gradient'), settings.theme, settings.themeBackground);
+            syncWallpaperArt(settings.theme);
             syncWallpaper();
         } else if (key === 'movingBackground') {
             settings.movingBackground = value === true;
@@ -6360,9 +6311,7 @@
     function _isColoredSvg(s) { return s && /(fill|stroke)="#[0-9a-fA-F]/i.test(s); }
 
     function _checkAchGlow() {
-        const hasPending = saveData.pendingAchievementClaims?.length > 0;
-        const achBtn = document.querySelector('[onclick="window.openAchievements()"]');
-        if (achBtn) { achBtn.classList.toggle('glow-notify', hasPending); _updateBtnSweep(achBtn, hasPending); }
+        document.getElementById('btn-achievements').toggleAttribute('data-ready', saveData.pendingAchievementClaims?.length > 0);
     }
 
     function _showGoAchievements(list) {
@@ -6452,40 +6401,6 @@
 
     const _SVG_CALENDAR = `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:2px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
-    function _achShapePath(rarity, size) {
-        const center = size / 2;
-        const inset = 1.5;
-        if (rarity === 'common') {
-            const radius = center - inset;
-            return `M${center},${inset} A${radius},${radius} 0 1,1 ${center - 0.01},${inset} Z`;
-        }
-        if (rarity === 'rare') {
-            return `M${center},${inset} L${size-inset},${inset} L${size-inset},${size-inset} L${inset},${size-inset} L${inset},${inset} Z`;
-        }
-        const rawPts = {
-            epic:      [[50,6.7],[75,6.7],[100,50],[75,93.3],[25,93.3],[0,50],[25,6.7]],
-            legendary: [[50,0],[64.5,14.9],[85.4,14.6],[85.1,35.5],[100,50],[85.1,64.5],[85.4,85.4],[64.5,85.1],[50,100],[35.5,85.1],[14.6,85.4],[14.9,64.5],[0,50],[14.9,35.5],[14.6,14.6],[35.5,14.9]],
-            mythic:    [[50,0],[60,11],[75,7],[78,22],[93,25],[89,40],[100,50],[89,60],[93,75],[78,78],[75,93],[60,89],[50,100],[40,89],[25,93],[22,78],[7,75],[11,60],[0,50],[11,40],[7,25],[22,22],[25,7],[40,11]],
-        };
-        const pts = rawPts[rarity] || rawPts.epic;
-        const mapped = pts.map(([px, py]) => {
-            const pointX = px * size / 100, pointY = py * size / 100;
-            const deltaX = pointX - center, deltaY = pointY - center;
-            const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY) || 1;
-            return [pointX - deltaX / dist * inset, pointY - deltaY / dist * inset];
-        });
-        return 'M' + mapped.map(([pointX, pointY]) => `${pointX.toFixed(1)},${pointY.toFixed(1)}`).join(' L') + ' Z';
-    }
-
-    function _achProgressOutlineSvg(rarity, fraction, size) {
-        const outline = _achShapePath(rarity, size);
-        const filled = Math.min(1, fraction) * 100;
-        return `<svg class="ach-card-progress" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true">
-            <path d="${outline}" pathLength="100" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                ${filled < 100 ? `stroke-dasharray="${filled} ${100 - filled}"` : ''}/>
-        </svg>`;
-    }
-
     const achievementProgressPaths = [...new Set(ACHIEVEMENTS_DEF.flatMap(ach => (ach.tiers || [])
         .map(tier => tier.progress?.path || tier.progressDisplay?.path)).filter(Boolean))];
     function renderAchievementsOverlay(tab, opening = false) {
@@ -6542,8 +6457,8 @@
             pendingSection.className = 'ach-pending lb-block-panel';
             pendingSection.setAttribute('aria-label', 'Pending rewards');
             const pendingHeader = document.createElement('div');
-            pendingHeader.className = 'ach-pending-head';
-            pendingHeader.innerHTML = '<h2>PENDING REWARDS</h2>';
+            pendingHeader.className = 'ach-pending-head lb-block-panel-head';
+            pendingHeader.innerHTML = '<h2 class="lb-block-section-title">PENDING REWARDS</h2>';
             if (saveData.pendingAchievementClaims.length > 1) {
                 const claimAllBtn = document.createElement('button');
                 claimAllBtn.className = 'lb-block-btn lb-block-btn--primary';
@@ -6700,33 +6615,23 @@
                 rarity = ach.rarity;
             }
             const rc = RARITY_ACH[rarity] || RARITY_ACH.common;
-            const sh = _achShapeStyle(rarity);
-            const borderColor = isUnlocked ? rc.color : '#3a3a4a';
-            const innerBg     = isUnlocked ? 'rgba(15,10,30,0.95)' : 'rgba(10,10,14,0.95)';
-
             const isSecretLocked = ach.cat === 'secret' && !isUnlocked;
             const _progressFrac = _getProgressOfItem(item);
+            const title = isSecretLocked ? 'Secret achievement' : _getNameOfItem(item);
 
             const wrap = document.createElement('button');
             wrap.type = 'button';
-            wrap.className = 'ach-card';
+            wrap.className = 'ach-card lb-block-btn lb-ledger-row';
             wrap.dataset.state = kind;
             if (!isSecretLocked) wrap.dataset.achId = ach.id;
-            wrap.setAttribute('aria-label', `${isSecretLocked ? 'Secret achievement' : _getNameOfItem(item)}, ${kind}`);
-            const _badgeSize = rarity === 'rare' ? 62 : 68;
-            const innerWrap = document.createElement('span');
-            innerWrap.style.cssText = `width:${_badgeSize}px;height:${_badgeSize}px;position:relative;`;
             const icon = isSecretLocked ? achievementIcon('question') : ach.svgIcon;
-            const progressSvg = _progressFrac > 0 ? _achProgressOutlineSvg(rarity, _progressFrac, _badgeSize) : '';
-            innerWrap.innerHTML = `
-                <span style="width:100%;height:100%;${sh.outer}background:${borderColor};display:flex;align-items:center;justify-content:center;">
-                    <span style="width:calc(100% - 6px);height:calc(100% - 6px);${sh.inner}background:${innerBg};display:flex;align-items:center;justify-content:center;position:relative;">
-                        <svg class="ach-card-icon" viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">${icon}</svg>
-                    </span>
-                </span>
-                ${progressSvg}`;
-            wrap.appendChild(innerWrap);
-            const iconEl = innerWrap.querySelector('.ach-card-icon');
+            const state = isUnlocked ? 'Unlocked' : 'Locked';
+            const detail = isSecretLocked ? state : `${rc.label} · ${state}`;
+            const meter = _progressFrac > 0 ? `<progress class="lb-block-progress" max="1" value="${_progressFrac}" aria-label="Achievement progress"></progress>` : '';
+            wrap.innerHTML = `<svg class="ach-card-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${icon}</svg>
+                <span class="ach-row-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small>${meter}</span>
+                <svg class="lb-ledger-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>`;
+            const iconEl = wrap.querySelector('.ach-card-icon');
             bindInfoPreview(wrap, () => {
                 const dateLine = value => {
                     const date = showDates && LBSave.displayDate(value);
@@ -6779,15 +6684,15 @@
 
         function renderSection(items, cat, counts) {
             if (!items.length) return;
-            const section = document.createElement('div');
+            const section = document.createElement('section');
             section.dataset.achGroup = cat;
-            section.style.cssText = 'width:100%;margin-bottom:4px;';
+            section.className = 'lb-block-panel ach-group';
             const header = document.createElement('div');
-            header.className = 'ach-section-head';
-            header.innerHTML = `<h2>${escapeHtml(cat.toUpperCase())}</h2><span class="ach-section-rule" aria-hidden="true"></span><span class="ach-count-label">${counts.done} of ${counts.total}</span>`;
+            header.className = 'lb-block-panel-head ach-section-head';
+            header.innerHTML = `<h2 class="lb-block-section-title">${escapeHtml(cat.toUpperCase())}</h2><span class="ach-count-label">${counts.done} of ${counts.total}</span>`;
             section.appendChild(header);
             const grid = document.createElement('div');
-            grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start;padding:0 0 20px 0;align-items:center;';
+            grid.className = 'ach-records';
             items.forEach(item => grid.appendChild(buildCard(item)));
             section.appendChild(grid);
             container.appendChild(section);
@@ -7369,6 +7274,17 @@
         }
     }
 
+    function renderMenuRank(info, percent, totalXP) {
+        const name = document.getElementById('badge-rank-name');
+        name.textContent = info.rank.name;
+        name.style.setProperty('--lb-rank-tone', info.rank.c);
+        document.getElementById('badge-level-num').textContent = `Level ${info.level.toLocaleString()}`;
+        document.getElementById('menu-xp-detail').textContent = info.isCelestite
+            ? `${Math.floor(totalXP).toLocaleString()} total XP`
+            : `${Math.floor(info.currentXP).toLocaleString()} / ${info.neededXP.toLocaleString()} XP`;
+        _setXpBarFill(percent * 100);
+    }
+
     function drawRankBadge(overridePercent = null) {
         if (badgeAnimFrame) cancelAnimationFrame(badgeAnimFrame);
         badgeAnimFrame = null;
@@ -7384,125 +7300,11 @@
         }
 
         function renderBadgeFrame() {
-            if (info.level === 0) {
-                rankCtx.clearRect(0, 0, 300, 300);
-            } else {
-                _drawBadgeCanvas(info.level, displayPercent, info);
-            }
-            // Update Celestite text color every frame to match outline cycling
-            if (info.isCelestite) {
-                const _cc3 = ['#ffffff', '#ffd700', '#7ec8e3'];
-                const _cy = (_badgeTime * 0.003) % _cc3.length;
-                const _i3 = Math.floor(_cy), _f3 = _cy - _i3;
-                const a = _cc3[_i3], b = _cc3[(_i3+1)%_cc3.length];
-                const r = Math.round(parseInt(a.slice(1,3),16)+(parseInt(b.slice(1,3),16)-parseInt(a.slice(1,3),16))*_f3);
-                const g = Math.round(parseInt(a.slice(3,5),16)+(parseInt(b.slice(3,5),16)-parseInt(a.slice(3,5),16))*_f3);
-                const bl = Math.round(parseInt(a.slice(5,7),16)+(parseInt(b.slice(5,7),16)-parseInt(a.slice(5,7),16))*_f3);
-                const col = `rgb(${r},${g},${bl})`;
-                const ne = nameEl;
-                const le = lvlEl;
-                const pe = pctEl;
-                if (ne) ne.style.color = col;
-                if (le) le.style.color = col;
-                if (pe) pe.style.color = col;
-            }
-            if (canAnimateBadge()) {
-                badgeAnimFrame = requestAnimationFrame(renderLoop);
-            }
+            _drawBadgeCanvas(info.level, displayPercent, info);
+            if (canAnimateBadge()) badgeAnimFrame = requestAnimationFrame(renderLoop);
         }
 
-        const nameEl = document.getElementById('badge-rank-name');
-        const lvlEl  = document.getElementById('badge-level-num');
-        const pctEl  = document.getElementById('menu-percent');
-
-        const _xpBarWrap = document.getElementById('menu-xp-bar-wrap');
-        if (info.isCelestite) {
-            // Cycle: white → gold → light blue (~12s full cycle)
-            const _celColors = ['#ffffff', '#ffd700', '#7ec8e3'];
-            const _celCycle = (_badgeTime * 0.003) % _celColors.length;
-            const _celIdx = Math.floor(_celCycle);
-            const _celFrac = _celCycle - _celIdx;
-            const _cA = _celColors[_celIdx], _cB = _celColors[(_celIdx + 1) % _celColors.length];
-            // Lerp hex colors
-            const _lerpC = (a, b, f) => {
-                const ra = parseInt(a.slice(1,3),16), ga = parseInt(a.slice(3,5),16), ba = parseInt(a.slice(5,7),16);
-                const rb = parseInt(b.slice(1,3),16), gb = parseInt(b.slice(3,5),16), bb = parseInt(b.slice(5,7),16);
-                const r = Math.round(ra + (rb-ra)*f), g = Math.round(ga + (gb-ga)*f), bl = Math.round(ba + (bb-ba)*f);
-                return `rgb(${r},${g},${bl})`;
-            };
-            const _celCurrentColor = _lerpC(_cA, _cB, _celFrac);
-            nameEl.innerText = 'CELESTITE';
-            nameEl.style.fontSize = '22px';
-            nameEl.style.color = _celCurrentColor;
-            lvlEl.innerText  = BADGE_NUMBERS ? _toRoman(info.level) : '';
-            lvlEl.style.fontSize = '20px';
-            lvlEl.style.fontWeight = '900';
-            lvlEl.style.fontFamily = "'Noto Serif', serif";
-            lvlEl.style.color = _celCurrentColor;
-            nameEl.classList.remove('legend-glow'); lvlEl.classList.remove('legend-glow'); pctEl.classList.remove('legend-glow');
-            pctEl.style.color = _celCurrentColor;
-            let pct = Math.min(99.9, displayPercent * 100);
-            if (isNaN(pct) || pct < 0) pct = 0;
-            pctEl.innerText = pct.toFixed(1) + '%';
-            if (_xpBarWrap) _xpBarWrap.style.display = '';
-            _setXpBarFill(displayPercent * 100);
-            document.getElementById('menu-xp-detail').innerText = `${(saveData.totalXP||0).toLocaleString()} total XP`;
-            const _ucXpEl = document.getElementById('uc-xp-display');
-            if (_ucXpEl) _ucXpEl.style.display = 'none';
-        } else if (info.level === 0) {
-            nameEl.innerText = info.rank.name;
-            nameEl.style.fontSize = '28px';
-            nameEl.style.color = info.rank.c;
-            lvlEl.innerText  = '';
-            lvlEl.style.fontSize = '0.6rem';
-            lvlEl.style.fontWeight = 'normal';
-            lvlEl.style.fontFamily = "'Noto Serif', serif";
-            lvlEl.style.color = '#888';
-            nameEl.classList.remove('legend-glow'); lvlEl.classList.remove('legend-glow'); pctEl.classList.remove('legend-glow');
-            pctEl.style.color  = '#888';
-            pctEl.innerText = '';
-            if (_xpBarWrap) _xpBarWrap.style.display = 'none';
-            document.getElementById('menu-xp-detail').innerText = (saveData.stats?.gamesPlayed || 0) === 0 ? 'Play your first game!' : '';
-            const _ucXpEl0 = document.getElementById('uc-xp-display'); if (_ucXpEl0) _ucXpEl0.style.display = 'none';
-        } else if (info.lvlInRank === 0) {
-            // First level of a new rank — same name size as normal, "Rank Up!" instead of numeral
-            nameEl.innerText = info.rank.name;
-            nameEl.style.fontSize = '';
-            nameEl.style.color = info.rank.c;
-            lvlEl.innerText  = info.level === 1 ? '1' : 'New Rank';
-            lvlEl.style.fontSize = info.level === 1 ? '' : '18px';
-            lvlEl.style.fontWeight = '';
-            lvlEl.style.fontFamily = "'Noto Serif', serif";
-            lvlEl.style.color = '#fff';
-            nameEl.classList.remove('legend-glow'); lvlEl.classList.remove('legend-glow'); pctEl.classList.remove('legend-glow');
-            pctEl.style.color  = info.rank.c;
-            let pct = Math.min(99.9, displayPercent * 100);
-            if (isNaN(pct) || pct < 0) pct = 0;
-            pctEl.innerText = pct.toFixed(1) + '%';
-            document.getElementById('menu-xp-detail').innerText = `${Math.floor(info.currentXP)} / ${info.neededXP} XP`;
-            const _ucXpEl2 = document.getElementById('uc-xp-display'); if (_ucXpEl2) _ucXpEl2.style.display = 'none';
-            if (_xpBarWrap) _xpBarWrap.style.display = '';
-            _setXpBarFill(displayPercent * 100);
-        } else {
-            nameEl.innerText = info.rank.name;
-            nameEl.style.fontSize = '';
-            lvlEl.innerText = _toRoman(info.lvlInRank);
-            lvlEl.style.fontSize = '';
-            lvlEl.style.fontWeight = '';
-            lvlEl.style.fontFamily = "'Noto Serif', serif";
-            lvlEl.style.color = '';
-            nameEl.classList.remove('legend-glow'); lvlEl.classList.remove('legend-glow'); pctEl.classList.remove('legend-glow');
-            nameEl.style.color = info.rank.c;
-            pctEl.style.color  = info.rank.c;
-            let pct = Math.min(99.9, displayPercent * 100);
-            if (isNaN(pct) || pct < 0) pct = 0;
-            pctEl.innerText = pct.toFixed(1) + '%';
-            document.getElementById('menu-xp-detail').innerText = `${Math.floor(info.currentXP)} / ${info.neededXP} XP`;
-            const _ucXpEl1 = document.getElementById('uc-xp-display'); if (_ucXpEl1) _ucXpEl1.style.display = 'none';
-            if (_xpBarWrap) _xpBarWrap.style.display = '';
-            _setXpBarFill(displayPercent * 100);
-        }
-
+        renderMenuRank(info, displayPercent, saveData.totalXP);
         if (!badgeMenu.classList.contains('hidden')) renderBadgeFrame();
         // Show pending level box if any
         if (saveData.pendingLevelBox && !_levelBoxShowing && !document.getElementById('level-box-overlay')) {
@@ -7526,15 +7328,12 @@
             if (!startTime) startTime = time;
             const progress = Math.min((time - startTime) / duration, 1);
             const ease = 1 - Math.pow(1 - progress, 3);
-            const tempInfo = getLevelInfo(startXP + gainedXPThisRound * ease);
+            const currentXP = startXP + gainedXPThisRound * ease;
+            const tempInfo = getLevelInfo(currentXP);
 
             // Draw +XP label on badge canvas near filling shape (shrinks as fill progresses)
             _drawBadgeCanvas(tempInfo.level, tempInfo.percent, tempInfo, xpLabelText, ease);
-            const _tLvlInRank = tempInfo.lvlInRank ?? ((tempInfo.level - 1) % 10);
-            document.getElementById('badge-level-num').innerText = tempInfo.isCelestite
-                ? (BADGE_NUMBERS ? _toRoman(tempInfo.level) : '') : (_tLvlInRank === 0 ? '' : _toRoman(_tLvlInRank));
-            document.getElementById('menu-xp-detail').innerText = tempInfo.isCelestite ? `${Math.floor(startXP + gainedXPThisRound * ease).toLocaleString()} total XP` : `${Math.floor(tempInfo.currentXP)} / ${tempInfo.neededXP} XP`;
-            _setXpBarFill(tempInfo.percent * 100);
+            renderMenuRank(tempInfo, tempInfo.percent, currentXP);
 
             if (progress < 1) {
                 badgeAnimFrame = requestAnimationFrame(anim);
@@ -8646,7 +8445,9 @@
             console.error('Game-over bookkeeping failed:', error);
         } finally {
             _reminders?.refresh();
-            document.getElementById('go-overlay').classList.remove('hidden');
+            const results = document.getElementById('go-overlay');
+            results.classList.remove('hidden');
+            results.querySelector('.go-dialog-body').scrollTop = 0;
             _gameOverProtect = true;
             if (document.activeElement) document.activeElement.blur();
             resetHeldInputs();
@@ -8737,7 +8538,6 @@
         _gameInProgress = true;
         window.LBAndroidUpdates?.syncSafety();
         // advanced mode removed
-        clearInterval(_playBtnInterval);
         // Reset mode-specific vars
         holdPiece = null; holdUsed = false;
         // Apply Fun mode config
@@ -8845,7 +8645,7 @@
             const _menuEl = document.getElementById('menu-overlay');
             _menuEl.classList.remove('hidden');
             _animateIn(_menuEl, 'anim-in-left');
-            randomizePlayButton();
+            refreshMenuUtilities();
         });
         fadeMusic(1, 0.8);
         animateXPGain();
@@ -9031,6 +8831,7 @@
     
     document.addEventListener('visibilitychange', () => {
         _syncAudioLifecycle();
+        if (!document.hidden) refreshSeasonCard();
         if(document.hidden && document.getElementById('app').classList.contains('active-game') && !isGameOver && !isPaused && !isAnimating && document.getElementById('start-animation-overlay').classList.contains('hidden')) togglePause();
     });
     window.addEventListener('pagehide', event => {
@@ -9195,9 +8996,9 @@
         overlay.setAttribute('aria-labelledby', 'lb105-level-title');
         overlay.id = 'level-up-popup-overlay';
         overlay.style.setProperty('--lb105-rank', rank.c);
-        overlay.innerHTML = `<div class="lb105-level-panel lb-block-panel">
+        overlay.innerHTML = `<div class="lb105-level-panel lb-block-dialog">
             <header class="lb105-level-header">
-                <h2 id="lb105-level-title">Level up!</h2>
+                <h2 id="lb105-level-title" class="lb-block-dialog-title">Level up!</h2>
                 <div class="lb105-level-emblem">
                     <svg class="lb135-halo-emblem" viewBox="0 0 300 300" aria-hidden="true">
                         <defs>
@@ -9218,7 +9019,7 @@
                 <strong class="lb105-level-rank">${name}</strong>
             </header>
             <div class="lb105-level-rewards lb-scroll-fade" role="region" aria-label="Level rewards"></div>
-            <button type="button" class="lb-block-btn lb-block-btn--primary">Awesome!</button>
+            <div class="lb-block-dialog-actions"><button type="button" class="lb-block-btn lb-block-btn--primary">Awesome!</button></div>
         </div>`;
         const scroller = overlay.querySelector('.lb105-level-rewards');
         scroller.append(_crateRewardGrid(rewards.map(reward => {
@@ -9466,7 +9267,6 @@
         missions.daily.secret = secret?.tier === 'secret' ? restore(missions.daily.secret, secret) : null;
         missions.weekly.missions = missions.weekly.missions.map(state => restore(state, weekly.get(state.id), true)).filter(Boolean);
     }
-    const MISSION_TIER_COLORS = { easy: '#44ff88', normal: '#4499ff', hard: '#ff3355' };
     const MQ_DAILY_MILESTONES = [
         { pts: 6,  reward: { type: 'parts', amount: 1 }, label: '+1 Part'  },
         { pts: 9,  reward: { type: 'parts', amount: 2 }, label: '+2 Parts' },
@@ -9959,102 +9759,45 @@
     }
 
     // ---- MISSIONS UI ----
-    function _miniWell(progress, target, color) {
-        const W = 5, H = 5;
-        const pct = Math.min(1, (progress || 0) / Math.max(1, target || 1));
-        const filled = Math.floor(pct * W * H);
-        let rows = '';
-        for (let r = 0; r < H; r++) {
-            let tds = '';
-            for (let c = 0; c < W; c++) {
-                const fromBottom = (H - 1 - r) * W + c;
-                tds += fromBottom < filled
-                    ? `<td class="mq-mini-well-filled"></td>`
-                    : '<td></td>';
-            }
-            rows += `<tr>${tds}</tr>`;
-        }
-        return `<table class="mq-mini-well" style="--mq-tier:${color}" aria-hidden="true"><tbody>${rows}</tbody></table>`;
-    }
-
-    function _cellBar(progress, target, color, cells) {
-        cells = cells || 18;
-        const pct = Math.min(1, (progress || 0) / Math.max(1, target || 1));
-        const filled = Math.round(pct * cells);
-        let items = '';
-        for (let i = 0; i < cells; i++) {
-            if (i < filled) {
-                const op = 0.55 + (i / cells) * 0.45;
-                items += `<div style="flex:1;background:${color};opacity:${op.toFixed(2)};box-shadow:inset -1px -1px 0 rgba(0,0,0,0.3),inset 1px 1px 0 rgba(255,255,255,0.18);"></div>`;
-            } else {
-                items += `<div style="flex:1;background:rgba(255,255,255,0.04);"></div>`;
-            }
-        }
-        return `<div style="display:flex;gap:1px;height:8px;background:rgba(0,0,0,0.4);border:1px solid ${color}33;padding:1px;">${items}</div>`;
-    }
+    const missionMetricIcons = {
+        blocksPlaced: 'lb-metric-blocks', bottomTwoRows: 'lb-metric-blocks', bottomQuarter: 'lb-metric-blocks',
+        linesCleared: 'lb-run-icon-lines', doubles: 'lb-run-icon-lines', triples: 'lb-run-icon-lines',
+        quads: 'lb-run-icon-lines', quadStreak: 'lb-run-icon-lines', perfectClear: 'lb-run-icon-lines',
+        score: 'lb-metric-trophy', gameTime: 'lb-metric-clock', gamesPlayed: 'lb-metric-gamepad',
+        maxSpeed: 'lb-run-icon-speed', gamesReachedSpeed2: 'lb-run-icon-speed',
+        gamesReachedSpeed3: 'lb-run-icon-speed', gamesReachedSpeed4: 'lb-run-icon-speed',
+        maxCombo: 'lb-metric-combo', gamesWithCombo4: 'lb-metric-combo', rawXP: 'lb-metric-total-xp', totalXP: 'lb-metric-total-xp',
+    };
 
     function _missionQuestCard(q, index, isWeekly) {
         const isSecret = q.tier === 'secret';
         const displayTier = isSecret ? (q.displayTier || 'normal') : (q.tier || 'normal');
-        const tc = isSecret ? '#cc44ff' : hexColor(MISSION_TIER_COLORS[displayTier], '#4499ff');
-        const tierLabel = isSecret ? 'SECRET' : displayTier.toUpperCase();
-        const done = q.completed;
-        const claimedState = done && q.ptsClaimed;
-        const readyState = done && !q.ptsClaimed;
-        const changeAvail = isWeekly ? !saveData.missions?.weekly?.changeUsed : !saveData.missions?.daily?.changeUsed;
-        const inChangeMode = !!window._mqChangeMode;
-        const canSwapThis = inChangeMode && !isSecret && !done && changeAvail && _swapCandidates(index, isWeekly).length > 0;
-        const title = isSecret && !done ? '???' : q.title;
-        const desc  = isSecret && !done ? '<span class="mq-secret-hint">Complete to reveal…</span>' : `<span>${escapeHtml(q.desc)}</span>`;
-        const hasProgress = !isSecret && q.target > 1;
-        const pct = hasProgress ? Math.min(100, ((q.progress || 0) / q.target) * 100) : 0;
-        const _progFmt = hasProgress
-            ? (q.metric === 'gameTime'
-                ? `<span>${_fmtMissionTime(q.progress || 0)}</span>/${_fmtMissionTime(q.target)}`
-                : `<span>${escapeHtml(q.progress || 0)}</span>/${escapeHtml(q.target)}`)
-            : '';
-        const miniWellHtml = hasProgress ? _miniWell(q.progress, q.target, tc) : '';
-        // Progress row: continuous HUD-style bar (Section D) + progress/target on right
-        const progressRowHtml = hasProgress ? `
-            <div class="mq-card-progress">
-                <div class="mq-card-meter" style="border-color:${tc}44;">
-                    <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${tc}cc 0%,${tc} 100%);"></div>
-                </div>
-                <div class="mq-card-progress-value">${_progFmt}</div>
-            </div>` : '';
-        // Action row (bottom of card)
-        let actionHtml = '';
-        if (claimedState) {
-            actionHtml = `<div style="font-family:var(--ui-font);font-size:0.48rem;color:#44ff88;letter-spacing:0.18em;">&#x2713; CLAIMED</div>`;
-        } else if (readyState) {
-            actionHtml = `<button type="button" class="mq-pts-claim-btn lb-block-btn lb-block-btn--primary" onclick="window._claimQuestPts(${escapeHtml(JSON.stringify(String(q.id)))},${!!isWeekly},'${tc}',this)">Claim +${escapeHtml(q.pts)} pts</button>`;
-        } else if (!done && hasProgress) {
-            actionHtml = `<div style="font-family:var(--ui-font);font-size:0.48rem;color:#555;letter-spacing:0.1em;">${Math.floor(pct)}% complete</div>`;
-        }
-        // Card appearance: claimed = dimmed, ready/active = full opacity
-        const cardStyle = claimedState
-            ? `background:${tc}06;border:1px solid rgba(255,255,255,0.08);opacity:0.55;`
-            : `background:${tc}12;border:2px solid ${tc}44;`;
-        const changeModeCls = inChangeMode ? (canSwapThis ? ' mq-card--changeable' : ' mq-card--change-dimmed') : '';
-        const changeOverlay = (inChangeMode && canSwapThis)
-            ? `<button type="button" class="mq-change-overlay" aria-label="Swap ${escapeHtml(q.desc)}" onclick="window._changeMission(${index},${!!isWeekly})"><span class="mq-change-overlay-label">↺ TAP TO SWAP</span></button>`
-            : '';
+        const tier = isSecret ? 'secret' : displayTier;
+        const claimed = q.completed && q.ptsClaimed;
+        const ready = q.completed && !claimed;
+        const swapping = !!window._mqChangeMode;
+        const canSwap = swapping && !isSecret && !q.completed && _swapCandidates(index, isWeekly).length > 0;
+        const missionTitle = escapeHtml(isSecret && !q.completed ? '???' : q.title);
+        const desc = isSecret && !q.completed ? 'Complete to reveal…' : escapeHtml(q.desc);
+        const icon = isSecret && !q.completed ? 'lb-metric-best-xp' : (missionMetricIcons[q.metric] || 'lb-metric-blocks');
+        const target = Math.max(1, q.target || 0);
+        const progress = q.completed ? target : Math.min(target, Math.max(0, q.progress || 0));
+        const format = q.metric === 'gameTime' ? _fmtMissionTime : String;
+        const pointLabel = `+${escapeHtml(q.pts)} pts`;
+        const reward = claimed ? '<span class="mq-claimed">✓ Claimed</span>' : ready && !swapping
+            ? `<button type="button" class="mq-pts-claim-btn lb-block-btn lb-block-btn--primary" aria-label="Claim ${pointLabel}" onclick="window._claimQuestPts(${escapeHtml(JSON.stringify(String(q.id)))},${!!isWeekly},null,this)">Claim</button>` : '';
+        const swap = canSwap ? `<button type="button" class="mq-change-overlay lb-block-btn" aria-label="Swap ${escapeHtml(q.desc)}" onclick="window._changeMission(${index},${!!isWeekly})">Swap</button>` : '';
+        const meter = isSecret ? '' : `<div class="mq-card-progress">
+            <progress class="lb-block-progress" aria-label="${missionTitle} progress" max="${target}" value="${progress}"></progress>
+            <span class="mq-card-progress-value">${format(progress)} / ${format(target)}</span>
+        </div>`;
         return `<div class="mq-card-wrap"${index == null ? '' : ` data-mission-slot="${index}"`}>
-            <div class="mq-card${isSecret?' mq-card--secret':''}${readyState?' mq-card--ready':''}${changeModeCls}" style="${cardStyle}--mq-tier:${tc}">
-                <div class="mq-card-hdr">
-                    <span class="mq-tier-badge">${escapeHtml(tierLabel)}</span>
-                    <span class="mq-pts">+${escapeHtml(q.pts)} pts</span>
-                </div>
-                <div class="mq-card-body${miniWellHtml ? '' : ' mq-card-body--nowell'}">
-                    ${miniWellHtml}
-                    <div class="mq-card-text">
-                        <div class="mq-card-title">${escapeHtml(title)}</div>
-                        <div class="mq-card-desc">${desc}</div>
-                    </div>
-                </div>
-                ${progressRowHtml}${actionHtml ? `<div class="mq-card-action${readyState ? ' mq-card-action--claim' : !done && hasProgress ? ' mq-card-action--percent' : ''}">${actionHtml}</div>` : ''}
-            </div>
-            ${changeOverlay}
+            <article class="mq-card lb-block-card" data-tier="${escapeHtml(tier)}"${ready && !swapping ? ' data-ready' : ''}>
+                <span class="lb-ledger-icon-frame" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#${icon}"/></svg></span>
+                <div class="mq-card-text"><h3 class="mq-card-title">${missionTitle}</h3><p class="mq-card-desc">${desc}</p></div>
+                <div class="mq-card-value"><span class="mq-pts">${pointLabel}</span><span class="mq-tier-badge">${escapeHtml(tier)}</span></div>
+                ${meter}${reward || swap ? `<div class="mq-card-action${ready && !swapping ? ' mq-card-action--claim' : ''}">${reward}${swap}</div>` : ''}
+            </article>
         </div>`;
     }
 
@@ -10063,87 +9806,32 @@
     }
 
     function _missionProgressBar(points, milestones, claimed, isWeekly) {
-        // For weekly: extend maxPts beyond the golden threshold so the golden zone is visible
-        const lastMsPts = milestones[milestones.length - 1].pts;
-        const maxPts = isWeekly
-            ? Math.max(lastMsPts * 1.12, MQ_WEEKLY_GOLDEN_THRESHOLD * 1.12)
-            : lastMsPts * 1.18;
-        const isGolden = isWeekly && points > MQ_WEEKLY_GOLDEN_THRESHOLD;
-        const stepSize = isWeekly ? 4 : 1;
-        const totalSteps = Math.ceil(maxPts / stepSize);
-        const stepColor = isGolden ? '#ffcc44' : (isWeekly ? '#ff9900' : '#44ff88');
-        const barParts = [];
-        for (let i = 0; i < totalSteps; i++) {
-            const fill = Math.min(1, Math.max(0, (points - i * stepSize) / stepSize));
-            const opacity = (0.55 + (i / totalSteps) * 0.45).toFixed(2);
-            if (i > 0) barParts.push(`<div style="width:1px;flex-shrink:0;"></div>`);
-            if (fill <= 0) {
-                barParts.push(`<div style="flex:1;background:rgba(255,255,255,0.04);"></div>`);
-            } else if (fill >= 1) {
-                barParts.push(`<div style="flex:1;background:${stepColor};opacity:${opacity};box-shadow:inset -1px -1px 0 rgba(0,0,0,0.3),inset 1px 1px 0 rgba(255,255,255,0.18);"></div>`);
-            } else {
-                barParts.push(`<div style="flex:1;overflow:hidden;background:rgba(255,255,255,0.04);"><div style="width:${(fill*100).toFixed(1)}%;height:100%;background:${stepColor};opacity:${opacity};box-shadow:inset -1px -1px 0 rgba(0,0,0,0.3),inset 1px 1px 0 rgba(255,255,255,0.18);"></div></div>`);
-            }
-        }
-        const stepsHtml = barParts.join('');
-        // Milestone tick marks — sit behind the bar, protrude above and below
-        const _tickStyle = `position:absolute;top:-3px;transform:translateX(-50%);width:3px;height:15px;background:rgba(255,255,255,0.7);border-radius:1px;box-shadow:0 0 2px rgba(255,255,255,0.4),0 0 4px rgba(0,0,0,0.6);`;
-        const goldenTickHtml = isWeekly
-            ? `<div style="${_tickStyle}left:${((MQ_WEEKLY_GOLDEN_THRESHOLD/stepSize)/totalSteps*100).toFixed(2)}%;"></div>`
-            : '';
-        const msTicksHtml = milestones.map(ms => {
-            const tPct = ((ms.pts / stepSize) / totalSteps * 100).toFixed(2);
-            return `<div style="${_tickStyle}left:${tPct}%;"></div>`;
-        }).join('') + goldenTickHtml;
-        const labels = milestones.map(ms => {
-            const lPct = (ms.pts / stepSize) / totalSteps * 100;
-            return `<div class="mq-pb-label-item" style="left:${lPct}%;color:#fff;">${ms.pts}</div>`;
-        }).join('');
-        // Weekly: golden threshold label
-        const goldenLabelHtml = isWeekly
-            ? `<div class="mq-pb-label-item" style="left:${(MQ_WEEKLY_GOLDEN_THRESHOLD/stepSize/totalSteps)*100}%;color:#aa8800;font-weight:bold;">${MQ_WEEKLY_GOLDEN_THRESHOLD}</div>`
-            : '';
-        const icons = milestones.map(ms => {
-            const iPct = (ms.pts / stepSize) / totalSteps * 100;
-            const isClaimed = (claimed || []).includes(ms.pts);
-            const reached = points >= ms.pts || isClaimed;
-            const canClaim = reached && !isClaimed;
-            const rarity = reached || (!isWeekly && ms.pts === lastMsPts) ? LBCrates.missionRarity(ms.pts, isWeekly) : 'common';
+        const lastThreshold = milestones[milestones.length - 1].pts;
+        const goal = isWeekly ? MQ_WEEKLY_GOLDEN_THRESHOLD : lastThreshold;
+        const markers = milestones.map(({ pts }) => {
+            const isClaimed = (claimed || []).includes(pts);
+            const reached = points >= pts || isClaimed;
+            const rarity = reached || (!isWeekly && pts === lastThreshold) ? LBCrates.missionRarity(pts, isWeekly) : 'common';
             const crate = _missionCrateMarker(rarity, !reached);
-            const label = `${ms.pts} points: ${reached ? `${rarity} crate` : 'locked crate'}`;
-            return `<div class="mq-pb-icon-wrap" style="left:${iPct}%">${canClaim
-                ? `<button type="button" class="mq-ms-claim-btn" onclick="window._claimMissionMilestone(${ms.pts},${!!isWeekly},false,this)" aria-label="Claim ${label}" data-control-tip="Claim ${label}">${crate}</button>`
-                : `<span class="mq-ms-marker" role="img" aria-label="${label}${isClaimed ? ', claimed' : ''}" title="${label}${isClaimed ? ' (claimed)' : ''}">${crate}${isClaimed ? '<span class="mq-ms-claimed" aria-hidden="true">✓</span>' : ''}</span>`}</div>`;
-        }).join('');
-        const pending = isWeekly ? (saveData.missions?.weekly?.pendingUniversalParts || 0) : 0;
-        const goldenIconHtml = isWeekly ? (() => {
-            const gPct = (MQ_WEEKLY_GOLDEN_THRESHOLD / stepSize) / totalSteps * 100;
-            if (pending > 0) {
-                return `<div class="mq-pb-icon-wrap" style="left:${gPct}%;">
-                    <div style="position:relative;display:inline-block;">
-                        <button type="button" class="mq-ms-claim-btn" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} Universal Part${pending !== 1 ? 's' : ''}" data-control-tip="Collect +${escapeHtml(pending)} Universal Part${pending !== 1 ? 's' : ''}">
-                            ${_missionCrateMarker('mythic')}
-                        </button>
-                        <div style="position:absolute;top:-3px;right:-5px;background:#ffcc44;color:#050510;font-family:var(--ui-font);font-size:0.32rem;font-weight:bold;padding:1px 3px;border-radius:3px;line-height:1.4;pointer-events:none;">+${escapeHtml(pending)}</div>
-                    </div>
-                </div>`;
+            const label = `${pts} points: ${reached ? `${rarity} crate` : 'locked crate'}`;
+            const content = `${crate}<span aria-hidden="true">${pts}</span>`;
+            if (reached && !isClaimed) {
+                return `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" onclick="window._claimMissionMilestone(${pts},${!!isWeekly},false,this)" aria-label="Claim ${label}" data-control-tip="Claim ${label}">${content}</button>`;
             }
-            const label = `${MQ_WEEKLY_GOLDEN_THRESHOLD}+ points: earn +1 Universal Part per extra point`;
-            return `<div class="mq-pb-icon-wrap" style="left:${gPct}%;"><span class="mq-ms-marker" role="img" aria-label="${label}" data-mqctip="${label}">${_missionCrateMarker('mythic', !isGolden)}</span></div>`;
-        })() : '';
-        const ptsColor = isGolden ? '#ffcc44' : (isWeekly ? '#ffcc44' : '#4499ff');
-        return `<div class="mq-pb-wrap" style="position:relative;">
-            <div class="mq-pb-points" style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px;">
-                <span style="font-family:var(--ui-font);font-size:1.4rem;font-weight:900;color:${ptsColor};letter-spacing:1px;line-height:1;${isGolden?'text-shadow:0 0 12px rgba(255,204,68,0.45);':''}">${escapeHtml(points)}</span>
-                <span style="font-family:var(--ui-font);font-size:0.52rem;color:var(--bb-muted);letter-spacing:2px;padding-bottom:1px;">PTS</span>
-            </div>
-            <div class="mq-pb-labels">${labels}${goldenLabelHtml}</div>
-            <div style="position:relative;">
-                <div style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;">${msTicksHtml}</div>
-                <div class="mq-step-bar" style="display:flex;height:9px;background:rgba(0,0,0,0.4);border:1px solid ${stepColor}33;padding:1px;overflow:hidden;">${stepsHtml}</div>
-            </div>
-            <div class="mq-pb-icons">${icons}${goldenIconHtml}</div>
-        </div>`;
+            return `<span class="mq-ms-marker" role="img" aria-label="${label}${isClaimed ? ', claimed' : ''}" title="${label}${isClaimed ? ' (claimed)' : ''}">${content}${isClaimed ? '<span class="mq-ms-claimed" aria-hidden="true">✓</span>' : ''}</span>`;
+        });
+        if (isWeekly) {
+            const pending = saveData.missions?.weekly?.pendingUniversalParts || 0;
+            const content = `${_missionCrateMarker('mythic', points <= goal && !pending)}<span aria-hidden="true">${goal}+</span>`;
+            const label = `${goal}+ points: earn +1 Universal Part per extra point`;
+            markers.push(pending > 0
+                ? `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} Universal Part${pending !== 1 ? 's' : ''}">${content}<span class="mq-ms-claimed" aria-hidden="true">+${escapeHtml(pending)}</span></button>`
+                : `<span class="mq-ms-marker" role="img" aria-label="${label}" data-mqctip="${label}">${content}</span>`);
+        }
+        return `<div class="mq-milestone-meter">
+            <span class="mq-pb-points">${escapeHtml(points)} pts</span>
+            <progress class="lb-block-progress" aria-label="Crate milestone progress" max="${goal}" value="${Math.min(points, goal)}"></progress>
+        </div><div class="mq-pb-icons">${markers.join('')}</div>`;
     }
 
     function _renderMissionStatsSection() {
@@ -10159,57 +9847,21 @@
         if (el.renderKey === renderKey) return;
         el.renderKey = renderKey;
 
-        // Current week boundaries (Mon-Sun)
-        const dow = now.getDay(); // 0=Sun
-        const daysToMon = dow === 0 ? 6 : dow - 1;
-        const weekStart = new Date(now); weekStart.setHours(0,0,0,0); weekStart.setDate(now.getDate() - daysToMon);
-
-        // Daily pts from weeklyLog (keys are non-zero-padded YYYY-M-D)
-        const ptsLog = m.weekly?.dailyPtsLog || {};
-        const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        const DAY_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-
-        // Build 7 day entries Mon-Sun
-        const weekDays = [];
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
-            const key = _ldk(d);
-            const isFuture = key > todayStr;
-            const isToday = key === todayStr;
-            const count = hist[key] || 0;
-            const pts = ptsLog[key] || 0;
-            weekDays.push({ key, d, isFuture, isToday, count, pts });
-        }
-
-        // Weekly missions row
-        const DAY_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-        const squaresHtml = weekDays.map((day, i) => {
-            const c = day.count;
-            let bg, opacity, outline = '';
-            if (day.isFuture) {
-                bg = 'rgba(255,255,255,0.04)'; opacity = '0.5';
-            } else if (c === 0) {
-                bg = 'rgba(255,255,255,0.07)'; opacity = '1';
-            } else if (c === 1) {
-                bg = '#4499ff'; opacity = '0.6';
-            } else if (c <= 3) {
-                bg = '#4499ff'; opacity = '0.8';
-            } else {
-                bg = '#4499ff'; opacity = '1';
-            }
-            if (day.isToday) outline = 'outline:2px solid rgba(255,255,255,0.7);outline-offset:-2px;';
-            const tipAttr = !day.isFuture ? `data-mq-day-count="${escapeHtml(c)}"` : '';
-            return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;">
-                <div style="font-size:0.38rem;color:${day.isToday?'#ccc':'#444'};letter-spacing:0.5px;">${DAY_SHORT[i]}</div>
-                <div ${tipAttr} style="width:100%;aspect-ratio:1/1;border-radius:4px;background:${bg};opacity:${opacity};${outline}cursor:default;"></div>
-                ${c > 0 && !day.isFuture ? `<div style="font-size:0.38rem;color:#4499ff;font-weight:bold;">${escapeHtml(c)}</div>` : `<div style="font-size:0.38rem;color:transparent;">0</div>`}
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - (now.getDay() + 6) % 7);
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const squares = days.map((label, index) => {
+            const date = new Date(weekStart);
+            date.setDate(weekStart.getDate() + index);
+            const key = _ldk(date);
+            const count = key <= todayStr ? hist[key] || 0 : null;
+            return `<div class="mq-day"${key === todayStr ? ' aria-current="date"' : ''}>
+                <span>${label}</span><span${count == null ? '' : ` data-mq-day-count="${escapeHtml(count)}"`}>${count == null ? '–' : escapeHtml(count)}</span>
             </div>`;
         }).join('');
-
-        el.innerHTML = `<div style="padding:10px 10px 8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
-            <div style="font-family:var(--ui-font);font-size:0.42rem;letter-spacing:1.5px;color:#555;margin-bottom:8px;">THIS WEEK</div>
-            <div style="display:flex;gap:4px;">${squaresHtml}</div>
-        </div>`;
+        el.innerHTML = `<section class="lb-block-card mq-calendar">
+            <h3 class="lb-block-section-title">This week</h3><div class="mq-days">${squares}</div>
+        </section>`;
 
         for (const cell of el.querySelectorAll('[data-mq-day-count]')) {
             bindInfoPreview(cell, () => {
@@ -10230,17 +9882,6 @@
             const pb = b.target > 0 ? (b.progress || 0) / b.target : 0;
             return pb - pa;
         });
-    }
-    // Reorder sorted items for column-first display in a 2-col grid:
-    // first half fills left column top-to-bottom, second half fills right column
-    function _columnarOrder(items) {
-        const half = Math.ceil(items.length / 2);
-        const result = [];
-        for (let i = 0; i < half; i++) {
-            result.push(items[i]);
-            if (i + half < items.length) result.push(items[i + half]);
-        }
-        return result;
     }
 
     function missionCardPositions(body) {
@@ -10281,169 +9922,83 @@
         const m = saveData.missions;
         const el = document.getElementById('missions-overlay');
         if (!el) return;
-        // Block tab switch while in swap mode
-        if (window._mqChangeMode && tab && tab !== (el._mTab || 'daily')) return;
-        const _prevTab = el._mTab || null;
-        tab = tab || el._mTab || 'daily';
+        const previousTab = el._mTab;
+        tab = tab || previousTab || 'daily';
+        if (window._mqChangeMode && tab !== previousTab) return;
         el._mTab = tab;
-        const _isTabSwitch = !opening && !!_prevTab && _prevTab !== tab;
-
         const isSeason = tab === 'season';
-        el.querySelector('#mq-mission-view').hidden = isSeason;
-        el.querySelector('#mq-countdown').hidden = isSeason;
+        const weekly = tab === 'weekly';
+        const swapping = !!window._mqChangeMode;
+        const view = el.querySelector('#mq-mission-view');
+        view.hidden = isSeason;
+        el.querySelector('.lb-topbar-title').textContent = isSeason ? 'Season Pass' : 'Missions';
+        el.querySelector('#mq-menu').hidden = isSeason;
+        el.querySelector('#mq-menu').disabled = swapping;
+        el.querySelector('#mq-back').hidden = !isSeason;
+        el.querySelector('.mq-header .lb-info-btn').disabled = swapping;
         el.querySelectorAll('[data-tab]').forEach(button => {
             button.setAttribute('aria-pressed', String(button.dataset.tab === tab));
-            button.disabled = !!window._mqChangeMode;
+            button.disabled = swapping;
+            if (button.dataset.tab === 'season') button.hidden = isSeason;
         });
-        if (_isTabSwitch && (isSeason || _prevTab === 'season')) el.scrollTop = 0;
         if (isSeason) return _seasonScreen.open();
         _seasonScreen.close();
+        el._mBoardTab = tab;
+        if (opening || previousTab !== tab) view.scrollTop = 0;
 
-        // Streak panel (below tabs)
-        const dStreak = m.streaks?.daily || 0;
-        const bestD = m.streaks?.bestDaily || dStreak;
-        const xpMult = _getMissionStreakXPMult();
-        const sbPts = m.specialBox?.pts || 0;
-        const sbPct = Math.min(100, (sbPts / MQ_SPECIAL_BOX_CAP) * 100);
-        const xpThresh = _dailyStreakXPThreshold();
+        const period = weekly ? m.weekly : m.daily;
+        const points = (weekly ? period.points : period.pointsToday) || 0;
+        const quests = (weekly ? period.missions : period.quests) || [];
+        const entries = !weekly && period.secret ? [...quests, period.secret] : quests;
+        const milestones = el.querySelector('#mq-milestones');
+        milestones.innerHTML = _missionProgressBar(points, weekly ? MQ_WEEKLY_MILESTONES : MQ_DAILY_MILESTONES, period.claimedMilestones, weekly);
+        el.querySelector('#mq-board-title').textContent = weekly ? 'This week’s board' : 'Today’s board';
+        el.querySelector('#mq-list-title').textContent = weekly ? 'Weekly missions' : 'Daily missions';
+        el.querySelector('#mq-list-meta').textContent = `${entries.filter(quest => quest.completed).length} / ${entries.length} complete`;
+        const swap = el.querySelector('#mq-change-toggle');
+        swap.setAttribute('aria-pressed', String(swapping));
+        swap.disabled = !!period.changeUsed && !swapping;
+        swap.textContent = swapping ? 'Cancel swap' : period.changeUsed ? 'Swap used' : 'Swap';
+
+        const streak = m.streaks?.daily || 0;
+        const best = m.streaks?.bestDaily || streak;
+        const multiplier = _getMissionStreakXPMult();
+        const xpTarget = _dailyStreakXPThreshold();
         const rawXP = m.daily.rawXPToday || 0;
-        const xpPct = Math.min(100, (rawXP / xpThresh) * 100);
-        const xpDone = rawXP >= xpThresh;
-        const xpColor = xpDone ? '#44ff88' : '#ffcc44';
-        const xpBarBg = xpDone ? 'linear-gradient(90deg,#22aa44,#44ff88)' : 'linear-gradient(90deg,#996600,#ffcc44)';
-        const multRows = MISSION_STREAK_XP_TIERS.map(([days, multiplier]) =>
-            `<div>${days} days · ×${multiplier.toFixed(2)}</div>`).join('');
-        const streakPanelHtml = `
-            <div class="mq-streak-summary" style="border:1px solid rgba(255,204,68,0.25);border-radius:10px;overflow:hidden;">
-            <div class="mq-streak-half" style="padding:14px 16px;background:rgba(255,204,68,0.05);border:none;border-radius:0;position:relative;overflow:hidden;">
-                <div class="mq-streak-flame mq-streak-flame--watermark" aria-hidden="true">🔥</div>
-                <div style="display:flex;align-items:center;gap:8px;position:relative;">
-                    <span class="mq-streak-flame" aria-hidden="true">🔥</span>
-                    <span style="font-family:var(--ui-font);font-size:1.8rem;font-weight:900;color:#ffcc44;line-height:1;">${escapeHtml(dStreak)}</span>
-                    <span style="font-size:0.55rem;color:#aa8800;font-family:monospace;align-self:flex-end;margin-bottom:3px;">${dStreak === 1 ? 'day' : 'days'}</span>
-                </div>
-                <div style="font-size:0.42rem;color:#776633;letter-spacing:0.15em;margin-top:6px;position:relative;">DAILY STREAK · BEST <b style="color:#ffcc44;">${escapeHtml(bestD)}</b></div>
-                ${xpMult > 1 ? `<div style="margin-top:5px;font-size:0.45rem;color:#aa8800;position:relative;">XP Multiplier: ${xpMult.toFixed(2)}× active</div>` : ''}
-            </div>
-            <div class="mq-streak-divider" style="height:1px;background:rgba(255,255,255,0.07);"></div>
-            <div class="mq-streak-xp" style="padding:14px 16px;background:${xpDone?'rgba(68,255,136,0.04)':'rgba(255,204,68,0.03)'};">
-                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;">
-                    <span style="font-size:0.45rem;color:#666;letter-spacing:0.18em;font-family:var(--ui-font);">TODAY'S XP</span>
-                    <span style="font-family:var(--ui-font);font-size:0.8rem;font-weight:bold;color:${xpColor};">${escapeHtml(rawXP)}<span style="color:#555;font-size:0.55rem;font-weight:normal;">/${xpThresh}</span></span>
-                </div>
-                <div style="height:5px;background:rgba(255,255,255,0.06);overflow:hidden;">
-                    <div style="height:100%;width:${xpPct}%;background:${xpBarBg};transition:width 0.4s;"></div>
-                </div>
-                ${!xpDone ? `<div style="font-size:0.42rem;color:#555;margin-top:5px;">Hit ${xpThresh} XP to keep your streak alive</div>` : ''}
-            </div>
-            </div>
-            <button id="mq-change-toggle" class="mq-change-toggle lb-block-btn btn-secondary" aria-pressed="${!!window._mqChangeMode}" ${(tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) && !window._mqChangeMode ? 'disabled' : ''} onclick="event.stopPropagation();window._toggleChangeMode()">
-                <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 20.75C10.08 20.75 8.23 19.99 6.87 18.63C5.51 17.27 4.75 15.42 4.75 13.5C4.75 11.58 5.51 9.73 6.87 8.37C8.23 7.01 10.08 6.25 12 6.25H14.5C14.9 6.25 15.25 6.6 15.25 7C15.25 7.4 14.9 7.75 14.5 7.75H12C10.86 7.75 9.75 8.09 8.81 8.72C7.86 9.35 7.12 10.25 6.69 11.3C6.25 12.35 6.14 13.51 6.36 14.62C6.58 15.74 7.13 16.76 7.93 17.57C8.74 18.37 9.76 18.92 10.88 19.14C11.99 19.36 13.15 19.25 14.2 18.81C15.25 18.38 16.15 17.64 16.78 16.69C17.41 15.75 17.75 14.64 17.75 13.5C17.75 13.1 18.1 12.75 18.5 12.75C18.9 12.75 19.25 13.1 19.25 13.5C19.25 15.42 18.48 17.26 17.12 18.62C15.76 19.98 13.92 20.75 12 20.75Z"/><path d="M12 10.75C11.6 10.75 11.25 10.4 11.25 10C11.25 9.8 11.33 9.61 11.47 9.47L13.94 7L11.47 4.53C11.18 4.24 11.18 3.76 11.47 3.47C11.76 3.18 12.24 3.18 12.53 3.47L15.53 6.47C15.67 6.61 15.75 6.8 15.75 7C15.75 7.2 15.67 7.39 15.53 7.53L12.53 10.53C12.39 10.67 12.2 10.75 12 10.75Z"/></svg>
-                    ${window._mqChangeMode ? 'CANCEL SWAP' : (tab==='weekly'?m.weekly.changeUsed:m.daily.changeUsed) ? 'SWAP USED' : 'SWAP QUEST'}
-                </div>
-                <div style="font-size:0.42rem;letter-spacing:0.06em;font-weight:normal;opacity:0.5;margin-top:2px;">once per ${tab === 'weekly' ? 'week' : 'day'}</div>
-            </button>`;
-        const streakPanelEl = document.getElementById('mq-streak-panel');
-        if (streakPanelEl) {
-            streakPanelEl.innerHTML = streakPanelHtml;
-            const streak = streakPanelEl.querySelector('.mq-streak-half');
-            bindInfoPreview(streak, () => {
-                const panel = infoPanel('mq-streak-panel-tip');
-                panel.innerHTML = `<strong>XP multiplier</strong>${multRows}
-                    ${xpMult > 1 ? `<div>Active: ${xpMult.toFixed(2)}×</div>` : ''}
-                    <div>Streak requires ${xpThresh} raw XP/day</div>`;
-                showInfo(panel, streak);
-            }, { tap: true });
-        }
+        const streakPanel = el.querySelector('#mq-streak-panel');
+        streakPanel.innerHTML = `<section class="lb-block-card mq-streak-summary">
+            <button type="button" class="lb-block-btn lb-block-btn--ghost mq-streak-half">
+                <span class="mq-streak-flame" aria-hidden="true">🔥</span> <strong>${escapeHtml(streak)}-day streak</strong><span>Best: ${escapeHtml(best)}</span>
+            </button>
+            <div class="mq-streak-xp"><span>Today’s XP</span><strong>${escapeHtml(rawXP)} / ${xpTarget}</strong></div>
+            <progress class="lb-block-progress" aria-label="XP to keep daily streak" max="${xpTarget}" value="${Math.min(rawXP, xpTarget)}"></progress>
+        </section>`;
+        const streakButton = streakPanel.querySelector('.mq-streak-half');
+        bindInfoPreview(streakButton, () => {
+            const panel = infoPanel('mq-streak-panel-tip');
+            const tiers = MISSION_STREAK_XP_TIERS.map(([days, bonus]) => `<div>${days} days · ×${bonus.toFixed(2)}</div>`).join('');
+            panel.innerHTML = `<strong>XP multiplier</strong>${tiers}
+                ${multiplier > 1 ? `<div>Active: ${multiplier.toFixed(2)}×</div>` : ''}
+                <div>Streak requires ${xpTarget} raw XP/day</div>`;
+            showInfo(panel, streakButton);
+        }, { tap: true });
 
-        const bonusBoxHtml = `            <div id="mq-bonus-box" style="padding:14px 16px;background:rgba(255,204,68,0.04);border:1px solid rgba(255,204,68,0.2);transition:box-shadow 0.3s,border-color 0.3s;">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                    <span style="line-height:0;flex-shrink:0;"><svg viewBox="0 0 24 24" width="22" height="22" fill="white" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 3.66333L20.25 7.7398V17.01L12 21.0865L3.75 17.01V7.7398L12 3.66333ZM5.25 9.41292V16.078L11.25 19.0427V12.3776L5.25 9.41292ZM12.75 12.3776V19.0427L18.75 16.078V9.41292L16.5 10.5247V13.4999L15 14.2499V11.2659L12.75 12.3776ZM17.807 8.20577L15.8527 9.17139C15.8099 9.13606 15.7624 9.10498 15.7106 9.07908L10.1015 6.27454L12 5.33645L17.807 8.20577ZM8.41452 7.1081L14.1871 9.9944L12 11.0751L6.19304 8.20577L8.41452 7.1081Z"/></svg></span>
-                    <div style="flex:1;">
-                        <div style="font-family:var(--ui-font);font-size:0.95rem;color:#ffcc44;font-weight:bold;">${escapeHtml(sbPts)} <span style="color:#666;font-weight:normal;font-size:0.6rem;">/ ${MQ_SPECIAL_BOX_CAP}</span></div>
-                        <div style="font-size:0.42rem;color:#776633;letter-spacing:0.12em;">BONUS BOX</div>
-                    </div>
-                </div>
-                <div style="height:5px;background:rgba(255,255,255,0.06);overflow:hidden;">
-                    <div style="height:100%;width:${sbPct}%;background:linear-gradient(90deg,#aa8800,#ffcc44);transition:width 0.4s;"></div>
-                </div>
-            </div>
-`;
-        let bodyHtml = '';
-        if (tab === 'daily') {
-            const pts = m.daily.pointsToday || 0;
-            const allQuests = m.daily.quests || [];
-            const secretQ = m.daily.secret;
-            // Active = not yet claimed (includes completed-but-unclaimed); Done = fully claimed
-            const allActiveQuests = _sortQuests([
-                ...allQuests.filter(q => !q.ptsClaimed),
-                ...(secretQ && !secretQ.ptsClaimed ? [secretQ] : [])
-            ]);
-            const allDone = _sortQuests([
-                ...allQuests.filter(q => q.ptsClaimed),
-                ...(secretQ?.ptsClaimed ? [secretQ] : [])
-            ]);
-            let cardsHtml = _columnarOrder(allActiveQuests).map(q => {
-                const idx = q.tier === 'secret' ? 'secret' : allQuests.indexOf(q);
-                return _missionQuestCard(q, idx, false);
-            }).join('');
-            let completedHtml = '';
-            if (allDone.length) {
-                completedHtml = `<div class="mq-completed-sep">— COMPLETED —</div>` +
-                    `<div class="mq-cards">` + _columnarOrder(allDone).map(q => _missionQuestCard(q, null, false)).join('') + `</div>`;
-            }
-            bodyHtml = `${_missionProgressBar(pts, MQ_DAILY_MILESTONES, m.daily.claimedMilestones, false)}
-            <div class="mq-cards">${cardsHtml}</div>
-            ${completedHtml}`;
-        } else {
-            const pts = m.weekly.points || 0;
-            const allMissions = m.weekly.missions || [];
-            // Active = not yet claimed; Done = fully claimed, sorted hardest-first
-            const activeMissions = _sortQuests(allMissions.filter(wm => !wm.ptsClaimed));
-            const doneMissions   = _sortQuests(allMissions.filter(wm => wm.ptsClaimed));
-            let cardsHtml = _columnarOrder(activeMissions).map(wm => _missionQuestCard(wm, allMissions.indexOf(wm), true)).join('');
-            let completedHtml = '';
-            if (doneMissions.length) {
-                completedHtml = `<div class="mq-completed-sep">— COMPLETED —</div>` +
-                    `<div class="mq-cards">` + _columnarOrder(doneMissions).map(wm => _missionQuestCard(wm, null, true)).join('') + `</div>`;
-            }
-            bodyHtml = `${_missionProgressBar(pts, MQ_WEEKLY_MILESTONES, m.weekly.claimedMilestones, true)}
-            <div class="mq-cards">${cardsHtml}</div>
-            ${completedHtml}`;
-        }
-
+        const active = _sortQuests(entries.filter(quest => !quest.ptsClaimed));
+        const completed = _sortQuests(entries.filter(quest => quest.ptsClaimed));
+        const bonus = m.specialBox?.pts || 0;
         const body = el.querySelector('#missions-body');
-        if (body) {
-            const previousCards = !opening && _prevTab === tab && !el.classList.contains('hidden')
-                && typeof body.animate === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-                ? missionCardPositions(body) : null;
-            if (_isTabSwitch && body.innerHTML.trim()) {
-                // Snapshot old content into fixed overlay for exit animation
-                const _bRect = body.getBoundingClientRect();
-                const _exitEl = document.createElement('div');
-                _exitEl.style.cssText = `position:fixed;top:${_bRect.top}px;left:${_bRect.left}px;width:${_bRect.width}px;pointer-events:none;z-index:2000;overflow:hidden;`;
-                _exitEl.innerHTML = body.innerHTML;
-                document.body.appendChild(_exitEl);
-                const _outClass = tab === 'weekly' ? 'mq-tab-slide-out-left' : 'mq-tab-slide-out-right';
-                void _exitEl.offsetWidth;
-                _exitEl.classList.add(_outClass);
-                _exitEl.addEventListener('animationend', () => _exitEl.remove(), { once: true });
-            }
-            body.innerHTML = bodyHtml;
-            const cards = body.querySelector('.mq-cards');
-            if (cards) cards.insertAdjacentHTML('beforeend', bonusBoxHtml);
-            if (previousCards) animateMissionClaims(body, previousCards);
-            if (_isTabSwitch) {
-                const _inClass = tab === 'weekly' ? 'mq-tab-in-right' : 'mq-tab-in-left';
-                body.classList.remove('mq-tab-in-right', 'mq-tab-in-left');
-                void body.offsetWidth;
-                body.classList.add(_inClass);
-                // Remove after slide finishes (longest child: 0.28s)
-                setTimeout(() => body.classList.remove(_inClass), 350);
-            }
-        }
-        for (const star of body?.querySelectorAll('[data-mqctip]') || []) {
+        const beforeClaim = !opening && previousTab === tab && !el.classList.contains('hidden')
+            && typeof body.animate === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? missionCardPositions(body) : null;
+        body.innerHTML = `<div class="mq-cards">${active.map(quest => _missionQuestCard(quest, quest === period.secret ? 'secret' : quests.indexOf(quest), weekly)).join('')}</div>
+            ${completed.length ? `<h3 class="lb-block-section-title mq-completed">Completed</h3>
+                <div class="mq-cards">${completed.map(quest => _missionQuestCard(quest, null, weekly)).join('')}</div>` : ''}
+            <section id="mq-bonus-box" class="lb-block-card">
+                <div class="mq-list-head"><h3 class="lb-block-section-title">Bonus Box</h3><span>${escapeHtml(bonus)} / ${MQ_SPECIAL_BOX_CAP}</span></div>
+                <progress class="lb-block-progress" aria-label="Bonus Box progress" max="${MQ_SPECIAL_BOX_CAP}" value="${Math.min(bonus, MQ_SPECIAL_BOX_CAP)}"></progress>
+            </section>`;
+        if (beforeClaim) animateMissionClaims(body, beforeClaim);
+        for (const star of milestones.querySelectorAll('[data-mqctip]')) {
             bindInfoPreview(star, () => {
                 const panel = infoPanel('mq-body-tip');
                 panel.textContent = star.dataset.mqctip;
@@ -10453,17 +10008,6 @@
         _renderMissionStatsSection();
         if (tab === 'daily' && m.daily.newVisit) { m.daily.newVisit = false; saveDataToFile(); }
         if (tab === 'weekly' && m.weekly.newVisit) { m.weekly.newVisit = false; saveDataToFile(); }
-        // Dim BACK button in swap mode
-        const backBtn = el.querySelector('.btn-back');
-        if (backBtn) {
-            backBtn.classList.toggle('mq-swap-disabled', !!window._mqChangeMode);
-            backBtn.style.pointerEvents = window._mqChangeMode ? 'none' : '';
-        }
-        const rulesBtn = el.querySelector('.mq-v4-rules');
-        if (rulesBtn) {
-            rulesBtn.classList.toggle('mq-swap-disabled', !!window._mqChangeMode);
-            rulesBtn.style.pointerEvents = window._mqChangeMode ? 'none' : '';
-        }
         _updateMissionCountdown();
         _checkGlowNotifications();
     }
@@ -10482,14 +10026,13 @@
             if (_ovEl && !_ovEl.classList.contains('hidden')) renderMissionsOverlay(tab);
             return;
         }
-        const accentColor = ms <= 600000 ? '#ff3344' : ms <= 3600000 ? '#ff9900' : '#44ff88';
         const totalSec = Math.floor(ms / 1000);
         const d = Math.floor(totalSec / 86400);
         const h = Math.floor((totalSec % 86400) / 3600);
         const m = Math.floor((totalSec % 3600) / 60);
         const s = totalSec % 60;
         const timeStr = d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
-        el.style.setProperty('--mq-reset-color', accentColor);
+        el.dataset.urgency = ms <= 600000 ? 'urgent' : ms <= 3600000 ? 'soon' : 'normal';
         const timer = el.querySelector('time');
         timer.dateTime = `P${d}DT${h}H${m}M${s}S`;
         timer.textContent = timeStr;
@@ -10529,7 +10072,15 @@
     };
     window.renderMissionsOverlay = renderMissionsOverlay;
     document.querySelectorAll('#missions-overlay [data-tab]').forEach(button => {
-        button.addEventListener('click', () => renderMissionsOverlay(button.dataset.tab));
+        button.addEventListener('click', () => {
+            renderMissionsOverlay(button.dataset.tab);
+            if (button.dataset.tab === 'season') document.getElementById('mq-back').focus();
+        });
+    });
+    document.getElementById('mq-back').addEventListener('click', () => {
+        const overlay = document.getElementById('missions-overlay');
+        renderMissionsOverlay(overlay._mBoardTab || 'daily');
+        overlay.querySelector('[data-tab="season"]').focus();
     });
 
     const _seasonScreen = window.LBSeasonUI.mount({
@@ -10749,7 +10300,7 @@
         // Animations are purely visual (data already committed above)
         const _bonusDeltaCapture = _bonusBoxDelta;
         if (_fromRect) {
-            _flyPtsToBar(pts, _fromRect, color || '#4499ff', isWeekly, function() {
+            _flyPtsToBar(pts, _fromRect, color || 'var(--lb-label)', function() {
                 if (_bonusDeltaCapture > 0) {
                     setTimeout(() => _flyPtsToBox(_bonusDeltaCapture), 150);
                 }
@@ -10757,14 +10308,13 @@
         }
     }
 
-    function _flyPtsToBar(pts, fromEl, color, isWeekly, onDone) {
+    function _flyPtsToBar(pts, fromEl, color, onDone) {
         const fromRect = (fromEl && typeof fromEl.getBoundingClientRect === 'function') ? fromEl.getBoundingClientRect() : fromEl;
-        // Find the progress bar pts number (big number at top of bar)
-        const barEl = document.querySelector('.mq-pb-wrap');
+        const barEl = document.querySelector('.mq-pb-points');
         if (!barEl) { onDone && onDone(); return; }
         const barRect = barEl.getBoundingClientRect();
-        const destX = barRect.left + barRect.width * 0.12;
-        const destY = barRect.top + 14;
+        const destX = barRect.left + barRect.width / 2;
+        const destY = barRect.top + barRect.height / 2;
 
         const flyEl = document.createElement('div');
         flyEl.className = 'mq-fly-pts';
@@ -10796,7 +10346,7 @@
     }
 
     function _flyPtsToBox(delta) {
-        const barEl = document.querySelector('.mq-pb-wrap');
+        const barEl = document.querySelector('.mq-pb-points');
         const boxEl = document.getElementById('mq-bonus-box');
         if (!barEl || !boxEl) return;
         const fromRect = barEl.getBoundingClientRect();
@@ -10807,8 +10357,8 @@
         flyEl.textContent = `+${delta}`;
         flyEl.style.left   = `${fromRect.left + fromRect.width * 0.12}px`;
         flyEl.style.top    = `${fromRect.top + 14}px`;
-        flyEl.style.color  = '#ffcc44';
-        flyEl.style.textShadow = '0 0 10px #ffcc44';
+        flyEl.style.color  = 'var(--lb-utility)';
+        flyEl.style.textShadow = '0 0 10px var(--lb-utility)';
         flyEl.style.opacity = '1';
         document.body.appendChild(flyEl);
 
@@ -10823,8 +10373,8 @@
             flyEl.remove();
             if (boxEl) {
                 boxEl.style.transition = 'box-shadow 0.15s, border-color 0.15s';
-                boxEl.style.boxShadow = '0 0 16px rgba(255,204,68,0.6), inset 0 0 10px rgba(255,204,68,0.1)';
-                boxEl.style.borderColor = 'rgba(255,204,68,0.7)';
+                boxEl.style.boxShadow = '0 0 8px var(--lb-utility)';
+                boxEl.style.borderColor = 'var(--lb-utility)';
                 setTimeout(() => {
                     boxEl.style.boxShadow = '';
                     boxEl.style.borderColor = '';
@@ -10851,7 +10401,7 @@
         overlay.setAttribute('aria-modal', 'true');
         overlay.setAttribute('aria-label', 'Earned rewards');
         const panel = document.createElement('div');
-        panel.className = 'lb64-crate-panel lb-block-panel';
+        panel.className = 'lb64-crate-panel lb-block-dialog';
         const typeLabel = isWeekly ? 'Weekly milestone' : 'Daily milestone';
         panel.innerHTML = `
             <p class="lb64-crate-kicker">${typeLabel}</p>
@@ -10907,7 +10457,6 @@
         const gamePlaylist = _getPlaylist('game');
         const actionPlaylist = _getPlaylist('action');
         const allNames = [..._trackPool.keys()].sort((a, b) => a.localeCompare(b));
-        const TAG_COLORS = { chill:'#4488cc', electronic:'#44bb88', retro:'#cc8844', intense:'#cc4444', upbeat:'#aa44cc' };
         const trackToggle = (on, ctx, name) => `<button type="button" class="lb-block-btn lb-block-btn--icon lb-playlist-check" data-playlist="${ctx === 'menu' ? 'menu' : 'game'}" aria-label="${ctx === 'menu' ? 'Menu' : 'Game'} playlist: ${escapeHtml(name)}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}',${escapeHtml(JSON.stringify(name))},${!on})">${svgCheck}</button>`;
         const header = `<div class="lb-playlist-grid lb-playlist-columns" aria-hidden="true">
             <span>Track</span><span>Menu</span><span>Game</span><span>Tags</span>
@@ -10922,10 +10471,7 @@
             const gameOn = isAction ? actionPlaylist.includes(name) : gamePlaylist.includes(name);
             const gameCtx = isAction ? 'action' : 'game';
             const playMark = isPlaying ? '<span class="lb-playlist-equalizer" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
-            const tagChips = [...tags].sort().map(t => {
-                const tc = hexColor(TAG_COLORS[t], '#888888');
-                return `<span class="lb-playlist-tag" style="--tag-tone:${tc}">${escapeHtml(t)}</span>`;
-            }).join('');
+            const tagChips = [...tags].sort().map(tag => `<span class="lb-playlist-tag">${escapeHtml(tag)}</span>`).join('');
             return `<div class="lb-playlist-grid lb-playlist-row">
                 <button type="button" class="lb-block-btn lb-playlist-track" aria-label="Play ${escapeHtml(name)}" ${isPlaying ? 'aria-current="true"' : ''} onclick="window.playTrackInPlaylist(${escapeHtml(JSON.stringify(name))})">
                     <span class="lb-playlist-track-title">${playMark}<span>${escapeHtml(name)}</span></span>
@@ -11572,7 +11118,7 @@
                 ]))}
                 <button type="button" class="lb-block-btn" id="help-tutorial">Open tutorials</button>`]
         ];
-        helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-block-btn" data-help-jump="${id}">${title}</button>`).join('');
+        helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-block-btn lb-block-tab" data-help-jump="${id}">${title}</button>`).join('');
         const topicIcons = { basics: 'lb-metric-gamepad', scoring: 'lb-run-icon-lines', ranks: 'lb-metric-total-xp', boxes: 'lb-metric-box', achievements: 'lb-metric-trophy' };
         const topicIcon = id => id === 'streaks' ? '<span aria-hidden="true">🔥</span>' : topicIcons[id] ? `<svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#${topicIcons[id]}"/></svg>` : '';
         helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-help-topic lb-block-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" class="lb-block-panel-head lb-block-section-title" tabindex="-1">${topicIcon(id)}${title}</h2>${body}</section>`).join('');

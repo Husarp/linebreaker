@@ -300,7 +300,7 @@ input[type="range"]:is(.lb-block-range, #settings-overlay input)::-moz-range-thu
 }
 :is(.lb-block-topbar, .sp-header) :is(.btn-back, .lb-header > button:first-child, #help-back, .lb-block-back):focus-visible { outline: var(--focus-width) solid var(--accent-bright); outline-offset: -3px; }
 :is(.lb-block-topbar, .sp-header) .btn-back::after { content: none !important; }
-.lb-block-topbar > :is(h1, span:first-of-type), .lb-playlist-topbar > div:first-child > span, .sp-header #sp-title {
+.lb-block-topbar > :is(h1, span:first-of-type), .sp-header #sp-title {
     margin-block: 0;
     color: var(--accent-bright) !important;
     font: 400 clamp(.58rem, 2.25vw, .85rem)/1.55 var(--bb-font-pixel) !important;
@@ -393,19 +393,6 @@ body[data-pack="pixel"] #custom-confirm .modal-text { font-family: var(--bb-font
 #settings-overlay .e-stepper { min-width: 0; }
 #settings-overlay .e-step-bar { width: clamp(12px, 6vw, 76px); }
 
-#playlist-overlay > .lb-playlist-topbar:first-child:not(:only-child) {
-    display: grid;
-    grid-template-columns: minmax(max-content, 1fr) minmax(0, 420px) minmax(0, 1fr);
-    align-items: center;
-    flex: none;
-    gap: var(--space-2) !important;
-    position: sticky !important;
-    top: 0;
-    z-index: 2;
-    padding-block: var(--space-2) !important;
-}
-.lb-playlist-player { display: flex; justify-content: center; }
-#playlist-overlay #pl-mini-widget { box-sizing: border-box; background: var(--bb-well) !important; border-color: var(--bb-edge) !important; }
 #playlist-overlay :is(#pl-mw-title, #pl-mw-elapsed, #pl-mw-total) { color: var(--bb-muted) !important; }
 .lb-playlist-tools { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); position: relative; margin-bottom: var(--space-3); }
 #playlist-overlay .lb-playlist-tools .lb-block-section-title { font: 650 var(--text-body)/1.4 var(--font-body) !important; }
@@ -435,7 +422,6 @@ body[data-pack="pixel"] #custom-confirm .modal-text { font-family: var(--bb-font
 .lb-playlist-loading { padding: var(--space-2); }
 
 @media (max-width: 599px) {
-    #playlist-overlay > .lb-playlist-topbar:first-child:not(:only-child) { grid-template-columns: minmax(0, 1fr); }
     .lb-playlist-grid { grid-template-columns: minmax(0, 1fr) 48px 48px; }
     .lb-playlist-row { row-gap: 0; }
     .lb-playlist-columns > :last-child { display: none; }

@@ -239,9 +239,9 @@ it('fills the season track through reached thresholds and partway toward the nex
   w.document.querySelector('[data-tab="season"]').click();
   const stage = day => w.document.querySelector(`.sp-card[data-stage="${day}"]`);
   await vi.waitFor(() => expect(stage(9)).not.toBeNull());
-  expect(stage(7).style.getPropertyValue('--sp-segment')).toBe('100%');
+  expect(stage(8).style.getPropertyValue('--sp-incoming')).toBe('100%');
   expect(stage(8).hasAttribute('data-reached')).toBe(true);
-  expect(stage(8).style.getPropertyValue('--sp-segment')).toBe('75%');
+  expect(stage(8).style.getPropertyValue('--sp-outgoing')).toBe('100%');
   expect(stage(9).hasAttribute('data-reached')).toBe(false);
   expect(stage(9).style.getPropertyValue('--sp-incoming')).toBe('50%');
 });

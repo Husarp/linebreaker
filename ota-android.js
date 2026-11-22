@@ -29,7 +29,7 @@
   };
   const section = document.createElement('section');
   section.className = 'settings-section lb-block-panel lb149-settings';
-  section.innerHTML = `<h2 class="lb-block-section-title">Updates</h2><div class="lb149-actions lb184-toolbar" data-section-actions></div>
+  section.innerHTML = `<div class="lb149-actions lb184-toolbar" data-section-actions></div>
     <p data-update-version></p><div class="lb184-status-slot">${statusMarkup}</div>
     <div class="lb149-actions" data-secondary></div>
     <label class="lb149-choice">Automatic update checks <span class="lb-block-switch"><input type="checkbox" role="switch" data-auto disabled><span class="toggle-slider"></span></span></label>
@@ -250,7 +250,7 @@
     return [
       rollback && { key: `rollback:${rollback.from}:${rollback.to}`, title: 'Previous version restored', text: `Version ${rollback.from} could not start. You’re back on ${rollback.to}.` },
       current.shellReady && { key: `shell-ready:${shell.versionCode}`, title: 'App update ready', text: `Version ${shell.version} is ready to install.`, label: getLabel(shell.version, true), action: () => guarded(() => ota.installShell()) },
-      current.staged && { key: `staged:${current.staged.version}`, title: 'Update ready', text: 'Restart Linebreaker to finish updating.', label: getLabel(current.staged.version, true), action: restart },
+      current.staged && { key: `staged:${current.staged.version}`, title: 'Update ready', text: 'Restart Linebreaker to finish updating.', label: 'Restart to apply', action: restart },
       !current.shellReady && shell && { key: `shell:${shell.versionCode}`, title: 'App update available', text: `Version ${shell.version} · ${size(shell.size)}`, label: getLabel(shell.version), action: () => ota.downloadShell({ downloadOnly: true }) },
       !current.staged && web && { key: `web:${web.version}`, title: 'Update available', text: web.needsShell ? `Install the app update first to get version ${web.version}.` : `Version ${web.version} · ${size(web.size)}`, label: getLabel(web.version), action: web.needsShell ? undefined : () => ota.download() },
     ].filter(Boolean);
@@ -308,7 +308,7 @@
     const items = offers(current);
     const action = items.find(item => item.action);
     const failure = [current.status, current.shellStatus].find(value => /^(Download failed|(?:Shell )?Update processing failed|Install failed|App install failed|Restart failed|Could not apply)|Not enough storage/i.test(value));
-    status(busy ? 'Downloading' : failure ? 'Could not update' : current.staged || current.shellReady ? 'Ready to install'
+    status(busy ? 'Downloading' : failure ? 'Could not update' : current.shellReady ? 'Ready to install' : current.staged ? 'Ready to apply on restart'
       : current.updateChecks?.failed ? 'Could not check for updates' : items.some(item => item.label) ? 'Update available'
       : current.busy ? 'Checking for updates…' : 'No update ready', percent);
     diagnostics.querySelector('[data-state]').textContent = [current.status, current.shellStatus, current.updateChecks?.summary].filter(Boolean).join(' · ');

@@ -1,243 +1,168 @@
-#missions-overlay:has(#mq-mission-view:not([hidden])) .mq89-header,
-.mq-pb-wrap {
-    border: 2px solid var(--bb-edge);
-    box-shadow: inset 0 0 0 2px var(--bb-well);
+#missions-overlay {
+    --mq-column: 680px;
+    z-index: 1004;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 0;
+    overflow: hidden;
+    text-align: start;
+    font: var(--lb-type-body)/1.4 var(--lb-font-body);
 }
 
-.mq-pb-icon-wrap .mq-ms-claim-btn,
-.mq-ms-marker {
+#missions-overlay .mq-header {
+    padding-inline-start: max(var(--lb-space-md), var(--lb-safe-left), calc((100% - var(--mq-column)) / 2 + var(--lb-space-lg)));
+    padding-inline-end: max(var(--lb-space-sm), var(--lb-safe-right), calc((100% - var(--mq-column)) / 2 + var(--lb-space-sm)));
+}
+.mq-header .lb-topbar-crumb { flex: 1; }
+.mq-header > [data-tab='season'] { white-space: nowrap; }
+#missions-overlay [hidden] { display: none !important; }
+
+#missions-overlay > :is(#mq-mission-view, #season-pass-overlay) {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    padding: var(--lb-space-md) max(var(--lb-space-md), var(--lb-safe-right)) max(var(--lb-space-xl), var(--lb-safe-bottom)) max(var(--lb-space-md), var(--lb-safe-left));
+}
+.mq-shell {
+    max-inline-size: calc(var(--mq-column) - 2 * var(--lb-space-lg));
     display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
+    gap: var(--lb-space-md);
+    margin-inline: auto;
 }
-
-.mq-ms-crate { width: 32px; height: 32px; object-fit: contain; }
-.mq-ms-crate--locked { filter: grayscale(1) brightness(.65); }
-#missions-overlay .mq-change-toggle.btn-secondary:not(:disabled) {
-    --bb-button-edge: #4597ec;
-    --bb-button-face: #17467a;
-    --bb-button-hover: #205b9b;
-    --bb-button-pressed: #12365c;
-    --bb-button-ink: #fff;
+.mq-shell :is(h2, h3, p) { margin: 0; }
+.mq-board { display: grid; gap: var(--lb-space-md); }
+.mq-board-intro { display: flex; justify-content: space-between; align-items: start; gap: var(--lb-space-sm); }
+.mq-board-intro .lb-ledger-icon-frame { --lb-icon-frame-size: var(--lb-space-3xl); }
+:is(.mq-board-intro, .sp-summary) h2 {
+    margin-block: var(--lb-space-xs);
+    color: var(--lb-ink);
+    font: 400 var(--lb-type-heading)/1.2 var(--lb-font-heading);
 }
-.mq-change-overlay { width: 100%; border: 0; background: transparent; }
-.mq-change-overlay:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: -3px; }
-.mq-ms-claim-btn:hover .mq-ms-crate { filter: brightness(1.2); }
-.mq-ms-claim-btn:focus-visible { outline: var(--focus-width) solid var(--accent-bright); outline-offset: -2px; }
-.mq-ms-claimed {
-    position: absolute;
-    right: 3px;
-    bottom: 1px;
-    padding: 0 3px;
-    border-radius: var(--bb-badge-radius);
-    background: var(--bb-well);
-    color: #44ff88;
-    font: 700 .8rem/1.2 var(--font-body);
-}
-
-#missions-overlay:has(#mq-mission-view:not([hidden])) .mq89-header {
-    background: var(--bb-heading);
-    box-shadow: inset 0 0 0 2px var(--bb-well), 0 3px var(--bb-well);
-}
-
-.mq-pb-wrap {
-    margin-bottom: 16px;
-    padding: 8px 12px;
-    border-radius: 3px 9px 3px 9px;
-    background: var(--bb-panel);
-}
-
-#mq-countdown:not([hidden]) {
-    display: flex;
+.mq-board-intro p { color: var(--lb-muted); }
+#mq-countdown {
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    width: max-content;
-    margin: -2px auto 7px;
-    padding: 5px 11px 7px;
-    border: 1px solid #69796d;
-    border-radius: 6px;
-    background: var(--bb-panel);
-    box-shadow: inset 0 2px #ffffff1e, inset 0 -4px #0007, 0 2px #0e100e;
-    color: var(--bb-muted);
-    font: 650 10px/1.2 var(--font-body);
-    white-space: nowrap;
-}
-
-#mq-countdown svg {
-    width: 14px;
-    height: 14px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.6;
-}
-
-#mq-countdown time {
-    color: var(--mq-reset-color);
+    gap: var(--lb-space-xs);
+    color: var(--lb-label);
+    font: 750 var(--lb-type-small)/1.2 var(--lb-font-body);
     font-variant-numeric: tabular-nums;
 }
+#mq-countdown svg { inline-size: var(--lb-space-lg); block-size: var(--lb-space-lg); fill: none; stroke: currentColor; stroke-width: 2; }
+#mq-countdown[data-urgency='soon'] { color: var(--lb-utility); }
+#mq-countdown[data-urgency='urgent'] { color: var(--lb-danger); }
 
-.mq-streak-flame { font-size: 1.4rem; }
-.mq-streak-flame--watermark {
-    position: absolute;
-    top: -12px;
-    right: -12px;
-    font-size: 4rem;
-    opacity: .08;
-    line-height: 1;
-    pointer-events: none;
+.mq-milestone-meter {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: var(--lb-space-sm);
+    border-block-start: var(--lb-border) solid var(--lb-rule);
+    padding-block-start: var(--lb-space-sm);
 }
+.mq-pb-points { font-weight: 750; white-space: nowrap; }
+.mq-shell .mq-pb-icons {
+    display: flex;
+    justify-content: space-evenly;
+    flex-wrap: wrap;
+    height: auto;
+    gap: var(--lb-space-xs);
+    margin-block-start: var(--lb-space-xs);
+}
+.mq-shell :is(.mq-ms-marker, .mq-ms-claim-btn) {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    min-inline-size: 44px;
+    min-block-size: 44px;
+    gap: 0;
+    padding: 0 var(--lb-space-xs);
+    color: var(--lb-muted);
+    font: 650 var(--lb-type-micro)/1.1 var(--lb-font-body);
+}
+#missions-overlay .mq-ms-claim-btn { --lb-control-edge: var(--lb-label); --lb-control-ink: var(--lb-label); }
+.mq-ms-crate { inline-size: var(--lb-space-2xl); block-size: var(--lb-space-2xl); object-fit: contain; }
+.mq-ms-crate--locked { filter: grayscale(1); opacity: .58; }
+.mq-ms-claimed { position: absolute; top: 0; inset-inline-end: 0; color: var(--lb-label); }
 
+.mq-board-controls, .mq-list-head, .mq-streak-xp {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--lb-space-sm);
+}
+.mq-board-controls .lb-block-tabs { display: flex; flex: 1; }
+.mq-board-controls .lb-block-tab { flex: 1; }
+#missions-overlay #mq-change-toggle { min-inline-size: 76px; white-space: nowrap; }
+#missions-overlay #mq-change-toggle[aria-pressed='true'] { --lb-control-edge: var(--lb-label); --lb-control-face: var(--lb-track); }
+.mq-list-head { color: var(--lb-muted); font-size: var(--lb-type-small); margin-block-end: var(--lb-space-sm); }
+.mq-list-head .lb-block-section-title { color: var(--lb-ink); }
+.mq-shell .mq-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--lb-space-sm); margin: 0; }
+.mq-shell .mq-card, #missions-overlay .lb138-mission-exit > .mq-card {
+    --mq-tier: var(--lb-muted);
+    --mq-tier-ink: color-mix(in srgb, var(--mq-tier) 45%, var(--lb-ink));
+    display: grid;
+    height: auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--lb-space-sm) var(--lb-space-md);
+    padding: var(--lb-space-md);
+}
+#missions-overlay .mq-card[data-tier='easy'] { --mq-tier: var(--lb-label); }
+#missions-overlay .mq-card[data-tier='normal'] { --mq-tier: var(--bb-rarity-rare); }
+#missions-overlay .mq-card[data-tier='hard'] { --mq-tier: var(--bb-rarity-mythic); }
+#missions-overlay .mq-card[data-tier='secret'] { --mq-tier: var(--lb-utility); }
+#missions-overlay .mq-card[data-ready] { --bb-frame-edge: var(--lb-label); }
+.mq-card > .lb-ledger-icon-frame {
+    --lb-icon-frame-edge: color-mix(in srgb, var(--mq-tier) 38%, var(--lb-rule));
+    --lb-icon-frame-ink: var(--mq-tier-ink);
+    grid-row: 1 / span 2;
+}
+.mq-card .mq-card-title { color: var(--lb-ink); font: 750 var(--lb-type-body)/1.2 var(--lb-font-body); }
+.mq-card .mq-card-desc { color: var(--lb-muted); font: var(--lb-type-small)/1.3 var(--lb-font-body); margin-block-start: var(--lb-space-xs); }
+.mq-card-value { display: grid; justify-items: end; gap: var(--lb-space-xs); }
+.mq-card .mq-pts { color: var(--lb-label); font: 750 var(--lb-type-small)/1.2 var(--lb-font-body); }
 .mq-card .mq-tier-badge {
     margin: 0;
-    padding: 2px 5px;
-    border-color: color-mix(in srgb, var(--mq-tier) 62%, transparent);
-    border-radius: 0;
-    background: color-mix(in srgb, var(--mq-tier) 13%, transparent);
-    color: color-mix(in srgb, var(--mq-tier) 75%, white);
-    font: 800 .625rem/1.2 var(--font-body);
-    letter-spacing: .065em;
+    border-color: color-mix(in srgb, var(--mq-tier) 20%, var(--lb-rule));
+    border-radius: var(--lb-radius);
+    padding: 1px var(--lb-space-xs);
+    color: var(--mq-tier-ink);
+    font: 700 var(--lb-type-micro)/1.15 var(--lb-font-body);
+    text-transform: uppercase;
 }
-
 .mq-card-progress {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin: 12px 0 8px;
+    gap: var(--lb-space-sm);
+    grid-column: 2 / -1;
 }
-
-.mq-card-meter {
-    flex: 1;
-    height: 11px;
-    overflow: hidden;
-    padding: 2px;
-    border: 1px solid;
-    background: rgba(255,255,255,.04);
-}
-
-.mq-card-progress-value {
-    min-width: 52px;
-    text-align: center;
-    white-space: nowrap;
-    color: var(--bb-muted);
-    font: .55rem 'JetBrains Mono', monospace;
-}
-
-.mq-card {
-    border-radius: 4px 13px 4px 13px;
-    box-shadow: 2px 2px #0f120f, inset 0 1px #fff2;
-}
-
-.mq-card .mq-mini-well {
-    border: 1px solid color-mix(in srgb, var(--mq-tier) 55%, var(--bb-edge));
-    border-radius: var(--bb-badge-radius);
-    box-shadow: inset 0 2px 2px #000a;
-    border-spacing: 1px;
-}
-
-.mq-mini-well td.mq-mini-well-filled {
-    background: var(--mq-tier);
-    box-shadow: inset 0 1px #fff8, inset 0 -1px #0006;
-}
-
-.mq-card-meter {
-    border-radius: 4px;
-    background: var(--bb-well);
-    box-shadow: inset 0 2px 2px #000a;
-}
-
-.mq-card-meter > div {
-    border-radius: 2px;
-    box-shadow: inset 0 1px #fff9, inset 0 -2px #0005;
-}
-
-.mq-card-action--claim {
-    display: flex;
-    justify-content: flex-end;
-}
-
+.mq-card-progress .lb-block-progress { min-inline-size: 0; flex: 1; }
+.mq-card-progress-value { color: var(--lb-muted); font: 650 var(--lb-type-micro)/1.2 var(--lb-font-body); white-space: nowrap; }
+.mq-card-action { display: flex; justify-content: end; align-items: center; grid-column: 2 / -1; }
+.mq-card-action .mq-change-overlay { position: static; }
 #missions-overlay .mq-card-action--claim .mq-pts-claim-btn {
-    --target: 28px;
-    --lb122-cap-lip: 2px;
-    min-height: var(--target);
-    padding: 2px 8px !important;
-    font: 400 .65rem/1 var(--bb-font-pixel);
-    white-space: nowrap;
+    position: relative;
+    min-height: 28px;
+    min-width: 76px;
+    padding: 0 var(--lb-space-md) !important;
+    font: 750 var(--lb-type-small)/1 var(--lb-font-body);
 }
+#missions-overlay .mq-pts-claim-btn::before { content: ''; position: absolute; inset: -8px 0; }
+.mq-claimed { color: var(--lb-label); font: 650 var(--lb-type-small)/1.25 var(--lb-font-body); }
+#missions-body :is(.mq-completed, #mq-bonus-box) { margin-block-start: var(--lb-space-md); }
+#missions-body .mq-completed { margin-block-end: var(--lb-space-sm); }
+.mq-board-details { display: grid; gap: var(--lb-space-md); }
+.mq-streak-summary, .mq-calendar { display: grid; gap: var(--lb-space-sm); }
+#missions-overlay .mq-streak-half { display: flex; justify-content: start; gap: var(--lb-space-sm); padding-inline: var(--lb-space-sm); }
+.mq-streak-half > :last-child { margin-inline-start: auto; color: var(--lb-muted); }
+.mq-streak-xp { color: var(--lb-muted); font-size: var(--lb-type-small); }
+.mq-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--lb-space-xs); }
+.mq-day { display: grid; justify-items: center; gap: var(--lb-space-xs); color: var(--lb-muted); font-size: var(--lb-type-micro); }
+.mq-day > :last-child { width: 100%; padding: var(--lb-space-xs); text-align: center; background: var(--lb-track); border: var(--lb-border) solid transparent; border-radius: var(--lb-radius); }
+.mq-day[aria-current='date'] > :last-child { border-color: var(--lb-label); color: var(--lb-ink); }
 
-@media (orientation: portrait) and (max-width: 600px) {
-    #missions-overlay:has(#mq-mission-view:not([hidden])) { overflow: hidden !important; }
-    #missions-overlay:has(#mq-mission-view:not([hidden])) .mq89-header {
-        row-gap: 6px;
-        padding-block: 6px 8px;
-    }
-    #missions-overlay #mq-mission-view:not([hidden]) {
-        flex: 1 1 auto !important;
-        display: block;
-        overflow: hidden auto !important;
-        padding: 10px 12px max(16px, env(safe-area-inset-bottom));
-    }
-
-    #mq-mission-view > .lb-scroll-fade {
-        width: auto !important;
-        overflow: visible !important;
-        padding: 0 !important;
-        border: 0 !important;
-    }
-
-    .mq-pb-wrap { margin-bottom: 8px; padding: 8px 10px 0; }
-    .mq-pb-points { position: absolute; left: 10px; bottom: 12px; }
-    .mq-pb-points > span:first-child { font-size: 1rem !important; }
-    .mq-pb-icons { height: 44px; }
-    .mq-pb-icon-wrap { top: 0; }
-    .mq-ms-crate { width: 28px; height: 28px; }
-
-    .mq-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
-    .mq-card {
-        display: grid;
-        grid-template-columns: auto minmax(0, 1fr);
-        grid-template-rows: auto 1fr;
-        align-content: start;
-        gap: 5px 6px;
-        padding: 8px;
-    }
-
-    .mq-card-hdr { grid-area: 1 / 1 / 2 / -1; margin: 0; }
-    .mq-card-body { display: contents; }
-    .mq-card .mq-mini-well { grid-area: 2 / 1; align-self: start; }
-    .mq-card .mq-mini-well td { width: 4px; height: 4px; }
-    .mq-card-text { grid-area: 2 / 2; overflow-wrap: anywhere; }
-    .mq-card-body--nowell .mq-card-text { grid-column: 1 / -1; }
-    .mq-card-title { margin-bottom: 2px; font: 700 .68rem/1.2 var(--font-body); }
-    .mq-card-desc { color: var(--bb-muted); font: .56rem/1.3 var(--font-body); }
-    .mq-card .mq-tier-badge { font-size: .55rem; }
-    .mq-card .mq-pts { font-size: .6rem; }
-    .mq-card-action { grid-column: 1 / -1; }
-    .mq-card-action--percent, .mq-card--ready .mq-card-progress { display: none; }
-    .mq-card-progress {
-        grid-column: 1 / -1;
-        gap: 5px;
-        margin: 0;
-    }
-    .mq-card-meter { height: 7px; padding: 1px; }
-    .mq-card-progress-value { min-width: 0; text-align: right; }
-
-    #mq-bonus-box {
-        grid-column: 1 / -1;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 6px 8px !important;
-    }
-    #mq-bonus-box > :first-child { margin-bottom: 0 !important; }
-    #mq-bonus-box > :last-child { flex: 1; }
-    .mq-streak-panel { gap: 8px; }
-    .mq-streak-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .mq-streak-summary > :is(.mq-streak-half, .mq-streak-xp) { padding: 8px !important; }
-    .mq-streak-summary .mq-streak-divider { display: none; }
-    .mq-streak-summary .mq-streak-xp { border-left: 1px solid #ffffff12; }
-}
-
-@media (max-width: 420px) {
-    .mq89-header.lb-block-topbar .lb-topbar-title { white-space: nowrap; }
-}
+#mq-confirm-overlay { position: fixed; inset: 0; z-index: 10010; display: grid; place-items: center; background: var(--lb-scrim); }
+#mq-confirm-note { color: var(--lb-muted); }

@@ -166,7 +166,7 @@ it('opens the same Settings from the menu and pause and returns to the caller', 
     expect(back.textContent.trim()).toBe('Back');
     settings.querySelector('[data-settings-category="audio"]').click();
     key(game, 'Escape');
-    expect(settings.querySelector('.lb102-categories').hidden).toBe(false);
+    expect(settings.querySelector('.lb102-directory').hidden).toBe(false);
     expect(get('pause-overlay').classList.contains('hidden')).toBe(true);
     key(game, 'Escape');
     finishClose();

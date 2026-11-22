@@ -19,9 +19,11 @@
         const screen = document.getElementById('season-pass-overlay');
         screen.innerHTML = `
             <div class="sp-shell">
-                <header class="sp-header">
-                    <div><span id="sp-season"></span><h1 id="sp-title">Season Pass</h1></div>
-                    <div class="sp-days"><strong id="sp-days"></strong><span id="sp-dates"></span></div>
+                <header class="sp-header lb-block-card">
+                    <div class="sp-summary">
+                        <div><p id="sp-season"></p><h2 id="sp-title">Season progress</h2><p id="sp-dates"></p></div>
+                        <strong id="sp-days"></strong>
+                    </div>
                     <div class="sp-meter" hidden>
                         <span id="sp-progress-text"></span>
                         <progress class="lb-block-progress" aria-label="Season points to next stage" aria-describedby="sp-progress-text" max="1" value="0"></progress>
@@ -29,15 +31,15 @@
                 </header>
                 <p id="sp-notice" class="sp-notice" role="status" hidden></p>
                 <div class="sp-track-header">
-                    <div><h2>Free reward track</h2><p>Stages open when their day arrives and you have enough points.</p></div>
+                    <div><h2 class="lb-block-section-title">Free reward track</h2><p>Stages open when their day arrives and you have enough points.</p></div>
                     <button type="button" class="sp-jump lb-block-btn" hidden></button>
                 </div>
                 <div id="sp-loading" role="status"></div>
                 <button type="button" class="sp-retry lb-block-btn" hidden>Retry</button>
                 <div class="sp-track" role="region" aria-label="Season reward stages" tabindex="0" hidden><ol></ol></div>
-                <aside class="sp-highlight">
+                <aside class="sp-highlight lb-block-card">
                     <img src="assets/ui/41-season-pass-exclusive.webp" alt="" width="144" height="106">
-                    <div><h2>Season Prism</h2><p>Exclusive block skin · Stage 30</p></div>
+                    <div><h2 class="lb-block-section-title">Season Prism</h2><p>Exclusive block skin · Stage 30</p></div>
                 </aside>
                 <p id="sp-announcement" class="sp-sr-only" role="status"></p>
             </div>`;
@@ -50,9 +52,8 @@
         const notice = find('#sp-notice');
         const loading = find('#sp-loading');
         const announcement = find('#sp-announcement');
-        let config, configRequest, timer, previous, centerOnRender, saveCheckpoint;
+        let config, configRequest, timer, previous, saveCheckpoint;
         const isOpen = () => !screen.hidden;
-        const verticalTrack = () => window.matchMedia?.('(orientation: portrait), (max-width: 699px)')?.matches;
 
         function rewardLabel(reward) {
             const { type, key, amount, tier, contents } = reward;
@@ -67,12 +68,7 @@
             const card = cards.querySelector('[data-next]');
             if (!card) return;
             const rect = card.getBoundingClientRect();
-            if (verticalTrack()) {
-                screen.scrollTop += rect.top - screen.getBoundingClientRect().top + (rect.height - screen.clientHeight) / 2;
-            } else {
-                const area = track.getBoundingClientRect();
-                track.scrollLeft += rect.left - area.left + (rect.width - area.width) / 2;
-            }
+            screen.scrollTop += rect.top - screen.getBoundingClientRect().top + (rect.height - screen.clientHeight) / 2;
             if (focus) card.focus({ preventScroll: true });
         }
 
@@ -111,14 +107,14 @@
             const progressBetween = (from, to) => Math.max(0, Math.min(1, (season.points - from) / (to - from)));
             cards.replaceChildren(...stages.map(({ day, tier, points: threshold, status }, index) => {
                 const card = document.createElement('li');
-                card.className = 'sp-card';
+                card.className = 'sp-card lb-block-card';
                 card.dataset.stage = day;
                 card.dataset.tier = tier;
+                card.dataset.rarity = tier === 'exclusive' ? 'mythic' : tier;
                 card.dataset.state = status;
                 if (season.points >= threshold) card.dataset.reached = '';
                 if (index < stages.length - 1) {
                     const progress = progressBetween(threshold, stages[index + 1].points);
-                    card.style.setProperty('--sp-segment', `${100 * progress}%`);
                     card.style.setProperty('--sp-outgoing', `${100 * Math.min(1, progress * 2)}%`);
                 }
                 if (index > 0) {
@@ -132,7 +128,7 @@
                 }
                 card.innerHTML = `<span class="sp-step" aria-hidden="true"></span><h3></h3>
                     <img class="sp-reward-icon" src="assets/ui/crates/${tier === 'exclusive' ? 'mythic' : tier}.png" alt="" width="64" height="46" decoding="async">
-                    <p class="sp-tier"></p><p class="sp-threshold"></p><p class="sp-state"></p>`;
+                    <p class="sp-tier lb-ledger-rarity-label"></p><p class="sp-threshold"></p><p class="sp-state"></p>`;
                 card.querySelector('h3').textContent = `Stage ${day}`;
                 card.querySelector('.sp-tier').textContent = tier === 'exclusive' ? 'Exclusive skin' : `${title(tier)} reward`;
                 card.querySelector('.sp-threshold').textContent = `${points.format(threshold)} pts`;
@@ -157,13 +153,6 @@
                 return card;
             }));
             if (focused) (find(`[data-sp-day="${focused}"]`) || find(`[data-stage="${focused}"]`))?.focus({ preventScroll: true });
-            if (centerOnRender) {
-                centerOnRender = false;
-                if (!verticalTrack()) {
-                    track.scrollLeft = next ? 0 : track.scrollWidth;
-                    if (next?.day > 3) centerStage();
-                }
-            }
         }
 
         function refresh(persist = false) {
@@ -212,7 +201,6 @@
             if (isOpen()) return;
             screen.hidden = false;
             screen.scrollTop = 0;
-            centerOnRender = true;
             previous = null;
             announcement.textContent = '';
             refresh(true);
@@ -225,41 +213,7 @@
             centerStage(true);
         });
         window.addEventListener('focus', () => { if (isOpen()) refresh(); });
-        let drag;
-        let suppressClick = false;
-        track.addEventListener('pointerdown', event => {
-            suppressClick = false;
-            if (event.pointerType !== 'mouse' || event.button !== 0 || verticalTrack()
-                || track.scrollWidth <= track.clientWidth) return;
-            drag = { id: event.pointerId, x: event.clientX, scroll: track.scrollLeft, active: false };
-        });
-        track.addEventListener('pointermove', event => {
-            if (drag?.id !== event.pointerId) return;
-            const distance = event.clientX - drag.x;
-            if (!drag.active) {
-                if (Math.abs(distance) < 5) return;
-                drag.active = suppressClick = true;
-                track.setPointerCapture(event.pointerId);
-                track.classList.add('lb138-dragging');
-            }
-            event.preventDefault();
-            track.scrollLeft = drag.scroll - distance;
-        });
-        for (const type of ['pointerup', 'pointercancel', 'lostpointercapture', 'pointerleave']) {
-            track.addEventListener(type, event => {
-                if (drag?.id !== event.pointerId || (type === 'pointerleave' && drag.active)) return;
-                drag = null;
-                track.classList.remove('lb138-dragging');
-            });
-        }
-        track.addEventListener('dragstart', event => {
-            if (drag) event.preventDefault();
-        });
         track.addEventListener('click', event => {
-            if (suppressClick && event.detail) {
-                suppressClick = false;
-                return;
-            }
             const button = event.target.closest('[data-sp-day]');
             if (!button || !isOpen() || !config) return;
             const day = Number(button.dataset.spDay);

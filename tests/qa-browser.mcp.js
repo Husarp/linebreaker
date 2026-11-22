@@ -1,4 +1,4 @@
-(async (page) => {
+(async (page, { viewport = { width: 390, height: 844 }, capture } = {}) => {
     const url = new URL('/index.html?dev&demo', page.url());
     const localCatalog = await (await page.request.get(new URL('/assets/music.json', url).href)).json();
     const releaseCatalog = await (await page.request.get(new URL('/assets/music.release.json', url).href)).json();
@@ -27,7 +27,7 @@
     page.on('response', onResponse);
     const originalViewport = page.viewportSize();
     try {
-        await page.setViewportSize({ width: 390, height: 844 });
+        await page.setViewportSize(viewport);
         await page.goto(url.href);
         await page.waitForFunction(() => window.__LB_QA && document.querySelector('#loading-screen').style.display === 'none');
         const names = await page.evaluate(() => window.__LB_QA.list());
@@ -43,16 +43,49 @@
             } catch (error) {
                 onError(error);
             }
+            if (name === 'start-animation') await capture?.(name);
             await page.waitForTimeout(1050);
+            if (name !== 'start-animation') await capture?.(name);
+            if (name === 'settings-home') {
+                const fits = await page.evaluate(() => {
+                    const search = document.querySelector('.lb-ledger-search').getBoundingClientRect();
+                    const scroll = document.querySelector('.lb102-settings-scroll').getBoundingClientRect();
+                    const rows = [...document.querySelectorAll('.lb-ledger-list > button')];
+                    return rows.length === 5 && rows.every(row => {
+                        const bounds = row.getBoundingClientRect();
+                        const icon = row.firstElementChild.getBoundingClientRect();
+                        return bounds.top >= search.bottom && bounds.bottom <= scroll.bottom && bounds.height >= 44
+                            && icon.width > 0 && icon.width <= 24 && row.querySelector('strong').getBoundingClientRect().width > 140;
+                    });
+                });
+                if (!fits) fail('Settings directory rows or icons do not fit');
+                const search = page.locator('.lb-ledger-search input');
+                await search.fill('wallpaper');
+                const matches = await page.locator('.lb-ledger-list > button:visible').evaluateAll(rows => rows.map(row => row.dataset.settingsCategory));
+                if (matches.join() !== 'display') fail('Wallpaper search did not hide unrelated settings rows');
+                await search.clear();
+            }
             if (name === 'menu') {
                 const fits = await page.evaluate(() => {
                     const corner = document.querySelector('.lb43-gift-corner').getBoundingClientRect();
                     const player = document.querySelector('#music-widget').getBoundingClientRect();
                     const bottomInset = parseFloat(getComputedStyle(document.querySelector('#menu-overlay')).paddingBottom);
                     return corner.width > 0 && corner.right <= innerWidth - 12 && corner.bottom <= innerHeight - bottomInset + 1
-                        && corner.top >= player.bottom + 6 && player.height > 0;
+                        && corner.left >= player.right + 6 && player.height > 0;
                 });
                 if (!fits) fail('Daily Gift does not fit clear of the music player and safe area');
+                await page.locator('#btn-season-pass').click();
+                await page.locator('#season-pass-overlay').waitFor({ state: 'visible', timeout: 3000 })
+                    .catch(() => fail('Season Pass card did not open the Season Pass view'));
+                await page.evaluate(() => window.closeMissions());
+            }
+            if (name === 'game-over') {
+                const actionsFit = await page.locator('#go-overlay .go-actions').evaluate(actions => {
+                    const dialog = actions.closest('.lb-block-dialog').getBoundingClientRect();
+                    const footer = actions.getBoundingClientRect();
+                    return footer.height >= 44 && footer.bottom <= dialog.bottom && footer.bottom <= innerHeight;
+                });
+                if (!actionsFit) fail('Run actions do not fit below the scrollable results');
             }
             if (name === 'missions' || name === 'missions-weekly') {
                 const compact = await page.evaluate(() => {
@@ -62,10 +95,26 @@
                     return height >= 26 && height <= 30 && Math.abs(right - button.parentElement.getBoundingClientRect().right) < 1;
                 });
                 if (!compact) fail('Claim button is not a 26–30px right-aligned action');
+                const board = await page.evaluate(period => {
+                    const card = document.querySelector('.mq-board');
+                    const selected = document.querySelector('.mq-board-controls [aria-pressed="true"][data-tab]');
+                    const rows = [...document.querySelectorAll('#missions-body .mq-card')].slice(0, 2);
+                    return card?.querySelector('time')?.dateTime && selected?.dataset.tab === period
+                        && rows.length === 2 && rows[0].getBoundingClientRect().left === rows[1].getBoundingClientRect().left;
+                }, name === 'missions' ? 'daily' : 'weekly');
+                if (!board) fail('Mission board is missing its timer, active period, or single-column cards');
+            }
+            if (name === 'season-pass') {
+                const track = await page.evaluate(() => {
+                    const screen = document.getElementById('season-pass-overlay');
+                    return !screen.hidden && screen.querySelectorAll('.sp-card[data-rarity]').length === 30
+                        && screen.querySelector('.sp-header progress')?.getBoundingClientRect().width > 0;
+                });
+                if (!track) fail('Season Pass is missing the next-stage meter or rarity-labelled rewards');
             }
         }
         if (failures.size) throw new Error([...failures].join('\n'));
-        return { passed: names.length, viewport: '390×844' };
+        return { passed: names.length, viewport: `${viewport.width}×${viewport.height}` };
     } finally {
         page.off('response', onResponse);
         page.off('console', onConsole);

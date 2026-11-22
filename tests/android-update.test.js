@@ -140,7 +140,7 @@ it('acknowledges readiness without forcing an unanswered setup dialog or hiding 
   expect(game.ota.appReady).toHaveBeenCalledOnce();
   expect(game.get('dialog[open]')).toBeNull();
   expect(game.get('.lb184-banner [data-title]').textContent).toBe('App update available');
-  expect(game.get('.lb184-banner [data-actions] button').textContent).toBe('Get update 1.0.3');
+  expect(game.get('.lb184-banner [data-actions] button').textContent).toBe('Download update 1.0.3');
   expect(game.ota.setSafeToInterrupt).toHaveBeenLastCalledWith({ safe: true });
   game.click('Finish update setup');
   expect(game.get('dialog[open]').getAttribute('aria-label')).toBe('How should updates work?');
@@ -193,7 +193,7 @@ it('exposes Android policy and shell actions directly in the Updates section', a
   expect(section.querySelector('[data-get]').hidden).toBe(true);
   expect(section.querySelector('.lb184-toolbar button:last-child').textContent).toBe('GitHub releases');
   expect(section.querySelector('.lb184-toolbar button:last-child svg')).not.toBeNull();
-  expect(section.querySelector('h2').textContent).toBe('Updates');
+  expect(section.firstElementChild.matches('.lb184-toolbar')).toBe(true);
   section.querySelector('[data-auto]').click();
   await flush();
   expect(game.ota.setUpdateSettings).toHaveBeenLastCalledWith({ checkFrequency: 'manual' });
@@ -240,7 +240,7 @@ it('opts into background notices without scheduling any in the foreground and cl
 it('never restarts automatically and guards the versioned install action during play', async () => {
   const game = await boot({ safe: false, native: { staged: { version: '0.2.0' }, autoRestart: true } });
   await game.restoreSave(); await game.ready();
-  expect(game.get('.lb184-banner [data-actions] button').textContent).toBe('Install update 0.2.0');
+  expect(game.get('.lb184-banner [data-actions] button').textContent).toBe('Restart to apply');
   game.get('.lb149-settings [data-get]').click();
   await flush();
   expect(game.ota.restart).not.toHaveBeenCalled();
@@ -284,11 +284,11 @@ it('queues the installed banner with an offer and shows literal release notes on
   expect(reopened.get('#settings-whats-new').textContent).toContain(updated.notes);
 });
 
-it('keeps progress in the same slot and switches Get to Install when ready', async () => {
+it('keeps progress in the same slot and switches Download to Restart when ready', async () => {
   const game = await boot({ native: { available: { version: '0.2.0', size: 100 } } });
   await game.restoreSave(); await game.ready();
   const button = game.get('.lb149-settings [data-get]');
-  expect(button.textContent).toBe('Get update 0.2.0');
+  expect(button.textContent).toBe('Download update 0.2.0');
   Object.assign(game.state, { available: null, webDownloadVersion: '0.2.0', busy: true, webTransfer: { done: 42, total: 100 } });
   await game.redraw();
   const progress = game.get('.lb149-settings progress');
@@ -298,6 +298,6 @@ it('keeps progress in the same slot and switches Get to Install when ready', asy
   Object.assign(game.state, { busy: false, staged: { version: '0.2.0' } });
   await game.redraw();
   expect(progress.hidden).toBe(true);
-  expect(button.textContent).toBe('Install update 0.2.0');
+  expect(button.textContent).toBe('Restart to apply');
   expect(game.get('.lb184-banner [data-actions] button').textContent).toBe(button.textContent);
 });

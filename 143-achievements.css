@@ -74,43 +74,13 @@
     letter-spacing: var(--tracking);
 }
 
-.ach-section-rule {
-    flex: 1;
-    height: 1px;
-    background: var(--bb-edge);
-}
-
-[data-ach-group] { --ach-category-color: #70dfb7; }
-[data-ach-group="secret"] { --ach-category-color: #df9cf4; }
-
-.ach-card {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 68px;
-    width: 68px;
-    height: 68px;
-    border: 0;
-    padding: 0;
-    background: transparent;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-}
-
 .ach-card:focus:not(:focus-visible) { outline: none; }
 .ach-card:focus-visible {
     outline: var(--focus-width) solid var(--accent-bright);
     outline-offset: var(--focus-offset);
 }
 
-.ach-card-icon { color: #686873; }
-.ach-card[data-state="locked"] .ach-card-icon { --lb-flame-core: currentColor; }
-.ach-card[data-state="unlocked"] .ach-card-icon {
-    color: var(--ach-category-color);
-    --lb-flame-core: color-mix(in srgb, currentColor 55%, white);
-}
+.ach-card-icon { --lb-flame-core: currentColor; }
 
 #ach-tip { width: min(284px, calc(100vw - 20px)); }
 .ach-tip-title {
@@ -126,22 +96,6 @@
 .ach-tip-tier[data-rarity="mythic"] { color: var(--bb-rarity-mythic); }
 .ach-tip-note, .ach-tip-total { margin-top: 4px; color: var(--bb-muted); }
 .ach-tip-total { margin-top: 8px; border-top: 1px solid var(--bb-edge); padding-top: 5px; }
-
-.ach-card-progress {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    overflow: visible;
-    pointer-events: none;
-    color: var(--ach-category-color);
-    filter: drop-shadow(0 0 2px color-mix(in srgb, currentColor 55%, transparent));
-    opacity: .8;
-}
-
-.ach-card[data-state="unlocked"] .ach-card-progress {
-    filter: drop-shadow(0 0 4px currentColor);
-    opacity: 1;
-}
 
 .ach-empty {
     padding: 24px;

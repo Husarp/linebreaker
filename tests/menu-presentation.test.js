@@ -84,11 +84,27 @@ it('drifts image wallpapers only, pauses when hidden, and honors both motion con
     preference.dispatchEvent(new w.Event('change'));
     expect(animations.at(-1).playState).toBe('idle');
     setMode('plain');
+    const banner = w.document.querySelector('.lb-menu-banner');
+    expect(banner.style.getPropertyValue('--lb-theme-art-landscape')).toBe('');
     preference.matches = false;
     preference.dispatchEvent(new w.Event('change'));
     expect(animations).toHaveLength(3);
     setMode('image');
     expect(animations.at(-1).playState).toBe('running');
+  } finally { close(); }
+});
+
+it('renders the real rank, level, XP and current season in the menu', async () => {
+  const { w, api, close } = await loadGame();
+  try {
+    const info = api.getLevelInfo(api.save.totalXP);
+    const { document } = w;
+    expect(document.getElementById('badge-rank-name').textContent).toBe(info.rank.name);
+    expect(document.getElementById('badge-level-num').textContent).toBe(`Level ${info.level.toLocaleString()}`);
+    expect(document.getElementById('menu-xp-detail').textContent).toBe(`${info.currentXP.toLocaleString()} / ${info.neededXP.toLocaleString()} XP`);
+    expect(document.querySelector('.lb-menu-banner').style.getPropertyValue('--lb-theme-art-landscape')).toContain('default-landscape.jpg');
+    const { id, day } = w.LBSeason.seasonWindow(w.Date.now());
+    expect(document.getElementById('lb-menu-season-date').textContent).toBe(`Season ${String(id).padStart(2, '0')} · Day ${String(day).padStart(2, '0')} / ${w.LBSeason.DAYS}`);
   } finally { close(); }
 });
 

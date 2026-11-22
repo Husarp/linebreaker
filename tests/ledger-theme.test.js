@@ -3,6 +3,7 @@ import { loadGame } from './loader.js';
 
 const rootTheme = window => window.document.documentElement.dataset.lbUiTheme;
 const settings = window => JSON.parse(window.localStorage.getItem('linebreaker_settings'));
+const themeButton = (window, theme) => window.document.querySelector(`[data-ui-theme="${theme}"]`);
 const choose = (window, id, value) => {
   const control = window.document.getElementById(id);
   control.value = value;
@@ -19,7 +20,7 @@ it('defaults to Forest dark and persists light independently of the equipped the
     const background = w.document.querySelector('.bg-gradient').style;
     expect(background.getPropertyValue('--lb-theme-art-landscape')).toContain('/sakura-landscape.jpg');
     expect(background.getPropertyValue('--lb-theme-art-portrait')).toContain('/sakura-portrait.jpg');
-    choose(w, 'setting-ui-theme', 'light');
+    themeButton(w, 'light').click();
     expect(rootTheme(w)).toBe('light');
     expect(background.getPropertyValue('--lb-theme-art-portrait')).toContain('/sakura-portrait.jpg');
     saved = settings(w);
@@ -29,15 +30,24 @@ it('defaults to Forest dark and persists light independently of the equipped the
   const restored = await loadGame(true, null, null, saved);
   try {
     const { w } = restored;
+    const banner = w.document.querySelector('.lb-menu-banner');
     w.openSettings();
     expect(rootTheme(w)).toBe('light');
-    expect(w.document.getElementById('setting-ui-theme').value).toBe('light');
+    expect(themeButton(w, 'light').getAttribute('aria-pressed')).toBe('true');
+    expect(themeButton(w, 'dark').getAttribute('aria-pressed')).toBe('false');
     expect(w.document.getElementById('setting-theme-background').value).toBe('sakura');
     const wallpaper = w.document.getElementById('setting-theme-background');
     expect([...wallpaper.options].map(option => option.value)).toEqual(['image', 'plain', ...w.LBArtPack.wallpapers]);
     w.applyTheme('default');
     expect(w.document.querySelector('.bg-gradient').style.getPropertyValue('--lb-theme-art-portrait'))
       .toContain('/sakura-portrait.jpg');
+    expect(banner.style.getPropertyValue('--lb-theme-art-portrait')).toContain('/sakura-portrait.jpg');
+    expect(rootTheme(w)).toBe('light');
+    const preview = w.document.querySelector('.lb102-wallpaper-preview');
+    expect(preview.style.backgroundImage).toContain('/sakura-landscape.jpg');
+    choose(w, 'setting-theme-background', 'plain');
+    expect(preview.style.backgroundImage).toBe('');
+    expect(banner.style.getPropertyValue('--lb-theme-art-portrait')).toBe('');
     expect(rootTheme(w)).toBe('light');
   } finally { restored.close(); }
 });
@@ -55,7 +65,8 @@ it('follows the live system preference without overwriting the stored mode', asy
     preference.dispatchEvent(new w.Event('change'));
     expect(rootTheme(w)).toBe('dark');
     expect(settings(w).uiTheme).toBe('system');
-    choose(w, 'setting-ui-theme', 'dark');
+    expect(themeButton(w, 'system').getAttribute('aria-pressed')).toBe('true');
+    themeButton(w, 'dark').click();
     preference.matches = true;
     preference.dispatchEvent(new w.Event('change'));
     expect(rootTheme(w)).toBe('dark');

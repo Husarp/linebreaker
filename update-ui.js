@@ -10,8 +10,7 @@
     notices, queueNotice, getLabel, githubIcon, statusMarkup, setStatus, showNotes } = window.LBUpdateTools;
   const section = document.createElement('section');
   section.className = 'settings-section lb-block-panel lb149-settings';
-  section.innerHTML = `<h2 class="lb-block-section-title">Updates</h2>
-    <div class="lb149-actions lb184-toolbar">
+  section.innerHTML = `<div class="lb149-actions lb184-toolbar">
       <button class="lb-block-btn" data-check>Check for updates</button>
       <button class="lb-block-btn lb-block-btn--primary" data-get hidden></button>
       <button class="lb-block-btn" data-whats-new>What's new</button>

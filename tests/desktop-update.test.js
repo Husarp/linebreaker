@@ -90,7 +90,7 @@ it('downloads with stable progress, retries, and waits for an explicit install a
   game.window.flushLinebreakerSave = () => new Promise(resolve => { releaseSave = resolve; });
   expect(game.select('.lb184-banner [data-detail]').textContent).toBe('Version 0.10.0 · 2.0 MiB');
   const action = game.select('[data-get]');
-  expect(action.textContent).toBe('Get update 0.10.0');
+  expect(action.textContent).toBe('Download update 0.10.0');
   action.click();
   await settle();
   expect(game.select('.lb184-banner [data-title]').textContent).toBe('Could not update');

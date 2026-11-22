@@ -8,7 +8,7 @@ afterEach(() => game?.close());
 it('opens deep links before syncing, returns to the category menu, and cancels a closed screen fill', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => { window.__testDeferredScreens = true; });
   const { w, advance } = game;
-  const menu = w.document.querySelector('.lb102-categories');
+  const menu = w.document.querySelector('.lb102-directory');
   const back = w.document.getElementById('settings-back');
   const controls = w.document.getElementById('settings-controls');
   const opened = w.openSettings(false, 'updates');
@@ -33,6 +33,36 @@ it('opens deep links before syncing, returns to the category menu, and cancels a
   advance(16); advance(16);
   await reopened;
   w.closeSettings();
+});
+
+it('filters the exact Game and App directory groups and preserves search on return', async () => {
+  game = await loadGame(true);
+  const { w } = game;
+  await w.openSettings();
+  const groups = [...w.document.querySelectorAll('[data-settings-group]')];
+  expect(groups.map(group => [...group.querySelectorAll('strong')].map(label => label.textContent)))
+    .toEqual([['Controls', 'Display', 'Audio'], ['Notifications', 'Data & updates']]);
+  const search = w.document.querySelector('.lb-ledger-search input');
+  const query = value => { search.value = value; search.dispatchEvent(new w.Event('input')); };
+  const visibleRows = () => [...w.document.querySelectorAll('[data-settings-category]:not([hidden])')];
+  query('  WALLPAPER  theme ');
+  expect(groups[1].parentElement.hidden).toBe(true);
+  expect(visibleRows().map(button => button.dataset.settingsCategory)).toEqual(['display']);
+  const [display] = visibleRows();
+  display.click();
+  const back = w.document.getElementById('settings-back');
+  back.click();
+  expect(w.document.activeElement).toBe(display);
+  expect(search.value).toBe('  WALLPAPER  theme ');
+  query('not-a-setting');
+  expect(visibleRows()).toEqual([]);
+  expect(w.document.querySelector('.lb102-no-results').hidden).toBe(false);
+  query('gameplay');
+  visibleRows()[0].click();
+  const gameplay = w.document.querySelector('[data-settings-subpage="game"]');
+  gameplay.click();
+  back.click();
+  expect(w.document.activeElement).toBe(gameplay);
 });
 
 const fileFor = {
@@ -149,7 +179,7 @@ it('opens the documented screenshot targets through real UI handlers', async () 
   const { w, advance } = game;
   const targets = {
     menu: '#menu-overlay', play: '#mode-select-overlay', 'play-fun': '#mode-select-overlay[data-mode="fun"]',
-    'settings-home': '.lb102-categories', settings: '#settings-game', 'settings-controls': '#settings-controls', 'settings-audio': '#settings-audio',
+    'settings-home': '.lb102-directory', settings: '#settings-game', 'settings-controls': '#settings-controls', 'settings-audio': '#settings-audio',
     'settings-display': '#settings-display', 'settings-notifications': '#settings-notifications', 'settings-updates': '#settings-updates', 'settings-about': '#settings-about',
     'whats-new-notice': '.lb184-banner', inventory: '[data-invtab-content="blocks"]',
     'inventory-colors': '[data-invtab-content="colors"]', 'inventory-other': '[data-invtab-content="other"]',
@@ -208,8 +238,8 @@ it('shows the compact reset time above daily and weekly cards but not on Season'
   const weeklyRemaining = dailyRemaining + 2 * 86400;
   w.LBNotifications.nextReset = (now, weekly) => +now + (weekly ? weeklyRemaining : dailyRemaining) * 1000;
   await w.__LB_QA.open('missions');
-  expect(countdown.nextElementSibling.id).toBe('missions-body');
-  expect(countdown.hidden).toBe(false);
+  expect(countdown.closest('.mq-board').getAttribute('aria-labelledby')).toBe('mq-board-title');
+  expect(countdown.closest('#mq-mission-view').hidden).toBe(false);
   expect(timer.textContent).toBe('5h 12m');
   expect(timer.dateTime).toBe('P0DT5H12M0S');
   w.document.querySelector('#missions-overlay [data-tab="weekly"]').click();
@@ -217,7 +247,7 @@ it('shows the compact reset time above daily and weekly cards but not on Season'
   expect(timer.textContent).toBe('2d 5h 12m');
   expect(timer.dateTime).toBe('P2DT5H12M0S');
   w.document.querySelector('#missions-overlay [data-tab="season"]').click();
-  expect(countdown.hidden).toBe(true);
+  expect(countdown.closest('#mq-mission-view').hidden).toBe(true);
 });
 
 it('updates the open season countdown at precision boundaries and rollover', async () => {
