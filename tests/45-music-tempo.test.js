@@ -71,6 +71,7 @@ it('finishes a requested transition at the current bar without scheduling the ne
 
 it('applies run speed, respects the Intense playlist, and persists the opt-out', async () => {
   const catalog = JSON.parse(readFileSync(new URL('../assets/music.release.json', import.meta.url), 'utf8'));
+  for (const group of Object.keys(catalog)) catalog[group] = catalog[group].filter(track => track.synth);
   const fetch = async () => ({ ok: true, json: async () => catalog });
   const { w, api, advance, close } = await loadGame(true, null, null, fetch);
   try {

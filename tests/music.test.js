@@ -12,7 +12,8 @@ const original = JSON.parse(readFileSync(new URL('../assets/music.release.json',
 const local = JSON.parse(readFileSync(new URL('../assets/music.json', import.meta.url), 'utf8'));
 const { getTrack, createSource } = globalThis.LBMusicSynth;
 
-const synthCatalog = async () => ({ ok: true, json: async () => original });
+const scores = Object.fromEntries(Object.entries(original).map(([group, tracks]) => [group, tracks.filter(track => track.synth)]));
+const synthCatalog = async () => ({ ok: true, json: async () => scores });
 
 async function resetMusicAfterBoot(win, api) {
   await vi.waitFor(() => expect(win.document.getElementById('loading-screen').dataset.dismissed).toBe('1'));
@@ -384,7 +385,7 @@ it('disconnects a failed recording before starting synth and ignores stale media
   const media = [], requests = [];
   const active = new Set();
   const fetch = async (path, options) => options?.method === 'HEAD' ? { ok: true } : {
-    ok: true, json: async () => path.endsWith('music.release.json') ? original : local
+    ok: true, json: async () => path.endsWith('music.release.json') ? scores : local
   };
   const { w, api, close } = await loadGame(true, null, null, fetch, null, win => {
     win.Audio = function () {
@@ -472,9 +473,9 @@ it('still plays a built-in score when both catalogs fail to load', async () => {
 });
 
 it('defines ten distinct, layered score loops with the requested lengths', () => {
-  expect(Object.values(original).map(tracks => tracks.length)).toEqual([4, 4, 2]);
+  expect(Object.values(scores).map(tracks => tracks.length)).toEqual([4, 4, 2]);
   const melodies = new Set();
-  for (const [category, entries] of Object.entries(original)) {
+  for (const [category, entries] of Object.entries(scores)) {
     for (const entry of entries) {
       expect(entry.file).toBeUndefined();
       const track = getTrack(entry.synth);
@@ -540,7 +541,7 @@ it('schedules only a look-ahead window and cancels audio and timers on pause or 
   }
 });
 
-it('uses all three synth playlists when local MP3s are missing, even with an old save', async () => {
+it('uses the release playlists when private recordings are missing, even with an old save', async () => {
   const fetch = vi.fn(async (path, options) => options?.method === 'HEAD' ? { ok: false } : {
     ok: true, json: async () => path.endsWith('music.release.json') ? original : local
   });
@@ -553,8 +554,8 @@ it('uses all three synth playlists when local MP3s are missing, even with an old
     expect(api._getPlaylist('menu')).toEqual(original.menu.map(track => track.title));
     expect(api._getPlaylist('game')).toEqual(original.game.map(track => track.title));
     expect(api._getPlaylist('action')).toEqual(original.intense.map(track => track.title));
-    api.startMusic();
-    await Promise.resolve();
+    w.Math.random = () => 0.99;
+    await api.startMusic();
     expect(api._getPlaylist('menu')).toContain(title());
     const first = title();
     w.musicWidgetNext();
@@ -571,7 +572,7 @@ it('uses all three synth playlists when local MP3s are missing, even with an old
     expect(seek.valueAsNumber).toBeCloseTo(50, 0);
     expect(seek.style.getPropertyValue('--track-progress')).toBe(`${seek.value}%`);
     expect(w.document.getElementById('mw-elapsed').textContent).not.toBe('0:00');
-    w.Math.random = () => 0.75;
+    w.Math.random = () => 0.4;
     await api.switchMusicMode('game');
     expect(api._getPlaylist('game')).toContain(title());
     w.Math.random = () => 0.25;
@@ -580,9 +581,44 @@ it('uses all three synth playlists when local MP3s are missing, even with an old
   } finally { close(); }
 });
 
+it('plays an owned release recording and loops it only while it is the sole selection', async () => {
+  const media = [];
+  const fetch = vi.fn(async (_path, options) => ({ ok: options?.method !== 'HEAD', json: async () => original }));
+  const { w, api, close } = await loadGame(true, null, null, fetch, null, win => {
+    win.Audio = function () {
+      const audio = win.document.createElement('audio');
+      audio.play = vi.fn(async () => {});
+      audio.pause = vi.fn();
+      audio.load = vi.fn();
+      media.push(audio);
+      return audio;
+    };
+    win.AudioContext.prototype.createMediaElementSource = () => ({ connect() {}, disconnect() {} });
+  });
+  try {
+    await resetMusicAfterBoot(w, api);
+    api.setup();
+    await api.startMusic();
+    w.playTrackInPlaylist('Cunning Plan');
+    const audio = media.at(-1);
+    expect(audio.getAttribute('src')).toBe('assets/music-release/cunning-plan.ogg');
+    expect(audio.play).toHaveBeenCalledOnce();
+    expect(audio.loop).toBe(false);
+    expect(fetch.mock.calls.some(([, options]) => options?.method === 'HEAD')).toBe(false);
+    for (const { title } of scores.menu) w.moveTrack('menu', title, false);
+    expect(api._getPlaylist('menu')).toEqual(['Cunning Plan']);
+    expect(audio.loop).toBe(true);
+    w.moveTrack('menu', 'Glass Harbor', true);
+    expect(audio.loop).toBe(false);
+    const credit = [...w.document.querySelectorAll('[aria-labelledby="credits-music"] dl > div')][0];
+    expect(credit.querySelector('a').href).toBe('https://opengameart.org/content/cunning-plan-short-seamless-loop');
+    expect(credit.querySelector('dd').textContent).toBe('congusbongus · CC0');
+  } finally { close(); }
+});
+
 it('keeps the music volume and mute independent of run fades and settings edits', async () => {
   const gains = [];
-  const fetch = async path => ({ ok: true, json: async () => path.endsWith('music.release.json') ? original : [] });
+  const fetch = async path => ({ ok: true, json: async () => path.endsWith('music.release.json') ? scores : [] });
   const { w, api, close } = await loadGame(true, null, null, fetch, { musicVol: 30, musicMuted: false }, win => {
     const createGain = win.AudioContext.prototype.createGain;
     win.AudioContext.prototype.createGain = function () {
@@ -628,13 +664,14 @@ it('keeps the music volume and mute independent of run fades and settings edits'
   } finally { close(); }
 });
 
-it('stages only catalogued Ogg recordings and only with the private build flag', () => {
+it('stages only catalogued release recordings, with private audio gated by the private build flag', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'lb-music-build-'));
   const path = relative => join(fixture, relative);
   const build = fileURLToPath(new URL('../scripts/build-web.mjs', import.meta.url));
   const packagedCatalog = () => JSON.parse(readFileSync(path('dist-web/assets/music.json'), 'utf8'));
   try {
     mkdirSync(path('assets/music'), { recursive: true });
+    cpSync(new URL('../assets/music-release', import.meta.url), path('assets/music-release'), { recursive: true });
     mkdirSync(path('assets/fonts'));
     mkdirSync(path('assets/ui'));
     cpSync(new URL('../assets/skins', import.meta.url), path('assets/skins'), { recursive: true });
@@ -651,16 +688,29 @@ it('stages only catalogued Ogg recordings and only with the private build flag',
     writeFileSync(path('assets/music.json'), JSON.stringify(localCatalog));
     writeFileSync(path('assets/music/Rest Area.ogg'), 'test fixture');
     writeFileSync(path('assets/music/unlisted.ogg'), 'test fixture');
+    writeFileSync(path('assets/music-release/unlisted.ogg'), 'test fixture');
     writeFileSync(path('assets/music/archived.mp3'), 'test fixture');
 
     execFileSync(process.execPath, [build, '--local-music'], { cwd: fixture });
-    expect(packagedCatalog().menu.filter(track => track.file)).toEqual([local.menu[0]]);
+    expect(packagedCatalog().menu.filter(track => track.file)).toEqual([...original.menu.filter(track => track.file), local.menu[0]]);
     expect(existsSync(path('dist-web/assets/music/Rest Area.ogg'))).toBe(true);
     expect(existsSync(path('dist-web/assets/music/unlisted.ogg'))).toBe(false);
     expect(existsSync(path('dist-web/assets/music/archived.mp3'))).toBe(false);
 
     execFileSync(process.execPath, [build], { cwd: fixture });
     expect(packagedCatalog()).toEqual(original);
+    const recordingsByGroup = Object.values(original).map(tracks => tracks.filter(track => track.file));
+    expect(recordingsByGroup.map(tracks => tracks.map(track => track.title))).toEqual([
+      ['Cunning Plan'],
+      ['Stage 1', 'Stage 2'],
+      ['8-Bit Battle Loop', 'On the Offensive (v2)', 'Chiptune Battle Music']
+    ]);
+    const releaseRecordings = recordingsByGroup.flat();
+    for (const { file } of releaseRecordings) {
+      const asset = `assets/music-release/${file}`;
+      expect(readFileSync(path('dist-web/' + asset))).toEqual(readFileSync(path(asset)));
+    }
+    expect(existsSync(path('dist-web/assets/music-release/unlisted.ogg'))).toBe(false);
     expect(existsSync(path('dist-web/assets/music'))).toBe(false);
     expect(existsSync(path('dist-web/music-synth.js'))).toBe(true);
     expect(readFileSync(path('dist-web/data/missions.json'), 'utf8')).toBe(readFileSync(path('data/missions.json'), 'utf8'));

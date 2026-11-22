@@ -1,6 +1,6 @@
 # Music
 
-The built-in soundtrack consists of ten original synth scores. Each score makes one complete loop before the player picks another track. Times below are rounded to the nearest second.
+The built-in soundtrack consists of ten original synth scores and six [CC0 recordings](MUSIC-CREDITS.md). All are available without unlocking. Default playlists include the new recordings; existing custom playlists keep their selections and can add any new track. The player plays one loop before picking another track, or loops a release recording in place when it's the only eligible track. Synth times below are rounded to the nearest second.
 
 | Playlist | Score | BPM | Loop |
 | --- | --- | ---: | ---: |
@@ -34,6 +34,6 @@ When the page is hidden or the native app pauses, recorded and synthesized music
 
 ## Build or add recorded audio
 
-`npm run build:web` is release-safe by default. It stages the synth-only `assets/music.release.json` as `dist-web/assets/music.json` without recordings. APK, OTA and desktop release packaging use the same default build.
+`npm run build:web` stages `assets/music.release.json` as `dist-web/assets/music.json` and copies only the listed CC0 recordings from `assets/music-release/`. APK, OTA and desktop release packaging use the same default build. Release recordings use 64 kbps stereo Opus and are level-matched by playlist, with source loop points preserved apart from short silence trims and de-click fades.
 
-To preview audio you own or have permission to use, encode it with `ffmpeg -i input.mp3 -map 0:a:0 -c:a libopus -b:a 80k -ac 2 output.ogg`. Keep source MP3s under `.local/music-mp3/`. Place the Ogg Opus recording in `assets/music/` and add its exact filename as `file` in the appropriate section of `assets/music.json`, with a unique `title` and optional `artist` and `tags`. Match its perceived volume to the synth before adding it. When serving the source tree, both catalogues are used. For a private staging build, run `npm run build:web -- --local-music`; only locally present, catalogued `.ogg` files are staged alongside the original scores. Do not distribute that build with private recordings. Shipping licensed recordings requires a deliberate release packaging change.
+To preview audio you own or have permission to use, encode it with `ffmpeg -i input.mp3 -map 0:a:0 -map_metadata -1 -c:a libopus -b:a 64k -vbr off -ac 2 output.ogg`. Keep source MP3s under `.local/music-mp3/`. Place the Ogg Opus recording in `assets/music/` and add its exact filename as `file` in the appropriate section of `assets/music.json`, with a unique `title` and optional `artist` and `tags`. Match its perceived volume to the synth before adding it. When serving the source tree, both catalogues are used. For a private staging build, run `npm run build:web -- --local-music`; only locally present, catalogued `.ogg` files are added to the release soundtrack. Do not distribute that build with private recordings.

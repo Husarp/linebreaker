@@ -2131,6 +2131,7 @@
             playing: false,
             get position() { return offset || media.currentTime; },
             connect(target) { node.connect(target); },
+            setLoop(loop) { media.loop = loop; },
             start(when, position = 0) {
                 if (stopped) return;
                 offset = position;
@@ -2243,6 +2244,13 @@
         return enabled.length ? enabled : synthOnly(defaults);
     }
 
+    function _loopSingleRecording(source, name) {
+        if (!source?.setLoop) return;
+        const tracks = new Set(_currentMode === 'menu' ? _selectMusicTracks('menu') :
+            [..._selectMusicTracks('game'), ..._selectMusicTracks('action')]);
+        source.setLoop(tracks.size === 1 && tracks.has(name));
+    }
+
     function _replaceMusicSource(name, group, offset, onEnded, tempo) {
         const entry = _trackPool.get(name);
         if (_audioRetired || !audioCtx || !musicPlaying || !entry || (group === 'menu') !== (_currentMode === 'menu')) return;
@@ -2271,6 +2279,7 @@
             source.connect(output);
             output.gain.value = 1;
             output.connect(masterGain);
+            if (entry.buf.releaseRecording) _loopSingleRecording(source, name);
             if (tempo !== undefined) source.setTempo?.(tempo);
             source.onerror = active.fail;
             source.onended = () => {
@@ -2426,7 +2435,9 @@
             const synth = window.LBMusicSynth?.getTrack(track.synth);
             let buf;
             if (synth) buf = { synth, duration: synth.duration };
-            else if (track.file) {
+            else if (track.file && track.license === 'CC0') {
+                buf = { url: 'assets/music-release/' + encodeURIComponent(track.file), duration: 0, releaseRecording: true };
+            } else if (track.file) {
                 const url = 'assets/music/' + encodeURIComponent(track.file);
                 try {
                     const response = await startupWait('Checking optional audio', () => fetch(url, { method: 'HEAD' }));
@@ -9180,6 +9191,7 @@
                 _playMenuFileTrack(_currentMenuTrackIdx);
             }
         }
+        if (_trackPool.get(_nowPlayingName)?.buf.releaseRecording) _loopSingleRecording(_activeMusic?.source, _nowPlayingName);
         saveDataToFile();
         _renderMusicTrackContent();
         _renderPlaylistPanel();

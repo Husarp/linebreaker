@@ -2,11 +2,9 @@
     const url = new URL('/index.html?dev&demo', page.url());
     if (cutout !== undefined) url.searchParams.set('cutout', cutout);
     const localCatalog = await (await page.request.get(new URL('/assets/music.json', url).href)).json();
-    const releaseCatalog = await (await page.request.get(new URL('/assets/music.release.json', url).href)).json();
-    const catalogFiles = catalog => Object.values(catalog).flat().filter(track => track.file)
-        .map(track => '/assets/music/' + encodeURIComponent(track.file));
-    const releaseMusic = new Set(catalogFiles(releaseCatalog));
-    const optionalMusic = new Set(catalogFiles(localCatalog).filter(path => !releaseMusic.has(path)));
+    const optionalMusic = new Set(Object.values(localCatalog).flat()
+        .filter(track => track.file && track.license !== 'CC0')
+        .map(track => '/assets/music/' + encodeURIComponent(track.file)));
     const isOptionalMusic = address => address.startsWith(url.origin + '/')
         && optionalMusic.has(new URL(address).pathname);
 

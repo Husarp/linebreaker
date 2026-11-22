@@ -3,16 +3,22 @@
     { "synth": "glass-harbor", "title": "Glass Harbor", "tags": ["chill", "electronic"] },
     { "synth": "fernlight", "title": "Fernlight", "tags": ["chill"] },
     { "synth": "paper-orbits", "title": "Paper Orbits", "tags": ["chill", "electronic"] },
-    { "synth": "blue-hour", "title": "Blue Hour", "tags": ["chill"] }
+    { "synth": "blue-hour", "title": "Blue Hour", "tags": ["chill"] },
+    { "file": "cunning-plan.ogg", "title": "Cunning Plan", "artist": "congusbongus", "license": "CC0", "tags": ["playful"] }
   ],
   "game": [
     { "synth": "copper-relay", "title": "Copper Relay", "tags": ["retro", "upbeat"] },
     { "synth": "vector-bloom", "title": "Vector Bloom", "tags": ["electronic", "upbeat"] },
     { "synth": "switchyard", "title": "Switchyard", "tags": ["retro", "upbeat"] },
-    { "synth": "tidal-engine", "title": "Tidal Engine", "tags": ["electronic", "upbeat"] }
+    { "synth": "tidal-engine", "title": "Tidal Engine", "tags": ["electronic", "upbeat"] },
+    { "file": "stage-1.ogg", "title": "Stage 1", "artist": "Juhani Junkala", "license": "CC0", "tags": ["lively", "retro"] },
+    { "file": "stage-2.ogg", "title": "Stage 2", "artist": "Juhani Junkala", "license": "CC0", "tags": ["driving", "retro"] }
   ],
   "intense": [
     { "synth": "redline-echo", "title": "Redline Echo", "tags": ["intense", "retro"] },
-    { "synth": "fault-current", "title": "Fault Current", "tags": ["intense", "electronic"] }
+    { "synth": "fault-current", "title": "Fault Current", "tags": ["intense", "electronic"] },
+    { "file": "eight-bit-battle.ogg", "title": "8-Bit Battle Loop", "artist": "Wolfgang_", "license": "CC0", "tags": ["urgent", "retro"] },
+    { "file": "on-the-offensive.ogg", "title": "On the Offensive (v2)", "artist": "Ted Kerr (Wolfgang_)", "license": "CC0", "tags": ["punchy", "retro"] },
+    { "file": "chiptune-battle.ogg", "title": "Chiptune Battle Music", "artist": "pmiller", "license": "CC0", "tags": ["relentless", "retro"] }
   ]
 }

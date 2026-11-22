@@ -97,6 +97,7 @@ html ::-webkit-scrollbar-corner { background: var(--bb-well); }
     border-top: 1px solid var(--bb-edge);
 }
 .lb80-credits-card dt { font-weight: 700; }
+.lb80-credits-card dt a { color: inherit; text-decoration: underline; }
 .lb80-credits-card dd { margin: 0; text-align: right; }
 .lb80-credits-card :is(p, dd), .lb80-credits footer { color: var(--bb-muted); }
 .lb80-credits-card p { margin: 6px 0 0; }

@@ -3,11 +3,13 @@ import { checkWebView } from './webview-compat.mjs';
 
 const localMusic = process.argv.includes('--local-music');
 const catalogue = JSON.parse(await readFile('assets/music.release.json', 'utf8'));
-for (const tracks of Object.values(catalogue)) {
-  if (tracks.some(track => !track.synth || Object.hasOwn(track, 'file'))) {
-    throw new Error('The release music catalogue must contain only synth tracks');
+const releaseMusic = Object.values(catalogue).flat().filter(track => {
+  if (track.synth && !Object.hasOwn(track, 'file')) return false;
+  if (track.synth || track.license !== 'CC0' || !/^[a-z0-9-]+\.ogg$/.test(track.file)) {
+    throw new Error(`Invalid release music entry: ${track.title}`);
   }
-}
+  return true;
+});
 
 await rm('dist-web', { recursive: true, force: true });
 await mkdir('dist-web/assets', { recursive: true });
@@ -20,6 +22,12 @@ await cp('data', 'dist-web/data', { recursive: true });
 await cp('assets/fonts', 'dist-web/assets/fonts', { recursive: true });
 await cp('assets/skins', 'dist-web/assets/skins', { recursive: true });
 await cp('assets/ui', 'dist-web/assets/ui', { recursive: true, filter: source => !source.endsWith('mythic-rainbow.png') });
+if (releaseMusic.length) {
+  await mkdir('dist-web/assets/music-release', { recursive: true });
+  for (const { file } of releaseMusic) {
+    await cp('assets/music-release/' + file, 'dist-web/assets/music-release/' + file);
+  }
+}
 if (localMusic) {
   const local = JSON.parse(await readFile('assets/music.json', 'utf8'));
   const files = await readdir('assets/music', { withFileTypes: true }).catch(error => {
