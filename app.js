@@ -753,17 +753,13 @@
     const _themeBackgroundSelect = document.getElementById('setting-theme-background');
     const uiThemeButtons = document.querySelectorAll('#settings-display [data-ui-theme]');
     const wallpaperPreview = document.querySelector('.lb102-wallpaper-preview');
-    const _systemTheme = window.matchMedia?.('(prefers-color-scheme: light)');
     for (const name of LBArtPack.wallpapers) {
         _themeBackgroundSelect.add(new Option(name[0].toUpperCase() + name.slice(1), name));
     }
     function syncUiTheme() {
-        settings.uiTheme = ['light', 'system'].includes(settings.uiTheme) ? settings.uiTheme : 'dark';
         for (const button of uiThemeButtons) button.setAttribute('aria-pressed', String(button.dataset.uiTheme === settings.uiTheme));
-        document.documentElement.dataset.lbUiTheme = settings.uiTheme === 'system'
-            ? (_systemTheme?.matches ? 'light' : 'dark') : settings.uiTheme;
+        document.documentElement.dataset.lbUiTheme = settings.uiTheme;
     }
-    _systemTheme?.addEventListener?.('change', syncUiTheme);
     for (const button of uiThemeButtons) button.onclick = () => onSettingChange('uiTheme', button.dataset.uiTheme);
     const _movingBackgroundToggle = document.getElementById('setting-moving-background');
     const wallpaper = document.querySelector('.lb-wallpaper');
@@ -3832,7 +3828,7 @@
     const settingsTitle = document.querySelector('#settings-overlay .lb-topbar-title');
     const settingsCategories = new Map([
         ['controls', 'Controls', 'Touch, gestures, vibration', 'game', '<path d="M3 6h18v12H3zM6 10h2m3 0h2m3 0h2M6 14h2m3 0h7"/>', 'key bindings gameplay assistance timing'],
-        ['display', 'Display', 'Background, effects, contrast', 'game', '<path d="M3 4h18v13H3zM8 21h8m-4-4v4"/>', 'wallpaper theme dark light system motion screen'],
+        ['display', 'Display', 'Wallpaper, effects, accent', 'game', '<path d="M3 4h18v13H3zM8 21h8m-4-4v4"/>', 'wallpaper theme palette accent cyan green motion screen'],
         ['audio', 'Audio', 'Music, effects, tempo', 'game', '<path d="M3 9h4l5-4v14l-5-4H3zM16 9a4 4 0 0 1 0 6m2-9a8 8 0 0 1 0 12"/>', 'sound volume mute sfx'],
         ['notifications', 'Notifications', 'Reminders, updates', 'app', '<path d="M4 17h16l-2-3v-4a6 6 0 0 0-12 0v4zm6 3a2 2 0 0 0 4 0"/>', 'daily weekly streak missions'],
         ['updates', 'Updates', 'Save data and app version', 'app', '<path d="M12 3 4 6v5c0 5 3 8 8 10 5-2 8-5 8-10V6zM9 12l2 2 4-4"/>', 'install release notes help credits transfer reset'],
@@ -4804,6 +4800,7 @@
             const gsFEl = document.getElementById('gamescale-step-fill'); if (gsFEl) gsFEl.style.width = ((parseInt(value)-1)/9*100).toFixed(1)+'%';
             saveSettingsDebounced(); return;
         } else if (key === 'uiTheme') {
+            if (value !== 'green' && value !== 'dark') return;
             settings.uiTheme = value;
             syncUiTheme();
         } else if (key === 'themeBackground') {
@@ -6368,7 +6365,7 @@
             toast.className = 'ach-menu-toast';
             toast.setAttribute('role', 'status');
             toast.style.cssText = `
-                position:fixed;top:calc(var(--lb-safe-top) + ${stackOffset + idx * 82}px);left:50%;transform:translateX(-50%) translateY(-70px);
+                position:fixed;top:calc(var(--lb-band-height) + ${stackOffset + idx * 82}px);left:50%;transform:translateX(-50%) translateY(-70px);
                 z-index:var(--lb-z-top-notice);opacity:0;
                 background:rgba(5,5,20,0.97);border:1px solid ${rc.color};border-radius:12px;
                 padding:10px 16px;display:flex;align-items:center;gap:10px;
@@ -8487,7 +8484,7 @@
                     ${LBArtPack.boosterIcon(key)}
                     <strong>${label.replace(' Booster', ' XP')}</strong>
                     <small>${rarity}</small>
-                    <span class="lb-block-reward-amount">${escapeHtml(saveData.boosters[key])}</span>
+                    <span class="lb-block-reward-amount">×${escapeHtml(saveData.boosters[key])}</span>
                 </button></li>`;
             }).join('')}</ul>`;
     }

@@ -2,7 +2,7 @@
 
 Open `index.html?dev&demo` from the web server. Both query flags are required. The game skips save setup and uses an in-memory profile; changes are discarded on reload. Import and export are disabled in this mode.
 
-At 390×844, add `&cutout` to simulate a centered camera island and a 40px top safe area without native cutout rectangles (shell 1003 fallback). On the menu and section screens, the wallpaper should reach the top on both sides of the island while controls stay below it.
+At 390×844, add `&cutout=hole` or `&cutout=notch` to simulate native cutout rectangles, or `&cutout` for a centered punch hole with only a 40px CSS safe-area inset. The Circuit trace should stay below the camera and above all app controls. Without a top inset (standard desktop browser), the band should collapse. Switch accents in Settings → Display to check Cyan and Green independently of wallpaper.
 
 ```js
 await page.waitForFunction(() => window.__LB_QA && document.querySelector('#loading-screen').style.display === 'none');
@@ -26,4 +26,4 @@ await page.evaluate(() => window.__LB_QA.open('settings'));
 
 The fixture uses late Gold (level 30), one level below the final modifier unlocks, so Play shows both locked and unlocked options. Music uses the game’s enabled playlists; there is no separate track purchase system. `season-pass` opens the dedicated Season Pass screen. The season follows the real calendar, so on its first day there is only one unlocked stage and no prior claim. Save setup and platform update dialogs are not screenshot targets.
 
-Before staging a release, serve the repository root and open `index.html?dev&demo` in an owned work tab. Run `tests/qa-browser.mcp.js` as the Playwright MCP `browser_run_code_unsafe` callback (load the file or pass its contents as `code`). The sweep opens every target at 390×844, waits just over a second per target, and fails on browser errors or a regression in the Daily Gift or Mission Claim layout. Only 404s for local-only tracks are ignored. Allow at least 90 seconds for the sweep.
+Before staging a release, serve the repository root and open `index.html?dev&demo` in an owned work tab. Run `tests/qa-browser.mcp.js` as the Playwright MCP `browser_run_code_unsafe` callback (load the file or pass its contents as `code`). The sweep opens every target at 390×844 and checks browser errors, band clearance, Daily Gift, and Mission Claim. Pass `viewport`, `cutout` (`'hole'`, `'notch'`, or `''` for the fallback), and `accent` (`'dark'` for Cyan or `'green'`) to check the variants. Only 404s for local-only tracks are ignored. Allow at least 90 seconds for each sweep.

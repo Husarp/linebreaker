@@ -49,7 +49,7 @@ if (!isBaseline || !fs.existsSync(baseline)) {
 const webDir = path.relative(root, source).split(path.sep).join('/');
 fs.writeFileSync(path.join(root, 'capacitor.config.json'), JSON.stringify({ appId: config.appId, appName: config.appName, webDir,
   plugins: {
-    SystemBars: { insetsHandling: 'disable', hidden: true, style: 'DARK' },
+    SystemBars: { insetsHandling: 'disable', hidden: false, style: 'DARK' },
     LocalNotifications: { smallIcon: 'ic_stat_linebreaker', iconColor: '#00FFFF' }
   } }, null, 2) + '\n');
 const cap = spawnSync(process.execPath, [path.join(root, 'node_modules/@capacitor/cli/bin/capacitor'), 'sync', 'android'], { cwd: root, stdio: 'inherit' });

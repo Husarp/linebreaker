@@ -159,8 +159,20 @@
         document.title += ' · QA Demo';
         if (query.has('cutout')) {
             const root = document.documentElement;
-            root.dataset.lbQaCutout = '';
-            root.style.setProperty('--safe-area-inset-top', '40px');
+            const cutout = query.get('cutout');
+            const notch = cutout === 'notch';
+            const native = notch || cutout === 'hole';
+            const top = native ? (notch ? 49 : 41) : 40;
+            root.dataset.lbQaCutout = notch ? 'notch' : 'hole';
+            root.style.setProperty('--safe-area-inset-top', `${top}px`);
+            if (native) {
+                const center = root.clientWidth / 2;
+                const halfWidth = notch ? 79 : 10.5;
+                window.__lbWindowInsets = { top, rects: [{
+                    left: center - halfWidth, right: center + halfWidth, top: notch ? 0 : 11, bottom: notch ? 36 : 32,
+                }] };
+                window.dispatchEvent(new CustomEvent('lb-window-insets', { detail: window.__lbWindowInsets }));
+            }
         }
         let active;
         let queue = Promise.resolve();

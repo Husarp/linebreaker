@@ -92,6 +92,17 @@ it('mocks a legacy safe-area inset in QA without a native cutout API', async () 
   expect(w.__lbWindowInsets).toBeUndefined();
 });
 
+it.each([['hole', 41, 21], ['notch', 49, 158]])('mocks a native %s in QA', async (shape, top, width) => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => {
+    window.history.replaceState(null, '', `?dev&demo&cutout=${shape}`);
+  });
+  const root = game.w.document.documentElement;
+  const [rect] = game.w.__lbWindowInsets.rects;
+  expect(root.dataset.lbQaCutout).toBe(shape);
+  expect(root.style.getPropertyValue('--safe-area-inset-top')).toBe(`${top}px`);
+  expect(rect.right - rect.left).toBe(width);
+});
+
 it.each(['browser', 'desktop', 'android'])('never accesses real saves or save preferences in %s demo mode', async platform => {
   const native = vi.fn().mockRejectedValue(new Error('Real save accessed'));
   const filesystem = { readFile: native, writeFile: native, stat: native, mkdir: native };

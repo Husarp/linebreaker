@@ -179,7 +179,7 @@ class MainActivity : BridgeActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val web = bridge.webView
         setupEdgeToEdge(web)
-        hideSystemBars()
+        configureSystemBars()
         // Keep Capacitor routing and browser features while catching failures independently of bundle JS.
         web.webChromeClient = object : BridgeWebChromeClient(bridge) {
             override fun onConsoleMessage(message: ConsoleMessage): Boolean {
@@ -287,14 +287,15 @@ class MainActivity : BridgeActivity() {
     }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideSystemBars()
+        if (hasFocus) configureSystemBars()
     }
-    private fun hideSystemBars() {
+    private fun configureSystemBars() {
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         controller.isAppearanceLightStatusBars = false
         controller.isAppearanceLightNavigationBars = false
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.show(WindowInsetsCompat.Type.statusBars())
+        controller.hide(WindowInsetsCompat.Type.navigationBars())
     }
     override fun onStart() {
         super.onStart()
@@ -549,7 +550,8 @@ class MainActivity : BridgeActivity() {
         val queue = items.filter { it.key !in nativeSeen }
         val next = queue.firstOrNull { it.key == activeBannerKey } ?: queue.firstOrNull()
         activeBannerKey = next?.key
-        if (maintenance == null) banner.render(next, safeArea.top, safeArea.left, safeArea.right)
+        val traceInset = if (safeArea.top > 0) 14.dp else 0
+        if (maintenance == null) banner.render(next, safeArea.top + traceInset, safeArea.left, safeArea.right)
         else banner.render(next, 0, 0, 0)
     }
     private fun updateFailure(vararg states: String) = states.firstOrNull {

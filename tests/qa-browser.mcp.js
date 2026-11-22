@@ -1,5 +1,6 @@
-(async (page, { viewport = { width: 390, height: 844 }, capture } = {}) => {
+(async (page, { viewport = { width: 390, height: 844 }, cutout, accent = 'dark', capture } = {}) => {
     const url = new URL('/index.html?dev&demo', page.url());
+    if (cutout !== undefined) url.searchParams.set('cutout', cutout);
     const localCatalog = await (await page.request.get(new URL('/assets/music.json', url).href)).json();
     const releaseCatalog = await (await page.request.get(new URL('/assets/music.release.json', url).href)).json();
     const catalogFiles = catalog => Object.values(catalog).flat().filter(track => track.file)
@@ -30,6 +31,24 @@
         await page.setViewportSize(viewport);
         await page.goto(url.href);
         await page.waitForFunction(() => window.__LB_QA && document.querySelector('#loading-screen').style.display === 'none');
+        if (accent === 'green') {
+            await page.evaluate(() => window.__LB_QA.open('settings-display'));
+            await page.locator('[data-ui-theme="green"]').click();
+        }
+        const chrome = await page.evaluate(() => {
+            const band = document.querySelector('.lb-top-band');
+            const rail = getComputedStyle(band, '::after');
+            const root = document.documentElement;
+            return {
+                height: band.getBoundingClientRect().height, empty: !band.childNodes.length,
+                trace: rail.clipPath.startsWith('polygon('), accent: root.dataset.lbUiTheme,
+                scheme: getComputedStyle(root).colorScheme,
+            };
+        });
+        const expectedHeight = cutout === 'notch' ? 63 : cutout === 'hole' ? 55 : cutout === undefined ? 0 : 54;
+        if (chrome.height !== expectedHeight || !chrome.empty || !chrome.trace || chrome.scheme !== 'dark' || chrome.accent !== accent) {
+            fail(`Unexpected Circuit band or palette: ${JSON.stringify(chrome)}`);
+        }
         const names = await page.evaluate(() => window.__LB_QA.list());
         const docs = await (await page.request.get(new URL('/docs/QA-SCREENS.md', url).href)).text();
         const documented = docs.split('\n').filter(line => line.startsWith('|'))
@@ -46,6 +65,12 @@
             if (name === 'start-animation') await capture?.(name);
             await page.waitForTimeout(1050);
             if (name !== 'start-animation') await capture?.(name);
+            const clearsBand = await page.evaluate(() => {
+                const bandBottom = document.querySelector('.lb-top-band').getBoundingClientRect().bottom;
+                return [...document.querySelectorAll('.lb-block-back, .lb-menu-banner')].every(control =>
+                    !control.getClientRects().length || control.getBoundingClientRect().top >= bandBottom - 1);
+            });
+            if (!clearsBand) fail('Header or menu content overlaps the top band');
             if (name === 'settings-home') {
                 const fits = await page.evaluate(() => {
                     const search = document.querySelector('.lb-ledger-search').getBoundingClientRect();

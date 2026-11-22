@@ -1,15 +1,21 @@
 html[data-lb-qa-cutout]::after {
     content: '';
     position: fixed;
-    z-index: 10000;
-    top: 6px;
+    z-index: calc(var(--lb-z-top-notice) + 1);
+    top: 11px;
     left: 50%;
-    width: 72px;
-    height: 28px;
+    width: 21px;
+    height: 21px;
     transform: translateX(-50%);
-    border-radius: 14px;
-    background: #000;
+    border-radius: 50%;
+    background: #030407;
     pointer-events: none;
+}
+html[data-lb-qa-cutout='notch']::after {
+    top: 0;
+    width: 158px;
+    height: 36px;
+    border-radius: 0 0 18px 18px;
 }
 
 #stats-overlay:not(.anim-in-right, .anim-out-right),

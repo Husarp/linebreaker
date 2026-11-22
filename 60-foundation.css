@@ -189,7 +189,7 @@ input[type="range"]:is(.lb-block-range, #settings-overlay input)::-moz-range-thu
     min-width: 0;
     border: var(--bb-stroke) solid var(--bb-frame-edge, var(--bb-edge)) !important;
     border-radius: var(--bb-frame);
-    background: var(--bb-panel) !important;
+    background: var(--lb-card-face, var(--bb-panel)) !important;
     color: var(--bb-ink);
     box-shadow: var(--bb-frame-shadow) !important;
 }
