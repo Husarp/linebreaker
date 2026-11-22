@@ -53,6 +53,19 @@ it('uses decorative raw-stat icons and omits the legacy daily streak and mission
   expect(query('#missions-overlay').textContent).not.toMatch(/This week|🔥/i);
 });
 
+it('shows Monday–Sunday game totals across a year boundary without bars or counts for inactive days', () => {
+  game.w.Date.now = () => +new game.w.Date(2027, 0, 2, 12);
+  const save = game.api.save;
+  save.stats.playHistory = { '2026-12-27': 40, '2026-12-28': 2, '2026-12-29': 0, '2027-01-01': 5 };
+  game.api.setSave(save);
+  game.w.openStats();
+  expect(byId('stat-week-title').textContent).toBe('This week');
+  expect(byId('stat-week-total').textContent).toBe('7');
+  expect(all('.lb-week-day').map(day => day.textContent)).toEqual(['2Mon', 'Tue', 'Wed', 'Thu', '5Fri', 'Sat', 'Sun']);
+  expect(all('.lb-week-marker').map(bar => bar.style.getPropertyValue('--week-height'))).toEqual(['40%', '100%']);
+  expect(all('.lb-week-bar')).toHaveLength(2);
+});
+
 it('shows best counts alongside percentages of unrounded, comparable averages', () => {
   const save = game.api.save;
   Object.assign(save.stats, { gamesPlayed: 120, totalScore: 12000, maxCombo: 6 });

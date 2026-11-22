@@ -333,6 +333,11 @@
                 <div class="lb-metric-field"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-blocks"/></svg><span>Blocks placed</span></dt><dd id="stat-blocks">—</dd></div>
                 <div class="lb-metric-progress"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-box"/></svg><span>Items collected</span></dt><dd id="stat-items-collected">—</dd></div>
             </dl>
+            <section class="lb-block-panel lb-stats-week" aria-labelledby="stat-week-title">
+                <div class="lb-block-panel-head"><h2 id="stat-week-title">This week</h2><span id="stat-week-dates"></span></div>
+                <div class="lb-week-summary"><strong id="stat-week-total">0</strong><span>Games played</span></div>
+                <ol id="stat-week-bars" role="list" aria-label="Daily games played"></ol>
+            </section>
             <section class="lb-block-panel">
                 <div class="lb-block-panel-head"><h2>Activity</h2></div>
                 <div id="stat-activity-calendar"></div>
@@ -382,7 +387,7 @@
         </div>
 
         <div id="inventory-crates" role="tabpanel" aria-labelledby="inventory-tab-crates" data-invtab-content="crates">
-            <section class="lb-collection-feature">
+            <section class="lb-collection-feature" data-ledger-tone="reward">
                 <div><span class="lb-collection-label">Locker</span><h2>Stored crates</h2><p>Open your earned crates here.</p></div>
                 <img src="assets/ui/crates/rare.png" alt="">
             </section>
@@ -394,15 +399,15 @@
 
         <!-- ===== BLOCKS TAB ===== -->
         <div id="inventory-blocks" role="tabpanel" aria-labelledby="inventory-tab-blocks" data-invtab-content="blocks" class="hidden">
-            <section class="lb-block-card lb-inventory-section">
+            <section class="lb-block-card lb-inventory-section" data-ledger-tone="collection">
                 <h2 class="lb-block-section-title lb-help-label">Appearance <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About appearance" data-control-tip="About appearance"></button></h2>
                 <div id="ghost-section-wrap"></div>
             </section>
-            <section class="lb-block-card lb-inventory-section">
+            <section class="lb-block-card lb-inventory-section" data-ledger-tone="collection">
                 <h2 class="lb-block-section-title lb-help-label">Block Skin <span id="skin-owned-count"></span> <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About block skin" data-control-tip="About block skin"></button></h2>
                 <div id="owned-skin-btns"></div>
             </section>
-            <section class="lb-block-card lb-inventory-section">
+            <section class="lb-block-card lb-inventory-section" data-ledger-tone="collection">
                 <h2 class="lb-block-section-title lb-help-label">Grid Style <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About grid style" data-control-tip="About grid style"></button></h2>
                 <div id="owned-grid-style-btns"></div>
             </section>
@@ -410,7 +415,7 @@
 
         <!-- ===== COLORS TAB ===== -->
         <div id="inventory-colors" role="tabpanel" aria-labelledby="inventory-tab-colors" data-invtab-content="colors" class="hidden">
-            <section class="lb-block-panel" aria-labelledby="inventory-theme-title">
+            <section class="lb-block-panel" aria-labelledby="inventory-theme-title" data-ledger-tone="collection">
                 <header class="lb-block-panel-head">
                     <h2 class="lb-block-section-title" id="inventory-theme-title">Theme Color</h2>
                     <span id="theme-owned-count" class="lb-colors-count"></span>
@@ -418,7 +423,7 @@
                 </header>
                 <div id="owned-theme-btns"></div>
             </section>
-            <section class="lb-block-panel" aria-labelledby="inventory-palette-title">
+            <section class="lb-block-panel" aria-labelledby="inventory-palette-title" data-ledger-tone="collection">
                 <header class="lb-block-panel-head">
                     <h2 class="lb-block-section-title" id="inventory-palette-title">Block Palette</h2>
                     <span id="palette-owned-count" class="lb-colors-count"></span>
@@ -478,11 +483,11 @@
                     <span id="mq-swaps-left">1 swap left today</span>
                 </div>
             </div>
-            <section id="mq-bonus-box" class="lb-block-card">
+            <section id="mq-bonus-box" class="lb-block-card" data-ledger-tone="reward">
                 <div class="mq-list-head"><h3 class="lb-block-section-title">Bonus Box</h3><span></span></div>
                 <progress class="lb-block-progress" aria-label="Bonus Box progress"></progress>
             </section>
-            <section class="lb-block-card" aria-labelledby="mq-milestones-title">
+            <section class="lb-block-card" aria-labelledby="mq-milestones-title" data-ledger-tone="reward">
                 <div class="mq-list-head">
                     <h2 class="lb-block-section-title" id="mq-milestones-title">Mission milestones</h2>
                     <button type="button" class="lb-info-btn" data-help-section="missions" aria-label="About missions" data-control-tip="About missions"></button>
@@ -1089,7 +1094,7 @@
     </header>
     <div class="lb-scroll-fade">
       <div class="ach-content">
-        <section class="lb-collection-feature">
+        <section class="lb-collection-feature" data-ledger-tone="achievement">
             <div>
                 <span class="lb-collection-label">Featured milestones</span>
                 <h2 id="ach-milestone-count"></h2>

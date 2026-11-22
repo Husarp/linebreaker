@@ -147,15 +147,54 @@ it('keys multiply tints by skin and normalized palette color and reuses them acr
     .toEqual([['drawImage', image, 512, 0, 64, 64, 0, 0, 64, 64]]);
 });
 
-it('offers Bubble and every packaged image skin as rewards at their catalog prices', async () => {
+it('offers Bubble and every packaged image skin as rewards at the price of their rarity', async () => {
   game = await loadGame();
   const manifest = JSON.parse(readFileSync(new URL('../assets/skins/skins.json', import.meta.url), 'utf8'));
   const rewardKeys = game.api.partsItems().filter(item => item.cat === 'skin').map(item => item.key);
   expect(manifest.length).toBeGreaterThan(0);
   expect(rewardKeys).toEqual(['glass', 'shadow', 'outline', 'holo', 'journey', 'bubble', ...manifest.map(skin => skin.key)]);
-  for (const { key, file, cost, cell } of manifest) {
-    expect(game.api.partCost(key)).toBe(cost);
+  const prices = { rare: 50, epic: 120, legendary: 250 };
+  expect(new Set(manifest.map(skin => skin.rarity))).toEqual(new Set(Object.keys(prices)));
+  for (const { key, file, rarity, cell } of manifest) {
+    expect(game.api.partCost(key)).toBe(prices[rarity]);
     const png = readFileSync(new URL(`../assets/skins/${file}`, import.meta.url));
     expect([cell, png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([64, 576, 64]);
   }
+});
+
+it('prices every available part unlock and keeps the Mythic season skin out of the parts pool', async () => {
+  game = await loadGame();
+  const { w, api } = game;
+  for (const { cat, key } of api.partsItems()) {
+    expect([20, 50, 120, 250, 500]).toContain(api.partCost(key));
+    if (cat === 'palette' || cat === 'gridStyle') expect(api.partCost(key)).toBe(20);
+    if (cat === 'sfxPack') expect(api.partCost(key)).toBe(50);
+  }
+  expect(api.partCost('season-prism')).toBe(0);
+  expect(api.partsItems().some(item => item.key === 'season-prism')).toBe(false);
+  api.applyLoadedData({ ...api.save, ownedSkins: ['retro', 'season-prism'], parts: { 'season-prism': 500 } });
+  w.openInventory();
+  w.inventoryTab('blocks');
+  expect(w.document.querySelector('[data-item-key="season-prism"][data-owned="true"] .lb-inventory-rarity').dataset.rarity).toBe('mythic');
+});
+
+it('retains owned items and applies already collected parts toward the new price', async () => {
+  game = await loadGame();
+  const { w, api } = game;
+  api.applyLoadedData({ ...api.save, ownedSkins: ['retro', 'aztec'], parts: { glass: 10 } });
+  w.openInventory();
+  w.inventoryTab('blocks');
+  const glass = () => w.document.querySelector('[data-item-key="glass"]');
+  expect(glass().querySelector('.lb-inventory-rarity').dataset.rarity).toBe('rare');
+  expect(glass().querySelector('progress').value).toBe(10);
+  expect(glass().querySelector('progress').max).toBe(50);
+  expect(w.document.querySelector('[data-item-key="aztec"]').dataset.owned).toBe('true');
+  w.playerUnlockItem('skin', 'glass');
+  expect(api.save.ownedSkins).not.toContain('glass');
+  const save = api.save;
+  save.parts.glass += 40;
+  api.setSave(save);
+  w.playerUnlockItem('skin', 'glass');
+  expect(api.save.ownedSkins).toContain('glass');
+  expect(glass().dataset.owned).toBe('true');
 });

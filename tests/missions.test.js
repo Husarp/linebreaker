@@ -117,6 +117,37 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
   expect(current()[list][index]).toEqual(after);
 });
 
+it('allows one free weekly and one free daily swap on each of the seven local days', () => {
+  const { w } = game;
+  const RealDate = w.Date;
+  let now;
+  w.Date = class extends RealDate {
+    constructor(...args) { super(...(args.length ? args : [now])); }
+    static now() { return now; }
+  };
+  const { document } = w;
+  now = +new RealDate(2026, 10, 16, 12);
+  api.refreshMissions();
+  const weekKey = api.save.missions.weekly.weekKey;
+  for (let date = 16; date <= 22; date++) {
+    now = +new RealDate(2026, 10, date, 12);
+    for (const tab of ['weekly', 'daily']) {
+      w.renderMissionsOverlay(tab);
+      expect(document.querySelector('#mq-swaps-left').textContent).toBe('1 swap left today');
+      w._toggleChangeMode();
+      const slot = document.querySelector('.mq-change-overlay').closest('[data-mission-slot]').dataset.missionSlot;
+      const before = api.save.missions.weekly.missions.map(mission => mission.id);
+      w._changeMission(Number(slot), tab === 'weekly');
+      document.querySelector('#mq-confirm-ok').click();
+      expect(document.querySelector('#mq-swaps-left').textContent).toBe('0 swaps left today');
+      expect(api.save.missions[tab].swapDate).toBe(api.missionDateKey());
+      const after = api.save.missions.weekly.missions.map(mission => mission.id);
+      expect(after.filter((id, index) => id !== before[index])).toHaveLength(tab === 'weekly' ? 1 : 0);
+    }
+    expect(api.save.missions.weekly.weekKey).toBe(weekKey);
+  }
+});
+
 it('shows the golden-zone Universal Part, not a crate, and keeps the claim above 180 points', () => {
   api.refreshMissions();
   const save = api.save;

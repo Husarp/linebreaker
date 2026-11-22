@@ -173,36 +173,34 @@
 .mq-list-head .lb-block-section-title { color: var(--lb-ink); }
 .mq-shell .mq-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--lb-space-sm); margin: 0; }
 .mq-shell .mq-card, #missions-overlay .lb138-mission-exit > .mq-card {
-    --mq-tier: var(--lb-muted);
-    --mq-tier-ink: color-mix(in srgb, var(--mq-tier) 45%, var(--lb-ink));
-    --mq-rail: var(--lb-rule);
     display: grid;
     height: auto;
     min-block-size: 94px;
-    grid-template-columns: 36px minmax(0, 1fr) auto;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--lb-space-sm) 11px;
     padding: 11px;
-    border-inline-start: 3px solid var(--mq-rail) !important;
+    border-inline-start: 3px solid var(--mq-rail, var(--lb-rule)) !important;
 }
-#missions-overlay .mq-card[data-tier='easy'] { --mq-tier: var(--lb-label); }
-#missions-overlay .mq-card[data-tier='normal'] { --mq-tier: var(--bb-rarity-rare); }
-#missions-overlay .mq-card[data-tier='hard'] { --mq-tier: var(--bb-rarity-mythic); }
-#missions-overlay .mq-card[data-tier='secret'] { --mq-tier: var(--lb-utility); }
 #missions-overlay .mq-card[data-ready] { --mq-rail: var(--lb-meter); }
-.mq-card > .lb-ledger-icon-frame {
-    --lb-icon-frame-size: 36px;
-    --lb-icon-frame-ink: var(--lb-label);
+.mq-card-icon {
+    display: grid;
+    grid-column: 1;
+    grid-row: 1 / 3;
+    justify-items: center;
+    --lb-icon-frame-size: 34px;
+    --lb-icon-frame-ink: var(--lb-tone-ink, var(--lb-label));
 }
+.mq-card-icon .mq-pts { margin: 0; color: var(--lb-ink); font: var(--lb-type-micro)/1.3 var(--lb-font-pixel); }
 .mq-card .mq-card-title { color: var(--lb-ink); font: 700 .9375rem/1.25 var(--lb-font-body); }
 .mq-card .mq-card-desc { color: var(--lb-muted); font: var(--lb-type-small)/1.32 var(--lb-font-body); margin-block-start: 2px; }
-.mq-card-value { display: grid; justify-items: end; align-self: start; gap: 2px; }
 .mq-card .mq-tier-badge {
+    align-self: start;
     margin: 0;
     border: 0;
     background: none;
     padding: 0;
-    color: var(--mq-tier-ink);
+    color: var(--lb-tone-ink, var(--lb-utility));
     font: 700 var(--lb-type-micro)/1.15 var(--lb-font-body);
     text-transform: uppercase;
 }

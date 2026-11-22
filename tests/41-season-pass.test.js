@@ -4,8 +4,8 @@ import '../41-season-pass.js';
 import { loadGame } from './loader.js';
 
 const {
-  DAY, DAYS, EPOCH, CLOCK_TOLERANCE, seasonWindow, seasonState, stageStatus, emptySeason,
-  creditMissionPoints, claimStage, claimBonus, bonusProgress, storeState, prepareConfig, summarizeTrack,
+  DAY, EPOCH, CLOCK_TOLERANCE, seasonWindow, seasonState, stageStatus, emptySeason,
+  creditMissionPoints, claimStage, claimBonus, bonusProgress, storeState, prepareConfig, summarizeTrack, sanitizeSeason,
 } = globalThis.LBSeason;
 const data = JSON.parse(readFileSync(new URL('../data/season.json', import.meta.url), 'utf8'));
 const config = prepareConfig(data);
@@ -26,13 +26,19 @@ it('distinguishes the highest reached stage from the next unclaimed reward', () 
   });
 });
 
-it('uses exact UTC days and resets progress only on the next 30-day season', () => {
-  expect(seasonWindow(EPOCH)).toEqual({ id: 1, start: EPOCH, day: 1, daysLeft: 30 });
-  expect(seasonWindow(EPOCH + DAY - 1).day).toBe(1);
-  expect(seasonWindow(EPOCH + DAY).day).toBe(2);
-  const rollover = EPOCH + DAYS * DAY;
-  expect(seasonWindow(rollover - 1)).toEqual({ id: 1, start: EPOCH, day: 30, daysLeft: 1 });
-  expect(seasonWindow(rollover)).toEqual({ id: 2, start: rollover, day: 1, daysLeft: 30 });
+it.each([[2026, 0, 31], [2026, 1, 28], [2026, 10, 30], [2028, 1, 29], [2028, 11, 31]])(
+  'uses the local first and last day of %i month index %i (%i days)', (year, month, days) => {
+    const start = +new Date(year, month, 1);
+    const end = +new Date(year, month + 1, 1);
+    const id = (year - 2026) * 12 + month + 1;
+    expect(seasonWindow(start)).toEqual({ id, start, end, day: 1, days, daysLeft: days });
+    expect(seasonWindow(end - 1)).toEqual({ id, start, end, day: days, days, daysLeft: 1 });
+    expect(seasonWindow(end)).toMatchObject({ id: id + 1, start: end, day: 1 });
+  },
+);
+
+it('resets season points and claims only on the next local month', () => {
+  const rollover = +new Date(2026, 1, 1);
   const save = { season: emptySeason(1) };
   creditMissionPoints(save, 8, rollover - 1);
   storeState(save, claimStage(save, config, 1, rollover - 1));
@@ -40,6 +46,44 @@ it('uses exact UTC days and resets progress only on the next 30-day season', () 
   expect(seasonState(save, rollover).season).toEqual(emptySeason(2));
   creditMissionPoints(save, 3, rollover);
   expect(save.season).toEqual({ ...emptySeason(2), points: 3 });
+});
+
+it('migrates an active legacy season once without dropping points, claims, or overflow', () => {
+  const upgrade = +new Date(2026, 10, 22);
+  const monthEnd = +new Date(2026, 11, 1);
+  const oldId = Math.floor((upgrade - Date.UTC(2026, 0, 1)) / (30 * DAY)) + 1;
+  const claimed = { 1: { type: 'crate', tier: 'common' }, 30: { type: 'skin', key: 'season-prism' } };
+  const save = { season: sanitizeSeason({ id: oldId, points: 264, claimed, bonusClaimed: 2 }), lastSeenTime: upgrade };
+  storeState(save, seasonState(save, upgrade));
+  expect(save.season).toEqual({ ...emptySeason(11), points: 264, claimed, bonusClaimed: 2 });
+  save.season = sanitizeSeason(JSON.parse(JSON.stringify(save.season)));
+  expect(claimStage(save, config, 1, monthEnd - 1).reward).toBeUndefined();
+  expect(bonusProgress(config, seasonState(save, monthEnd - 1))).toEqual({ ready: 1, points: 0 });
+  expect(seasonState(save, monthEnd).season).toEqual(emptySeason(12));
+});
+
+it('preserves legacy progress seen earlier in the same calendar month, but not from a stale month', () => {
+  const lastSeenTime = Date.UTC(2026, 0, 29, 12);
+  const save = { season: { id: 1, points: 80, claimed: {}, bonusClaimed: 0 }, lastSeenTime };
+  expect(seasonState(save, +new Date(2026, 0, 31, 23, 59)).season.points).toBe(80);
+  expect(seasonState(save, +new Date(2026, 1, 1)).season).toEqual(emptySeason(2));
+});
+
+it('persists the migrated month on native load before the player makes any changes', async () => {
+  let now = +new Date(2026, 9, 30, 12);
+  let persisted = JSON.stringify({ schemaVersion: 1, totalXP: 0, lastSeenTime: now, season: { id: 11, points: 64 } });
+  const invoke = async (command, payload) => {
+    if (command === 'load_save') return persisted;
+    if (command === 'write_save') persisted = payload.json;
+  };
+  const setClock = window => { window.Date.now = () => now; };
+  game = await loadGame(true, invoke, null, undefined, null, setClock);
+  await game.w.flushLinebreakerSave();
+  expect(JSON.parse(persisted).season).toMatchObject({ calendar: 'month', id: 10, points: 64 });
+  game.close();
+  now = +new Date(2026, 10, 1, 12);
+  game = await loadGame(true, invoke, null, undefined, null, setClock);
+  expect(game.api.save.season).toEqual(emptySeason(11));
 });
 
 it('requires the points threshold and grants once without spending points', () => {
@@ -118,7 +162,7 @@ it('banks repeatable rare chests at each final-stage increment and expires them 
   expect(claimBonus(save, config, EPOCH, grant).reward).toBeUndefined();
   creditMissionPoints(save, 6, EPOCH);
   expect(progress(EPOCH)).toEqual({ ready: 1, points: 0 });
-  expect(claimBonus(save, config, EPOCH + DAYS * DAY, grant).reward).toBeUndefined();
+  expect(claimBonus(save, config, seasonWindow(EPOCH).end, grant).reward).toBeUndefined();
   expect(grant.mock.calls).toEqual([['rare'], ['rare']]);
 });
 

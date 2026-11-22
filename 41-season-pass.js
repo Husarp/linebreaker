@@ -1,7 +1,10 @@
 (() => {
     const DAY = 86_400_000;
-    const DAYS = 30;
-    const EPOCH = Date.UTC(2026, 0, 1);
+    const EPOCH_YEAR = 2026;
+    const EPOCH = new Date(EPOCH_YEAR, 0, 1).getTime();
+    const LEGACY_EPOCH = Date.UTC(EPOCH_YEAR, 0, 1);
+    const LEGACY_PERIOD = 30 * DAY;
+    const CALENDAR = 'month';
     const CLOCK_TOLERANCE = 10 * 60_000;
     const MAX_DATE = 8_640_000_000_000_000;
     const CRATE_TIERS = ['common', 'rare', 'epic', 'legendary', 'mythic'];
@@ -10,20 +13,23 @@
         'common', 'common', 'common', 'rare', 'epic', 'common', 'common', 'rare', 'common', 'legendary',
         'common', 'common', 'rare', 'common', 'epic', 'rare', 'common', 'epic', 'mythic', 'exclusive',
     ];
-    const exclusiveSkin = { key: 'season-prism', name: 'Season Prism', asset: 'assets/ui/41-season-pass-skin.svg', cell: 64, exclusive: true };
+    const exclusiveSkin = { key: 'season-prism', name: 'Season Prism', asset: 'assets/ui/41-season-pass-skin.svg', cell: 64, rarity: 'mythic', exclusive: true };
 
-    const emptySeason = (id = 0) => ({ id, points: 0, claimed: {}, bonusClaimed: 0 });
+    const emptySeason = (id = 0) => ({ id, calendar: CALENDAR, points: 0, claimed: {}, bonusClaimed: 0 });
     const validKey = key => typeof key === 'string' && /^[a-z\d_.-]{1,50}$/i.test(key)
         && !['__proto__', 'prototype', 'constructor'].includes(key);
     const validCount = count => Number.isSafeInteger(count) && count > 0 && count <= 1000;
-    const timestamp = value => Number.isSafeInteger(value) && value >= EPOCH && value <= MAX_DATE ? value : 0;
+    const timestamp = value => Number.isSafeInteger(value) && value >= Math.min(EPOCH, LEGACY_EPOCH) && value <= MAX_DATE ? value : 0;
+    const monthStart = id => new Date(EPOCH_YEAR, id - 1, 1).getTime();
+    const legacyId = now => Math.floor((now - LEGACY_EPOCH) / LEGACY_PERIOD) + 1;
 
     function seasonWindow(now) {
-        if (!timestamp(now)) return { id: 0, start: EPOCH, day: 0, daysLeft: DAYS };
-        const elapsedDays = Math.floor((now - EPOCH) / DAY);
-        const index = Math.floor(elapsedDays / DAYS);
-        const day = elapsedDays % DAYS + 1;
-        return { id: index + 1, start: EPOCH + index * DAYS * DAY, day, daysLeft: DAYS + 1 - day };
+        if (!timestamp(now) || now < EPOCH) return { id: 0, start: EPOCH, end: monthStart(2), day: 0, days: 31, daysLeft: 0 };
+        const date = new Date(now);
+        const id = (date.getFullYear() - EPOCH_YEAR) * 12 + date.getMonth() + 1;
+        const day = date.getDate();
+        const days = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+        return { id, start: monthStart(id), end: monthStart(id + 1), day, days, daysLeft: days + 1 - day };
     }
 
     function cleanReward(reward, leaf = false) {
@@ -41,7 +47,8 @@
 
     function sanitizeSeason(value) {
         const id = value?.id;
-        if (!Number.isSafeInteger(id) || id < 1 || id > seasonWindow(MAX_DATE).id) return emptySeason();
+        const isCalendar = value?.calendar === CALENDAR;
+        if (!Number.isSafeInteger(id) || id < 1 || id > (isCalendar ? seasonWindow(MAX_DATE).id : legacyId(MAX_DATE))) return emptySeason();
         const points = Number.isSafeInteger(value.points) ? Math.max(0, value.points) : 0;
         const claimed = {};
         for (let number = 1; number <= TRACK.length; number++) {
@@ -49,7 +56,18 @@
             if (reward) claimed[number] = reward;
         }
         const bonusClaimed = Number.isSafeInteger(value.bonusClaimed) ? Math.min(points, Math.max(0, value.bonusClaimed)) : 0;
-        return { id, points, claimed, bonusClaimed };
+        return { id, ...(isCalendar ? { calendar: CALENDAR } : {}), points, claimed, bonusClaimed };
+    }
+
+    function migrateSeason(existing, lastSeen, reference) {
+        if (!existing.id || existing.calendar === CALENDAR) return existing;
+        const month = seasonWindow(reference);
+        const oldStart = LEGACY_EPOCH + (existing.id - 1) * LEGACY_PERIOD;
+        if (legacyId(reference) === existing.id || (legacyId(lastSeen) === existing.id && seasonWindow(lastSeen).id === month.id)) {
+            return { ...existing, id: month.id, calendar: CALENDAR };
+        }
+        if (oldStart > reference) return { ...existing, id: seasonWindow(oldStart).id, calendar: CALENDAR };
+        return emptySeason();
     }
 
     function seasonState(save, now) {
@@ -58,9 +76,9 @@
         let seasonBlockedUntil = save.seasonBlockedUntil > now && save.seasonBlockedUntil <= save.lastSeenTime
             ? save.seasonBlockedUntil : 0;
         if (now < lastSeenTime - CLOCK_TOLERANCE) seasonBlockedUntil = Math.max(seasonBlockedUntil, lastSeenTime);
-        const existing = save.season || emptySeason();
+        const existing = migrateSeason(save.season || emptySeason(), save.lastSeenTime, lastSeenTime);
         const aheadOfClock = existing.id > period.id;
-        if (aheadOfClock) seasonBlockedUntil = Math.max(seasonBlockedUntil, EPOCH + (existing.id - 1) * DAYS * DAY);
+        if (aheadOfClock) seasonBlockedUntil = Math.max(seasonBlockedUntil, monthStart(existing.id));
         const blocked = !period.id || seasonBlockedUntil > now;
         const season = period.id && !aheadOfClock && (!blocked || !existing.id) && existing.id !== period.id
             ? emptySeason(period.id) : existing;
@@ -129,6 +147,6 @@
         return { ...state, reward, season: { ...state.season, bonusClaimed: (state.season.bonusClaimed || 0) + 1 } };
     }
 
-    globalThis.LBSeason = { DAY, DAYS, EPOCH, CLOCK_TOLERANCE, exclusiveSkin, emptySeason, timestamp, seasonWindow,
+    globalThis.LBSeason = { DAY, EPOCH, CLOCK_TOLERANCE, exclusiveSkin, emptySeason, timestamp, seasonWindow,
         sanitizeSeason, seasonState, storeState, observe, creditMissionPoints, prepareConfig, stageStatus, summarizeTrack, bonusProgress, claimStage, claimBonus };
 })();

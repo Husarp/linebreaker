@@ -24,6 +24,12 @@
     --lb-disabled: #384638;
     --lb-focus: #d7edaf;
     --lb-danger: #ff9e92;
+    --lb-reward-face: #3c3221;
+    --lb-collection-face: #263744;
+    --lb-achievement-face: #382e42;
+    --lb-mission-easy: #294833;
+    --lb-mission-medium: #51391f;
+    --lb-mission-hard: #542f2b;
     --lb-thread: #b6c7a006;
     --lb-band: #101b17;
     --lb-band-edge: #4d6756;
@@ -121,6 +127,12 @@
     --lb-muted: #4e5c49;
     --lb-label: #245a44;
     --lb-utility: #8c4523;
+    --lb-reward-face: #f3e4bf;
+    --lb-collection-face: #dce7e8;
+    --lb-achievement-face: #ece0ed;
+    --lb-mission-easy: #dae8cb;
+    --lb-mission-medium: #f5d8ae;
+    --lb-mission-hard: #f1ccc2;
     --lb-rule: #aa9d77;
     --lb-control-line: #746743;
     --lb-track: #dfd3b2;
@@ -318,12 +330,22 @@
     --lb-card-face: var(--lb-panel-face);
 }
 
+[data-ledger-tone='reward'], .mq-card[data-tier='secret'] { --lb-tone-face: var(--lb-reward-face); --lb-tone-art: #42331e; }
+[data-ledger-tone='collection'] { --lb-tone-face: var(--lb-collection-face); --lb-tone-art: #243e51; }
+[data-ledger-tone='achievement'] { --lb-tone-face: var(--lb-achievement-face); --lb-tone-art: #46354e; }
+.mq-card[data-tier='easy'] { --lb-tone-face: var(--lb-mission-easy); --lb-tone-ink: var(--lb-label); }
+.mq-card[data-tier='normal'] { --lb-tone-face: var(--lb-mission-medium); --lb-tone-ink: var(--lb-utility); }
+.mq-card[data-tier='hard'] { --lb-tone-face: var(--lb-mission-hard); --lb-tone-ink: var(--lb-danger); }
+.lb-game-root :is(.lb-block-card, .lb-block-panel):is([data-ledger-tone], .mq-card[data-tier]) {
+    --lb-card-face: var(--lb-tone-face, var(--lb-panel-face));
+}
+
 /* Ledger feature banners and kickers */
 .lb-block-feature {
     border: var(--lb-border) solid var(--lb-action-rim);
     border-radius: var(--lb-radius);
-    background: linear-gradient(95deg, var(--lb-art) 26%, color-mix(in srgb, var(--lb-art) 57%, transparent)),
-        var(--lb-feature-art, none) right center / cover no-repeat, var(--lb-art);
+    background: linear-gradient(95deg, var(--lb-tone-art, var(--lb-art)) 26%, color-mix(in srgb, var(--lb-tone-art, var(--lb-art)) 57%, transparent)),
+        var(--lb-feature-art, none) right center / cover no-repeat, var(--lb-tone-art, var(--lb-art));
     color: var(--lb-art-ink);
 }
 .lb-block-kicker {
@@ -1056,6 +1078,12 @@
 [data-rarity='legendary'] { --lb-reward-rarity: var(--bb-rarity-legendary); }
 [data-rarity='mythic'] { --lb-reward-rarity: var(--bb-rarity-mythic); }
 .lb-ledger-rarity-label { color: var(--lb-reward-rarity, var(--lb-muted)); }
+.lb-inventory-rarity {
+    display: block;
+    margin-block-start: 2px;
+    font: 400 var(--lb-type-micro)/1.3 var(--lb-font-pixel);
+    text-transform: capitalize;
+}
 
 
 .lb-game-root .lb-block-tabs.lb-ledger-segments {
@@ -1445,8 +1473,8 @@ svg.lb-ledger-chevron {
     padding: var(--lb-space-lg);
     border: var(--lb-border) solid var(--lb-action-rim);
     border-radius: var(--lb-radius);
-    background: linear-gradient(96deg, var(--lb-art) 25%, color-mix(in srgb, var(--lb-art) 65%, transparent)),
-        var(--lb-theme-art-portrait, none) center / cover no-repeat, var(--lb-art);
+    background: linear-gradient(96deg, var(--lb-tone-art, var(--lb-art)) 25%, color-mix(in srgb, var(--lb-tone-art, var(--lb-art)) 65%, transparent)),
+        var(--lb-theme-art-portrait, none) center / cover no-repeat, var(--lb-tone-art, var(--lb-art));
     color: var(--lb-art-ink);
 }
 .lb-game-root .lb-collection-feature h2 {

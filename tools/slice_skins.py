@@ -11,19 +11,19 @@ from PIL import Image, ImageChops
 
 CELL = 64
 SKINS = {
-    "aztec": 25,
-    "aztec-gold": 30,
-    "brushed-metal": 15,
-    "carved-stone": 20,
-    "obsidian-carved": 25,
-    "gem-gloss": 20,
-    "golden-dragon": 50,
-    "jelly-candy": 15,
-    "lava-glass": 25,
-    "neon-pixel": 15,
-    "pixel-16bit": 10,
-    "porcelain": 10,
-    "soft-clay": 15,
+    "aztec": "epic",
+    "aztec-gold": "legendary",
+    "brushed-metal": "rare",
+    "carved-stone": "rare",
+    "obsidian-carved": "epic",
+    "gem-gloss": "epic",
+    "golden-dragon": "legendary",
+    "jelly-candy": "rare",
+    "lava-glass": "epic",
+    "neon-pixel": "rare",
+    "pixel-16bit": "rare",
+    "porcelain": "rare",
+    "soft-clay": "rare",
 }
 
 
@@ -125,7 +125,7 @@ def main():
     for key, atlas in atlases.items():
         file = f"{key}.png"
         atlas.save(args.output / file, optimize=True)
-        manifest.append(dict(key=key, name=key.replace("-", " ").title(), cost=SKINS[key], file=file, cell=CELL))
+        manifest.append(dict(key=key, name=key.replace("-", " ").title(), rarity=SKINS[key], file=file, cell=CELL))
     catalog = json.dumps(manifest, indent=2)
     (args.output / "skins.json").write_text(catalog + "\n", encoding="utf-8")
     (args.output / "catalog.js").write_text(f"window.LBImageSkins = {catalog};\n", encoding="utf-8")

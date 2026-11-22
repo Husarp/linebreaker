@@ -168,6 +168,25 @@
                 });
                 if (!tabsFit) fail('Inventory categories do not all fit in the segmented control');
             }
+            if (['inventory-blocks', 'inventory-colors', 'inventory-other'].includes(name)) {
+                const labels = await page.evaluate(() => [...document.querySelectorAll('#inventory-overlay [role="tabpanel"]:not(.hidden) .lb-inventory-rarity')]
+                    .map(label => [label.textContent.toLowerCase(), label.dataset.rarity, getComputedStyle(label).backgroundColor]));
+                if (!labels.length || labels.some(([text, rarity, background]) => text !== rarity || background !== 'rgba(0, 0, 0, 0)')) {
+                    fail('Inventory item rarities must appear as text without badges');
+                }
+            }
+            if (name === 'stats') {
+                const chart = await page.evaluate(() => {
+                    const list = document.getElementById('stat-week-bars');
+                    const days = [...list.children];
+                    return list.getBoundingClientRect().height > 0 && list.scrollWidth <= list.clientWidth + 1
+                        && days.map(day => day.querySelector('.lb-week-label')?.textContent).join(' ') === 'Mon Tue Wed Thu Fri Sat Sun'
+                        && days.some(day => day.querySelector('.lb-week-bar')?.getBoundingClientRect().height > 0)
+                        && days.some(day => day.children.length === 1)
+                        && days.every(day => !day.querySelector('.lb-week-marker') || Number(day.querySelector('.lb-week-marker span')?.textContent) > 0);
+                });
+                if (!chart) fail('This week must show seven day labels and leave zero-game days empty');
+            }
             if (name === 'settings-home') {
                 const fits = await page.evaluate(() => {
                     const search = document.querySelector('.lb-ledger-search').getBoundingClientRect();
@@ -332,6 +351,18 @@
                         && !/\bspeed\b/i.test(document.getElementById('mq-mission-view').innerText);
                 }, name === 'missions' ? 'daily' : 'weekly');
                 if (!board) fail('Mission board is missing its timer, active period, or single-column cards');
+                const cardDesign = await page.evaluate(() => {
+                    const cards = [...document.querySelectorAll('#missions-body .mq-card')];
+                    const regular = cards.filter(card => card.dataset.tier !== 'secret');
+                    const colors = new Set(regular.map(card => getComputedStyle(card).backgroundColor));
+                    return colors.size === new Set(regular.map(card => card.dataset.tier)).size
+                        && cards.every(card => {
+                            const art = card.querySelector('.mq-card-icon svg')?.getBoundingClientRect();
+                            const points = card.querySelector('.mq-card-icon .mq-pts');
+                            return art && points && points.getBoundingClientRect().top >= art.bottom && /\+\d+ SP/.test(points.textContent);
+                        });
+                });
+                if (!cardDesign) fail('Mission cards must tint their faces by difficulty and put SP below the icon');
             }
             if (name === 'season-pass') {
                 const track = await page.evaluate(() => {
@@ -339,11 +370,13 @@
                     const rail = screen.querySelector('.sp-track');
                     const next = rail.querySelector('[aria-current="step"]');
                     const end = rail.querySelector('[data-stage="30"]');
+                    const month = window.LBSeason.seasonWindow(Date.now());
                     return !screen.hidden && rail.querySelectorAll('.sp-card[data-rarity]').length === 30
                         && rail.scrollHeight > rail.clientHeight && rail.scrollWidth <= rail.clientWidth + 1
                         && screen.querySelector('.sp-hero progress')?.getBoundingClientRect().width > 0
                         && next?.querySelector('.sp-step')?.textContent === next?.dataset.stage.padStart(2, '0')
-                        && end?.querySelector('h3')?.textContent.includes('Season Prism');
+                        && end?.querySelector('h3')?.textContent.includes('Season Prism')
+                        && screen.querySelector('#sp-day')?.textContent === `Day ${month.day} / ${month.days}`;
                 });
                 if (!track) fail('Season Pass is missing the next-stage meter or rarity-labelled rewards');
             }

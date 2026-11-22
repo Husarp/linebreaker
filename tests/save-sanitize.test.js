@@ -95,7 +95,7 @@ it('sanitizes schema v1 skin keys while preserving image rewards and the Neon pa
  expect(a.save).toMatchObject({schemaVersion:1,ownedSkins:['retro','lava-glass'],ownedPalettes:['classic','neon'],universalParts:3,
   _settings:{skin:'retro',blockShape:'square'}});
  expect(a.save.parts).toEqual({'golden-dragon':7,neon:2});
- expect(a.save.storedCrates[0].rewards).toEqual([expect.objectContaining({key:'golden-dragon',label:'+1 Part: Golden Dragon',desc:'7/50 parts'})]);
+ expect(a.save.storedCrates[0].rewards).toEqual([expect.objectContaining({key:'golden-dragon',label:'+1 Part: Golden Dragon',desc:'7/250 parts'})]);
 });
 it('sanitizes native desktop saves before displaying loaded progress', async () => {
  game.close();

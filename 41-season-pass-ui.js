@@ -1,7 +1,7 @@
 (() => {
-    const { DAY, DAYS, observe, claimStage, claimBonus, bonusProgress, storeState, stageStatus, prepareConfig, seasonState, summarizeTrack, exclusiveSkin } = window.LBSeason;
+    const { DAY, observe, claimStage, claimBonus, bonusProgress, storeState, stageStatus, prepareConfig, seasonState, summarizeTrack, exclusiveSkin } = window.LBSeason;
     const title = value => value[0].toUpperCase() + value.slice(1);
-    const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
+    const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
     const clockDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
     const points = new Intl.NumberFormat();
     const hour = DAY / 24;
@@ -12,8 +12,9 @@
     const prismIcon = `<span class="sp-reward-icon sp-prism" aria-hidden="true"><span></span><span></span><span></span><span></span></span>`;
 
     function timeLeft(period, now) {
-        const remaining = period.start + DAYS * DAY - now;
-        if (!period.id || remaining >= 3 * DAY) return `${period.daysLeft} days left`;
+        if (!period.id) return '';
+        const remaining = period.end - now;
+        if (remaining >= 3 * DAY) return `${period.daysLeft} days left`;
         if (remaining >= DAY) return `${Math.floor(remaining / DAY)} d ${Math.floor(remaining % DAY / hour)} h left`;
         if (remaining < minute) return '<1 m left';
         return `${Math.floor(remaining / hour)} h ${Math.floor(remaining % hour / minute)} m left`;
@@ -35,7 +36,7 @@
                 </div>
             </header>
             <div class="sp-shell">
-                <header class="sp-hero lb-block-feature">
+                <header class="sp-hero lb-block-feature" data-ledger-tone="reward">
                     <p class="lb-block-kicker" id="sp-season"></p>
                     <h2 id="sp-title">Season progress</h2>
                     <div class="sp-meter" hidden>
@@ -134,9 +135,9 @@
                 && previous.blocked === blocked && previous.seasonBlockedUntil === seasonBlockedUntil) return;
             const newTrack = previous?.config !== config || previous?.period.id !== period.id;
             previous = { ...state, points: season.points, config };
-            seasonDay.textContent = period.id ? `Day ${period.day} / ${DAYS}` : '';
-            find('#sp-season').textContent = period.id ? `Season ${stageNumber(period.id)}` : '30-day season';
-            find('#sp-dates').textContent = period.id ? `Ends ${date.format(period.start + DAYS * DAY)} (UTC)` : '';
+            seasonDay.textContent = period.id ? `Day ${period.day} / ${period.days}` : '';
+            find('#sp-season').textContent = period.id ? `Season ${stageNumber(period.id)}` : 'Monthly season';
+            find('#sp-dates').textContent = period.id ? `Ends ${date.format(period.end - 1)}` : '';
             notice.hidden = !blocked;
             notice.textContent = blocked ? `Season claims are paused. Check your device date and time. Claims resume at ${clockDate.format(seasonBlockedUntil || period.start)} or later.` : '';
             find('.sp-meter').hidden = !config;

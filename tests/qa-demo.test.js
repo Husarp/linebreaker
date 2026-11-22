@@ -292,9 +292,10 @@ it('shows the compact reset time above daily and weekly cards but not on Season'
 it('updates the open season countdown at precision boundaries and rollover', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w } = game;
-  const { DAY, DAYS, seasonWindow } = w.LBSeason;
+  const { DAY, seasonWindow } = w.LBSeason;
   const period = seasonWindow(w.Date.now());
-  const end = period.start + DAYS * DAY;
+  const { end } = period;
+  const next = seasonWindow(end);
   const hour = DAY / 24;
   const minute = hour / 60;
   let now = end - 3 * DAY;
@@ -310,14 +311,14 @@ it('updates the open season countdown at precision boundaries and rollover', asy
     [2 * hour + 14 * minute, '2 h 14 m left'],
     [2 * hour + 14 * minute - 1, '2 h 13 m left'],
     [minute - 1, '<1 m left'],
-    [0, '30 days left'],
+    [0, `${next.days} days left`],
   ]) {
     now = end - remaining;
     w.dispatchEvent(new w.Event('focus'));
     expect(countdown.textContent).toBe(label);
   }
   expect(w.document.querySelector('#sp-season').textContent).toBe(`Season ${String(period.id + 1).padStart(2, '0')}`);
-  expect(w.document.querySelector('#sp-day').textContent).toBe('Day 1 / 30');
+  expect(w.document.querySelector('#sp-day').textContent).toBe(`Day 1 / ${next.days}`);
 });
 
 it('equips owned inventory cards without separate Equip buttons', async () => {

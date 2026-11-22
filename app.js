@@ -2389,10 +2389,10 @@
     // === END MUSIC SYSTEM ===
 
     function refreshSeasonCard() {
-        const { id, day } = seasonPass.seasonWindow(Date.now());
+        const { id, day, days } = seasonPass.seasonWindow(Date.now());
         const date = document.getElementById('lb-menu-season-date');
         const format = number => String(number).padStart(2, '0');
-        date.textContent = id ? `Season ${format(id)} · Day ${day} of ${seasonPass.DAYS}` : 'Season Calendar';
+        date.textContent = id ? `Season ${format(id)} · Day ${day} of ${days}` : 'Season Calendar';
         _seasonScreen.updatePreview();
     }
     function refreshMenuUtilities() {
@@ -2536,6 +2536,7 @@
         const originalFileShape = data?._settings?.blockShape;
         const legacyLavaParts = legacySkins && Object.hasOwn(data?.parts || {}, 'lava');
         data = sanitizeSave(data, { ...defaultSaveData, _settings: defaultSettings }, { palettes: BLOCK_PALETTES, boosters: BOOSTER_INFO, ranks: [...RANKS, CELESTITE_RANK], missionDefaults: _defaultMissions(), items: _getAllPartsItems(), skins: SKIN_NAMES, partCost: _getItemCost, partLabel: _partItemName });
+        const previousSeason = data.season;
         if (data.missions) _restoreMissionDefinitions(data.missions);
         let skinNotice = '', skinSettingsChanged = false;
         if (data && typeof data.totalXP === 'number') {
@@ -2562,7 +2563,7 @@
             if (saveData.boosters['1.3x_game']) { saveData.boosters['1.25x_game'] = (saveData.boosters['1.25x_game']||0) + saveData.boosters['1.3x_game']; delete saveData.boosters['1.3x_game']; }
             if (saveData.boosters['1.6x_game']) { saveData.boosters['1.5x_game'] = (saveData.boosters['1.5x_game']||0) + saveData.boosters['1.6x_game']; delete saveData.boosters['1.6x_game']; }
             const resetSkin = removed.length > 0 || wasRemoved(settings.skin) || wasRemoved(originalFileSkin);
-            const refund = removed.reduce((total, key) => total + Math.max(1, Math.floor((ITEM_PART_COST[key] || 10) / 10)), 0);
+            const refund = removed.length;
             if (refund) addUniversalParts(refund);
             if (legacyLavaParts) delete saveData.parts.lava;
             const unavailableSkin = !_skinAvailable(settings.skin)
@@ -2627,6 +2628,7 @@
         }
         LBCrates.migratePendingCrates(saveData);
         seasonPass.observe(saveData);
+        const seasonMigrated = previousSeason.id > 0 && previousSeason.calendar !== saveData.season.calendar;
         LBCrates.observeTime(saveData);
         dailyGift.refresh();
         if (dailyGiftReady) _scheduleRankRewards();
@@ -2636,7 +2638,11 @@
         _initTrackCatalog(); // re-run now that saveData is loaded
         if (skinSettingsChanged) saveSettings();
         if (skinNotice && showSkinNotice) customAlert(skinNotice, 'BLOCK SKINS UPDATED');
-        return { skinNotice, skinSettingsChanged };
+        return { skinNotice, skinSettingsChanged, seasonMigrated };
+    }
+
+    function applyStoredSave(data) {
+        if (applyLoadedData(data).seasonMigrated) saveDataToFile();
     }
 
     function enterMenuAfterSave() {
@@ -2675,9 +2681,9 @@
             const { data, readOnly } = loaded;
             if (readOnly) console.warn('Native save opened read-only:', readOnly);
             _readOnlyRawSave = readOnly ? data : null;
-            const { skinSettingsChanged } = applyLoadedData(data, !readOnly);
+            const { skinSettingsChanged, seasonMigrated } = applyLoadedData(data, !readOnly);
             _desktopSaveReady = true;
-            if (skinSettingsChanged) saveDataToFile();
+            if (!readOnly && (skinSettingsChanged || seasonMigrated)) saveDataToFile();
             enterMenuAfterSave();
             if (readOnly) customAlert(`${readOnly} Your original save is unchanged. You can export it from Save Transfer.`, 'SAVE IS READ-ONLY');
             _dismissLoadingScreen();
@@ -2689,7 +2695,7 @@
             _setLoadProgress(75, 'Reading browser save…');
             const data = await startupWait('Browser save read', readIDBSave);
             if (_bootReadOnly) return;
-            applyLoadedData(data);
+            applyStoredSave(data);
             enterMenuAfterSave();
             _dismissLoadingScreen();
             signalUpdateReady();
@@ -2706,7 +2712,7 @@
                     const data = await startupWait('Save file read', () => readSaveFile(existingHandle));
                     if (_bootReadOnly) return;
                     fileHandle = existingHandle;
-                    applyLoadedData(data);
+                    applyStoredSave(data);
                     checkAchievementsOnLoad();
                     overlay.classList.add('hidden');
                     refreshMenuUtilities(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
@@ -2728,7 +2734,7 @@
                     if (perm === 'granted') {
                         const data = await readSaveFile(existingHandle);
                         fileHandle = existingHandle;
-                        applyLoadedData(data);
+                        applyStoredSave(data);
                         checkAchievementsOnLoad();
                         overlay.classList.add('hidden');
                         refreshMenuUtilities(); drawRankBadge(); _checkAchGlow(); startMusic('menu');
@@ -2754,7 +2760,7 @@
                     });
                     const data = await readSaveFile(handle);
                     fileHandle = handle;
-                    applyLoadedData(data);
+                    applyStoredSave(data);
                     checkAchievementsOnLoad();
                     await saveHandleToIDB(handle);
                     overlay.classList.add('hidden');
@@ -2838,8 +2844,17 @@
         saveData.boosters[type] = (saveData.boosters[type] || 0) + amount;
     }
 
-    const ITEM_PART_COST = { ghostColor: 20, boxes: 10, dots: 5, dotboxes: 15, sfxCyber: 30, sfxRetro: 15, sfxZen: 30, sfxArcade: 20, pastel: 10, neon: 15, dark: 10, greyscale: 5, synthwave: 10, earth: 10, ice: 5 };
-    function _getItemCost(key) { return IMAGE_SKINS.get(key)?.cost || ITEM_PART_COST[key] || 10; }
+    const PART_COST_BY_RARITY = { common: 20, rare: 50, epic: 120, legendary: 250, mythic: 500 };
+    const ITEM_RARITIES = {
+        glass: 'rare', shadow: 'rare', outline: 'common', holo: 'epic', journey: 'rare', bubble: 'rare',
+        ocean: 'common', forest: 'common', fire: 'rare', dragon: 'epic', void: 'epic', sunset: 'rare',
+        arctic: 'rare', midnight: 'rare', sakura: 'rare', ghostColor: 'rare',
+        dots: 'common', boxes: 'common', dotboxes: 'common',
+        sfxCyber: 'rare', sfxRetro: 'rare', sfxZen: 'rare', sfxArcade: 'rare',
+        greyscale: 'common', ice: 'common', pastel: 'common', dark: 'common', synthwave: 'common', earth: 'common', neon: 'common',
+    };
+    function _getItemRarity(key) { return IMAGE_SKINS.get(key)?.rarity || (Object.hasOwn(ITEM_RARITIES, key) ? ITEM_RARITIES[key] : null); }
+    function _getItemCost(key) { return IMAGE_SKINS.get(key)?.exclusive ? 0 : PART_COST_BY_RARITY[_getItemRarity(key)] || 0; }
 
     function _getAllPartsItems() {
         const items = [];
@@ -2923,9 +2938,10 @@
         if (saveData.parts) delete saveData.parts[key];
     }
     function playerUnlockItem(cat, key) {
-        if (cat === 'skin' && (!_skinAvailable(key) || IMAGE_SKINS.get(key)?.exclusive)) return;
+        if (!_getAllPartsItems().some(item => item.cat === cat && item.key === key)) return;
         const partsHave = saveData.parts?.[key] || 0;
-        if (partsHave < _getItemCost(key)) return;
+        const cost = _getItemCost(key);
+        if (!cost || partsHave < cost) return;
         giveItemDirectly(cat, key);
         playSFX('unlock');
         saveDataToFile();
@@ -3564,7 +3580,25 @@
         const collected = ownedSkins + ownedThemes + ownedGrid + ownedPal + ownedSfx + Number(!!saveData.ghostColorUnlocked);
         const total = (_devMode ? 17 : 8) + Object.keys(THEMES).length + Object.keys(GRID_STYLES).length + Object.keys(BLOCK_PALETTES).length + 6;
         stat('items-collected', `${collected} / ${total}`);
+        _renderStatsWeek(stats.playHistory || {});
         _renderActivityCalendar(document.getElementById('stat-activity-calendar').dataset.calYear || 'recent');
+    }
+
+    function _renderStatsWeek(history) {
+        const monday = new Date(Date.now());
+        monday.setHours(0, 0, 0, 0);
+        monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
+        const days = Array.from({ length: 7 }, (_, offset) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + offset));
+        const counts = days.map(day => history[LBSave.localDate(day)] || 0);
+        const max = Math.max(1, ...counts);
+        const formatDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+        const weekday = new Intl.DateTimeFormat('en', { weekday: 'short' });
+        document.getElementById('stat-week-dates').textContent = `${formatDate.format(days[0])} – ${formatDate.format(days[6])}`;
+        document.getElementById('stat-week-total').textContent = counts.reduce((total, count) => total + count, 0).toLocaleString();
+        document.getElementById('stat-week-bars').innerHTML = days.map((day, index) => {
+            const count = counts[index];
+            return `<li class="lb-week-day">${count > 0 ? `<div class="lb-week-marker" style="--week-height:${count / max * 100}%"><span>${count.toLocaleString()}</span><div class="lb-week-bar" aria-hidden="true"></div></div>` : ''}<span class="lb-week-label">${weekday.format(day)}</span></li>`;
+        }).join('');
     }
     function _activityDaysThatFit(container) {
         if (!container.clientWidth) return 14;
@@ -4074,6 +4108,11 @@
         if (event.detail === 0) document.getElementById(groupId)?.querySelector(':scope > [data-equipped="true"]')?.focus();
     });
 
+    function _itemRarityLabel(key) {
+        const rarity = _getItemRarity(key);
+        return rarity ? `<span class="lb-inventory-rarity lb-ledger-rarity-label" data-rarity="${rarity}">${rarity}</span>` : '';
+    }
+
     function _makeInventoryRow(label, isActive, isOwned, partCount, equip, onUnlockJs, extraHtml, itemKey, previewPack = '') {
         const equipped = isOwned && isActive;
         const cost = !isOwned && itemKey ? _getItemCost(itemKey) : 0;
@@ -4087,7 +4126,7 @@
         return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" class="inv-row lb-inventory-card lb-inventory-item lb-block-card"${equipped ? ' tabindex="-1"' : ''}>
             ${isOwned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
             <div class="lb-inventory-heading">
-                <div class="lb-inventory-name">${safeLabel}</div>
+                <div><div class="lb-inventory-name">${safeLabel}</div>${_itemRarityLabel(itemKey)}</div>
                 ${equipped || !isOwned ? _inventoryState(equipped) : ''}
             </div>
             ${extraHtml ? `<div class="lb-inventory-detail">${extraHtml}</div>` : ''}
@@ -4101,7 +4140,7 @@
         const parts = Math.max(0, Math.min(cost, Number(saveData.parts?.[key]) || 0));
         return `<article class="lb-block-card lb-colors-card"${key ? ` data-item-key="${key}"` : ''} data-owned="${owned}" data-equipped="${equipped}"${equipped ? ' tabindex="-1"' : ''}>
             ${owned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
-            <header><h3>${label}</h3>${!owned ? `<span class="lb-colors-state">${_inventoryState(false)}</span>` : ''}</header>
+            <header><div><h3>${label}</h3>${_itemRarityLabel(key)}</div>${!owned ? `<span class="lb-colors-state">${_inventoryState(false)}</span>` : ''}</header>
             ${preview}${detail ? `<p>${detail}</p>` : ''}
             ${cost ? `<div class="lb-colors-parts"><progress class="lb-block-progress" aria-label="${label} parts" value="${parts}" max="${cost}"></progress><span>${parts}/${cost} parts</span></div>` : ''}
             ${equipped ? `<div class="lb-colors-state lb-inventory-equipped-label">${_inventoryState(true, true)} Equipped</div>` : ''}
@@ -4363,7 +4402,7 @@
         const ownedBoosters = BOOSTER_KEYS.reduce((total, key) => total + (boosters[key] || 0), 0);
         const boosterTypes = BOOSTER_KEYS.filter(key => boosters[key] > 0).length;
         const locker = (category, detail, art, help = '') => `
-            <section class="lb-collection-feature">
+            <section class="lb-collection-feature" data-ledger-tone="${category === 'Boosters' ? 'reward' : 'collection'}">
                 <div><span class="lb-collection-label">Locker</span><h2>Stored ${category.toLowerCase()}</h2><p>${detail}</p></div>${art}
             </section>
             <div class="lb-collection-rule">
@@ -6733,6 +6772,7 @@
             if (!items.length) return;
             const section = document.createElement('section');
             section.dataset.achGroup = cat;
+            section.dataset.ledgerTone = 'achievement';
             section.className = 'lb-block-panel ach-group';
             const header = document.createElement('div');
             header.className = 'lb-block-panel-head ach-section-head';
@@ -9823,9 +9863,9 @@
         </div>`;
         return `<div class="mq-card-wrap"${index == null ? '' : ` data-mission-slot="${index}"`}>
             <article class="mq-card lb-block-card" data-tier="${escapeHtml(tier)}"${ready && !swapping ? ' data-ready' : ''}>
-                <span class="lb-ledger-icon-frame lb-ledger-key" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#${icon}"/></svg></span>
+                <div class="mq-card-icon"><span class="lb-ledger-icon-frame" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#${icon}"/></svg></span><span class="mq-pts">${pointLabel}</span></div>
                 <div class="mq-card-text"><h3 class="mq-card-title">${missionTitle}</h3><p class="mq-card-desc">${desc}</p></div>
-                <div class="mq-card-value"><span class="mq-pts lb-ledger-tag">${pointLabel}</span><span class="mq-tier-badge">${escapeHtml(tier)}</span></div>
+                <span class="mq-tier-badge">${tier === 'normal' ? 'Medium' : escapeHtml(tier)}</span>
                 ${meter}${reward || swap ? `<div class="mq-card-action${ready && !swapping ? ' mq-card-action--claim' : ''}">${reward}${swap}</div>` : ''}
             </article>
         </div>`;
