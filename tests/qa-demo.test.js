@@ -383,8 +383,9 @@ it('shows plain booster balances and puts the cost inside the exchange dialog', 
   await w.__LB_QA.open('inventory-boosters');
   const inventory = w.document.getElementById('inventory-boosters');
   const common = inventory.querySelector('[aria-label="Exchange 1.25× Booster"]');
-  expect(common.closest('.lb-inventory-booster').querySelector('.lb-inventory-booster-stock').textContent.trim()).toBe('×7');
-  expect(inventory.querySelector('.lb-collection-rule').textContent).toContain(`${Object.values(api.save.boosters).reduce((sum, count) => sum + count, 0)} owned`);
+  expect(common.closest('.lb-inventory-booster').querySelector('.lb-collection-quantity').textContent).toBe('×7');
+  const quantityLabel = w.document.getElementById('inventory-quantity');
+  expect(quantityLabel.textContent).toBe(`${Object.values(api.save.boosters).reduce((sum, count) => sum + count, 0)} owned`);
   expect(inventory.textContent).not.toContain('Cost: 3 boosters');
   expect(common.disabled).toBe(false);
   expect(inventory.querySelector('[aria-label="Exchange 1.5× Booster"]').disabled).toBe(true);
@@ -417,6 +418,26 @@ it('shows plain booster balances and puts the cost inside the exchange dialog', 
   expect(api.save.boosters).toMatchObject({ '1.25x_game': 1, '1.5x_game': 4 });
   expect(inventory.querySelector('[aria-label="Exchange 1.25× Booster"]').disabled).toBe(true);
   expect(inventory.querySelector('[aria-label="Exchange 1.5× Booster"]').disabled).toBe(false);
+  expect(quantityLabel.textContent).toBe('6 owned');
+  await w.__LB_QA.open('inventory');
+  expect(quantityLabel.textContent).toBe('0 owned');
+  await w.__LB_QA.open('inventory-blocks');
+  expect(quantityLabel.hidden).toBe(true);
+});
+
+it('shows a check for earned achievements and live counts for the next tier', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
+  const { w } = game;
+  await w.__LB_QA.open('achievements');
+  const screen = w.document.getElementById('achievements-overlay');
+  const unlocked = screen.querySelector('[data-ach-id="games"][data-state="unlocked"]');
+  const nextTier = screen.querySelector('[data-ach-id="games"][data-state="locked"]');
+  expect(unlocked.querySelector('[aria-label="Unlocked"]')).not.toBeNull();
+  expect(unlocked.querySelector('progress')).toBeNull();
+  expect(nextTier.querySelector('.ach-card-state').textContent).toBe('12 / 50');
+  expect(nextTier.querySelector('progress').value).toBeCloseTo(12 / 50);
+  screen.querySelector('[data-achtab="unlocked"]').click();
+  expect(screen.querySelector('[data-state="locked"]')).toBeNull();
 });
 
 it('queues only affordable whole parts and re-enables controls when a part is removed', async () => {

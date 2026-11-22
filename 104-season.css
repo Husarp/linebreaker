@@ -2,7 +2,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: var(--lb-space-lg);
-    max-inline-size: calc(var(--mq-column) - 2 * var(--lb-space-lg));
+    max-inline-size: var(--mq-column);
     margin-inline: auto;
 }
 .sp-shell :is(h2, h3, p) { margin: 0; }
@@ -10,11 +10,14 @@
     --lb-feature-art: url('assets/ui/41-season-pass-banner.webp');
     display: grid;
     align-content: center;
-    gap: var(--lb-space-xs);
     min-block-size: 151px;
-    padding: var(--lb-space-lg);
+    padding: 17px;
 }
-.sp-shell :is(#sp-title, .sp-highlight h2) { font: 650 var(--lb-type-heading)/1.2 var(--lb-font-heading); }
+.sp-shell #sp-title {
+    margin-block: 5px;
+    font: 400 1.3125rem/1.18 var(--lb-font-heading);
+    letter-spacing: -.045em;
+}
 .sp-meter {
     display: grid;
     gap: var(--lb-space-sm);
@@ -22,20 +25,27 @@
     color: var(--lb-art-label);
     font-size: var(--lb-type-small);
 }
-.sp-dates {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 var(--lb-space-sm);
-    color: var(--lb-art-ink);
-    font-size: var(--lb-type-micro);
+.sp-meter .lb-block-progress {
+    --lb-track: color-mix(in srgb, var(--lb-art-label) 45%, transparent);
+    --bb-meter-tone: var(--lb-art-label);
+    border: 0;
 }
+.sp-season-details {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--lb-space-sm);
+    color: var(--lb-muted);
+    font-size: var(--lb-type-small);
+}
+.sp-season-details > div { flex: 1 0 auto; }
 .sp-track-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--lb-space-sm);
-    padding-block-end: var(--lb-space-xs);
-    border-block-end: var(--lb-border) solid var(--lb-rule);
+    padding-block-end: 6px;
+    border-block-end: var(--lb-border) dashed var(--lb-rule);
 }
 .sp-notice { padding: var(--lb-space-md); color: var(--lb-danger); }
 #sp-loading:empty { display: none; }
@@ -45,14 +55,14 @@
     --sp-row-height: 55px;
     --sp-track-gap: var(--lb-space-sm);
     --sp-track-edge: var(--lb-rule);
-    max-block-size: calc(4 * var(--sp-row-height) + 3 * var(--sp-track-gap) + var(--lb-space-xs));
+    max-block-size: calc(4 * var(--sp-row-height) + 3 * var(--sp-track-gap));
     padding-inline-end: var(--lb-space-xs);
 }
 .sp-track ol {
     display: grid;
     gap: var(--sp-track-gap);
     margin: 0;
-    padding: 0 0 var(--lb-space-xs);
+    padding: 0;
     list-style: none;
 }
 .sp-track:focus-visible, .sp-card:focus-visible { outline: var(--focus-width) solid var(--lb-focus); outline-offset: -2px; }
@@ -66,24 +76,24 @@
 .sp-row {
     position: relative;
     display: grid;
-    grid-template-columns: 39px minmax(0, 1fr) auto;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--lb-space-sm);
     min-block-size: var(--sp-row-height);
-    padding: var(--lb-space-xs) var(--lb-space-sm);
+    padding: 5px var(--lb-space-sm);
 }
 .sp-card[data-next] .sp-row { --bb-frame-edge: var(--lb-meter); }
-.sp-row h3 { color: var(--lb-ink); font: 750 var(--lb-type-body)/1.3 var(--lb-font-body); }
+.sp-row h3 { grid-column: 2; color: var(--lb-ink); font: 750 .9375rem/1.25 var(--lb-font-body); }
 .sp-reward-icon { object-fit: contain; }
 .sp-card:is([data-state='locked'], [data-state='future']) .sp-reward-icon { opacity: .65; }
-.sp-state { color: var(--lb-utility); font: 650 var(--lb-type-small)/1.2 var(--lb-font-body); }
+.sp-state { color: var(--lb-utility); font: 750 .6875rem/1.2 var(--lb-font-body); }
 .sp-state-icon { inline-size: 16px; block-size: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.sp-state summary { display: flex; align-items: center; justify-content: center; gap: var(--lb-space-xs); min-inline-size: 44px; padding: 0; list-style: none; white-space: nowrap; }
+.sp-state summary { display: flex; align-items: center; justify-content: end; min-inline-size: 44px; padding: 0; list-style: none; white-space: nowrap; }
 .sp-state summary::-webkit-details-marker { display: none; }
 .sp-state[open] { grid-column: 1 / -1; }
-.sp-state[open] summary { position: absolute; inset-block-start: var(--lb-space-xs); inset-inline-end: var(--lb-space-sm); }
-.sp-row:has(.sp-state[open]) h3 { padding-inline-end: 10ch; }
-.sp-state .lb-block-expand-body { color: var(--lb-muted); padding: 0 0 var(--lb-space-xs); }
+.sp-state[open] summary { position: absolute; inset-block-start: 5px; inset-inline-end: var(--lb-space-sm); }
+.sp-row:has(.sp-state[open]) h3 { padding-inline-end: 44px; }
+.sp-state .lb-block-expand-body { color: var(--lb-muted); padding: var(--lb-space-xs) 0; font-size: var(--lb-type-small); }
 .sp-step {
     z-index: 1;
     display: grid;
@@ -102,16 +112,18 @@
     inset-inline-start: calc(var(--lb-space-lg) - var(--lb-border));
     inline-size: var(--lb-border);
     pointer-events: none;
+    background: linear-gradient(var(--lb-meter), var(--lb-meter)) top / 100% var(--sp-fill) no-repeat,
+        repeating-linear-gradient(to bottom, var(--sp-track-edge) 0 2px, transparent 2px 4px);
 }
 .sp-card:not(:last-child)::before {
+    --sp-fill: var(--sp-outgoing, 0%);
     inset-block-start: 50%;
     block-size: calc(50% + var(--sp-track-gap));
-    background: linear-gradient(to bottom, var(--lb-meter) var(--sp-outgoing), var(--sp-track-edge) var(--sp-outgoing));
 }
 .sp-card:not(:first-child)::after {
+    --sp-fill: var(--sp-incoming, 0%);
     inset-block-start: 0;
     block-size: 50%;
-    background: linear-gradient(to bottom, var(--lb-meter) var(--sp-incoming), var(--sp-track-edge) var(--sp-incoming));
 }
 .sp-highlight {
     --lb-feature-art: url('assets/ui/41-season-pass-exclusive.webp');
@@ -120,9 +132,10 @@
     align-items: center;
     gap: var(--lb-space-sm);
     min-block-size: 86px;
-    padding: var(--lb-space-sm) var(--lb-space-md);
+    padding: 10px var(--lb-space-md);
 }
-.sp-highlight p { margin-block-start: var(--lb-space-xs); color: var(--lb-art-label); font-size: var(--lb-type-small); }
+.sp-highlight h2 { font: 400 1.0625rem/1.3 var(--lb-font-heading); }
+.sp-highlight p { color: var(--lb-art-label); font-size: var(--lb-type-small); }
 .sp-prism {
     display: grid;
     grid-template: repeat(2, 20px) / repeat(3, 20px);

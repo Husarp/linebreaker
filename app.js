@@ -790,8 +790,10 @@
         };
     }
     function syncWallpaperArt(theme) {
-        for (const element of document.querySelectorAll('.bg-gradient, .lb-menu-banner, .go-score-card')) {
-            LBArtPack.applyThemeBackground(element, theme, settings.themeBackground);
+        LBArtPack.applyThemeBackground(wallpaper.parentElement, theme, settings.themeBackground);
+        const featureTheme = theme === 'default' ? 'forest' : theme;
+        for (const element of document.querySelectorAll('.lb-menu-banner, .go-score-card, #inventory-overlay, #achievements-overlay')) {
+            LBArtPack.applyThemeBackground(element, featureTheme, settings.themeBackground);
         }
     }
     function syncWallpaper() {
@@ -3948,8 +3950,9 @@
             b.tabIndex = selected ? 0 : -1;
         });
         document.querySelectorAll('[data-invtab-content]').forEach(p => p.classList.toggle('hidden', p.dataset.invtabContent !== tab));
+        document.getElementById('inventory-quantity').hidden = !['crates', 'boosters', 'parts'].includes(tab);
         if (_prevInvTab !== tab) _invOv.querySelector('.lb-inventory-content').scrollTop = 0;
-        if (['boosters', 'parts', 'other'].includes(tab)) _populateInventoryOther();
+        if (['crates', 'boosters', 'parts', 'other'].includes(tab)) _populateInventoryOther();
         if (tab === 'blocks' || tab === 'colors' || tab === 'fonts') _populateVisualCustomize();
         clearInterval(inventoryPreviewTimer);
         if (tab === 'blocks' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
@@ -4351,16 +4354,21 @@
         const boosters = saveData.boosters || {};
         const ownedBoosters = BOOSTER_KEYS.reduce((total, key) => total + (boosters[key] || 0), 0);
         const boosterTypes = BOOSTER_KEYS.filter(key => boosters[key] > 0).length;
-        const locker = (category, detail, art, quantity, help = '') => `
+        const locker = (category, detail, art, help = '') => `
             <section class="lb-collection-feature">
                 <div><span class="lb-collection-label">Locker</span><h2>Stored ${category.toLowerCase()}</h2><p>${detail}</p></div>${art}
             </section>
             <div class="lb-collection-rule">
-                <span class="lb-collection-label">${category}</span>${help}<span>${quantity} owned</span>
+                <span class="lb-collection-label">${category}</span>${help}<span class="lb-collection-label">Quantity</span>
             </div>`;
 
         // Universal parts section
         const _uniVal = saveData.universalParts || 0;
+        const activeTab = document.getElementById('inventory-overlay')._invTab;
+        const stockTotals = { crates: 0, boosters: ownedBoosters, parts: Number(_uniVal.toFixed(1)) };
+        if (Object.hasOwn(stockTotals, activeTab)) {
+            document.getElementById('inventory-quantity').textContent = `${stockTotals[activeTab].toLocaleString('en-US')} owned`;
+        }
         const exchangeForXP = _getAllPartsItems().length === 0;
         const uniRow = `<div class="lb-block-card lb-exchange-row lb-inventory-parts">
             <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
@@ -4380,9 +4388,9 @@
             const count = boosters[key] || 0;
             const nextKey = BOOSTER_KEYS[i + 1];
             return `<div class="lb-block-card lb-inventory-booster" data-rarity="${meta.rarity}">
-                <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(key)} <span>×${escapeHtml(count)}</span></div>
-                <strong>${meta.label}</strong>
-                <span class="lb-exchange-rarity">${meta.rarity}</span>
+                <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(key)}</div>
+                <div class="lb-inventory-booster-copy"><strong>${meta.label}</strong><span class="lb-exchange-rarity">${meta.rarity}</span></div>
+                <span class="lb-collection-quantity">×${count}</span>
                 ${nextKey ? `<button type="button" class="lb-block-btn lb-block-btn--primary" aria-label="Exchange ${meta.label}" data-exchange-booster="${i}" ${count < 3 ? 'disabled' : ''}>Exchange</button>` : ''}
             </div>`;
         }).join('');
@@ -4407,9 +4415,9 @@
                 '', p.key, p.packId);
         }).join('');
 
-        partsPanel.innerHTML = locker('Parts', 'Universal parts unlock items or exchange for XP.', _exchangePartsIcon(), Number(_uniVal.toFixed(1))) + uniRow;
+        partsPanel.innerHTML = locker('Parts', 'Universal parts unlock items or exchange for XP.', _exchangePartsIcon()) + uniRow;
         boosterPanel.innerHTML = locker('Boosters', `${boosterTypes} ${boosterTypes === 1 ? 'type' : 'types'} in your collection`,
-            LBArtPack.boosterIcon(BOOSTER_KEYS.find(key => boosters[key] > 0) || BOOSTER_KEYS[0]), ownedBoosters,
+            LBArtPack.boosterIcon(BOOSTER_KEYS.find(key => boosters[key] > 0) || BOOSTER_KEYS[0]),
             '<button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" data-control-tip="About boosters"></button>') +
             `<div class="lb-inventory-boosters">${boosterHtml}</div>`;
         container.innerHTML = `
@@ -6651,13 +6659,16 @@
             const tier = ach.type === 'tiered' ? ach.tiers[isUnlocked ? curTier - 1 : curTier] : null;
             const detail = isSecretLocked ? state : tier?.desc || ach.desc || rc.label;
             const medal = tier && (rarity === 'common' ? 'bronze' : rarity === 'rare' ? 'silver' : 'gold');
-            const meter = _progressFrac > 0 ? `<progress class="lb-block-progress" max="1" value="${_progressFrac}" aria-label="Achievement progress"></progress>` : '';
+            const progressInfo = !isSecretLocked && !isUnlocked && (tier?.progress || tier?.progressDisplay);
+            const meter = progressInfo ? `<progress class="lb-block-progress" max="1" value="${_progressFrac}" aria-label="Achievement progress"></progress>` : '';
+            const progressText = progressInfo && `${_getProgressVal(progressInfo.path).toLocaleString('en-US')} / ${progressInfo.target.toLocaleString('en-US')}`;
             const art = medal ? `<img class="ach-card-icon" src="assets/ui/medals/${medal}.png" alt="">`
                 : `<svg class="ach-card-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${icon}</svg>`;
             wrap.innerHTML = `${art}
                 <span class="ach-row-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small>${meter}</span>
-                <span class="ach-card-state"><small>${isSecretLocked ? '' : escapeHtml(rc.label)}</small>${isUnlocked
+                <span class="ach-card-state">${isUnlocked
                     ? '<svg viewBox="0 0 16 16" role="img" aria-label="Unlocked"><path d="m3 8 3 3 7-7"/></svg>'
+                    : progressText ? `<small>${escapeHtml(progressText)}</small>`
                     : '<svg class="lb-ledger-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>'}</span>`;
             const iconEl = wrap.querySelector('.ach-card-icon');
             bindInfoPreview(wrap, () => {
@@ -9959,18 +9970,23 @@
         const view = el.querySelector('#mq-mission-view');
         view.hidden = isSeason;
         el.querySelector('.lb-topbar-title').textContent = isSeason ? 'Season Pass' : 'Missions';
+        el.querySelector('.lb-topbar-kicker').textContent = isSeason ? 'Rewards' : 'Objectives';
         el.querySelector('#mq-menu').hidden = isSeason;
         el.querySelector('#mq-menu').disabled = swapping;
         el.querySelector('#mq-back').hidden = !isSeason;
         el.querySelector('#mq-list-meta').hidden = isSeason;
         el.querySelector('#sp-day').hidden = !isSeason;
-        el.querySelector('.mq-header .lb-info-btn').disabled = swapping;
+        view.querySelector('.lb-info-btn').disabled = swapping;
         el.querySelectorAll('[data-tab]').forEach(button => {
             button.setAttribute('aria-pressed', String(button.dataset.tab === tab));
             button.disabled = swapping;
             if (button.dataset.tab === 'season') button.hidden = isSeason;
         });
-        if (isSeason) return _seasonScreen.open();
+        if (isSeason) {
+            if (opening) el._mBoardTab = 'daily';
+            el._mSeasonFromBoard = !opening;
+            return _seasonScreen.open();
+        }
         _seasonScreen.close();
         el._mBoardTab = tab;
         if (opening || previousTab !== tab) view.scrollTop = 0;
@@ -10071,6 +10087,7 @@
     window._toggleChangeMode = function() {
         window._mqChangeMode = !window._mqChangeMode;
         renderMissionsOverlay();
+        if (window._mqChangeMode) document.querySelector('#missions-body .mq-change-overlay')?.focus();
     };
 
     window._exitChangeMode = function() {
@@ -10108,7 +10125,7 @@
     document.getElementById('mq-back').addEventListener('click', () => {
         const overlay = document.getElementById('missions-overlay');
         renderMissionsOverlay(overlay._mBoardTab || 'daily');
-        overlay.querySelector('[data-tab="season"]').focus();
+        overlay.querySelector(overlay._mSeasonFromBoard ? '[data-tab="season"]' : '#mq-menu').focus();
     });
 
     const _seasonScreen = window.LBSeasonUI.mount({

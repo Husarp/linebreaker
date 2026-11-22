@@ -49,7 +49,6 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
         light = currentLight
         val context = NativeLedger.context(host.context)
         val label = NativeLedger.label(context)
-        val ink = context.getColor(R.color.lb_ledger_ink)
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(12.dp, 8.dp, 6.dp, 10.dp)
@@ -75,13 +74,14 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
             text = item.title; textSize = 12f; typeface = NativeLedger.heading(context); setTextColor(label)
             maxLines = 2; ellipsize = TextUtils.TruncateAt.END; accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         })
-        copy.addView(TextView(context).apply { text = item.text; textSize = 14f; setTextColor(ink) })
+        copy.addView(TextView(context).apply { text = item.text; textSize = 14f; setTextColor(context.getColor(R.color.lb_ledger_muted)) })
         if (item.downloading) {
             val bar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
                 max = 100; isIndeterminate = item.percent == null; progress = item.percent ?: 0
                 contentDescription = "Update download progress"
                 progressTintList = ColorStateList.valueOf(label)
                 indeterminateTintList = ColorStateList.valueOf(label)
+                progressBackgroundTintList = ColorStateList.valueOf(context.getColor(R.color.lb_ledger_track))
             }
             progress = bar
             copy.addView(bar)

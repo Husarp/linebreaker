@@ -89,7 +89,7 @@ describe('achievement screen', () => {
     expect(hover(badges('BASIC')[0])).toContain('Hooked');
   });
 
-  it('reuses one question-mark graphic until secrets unlock and shows full progress only for the earned achievement', () => {
+  it('reuses one question-mark graphic until secrets unlock and marks only the earned achievement', () => {
     const icon = badge => badge.querySelector('.ach-card-icon').innerHTML;
     game.w.openAchievements('locked');
     const allSecretIcons = new Set(badges('SECRET').map(icon));
@@ -101,7 +101,8 @@ describe('achievement screen', () => {
     expect(hover(nice)).toContain('Nice');
     expect(allSecretIcons.has(icon(nice))).toBe(false);
     expect(allSecretIcons.has(icon(mystery))).toBe(true);
-    expect(nice.querySelector('progress').position).toBe(1);
+    expect(nice.querySelector('[aria-label="Unlocked"]')).not.toBeNull();
+    expect(mystery.querySelector('[aria-label="Unlocked"]')).toBeNull();
     expect(mystery.querySelector('progress')).toBeNull();
   });
 

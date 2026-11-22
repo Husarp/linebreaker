@@ -94,7 +94,7 @@
                 }).map(title => title.textContent.trim());
             });
             if (squeezedTitles.length) fail(`Header titles wrap or clip at ${viewport.width}px: ${squeezedTitles.join(', ')}`);
-            const textLayoutFailures = await page.evaluate(() => {
+            const textLayoutFailures = await page.evaluate(isMenu => {
                 const issues = new Set();
                 const labelSelector = 'button, [role="button"], [role="tab"], nav a, [role="navigation"] a, h1, h2, h3, h4, h5, h6, [role="heading"]';
                 const labels = new Map();
@@ -136,7 +136,7 @@
                 }
 
                 const achievements = document.querySelector('#btn-achievements > span:not([aria-hidden])');
-                if (achievements?.checkVisibility()) {
+                if (isMenu && achievements?.checkVisibility()) {
                     range.selectNodeContents(achievements);
                     const ink = range.getBoundingClientRect();
                     const bounds = achievements.getBoundingClientRect();
@@ -146,7 +146,7 @@
                     }
                 }
                 return [...issues];
-            });
+            }, name === 'menu');
             for (const issue of textLayoutFailures) fail(`${viewport.width}px: ${issue}`);
             if (name === 'inventory' || name.startsWith('inventory-')) {
                 const tabsFit = await page.locator('.lb-inventory-tabs').evaluate(list => {
@@ -196,10 +196,29 @@
                 if (await preview.evaluate(element => getComputedStyle(element).backgroundImage) !== 'none') fail('Plain wallpaper still shows artwork');
                 await wallpaper.selectOption('ocean');
                 if (!(await preview.evaluate(element => getComputedStyle(element).backgroundImage)).includes('ocean-')) fail('Wallpaper picker did not preview the selected art');
-                if (await page.locator('html').getAttribute('data-lb-ui-theme') !== accent) fail('Changing wallpaper also changed the accent');
+                if (await page.locator('html').getAttribute('data-lb-ui-theme') !== resolved) fail('Changing wallpaper also changed the theme');
+                const otherTheme = resolved === 'dark' ? 'light' : 'dark';
+                await page.locator(`[data-ui-theme="${otherTheme}"]`).click();
+                if (await wallpaper.inputValue() !== 'ocean' ||
+                    !(await preview.evaluate(element => getComputedStyle(element).backgroundImage)).includes('ocean-')) {
+                    fail('Changing theme also changed the wallpaper');
+                }
+                await page.locator(`[data-ui-theme="${theme}"]`).click();
                 await wallpaper.selectOption(original);
             }
             if (name === 'menu') {
+                const navigationFits = await page.locator('.lb-menu-nav button').evaluateAll(rows => rows.length === 4 && rows.every(row => {
+                    const chevron = row.querySelector('.lb-ledger-chevron');
+                    if (!chevron || getComputedStyle(chevron).borderInlineEndWidth === '0px') return false;
+                    const hadNotification = row.hasAttribute('data-ready');
+                    row.setAttribute('data-ready', '');
+                    const dot = getComputedStyle(row, '::after');
+                    const ready = dot.content === '""' && parseFloat(dot.width) > 0 && dot.maskImage === 'none'
+                        && getComputedStyle(chevron).borderInlineEndWidth !== '0px';
+                    row.toggleAttribute('data-ready', hadNotification);
+                    return ready;
+                }));
+                if (!navigationFits) fail('Menu destinations do not show independent chevrons and notification dots');
                 await page.locator('#lb43-daily-gift').scrollIntoViewIfNeeded();
                 const fits = await page.evaluate(() => {
                     const corner = document.querySelector('.lb43-gift-corner').getBoundingClientRect();

@@ -183,6 +183,7 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   expect(missionView.hidden).toBe(true);
   expect(w.getComputedStyle(missionView).display).toBe('none');
   expect(seasonTab.getAttribute('aria-pressed')).toBe('true');
+  expect(w.document.activeElement.id).toBe('mq-back');
   expect(overlay.querySelector('.sp-points')).toBeNull();
   const meter = overlay.querySelector('.sp-hero .sp-meter');
   const progress = meter.querySelector('progress');
@@ -225,11 +226,12 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   locked.querySelector('summary').click();
   expect(locked.open).toBe(true);
   expect(locked.querySelector('.lb-block-expand-body').textContent).toBe('Needs points · 16 SP');
-  weeklyTab.click();
+  w.document.getElementById('mq-back').click();
   expect(overlay.hidden).toBe(true);
   expect(missionView.hidden).toBe(false);
   expect(weeklyTab.getAttribute('aria-pressed')).toBe('true');
   expect(seasonTab.getAttribute('aria-pressed')).toBe('false');
+  expect(w.document.activeElement).toBe(seasonTab);
   seasonTab.click();
   expect(overlay.querySelector('[data-tier="exclusive"]').dataset.state).toBe('claimed');
   w.closeMissions();
@@ -254,4 +256,28 @@ it('fills the season track through reached thresholds and partway toward the nex
   expect(stage(8).style.getPropertyValue('--sp-outgoing')).toBe('100%');
   expect(stage(9).hasAttribute('data-reached')).toBe(false);
   expect(stage(9).style.getPropertyValue('--sp-incoming')).toBe('50%');
+});
+
+it('reports the visible stage range as the reward track scrolls', async () => {
+  game = await loadGame(true, null, null, async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] }));
+  const { w } = game;
+  const track = w.document.querySelector('.sp-track');
+  await w.openMissions('season');
+  const stages = track.querySelectorAll('.sp-card');
+  const range = w.document.getElementById('sp-stage-range');
+  expect(stages).toHaveLength(30);
+  track.getBoundingClientRect = () => ({ top: 0, bottom: 244 });
+  stages.forEach((stage, index) => {
+    stage.getBoundingClientRect = () => {
+      const top = index * 63 - track.scrollTop;
+      return { top, bottom: top + 55 };
+    };
+  });
+  for (const [offset, label] of [[0, 'Stage 01–04'], [6 * 63, 'Stage 07–10'], [26 * 63, 'Stage 27–30']]) {
+    track.scrollTop = offset;
+    track.dispatchEvent(new w.Event('scroll'));
+    expect(range.textContent).toBe(label);
+  }
+  w.document.getElementById('mq-back').click();
+  expect(w.document.activeElement.id).toBe('mq-menu');
 });

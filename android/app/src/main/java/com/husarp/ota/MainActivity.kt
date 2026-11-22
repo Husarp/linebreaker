@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Rect
@@ -79,15 +80,26 @@ class MainActivity : BridgeActivity() {
     }
     private fun showStartupRecovery(reason: String) {
         updater.engine.log.add("Startup watchdog: ${updater.launch.version} ($reason)")
-        val box = LinearLayout(ledger).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp,12.dp,20.dp,12.dp) }
-        val dialog = NativeLedger.dialog(ledger, "Linebreaker didn't start properly", warning = true)
-            .setView(ScrollView(ledger).apply { addView(box) }).setCancelable(false).create()
-        val status = TextView(ledger).apply { text = "You can check for a fix without opening the game. Your saves stay." }
-        val check = Button(ledger).apply { text = "Check for fix" }
-        val reset = Button(ledger).apply { text = "Reset to built-in version" }
-        val wait = Button(ledger).apply { text = "Wait longer" }
-        val shell = Button(ledger).apply { text = "Open shell" }
-        val copy = Button(ledger).apply { text = "Copy logs"; setOnClickListener { copyLogs() } }
+        val theme = ledger
+        val box = LinearLayout(theme).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp,12.dp,20.dp,12.dp) }
+        val dialog = NativeLedger.dialog(theme, "Linebreaker didn't start properly", warning = true)
+            .setView(ScrollView(theme).apply { addView(box) }).setCancelable(false).create()
+        val status = TextView(theme).apply {
+            text = "You can check for a fix without opening the game. Your saves stay."
+            setTextColor(theme.getColor(R.color.lb_ledger_ink))
+            setPadding(0, 0, 0, 12.dp)
+        }
+        val check = Button(theme).apply { text = "Check for fix" }
+        val reset = Button(theme).apply {
+            text = "Reset to built-in version"
+            setTextColor(ColorStateList(
+                arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
+                intArrayOf(theme.getColor(R.color.lb_ledger_muted), theme.getColor(R.color.lb_ledger_danger))
+            ))
+        }
+        val wait = Button(theme).apply { text = "Wait longer" }
+        val shell = Button(theme).apply { text = "Open app shell" }
+        val copy = Button(theme).apply { text = "Copy logs"; setOnClickListener { copyLogs() } }
         val alternatives = listOf(reset, wait, shell)
         var fix: Updater.StartupFix? = null
         var retryShell = false
