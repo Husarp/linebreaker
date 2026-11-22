@@ -100,7 +100,7 @@ it('grants a gift once and persists it before the player opens the animated reve
   expect(api.save.boosters['2xp_game']).toBe(3);
 });
 
-it('shows the full streak count and a new week of dots, with a separate bonus card', async () => {
+it('hides the gift streak and bonus label while preserving the legacy payout', async () => {
   game = await loadGame();
   const { w: window, api } = game;
   const yesterday = new window.Date(window.Date.now() - 86_400_000);
@@ -108,22 +108,21 @@ it('shows the full streak count and a new week of dots, with a separate bonus ca
   window.Math.random = () => 0;
   window.matchMedia = () => ({ matches: true });
   const document = window.document;
+  const css = document.createElement('style');
+  css.textContent = readFileSync(new URL('../43-crates-daily-gift.css', import.meta.url), 'utf8');
+  document.head.append(css);
   document.querySelector('#lb43-daily-gift').click();
   game.advance(16);
   game.advance(16);
   const dialog = document.querySelector('#daily-gift-overlay');
   const streak = dialog.querySelector('.lb64-streak');
-  expect(streak.getAttribute('aria-label')).toBe('8-day gift streak, day 1 of 7 this cycle');
-  expect(streak.querySelector('.lb64-streak-count').textContent).toBe('🔥8');
-  expect(streak.querySelector('.mq-streak-flame').getAttribute('aria-hidden')).toBe('true');
-  expect(streak.querySelectorAll('.lb64-streak-dots > span')).toHaveLength(7);
-  expect(streak.querySelector('.lb64-streak-dots > :first-child').className).toBe('lb64-streak-today');
+  expect(window.getComputedStyle(streak).display).toBe('none');
   dialog.querySelector('button').click();
   const cards = [...dialog.querySelectorAll('.lb-block-reward')];
   const universal = cards.filter(card => card.querySelector('.lb64-reward-name').textContent === 'Universal Part');
   expect(universal.map(card => card.querySelector('.lb-block-reward-amount').textContent)).toEqual(['×1', '×3']);
   expect(universal[0].querySelector('.lb64-reward-tag')).toBeNull();
-  expect(universal[1].querySelector('.lb64-reward-tag').textContent).toBe('Streak bonus');
+  expect(window.getComputedStyle(universal[1].querySelector('.lb64-reward-tag')).display).toBe('none');
   expect(cards.some(card => card.querySelector('img').getAttribute('src') === 'assets/ui/boosters/common-1.25x.png')).toBe(true);
   expect(api.save.universalParts).toBe(4);
 });

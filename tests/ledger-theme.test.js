@@ -37,8 +37,8 @@ it('defaults to Dark and persists Light independently of the equipped theme and 
     expect(themeButton(w, 'light').getAttribute('aria-pressed')).toBe('true');
     expect(themeButton(w, 'dark').getAttribute('aria-pressed')).toBe('false');
     expect(w.document.getElementById('setting-theme-background').value).toBe('sakura');
-    const wallpaper = w.document.getElementById('setting-theme-background');
-    expect([...wallpaper.options].map(option => option.value)).toEqual(['image', 'plain', ...w.LBArtPack.wallpapers]);
+    const options = w.document.querySelectorAll('#setting-theme-background-list [role="option"]');
+    expect([...options].map(option => option.dataset.value)).toEqual(['image', 'plain', ...w.LBArtPack.wallpapers]);
     w.applyTheme('default');
     expect(w.document.querySelector('.bg-gradient').style.getPropertyValue('--lb-theme-art-portrait'))
       .toContain('/sakura-portrait.jpg');

@@ -18,7 +18,7 @@
 }
 .lb43-gift-panel { padding: 24px; border: 1px solid var(--border); border-radius: var(--radius-md); }
 .lb43-gift-panel h2 { font: 700 24px / 1.25 var(--font-display); }
-.lb43-gift-streak { margin: 8px 0 16px; color: var(--text-muted); }
+.lb43-gift-overlay :is(.lb43-gift-streak, .lb64-reward-tag) { display: none; }
 .lb43-gift-grid { display: grid; margin-bottom: 16px; }
 .lb43-gift-card { border: 1px solid var(--lb43-tone, var(--border)); border-radius: var(--radius-md); }
 .lb43-gift-icon { display: block; margin-bottom: 4px; }

@@ -67,7 +67,7 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   w.eval(readFileSync(new URL('../update-tools.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../app.js', import.meta.url), 'utf8')
     .replace('function fillScreenAfterPaint(overlay, fill) {', 'function fillScreenAfterPaint(overlay, fill) { if (!window.__testDeferredScreens) return Promise.resolve(fill());')
-    .replace('window.__lb = {', 'window.__lb = { writeSaveFile, applyLoadedData, startMusic, switchMusicMode, _initTrackCatalog, _getPlaylist,'));
+    .replace('window.__lb = {', 'window.__lb = { writeSaveFile, applyLoadedData, startMusic, stopMusic, switchMusicMode, _initTrackCatalog, _getPlaylist,'));
   // Let IndexedDB-backed startup finish before tests mutate state or close the window.
   for (let i = 0; i < 30; i++) await new Promise(resolve => setImmediate(resolve));
   function advance(ms) {

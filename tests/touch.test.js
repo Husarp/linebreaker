@@ -37,7 +37,7 @@ it('slides between the captured arrows without firing other buttons or releasing
   const right = document.querySelector('[data-action="right"]');
   const hard = document.querySelector('[data-action="hard"]');
   document.elementFromPoint = vi.fn();
-  const pointer = (button, type, pointerId) => button.dispatchEvent(Object.assign(new window.MouseEvent(type, { bubbles: true }), { pointerId }));
+  const pointer = (button, type, pointerId) => button.dispatchEvent(Object.assign(new window.MouseEvent(type, { bubbles: true }), { pointerId, pointerType: 'mouse' }));
 
   pointer(right, 'pointerdown', 1);
   expect(right.setPointerCapture).toHaveBeenCalledWith(1);
@@ -58,6 +58,41 @@ it('slides between the captured arrows without firing other buttons or releasing
   pointer(right, 'lostpointercapture', 1);
   pointer(right, 'pointerup', 1);
   expect(game.release.mock.calls).toEqual([[1]]);
+ } finally {
+  dom.window.close();
+ }
+});
+
+it('fires secondary fingers independently while an arrow repeats, including the phone Hold control', () => {
+ const dom = new JSDOM('<div id="app"><div id="hold-panel"></div><canvas id="game-board"></canvas></div>', { runScripts: 'outside-only' });
+ try {
+  const { window } = dom;
+  const { document } = window;
+  const game = window.LBInput = { press: vi.fn(), release: vi.fn(), action: vi.fn(), unlockAudio: vi.fn() };
+  window.matchMedia = () => ({ matches: true });
+  window.eval(readFileSync(new URL('../touch.js', import.meta.url), 'utf8'));
+  const button = action => document.querySelector(`[data-action="${action}"]`);
+  const pointer = (target, type, pointerId) => target.dispatchEvent(Object.assign(
+   new window.MouseEvent(type, { bubbles: true, cancelable: true, detail: type === 'click' ? 1 : 0 }),
+   { pointerId, pointerType: 'touch', isPrimary: pointerId === 1 }
+  ));
+  expect(pointer(button('left'), 'pointerdown', 1)).toBe(true);
+  for (const [target, id] of [[button('cw'), 2], [button('hard'), 3], [document.querySelector('.lb-phone-hold'), 4]]) {
+   pointer(target, 'pointerdown', id);
+   pointer(target, 'pointerup', id);
+   pointer(target, 'click', id);
+  }
+  expect(game.action.mock.calls).toEqual([['cw'], ['hard'], ['hold']]);
+  expect(game.release).not.toHaveBeenCalled();
+  pointer(button('right'), 'pointerdown', 5);
+  pointer(button('soft'), 'pointerdown', 6);
+  pointer(button('right'), 'pointercancel', 5);
+  pointer(button('right'), 'lostpointercapture', 5);
+  expect(game.press.mock.calls).toEqual([['left', 1], ['right', 5], ['soft', 6]]);
+  expect(game.release.mock.calls).toEqual([[5]]);
+  pointer(button('left'), 'pointerup', 1);
+  window.dispatchEvent(new window.Event('blur'));
+  expect(game.release.mock.calls).toEqual([[5], [1], [6]]);
  } finally {
   dom.window.close();
  }

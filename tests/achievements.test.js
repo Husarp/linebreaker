@@ -9,9 +9,8 @@ describe('achievement screen', () => {
   const query = selector => game.w.document.querySelector(selector);
   const filter = tab => query(`[data-achtab="${tab}"]`).click();
   const select = (selector, value) => {
-    const control = query(selector);
-    control.value = value;
-    control.dispatchEvent(new game.w.Event('change', { bubbles: true }));
+    query(`${selector} button`).click();
+    query(`${selector}-list [data-value="${value}"]`).click();
   };
   const sections = () => [...query('#ach-list').children].filter(section => section.querySelector('svg'));
   const sectionNamed = name => sections().find(section => section.firstElementChild.firstElementChild.textContent === name);
@@ -25,42 +24,42 @@ describe('achievement screen', () => {
   it('counts every earned tier and excludes secrets from the completion numerator and denominator', () => {
     game.w.openAchievements();
     expect(query('#ach-counter').textContent).toBe('0% complete');
-    expect(sectionCount('BASIC')).toBe('0 of 119');
-    expect(sectionCount('SECRET')).toBe('0 of 58');
+    expect(sectionCount('BASIC')).toBe('0 of 117');
+    expect(sectionCount('SECRET')).toBe('0 of 55');
 
     game.api.setup({ save: { achievements: { collector: { tier: 2 }, sec_nice: { unlocked: true } } } });
     game.w.openAchievements();
     expect(query('#ach-counter').textContent).toBe('2% complete');
-    expect(query('#ach-milestone-count').textContent).toBe('2 of 119 unlocked');
-    expect(query('#ach-milestone-progress').position).toBeCloseTo(2 / 119);
-    expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 58');
-    expect(sectionCount('BASIC')).toBe('2 of 119');
-    expect(sectionCount('SECRET')).toBe('1 of 58');
+    expect(query('#ach-milestone-count').textContent).toBe('2 of 117 unlocked');
+    expect(query('#ach-milestone-progress').position).toBeCloseTo(2 / 117);
+    expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 55');
+    expect(sectionCount('BASIC')).toBe('2 of 117');
+    expect(sectionCount('SECRET')).toBe('1 of 55');
 
     game.api.setup({ save: { achievements: { collector: { tier: 2 } } } });
     game.w.openAchievements();
     expect(query('#ach-counter').textContent).toBe('2% complete');
-    expect(query('#ach-secret-counter').textContent).toBe('Secrets 0 of 58');
+    expect(query('#ach-secret-counter').textContent).toBe('Secrets 0 of 55');
   });
 
   it('combines the category and status filters without changing completion totals', () => {
     game.api.setup({ save: { achievements: { collector: { tier: 2 }, sec_nice: { unlocked: true } } } });
     game.w.openAchievements();
-    expect([...query('#ach-category').options].map(option => option.value)).toEqual(['all', 'basic', 'secret']);
+    expect([...query('#ach-category-list').children].map(option => option.dataset.value)).toEqual(['all', 'basic', 'secret']);
     select('#ach-category', 'secret');
     filter('unlocked');
     expect(sectionNamed('BASIC')).toBeUndefined();
     expect(badges('SECRET').map(hover)).toEqual([expect.stringContaining('Nice')]);
-    expect(sectionCount('SECRET')).toBe('1 of 58');
+    expect(sectionCount('SECRET')).toBe('1 of 55');
     filter('locked');
-    expect(badges('SECRET')).toHaveLength(57);
+    expect(badges('SECRET')).toHaveLength(54);
     expect(badges('SECRET').every(badge => hover(badge).startsWith('???'))).toBe(true);
 
     select('#ach-category', 'basic');
     expect(sectionNamed('SECRET')).toBeUndefined();
-    expect(sectionCount('BASIC')).toBe('2 of 119');
+    expect(sectionCount('BASIC')).toBe('2 of 117');
     expect(query('#ach-counter').textContent).toBe('2% complete');
-    expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 58');
+    expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 55');
   });
 
   it('sorts by badge rarity, progress, or latest saved unlock date', () => {
@@ -117,7 +116,7 @@ describe('achievement screen', () => {
     game.w.devUnlockAllAchievements();
     game.w.openAchievements('unlocked');
     const earned = [...badges('BASIC'), ...badges('SECRET')];
-    expect(earned).toHaveLength(96);
+    expect(earned).toHaveLength(91);
     for (const badge of earned) {
       const icon = badge.querySelector('.ach-card-icon');
       if (icon.localName === 'img') {
@@ -143,10 +142,56 @@ describe('achievement screen', () => {
     expect(badge.getAttribute('aria-describedby')).toBe('ach-tip');
     expect([tip.style.left, tip.style.top]).toEqual(['10px', '267px']);
     tap(47, 447);
+    expect(tip.hidden).toBe(true);
+    expect(badge.hasAttribute('aria-describedby')).toBe(false);
+    tap(47, 447);
+    expect(tip.hidden).toBe(false);
     expect([tip.style.left, tip.style.top]).toEqual(['10px', '267px']);
+    tap(47, 447);
     icon.getBoundingClientRect = () => ({ left: game.w.innerWidth - 43, width: 30, top: 100, bottom: 130 });
     tap(8, 8);
     expect([tip.style.left, tip.style.top]).toEqual([`${game.w.innerWidth - 294}px`, '138px']);
+  });
+
+  it('uses one trailing slot and toggles the info box even after a hover preview', () => {
+    game.api.setup({ save: { achievements: { sec_nice: { unlocked: true } } } });
+    game.w.openAchievements();
+    const rows = [...query('#ach-list').querySelectorAll('.ach-card')];
+    expect(rows.some(row => row.querySelector('.ach-card-state small'))).toBe(true);
+    expect(rows.some(row => row.querySelector('.ach-card-state [aria-label="Unlocked"] svg'))).toBe(true);
+    expect(rows.every(row => row.querySelector('.ach-card-state > :is(small, .lb-ledger-tag):only-child'))).toBe(true);
+    const [badge] = rows;
+    hover(badge);
+    const tip = query('#ach-tip');
+    expect(tip.hidden).toBe(false);
+    badge.click();
+    expect(tip.hidden).toBe(false);
+    badge.click();
+    expect(tip.hidden).toBe(true);
+  });
+
+  it('lets keyboard users navigate, select and dismiss the themed dropdown', () => {
+    game.w.openAchievements();
+    const trigger = query('#ach-sort button');
+    const list = query('#ach-sort-list');
+    const press = (target, key) => target.dispatchEvent(new game.w.KeyboardEvent('keydown', { key, bubbles: true }));
+    expect(query('select')).toBeNull();
+    trigger.focus();
+    press(trigger, 'ArrowDown');
+    expect(list.hidden).toBe(false);
+    expect(game.w.document.activeElement.dataset.value).toBe('default');
+    press(game.w.document.activeElement, 'End');
+    press(game.w.document.activeElement, 'Enter');
+    expect(list.hidden).toBe(true);
+    expect(game.w.document.activeElement).toBe(trigger);
+    expect(trigger.textContent).toBe('Recently unlocked');
+    trigger.click();
+    expect(game.w.document.activeElement.getAttribute('aria-selected')).toBe('true');
+    press(game.w.document.activeElement, 'Escape');
+    expect(list.hidden).toBe(true);
+    trigger.click();
+    game.w.document.body.dispatchEvent(new game.w.Event('pointerdown', { bubbles: true }));
+    expect(list.hidden).toBe(true);
   });
 
   it('dismisses on nested scroll, page wheel, drag, outside tap, tab change, and back', () => {

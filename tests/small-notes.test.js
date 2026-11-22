@@ -106,14 +106,14 @@ it.each([false, true])('keeps portrait missions collapsed and only commits a qua
     api.tick(200);
     expect(body.textContent).toContain('2 / 15');
     expect(body.textContent).toContain('Raw XP10 / 100');
-    expect(body.textContent).toContain('Total XP20 / 200');
+    expect(body.textContent).toContain('Total XP13 / 200');
   } else {
     expect(body.textContent).toContain('Clear a line');
   }
   const progress = () => api.save.missions.daily.quests.map(quest => quest.progress);
   expect(progress()).toEqual([1, 0, 0]);
   api.gameOver();
-  expect(progress()).toEqual(clearsLine ? [2, 10, 20] : [1, 0, 0]);
+  expect(progress()).toEqual(clearsLine ? [2, 10, 13] : [1, 0, 0]);
   expect(panel.hidden).toBe(true);
 });
 

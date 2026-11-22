@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import '../notifications.js';
 import { loadGame } from './loader.js';
 
-const { nextReset, nextStreakReminder } = globalThis.LBNotifications;
+const { nextReset } = globalThis.LBNotifications;
 let game;
 afterEach(() => game?.close());
 
@@ -23,14 +23,6 @@ it('uses local wall-clock times across daylight-saving changes', () => {
     const springSunday = new Date(2026, 2, 8, 0);
     expect(nextReset(springSunday)).toEqual(new Date(2026, 2, 9));
     expect(nextReset(springSunday, true)).toEqual(new Date(2026, 2, 9));
-    expect(nextStreakReminder(springSunday, false)).toEqual(new Date(2026, 2, 8, 20));
-});
-
-it('only schedules an unmet streak for a still-upcoming 8 p.m.', () => {
-    expect(nextStreakReminder(new Date(2026, 10, 18, 19, 59, 59), false)).toEqual(new Date(2026, 10, 18, 20));
-    expect(nextStreakReminder(new Date(2026, 10, 18, 20), false)).toBeNull();
-    expect(nextStreakReminder(new Date(2026, 10, 18, 21), false)).toBeNull();
-    expect(nextStreakReminder(new Date(2026, 10, 18, 12), true)).toBeNull();
 });
 
 function android({ display = 'granted', response = 'granted' } = {}) {
@@ -87,9 +79,9 @@ it('only prompts once from an Android settings toggle, not on app start', async 
     expect(game.w.document.querySelector('#notification-settings [role="status"]').textContent).toContain('Android Settings');
 });
 
-it('schedules recurring local resets and removes the streak reminder after the game meets its goal', async () => {
+it('schedules recurring local resets and cancels legacy streak reminders without rescheduling them', async () => {
     const { capacitor, plugin } = android();
-    game = await loadGame(true, null, capacitor, { reminders: { enabled: true } });
+    game = await loadGame(true, null, capacitor, { reminders: { enabled: true, streak: true } });
     expect(plugin.schedule).toHaveBeenCalledTimes(1);
     const { notifications } = plugin.schedule.mock.lastCall[0];
     expect(new Set(notifications.map(({ smallIcon }) => smallIcon))).toEqual(new Set(['ic_stat_linebreaker']));
@@ -97,25 +89,15 @@ it('schedules recurring local resets and removes the streak reminder after the g
         expect.objectContaining({ id: 2001, schedule: { on: { hour: 0, minute: 0, second: 0 } }, isExactNotification: false }),
         expect.objectContaining({ id: 2003, schedule: { on: { weekday: 2, hour: 0, minute: 0, second: 0 } }, isExactNotification: false })
     ]));
-    const tonight = new game.w.Date();
-    tonight.setHours(20, 0, 0, 0);
-    if (tonight > new game.w.Date()) {
-        expect(notifications.find(({ id }) => id === 2002)?.schedule.at.getTime()).toBe(tonight.getTime());
-    }
-
-    const save = game.api.save;
-    save.missions.daily.rawXPToday = game.api.streakThreshold();
-    game.api.setup({ save });
-    game.api.gameOver();
-    await vi.waitFor(() => expect(plugin.schedule).toHaveBeenCalledTimes(2));
+    expect(toggle('streak')).toBeNull();
     expect(plugin.cancel.mock.lastCall[0].notifications).toContainEqual({ id: 2002 });
-    expect(plugin.schedule.mock.lastCall[0].notifications.map(({ id }) => id)).toEqual([2001, 2003]);
+    expect(notifications.map(({ id }) => id)).toEqual([2001, 2003]);
 
     toggle('weekly').click();
-    await vi.waitFor(() => expect(plugin.schedule).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(plugin.schedule).toHaveBeenCalledTimes(2));
     expect(plugin.schedule.mock.lastCall[0].notifications.map(({ id }) => id)).toEqual([2001]);
     toggle('enabled').click();
-    await vi.waitFor(() => expect(plugin.cancel).toHaveBeenCalledTimes(4));
-    expect(plugin.schedule).toHaveBeenCalledTimes(3);
+    await vi.waitFor(() => expect(plugin.cancel).toHaveBeenCalledTimes(3));
+    expect(plugin.schedule).toHaveBeenCalledTimes(2);
     expect(JSON.parse(game.w.localStorage.getItem('linebreaker_settings')).reminders).toMatchObject({ enabled: false, weekly: false });
 });

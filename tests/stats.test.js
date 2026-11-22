@@ -36,7 +36,7 @@ it('opens on general stats and switches exactly four panels by click or keyboard
   expect(byId('cal-instructions')).toBeNull();
 });
 
-it('gives raw-stat tiles decorative icons shared with Missions', () => {
+it('uses decorative raw-stat icons and omits the legacy daily streak and mission calendar', () => {
   const icons = all('.lb-metric-grid dt svg');
   expect(icons).toHaveLength(11);
   const symbols = icons.map(icon => {
@@ -49,9 +49,8 @@ it('gives raw-stat tiles decorative icons shared with Missions', () => {
   expect(query('#stat-lines').previousElementSibling.querySelector('use').getAttribute('href'))
     .toBe('#lb-run-icon-lines');
   game.w.openMissions();
-  const streak = query('.lb-metric-streak .lb-metric-icon');
-  expect(streak.getAttribute('aria-hidden')).toBe('true');
-  expect(streak.textContent).toBe(query('.mq-streak-flame:not(.mq-streak-flame--watermark)').textContent);
+  expect(query('#stat-daily-streak, #mq-streak-panel, #mq-stats-section')).toBeNull();
+  expect(query('#missions-overlay').textContent).not.toMatch(/This week|🔥/i);
 });
 
 it('shows best counts alongside percentages of unrounded, comparable averages', () => {

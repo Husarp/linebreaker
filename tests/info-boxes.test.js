@@ -23,7 +23,7 @@ it('dismisses playlist disclosure on scroll or outside activation without closin
   expect(document.getElementById('playlist-overlay').classList.contains('hidden')).toBe(false);
 });
 
-it('dismisses settings help and the mission streak info on navigation', () => {
+it('dismisses settings help and milestone info on navigation', () => {
   const { document, MouseEvent } = game.w;
   game.w.openSettings();
   const setting = document.querySelector('.settings-tip').closest('.settings-row');
@@ -33,11 +33,11 @@ it('dismisses settings help and the mission streak info on navigation', () => {
   game.w.closeSettings();
   expect(settingsTip.hidden).toBe(true);
 
-  game.w.openMissions();
-  document.querySelector('.mq-streak-half').click();
-  const missionTip = document.getElementById('mq-streak-panel-tip');
+  game.w.openMissions('weekly');
+  document.querySelector('[data-mqctip]').click();
+  const missionTip = document.getElementById('mq-body-tip');
   expect(missionTip.hidden).toBe(false);
-  game.w.renderMissionsOverlay('weekly');
+  game.w.renderMissionsOverlay('daily');
   expect(missionTip.hidden).toBe(true);
 });
 

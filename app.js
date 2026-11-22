@@ -264,12 +264,21 @@
         positionInfo(panel, position);
     }
 
-    function bindInfoPreview(anchor, show, { tap = false } = {}) {
-        anchor.addEventListener('mouseenter', () => { if (!infoPointer || !infoDragged) show(); });
-        anchor.addEventListener('mouseleave', () => { if (!anchor.matches(':focus-visible')) closeInfo(anchor); });
+    function bindInfoPreview(anchor, show, { tap = false, toggle = false } = {}) {
+        let pinned = false;
+        anchor.addEventListener('mouseenter', event => {
+            if (toggle && event.sourceCapabilities?.firesTouchEvents) return;
+            if ((!infoPointer || !infoDragged) && activeInfo?.anchor !== anchor) { pinned = false; show(); }
+        });
+        anchor.addEventListener('mouseleave', () => { if (!pinned && !anchor.matches(':focus-visible')) closeInfo(anchor); });
         anchor.addEventListener('focusin', event => { if (event.target.matches(':focus-visible')) show(); });
         anchor.addEventListener('focusout', event => { if (!anchor.contains(event.relatedTarget)) closeInfo(anchor); });
-        if (tap) anchor.addEventListener('click', event => { if (!infoDragged || !event.detail) show(); });
+        if (tap) anchor.addEventListener('click', event => {
+            if (infoDragged && event.detail) return;
+            if (toggle && pinned && activeInfo?.anchor === anchor) { pinned = false; closeInfo(anchor); return; }
+            pinned = toggle;
+            show();
+        });
     }
 
     function closeInfoOutside(event) {
@@ -750,12 +759,123 @@
     defaultSettings.movingBackground = true;
     defaultSettings.lineClearEffect = 'default';
     let settings = { ...defaultSettings };
+    let closeDropdown;
+    for (const control of document.querySelectorAll('.lb-dropdown')) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'lb-block-btn lb-dropdown-trigger';
+        button.setAttribute('aria-haspopup', 'listbox');
+        button.setAttribute('aria-expanded', 'false');
+        const label = document.createElement('span');
+        button.append(label);
+        const list = document.createElement('div');
+        list.className = 'lb-dropdown-list lb-block-panel';
+        list.id = `${control.id}-list`;
+        list.hidden = true;
+        list.setAttribute('role', 'listbox');
+        list.setAttribute('aria-label', control.dataset.label);
+        button.setAttribute('aria-controls', list.id);
+        document.body.append(list);
+        const options = new Map();
+        let value;
+        Object.defineProperty(control, 'value', {
+            get: () => value,
+            set(next) {
+                if (!options.has(next)) return;
+                options.get(value)?.setAttribute('aria-selected', 'false');
+                value = next;
+                const option = options.get(value);
+                option.setAttribute('aria-selected', 'true');
+                label.textContent = option.textContent;
+                button.setAttribute('aria-label', `${control.dataset.label}: ${option.textContent}`);
+            }
+        });
+        function close(restoreFocus = false) {
+            list.hidden = true;
+            button.setAttribute('aria-expanded', 'false');
+            if (closeDropdown === close) closeDropdown = undefined;
+            if (restoreFocus) button.focus({ preventScroll: true });
+        }
+        control.addOption = (key, text) => {
+            const option = document.createElement('div');
+            option.className = 'lb-dropdown-option';
+            option.tabIndex = -1;
+            option.dataset.value = key;
+            option.textContent = text;
+            option.setAttribute('role', 'option');
+            option.setAttribute('aria-selected', 'false');
+            option.addEventListener('click', () => {
+                const changed = value !== key;
+                control.value = key;
+                close(true);
+                if (changed) control.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            options.set(key, option);
+            list.append(option);
+            if (value === undefined) control.value = key;
+        };
+        const template = control.querySelector('template');
+        for (const option of template.content.querySelectorAll('option')) {
+            control.addOption(option.value, option.textContent);
+            if (option.hasAttribute('selected')) control.value = option.value;
+        }
+        control.replaceChildren(button);
+        function open() {
+            closeDropdown?.();
+            closeDropdown = close;
+            button.setAttribute('aria-expanded', 'true');
+            list.hidden = false;
+            const bounds = button.getBoundingClientRect();
+            const below = window.innerHeight - bounds.bottom - 8;
+            const above = bounds.top - 8 - (document.querySelector('.lb-top-band')?.offsetHeight || 0);
+            const flip = below < Math.min(list.scrollHeight, 200) && above > below;
+            const width = Math.min(Math.max(bounds.width, 168), window.innerWidth - 16);
+            list.style.width = `${width}px`;
+            list.style.left = `${Math.max(8, Math.min(bounds.left, window.innerWidth - width - 8))}px`;
+            list.style.maxHeight = `${Math.max(44, Math.min(280, flip ? above : below))}px`;
+            list.style.top = flip ? 'auto' : `${bounds.bottom + 4}px`;
+            list.style.bottom = flip ? `${window.innerHeight - bounds.top + 4}px` : 'auto';
+            options.get(value)?.focus();
+        }
+        button.addEventListener('click', () => list.hidden ? open() : close());
+        button.addEventListener('keydown', event => {
+            if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+            event.preventDefault();
+            open();
+        });
+        list.addEventListener('keydown', event => {
+            if (event.key === 'Tab') { close(true); return; }
+            const entries = [...options.values()];
+            const index = entries.indexOf(event.target);
+            switch (event.key) {
+                case 'ArrowDown': entries[Math.min(index + 1, entries.length - 1)]?.focus(); break;
+                case 'ArrowUp': entries[Math.max(index - 1, 0)]?.focus(); break;
+                case 'Home': entries[0]?.focus(); break;
+                case 'End': entries.at(-1)?.focus(); break;
+                case 'Enter': case ' ': event.target.click(); break;
+                case 'Escape': close(true); break;
+                default: return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+        });
+        list.addEventListener('focusout', event => {
+            if (!list.contains(event.relatedTarget) && event.relatedTarget !== button) close();
+        });
+        document.addEventListener('pointerdown', event => {
+            if (!list.hidden && !control.contains(event.target) && !list.contains(event.target)) close();
+        }, true);
+        document.addEventListener('scroll', event => {
+            if (!list.hidden && !list.contains(event.target)) close();
+        }, { capture: true, passive: true });
+    }
+    window.addEventListener('resize', () => closeDropdown?.());
     const _themeBackgroundSelect = document.getElementById('setting-theme-background');
     const uiThemeButtons = document.querySelectorAll('#settings-display [data-ui-theme]');
     const systemUiTheme = window.matchMedia?.('(prefers-color-scheme: light)');
     const wallpaperPreview = document.querySelector('.lb102-wallpaper-preview');
     for (const name of LBArtPack.wallpapers) {
-        _themeBackgroundSelect.add(new Option(name[0].toUpperCase() + name.slice(1), name));
+        _themeBackgroundSelect.addOption(name, name[0].toUpperCase() + name.slice(1));
     }
     function syncUiTheme() {
         for (const button of uiThemeButtons) button.setAttribute('aria-pressed', String(button.dataset.uiTheme === settings.uiTheme));
@@ -1275,12 +1395,12 @@
 
     let audioCtx = null, masterGain = null, musicFadeGain = null, sfxGain = null, musicPlaying = false;
     let _audioResumePending = null;
-    let _audioPageHidden = false, _audioAppActive = true, _audioAppPaused = false;
+    let _audioPageHidden = false, _audioAppActive = true, _audioAppPaused = false, _audioRetired = false;
     // All SFX are now fully synthesized — no file loading needed
     const _sfxBuffers = {};
 
     function _audioInForeground() {
-        return !document.hidden && !_audioPageHidden && _audioAppActive && !_audioAppPaused;
+        return !_audioRetired && !document.hidden && !_audioPageHidden && _audioAppActive && !_audioAppPaused;
     }
 
     function syncMusicGain() {
@@ -1323,6 +1443,7 @@
     }
 
     function _unlockAudio(gesture = false) {
+        if (_audioRetired) return;
         try {
             initAudio();
             if (!_audioInForeground()) return;
@@ -2026,7 +2147,9 @@
                 const reject = error => { if (!paused && request === attempt) fail(error); };
                 seek();
                 deadline = setTimeout(() => reject(new Error('Timed out starting audio')), 8000);
-                void media.play().catch(reject);
+                void media.play().then(() => {
+                    if (stopped || paused) media.pause();
+                }, reject);
             },
             stop() {
                 stopped = true;
@@ -2042,7 +2165,7 @@
             try { seek(); } catch (error) { fail(error); }
         };
         media.onplaying = () => {
-            if (stopped || paused) return;
+            if (stopped || paused) { media.pause(); return; }
             clearTimeout(deadline);
             source.playing = true;
             _syncPlaylistEqualizer();
@@ -2053,7 +2176,7 @@
             deadline = setTimeout(() => fail(new Error('Audio stopped buffering')), 8000);
             _syncPlaylistEqualizer();
         };
-        media.onended = () => { if (!stopped) source.onended?.(); };
+        media.onended = () => { if (!stopped && !paused) source.onended?.(); };
         media.onerror = () => fail(media.error || new Error('Audio could not load'));
         return source;
     }
@@ -2064,6 +2187,7 @@
         if (!previous) return;
         previous.output.gain.value = 0;
         previous.output.disconnect();
+        previous.source.onended = previous.source.onerror = null;
         try { previous.source.stop(); } catch (error) { console.warn('Music stop failed:', error); }
     }
 
@@ -2074,7 +2198,7 @@
 
     function _syncMusicPlayback(retryAudio = false) {
         const active = _activeMusic;
-        const shouldPlay = _audioInForeground() && !settings.musicPaused && !(_currentMode === 'game' && _runMusicPaused);
+        const shouldPlay = musicPlaying && _audioInForeground() && !settings.musicPaused && !(_currentMode === 'game' && _runMusicPaused);
         if (shouldPlay && audioCtx && audioCtx.state !== 'running' && musicPlaying) _unlockAudio(retryAudio);
         if (active && active.playing !== shouldPlay) {
             try {
@@ -2117,9 +2241,12 @@
     }
 
     function _replaceMusicSource(name, group, offset, onEnded, tempo) {
-        _releaseMusicSource();
         const entry = _trackPool.get(name);
+        if (_audioRetired || !audioCtx || !musicPlaying || !entry || (group === 'menu') !== (_currentMode === 'menu')) return;
+        _stopMusicSources();
+        const revision = _musicRevision;
         const failed = error => {
+            if (revision !== _musicRevision) return;
             console.warn(`Music playback failed (${name}${entry.buf.url ? ': ' + entry.buf.url : ''}):`, error);
             _releaseMusicSource();
             if (entry.buf.url) {
@@ -2144,7 +2271,7 @@
             if (tempo !== undefined) source.setTempo?.(tempo);
             source.onerror = active.fail;
             source.onended = () => {
-                if (_activeMusic !== active) return;
+                if (_activeMusic !== active || revision !== _musicRevision) return;
                 _releaseMusicSource();
                 if (!settings.musicPaused) onEnded();
             };
@@ -2204,7 +2331,7 @@
         if (!continuing) _syncGameMusicTempo();
     }
     function startMusic(mode = 'menu') {
-        if (musicPlaying) return;
+        if (_audioRetired || (musicPlaying && mode === _currentMode)) return;
         musicPlaying = true;
         _unlockAudio();
         syncMusicMuteButtons();
@@ -2242,6 +2369,11 @@
         updateNowPlaying('');
         if (audioCtx) { void audioCtx.close().catch(error => console.warn('Audio close failed:', error)); audioCtx = null; masterGain = null; musicFadeGain = null; sfxGain = null; }
         _audioResumePending = null;
+    }
+    function retireAudio() {
+        _audioRetired = true;
+        _syncSfxOutput();
+        stopMusic();
     }
     function pauseMusic() {
         _runMusicPaused = true;
@@ -3543,8 +3675,6 @@
         stat('days-played', formatCount(Object.keys(stats.playHistory || {}).length));
         stat('lines', formatCount(stats.totalLinesCleared));
         stat('blocks', formatCount(stats.totalBlocksPlaced));
-        const streak = stats.highestDailyStreak || stats.dailyStreak;
-        stat('daily-streak', streak ? `${formatCount(streak)} days` : '—');
         comparison('best-score', bestScore, averageScore, 'your average');
         comparison('best-xp', bestXP, xpRuns ? recordedXP / xpRuns : 0, 'recorded average XP');
 
@@ -5325,7 +5455,6 @@
         fun_squared: 'M2 7h15v15H2zm3 3v3h2v-3zm7 0v3h2v-3zm-7 5v2h2v2h5v-2h2v-2h-3v2H8v-2zM8 2h14v14h-3V5H8z',
         abort_mission: 'M2 2h11v4H6v12h7v4H2zM9 10h6V6h2v2h2v2h2v4h-2v2h-2v2h-2v-4H9z',
         deja_vu: 'M2 5h11v9H2zm2 2v5h7V7zm11-2h7v9h-7zm2 2v5h3V7zM5 16h2v2h10v-2h2v4H5z',
-        streak_lost: 'M12 2h3v4h3v4h3v8h-3v3H6v-3H3v-5h3V8h3v3h3zm-3 12v3h2v2h2v-2h2v-3h-2v-2h-2v2z',
         gift_ignore: 'M5 3h5v2h4V3h5v2h2v4h2v5h-2v8H3v-8H1V9h2V5h2zm0 2v4h5V7H8V5zm11 2h-2v2h5V5h-3zM5 14v6h5v-6zm9 0v6h5v-6z',
         back_to_back: 'M2 3h20v7H2zm2 2v3h16V5zm-2 9h20v7H2zm2 2v3h16v-3zm4-5h8v2H8zM6 6h4v1H6zm8 0h4v1h-4zM6 17h4v1H6zm8 0h4v1h-4z',
         afk: 'M2 3h20v14H2zm2 2v10h16V5zm4 13h8v2h3v2H5v-2h3zM9 7h7v2h-2v2h-2v1h4v2H9v-2h1v-2h2V9H9z',
@@ -5349,20 +5478,16 @@
         mq_hard_5: ACH_QUEST_PAGE + 'M7 8h8v2h2v3h-5v5H9v-5H6v-3h1z',
         mq_secret_1: ACH_QUEST_PAGE + ACH_QUEST_SECRET,
         mq_total_50: 'M8 1h8v3h3v3h3v10h-3v3h-3v3H8v-3H5v-3H2V7h3V4h3zm0 7v3h3V8zm5 0v3h3V8zM7 14v3h10v-3z',
-        mq_streak_7: ACH_CALENDAR + 'M7 11h10v3h-2v2h-2v3h-3v-3h2v-2h2v-1H7z',
-        mq_streak_30: ACH_CALENDAR + 'M6 11h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2zM6 14h3v2H6zm5 0h3v2h-3zm5 0h2v2h-2zM6 17h3v2H6zm5 0h7v2h-7z',
         mq_easy_quests: 'M5 2h17v18h-2V4H5zM2 5h16v17H2zm2 2v13h12V7zM6 12h2v2h2v-2h2v-2h2v4h-2v2H8v-2H6z',
         mq_normal_quests: ACH_QUEST_PAGE + 'M5 9h14v3H5zm0 5h14v3H5z',
         mq_hard_quests: ACH_QUEST_PAGE + ACH_QUEST_HARD,
         mq_total_quests: 'M5 2h17v17h-2V4H5zM2 5h16v17H2zm2 2v13h12V7zm2 2h8v2H6zm0 4h8v2H6zm0 4h6v2H6z',
         mq_secret_quests: 'M7 2h9v2h3v3h2v9h-3v2h-2v2h-5v-2H7v-2H4V7h2V4h1zm1 4v3H6v6h3v2h7v-2h2V9h-2V6zm2 4h5v4h-5zm-6 7h3v2H5v2H3v2H1v-4h1v-2z',
         mq_daily_perfect: 'M11 1h2v3h-2zM3 4h3v3H3zm15 0h3v3h-3zM7 6h10v2h3v8h-3v3H7v-3H4V8h3zm0 5v2h2v2h4v-2h2v-2h2V9h-3v2h-2v2h-2v-2zm4 9h2v3h-2z',
-        mq_all_cleared: ACH_CALENDAR + ACH_QUEST_CHECK,
         mq_no_easy_epic: ACH_QUEST_PAGE + 'M5 9h5v3H5zm9 0h5v3h-5zm-9 5h5v3H5zm9 0h5v3h-5z',
         mq_no_easy_legendary: ACH_QUEST_PAGE + 'M5 15h3v3H5zm5-3h3v6h-3zm5-4h4v10h-4z',
         mq_hard_they_said: 'M2 4h18v14h-2V6H2zm3 4h17v14H5zm2 2v10h13V10zm5 1h3v2h2v2h2v3H8v-3h2v-2h2z',
         mq_lazy_lucky: ACH_QUEST_PAGE + 'M11 7h2v4h4v2h-4v4h-2v-4H7v-2h4zM16 16h2v2h-2z',
-        mq_barely: ACH_CALENDAR + 'M6 12h4v3h4v-3h4v2h-2v3H8v-3H6z',
         mq_double_badge: 'M2 3h7v2h2v7H9v2H7v4H4v-4H2zm2 3v5h5V6zm9 3h7v2h2v7h-2v2h-2v3h-3v-3h-2zm2 3v5h5v-5z',
         question: 'M7 3h10v2h3v8h-3v2h-3v2h-4v-4h3v-2h3V7H8v3H4V5h3zm3 16h4v4h-4z',
     };
@@ -5812,12 +5937,6 @@
         check: () => false,
     },
     {
-        id: 'streak_lost', cat: 'secret', name: 'The End of the Run', type: 'single',
-        rarity: 'rare', clue: 'All good things...',
-        desc: 'Lose a daily streak of 20+ days.',
-        check: () => false,
-    },
-    {
         id: 'gift_ignore', cat: 'secret', name: 'Ungrateful', type: 'single',
         rarity: 'common', clue: 'Ungrateful.',
         desc: 'Have 10+ unclaimed mission XP rewards or milestone boxes combined (resets with missions).',
@@ -5968,18 +6087,6 @@
         desc: 'Complete 50 total daily quests.',
         check: () => false,
     },
-    {
-        id: 'mq_streak_7', cat: 'basic', name: 'Week Warrior', type: 'single',
-        rarity: 'rare', clue: 'Seven days in a row.',
-        desc: 'Maintain a 7-day daily quest streak.',
-        check: () => false,
-    },
-    {
-        id: 'mq_streak_30', cat: 'basic', name: 'Monthly Master', type: 'single',
-        rarity: 'legendary', clue: 'Thirty days of dedication.',
-        desc: 'Maintain a 30-day daily quest streak.',
-        check: () => false,
-    },
     // ── TIERED MISSION COUNT BADGES ───────────────────────────────────────
     {
         id: 'mq_easy_quests', cat: 'basic', name: 'Easy Runner', type: 'tiered',
@@ -6035,12 +6142,6 @@
         check: () => false,
     },
     {
-        id: 'mq_all_cleared', cat: 'secret', name: 'All Cleared', type: 'single',
-        rarity: 'epic', clue: 'A perfect week — nothing left undone.',
-        desc: 'Complete all weekly missions AND all 5 daily quests every day for an entire week.',
-        check: () => false,
-    },
-    {
         id: 'mq_no_easy_epic', cat: 'secret', name: 'No Easy Day', type: 'single',
         rarity: 'epic', clue: 'The easy path is not for you.',
         desc: 'Have at least 4 Normal-or-harder daily quests rolled in one day.',
@@ -6062,12 +6163,6 @@
         id: 'mq_lazy_lucky', cat: 'secret', name: 'Lazy or Lucky?', type: 'single',
         rarity: 'epic', clue: 'One day, one secret, nothing more.',
         desc: 'Complete only the secret daily quest in a day — leave all regular quests unfinished.',
-        check: () => false,
-    },
-    {
-        id: 'mq_barely', cat: 'secret', name: 'Barely', type: 'single',
-        rarity: 'epic', clue: 'You survived without the rewards.',
-        desc: 'Keep a 7+ daily streak for a whole week without claiming any milestone rewards.',
         check: () => false,
     },
     {
@@ -6429,6 +6524,7 @@
 
     const achievementProgressPaths = [...new Set(ACHIEVEMENTS_DEF.flatMap(ach => (ach.tiers || [])
         .map(tier => tier.progress?.path || tier.progressDisplay?.path)).filter(Boolean))];
+    const retiredStreakAchievements = new Set(['streak_lost', 'mq_streak_7', 'mq_streak_30', 'mq_all_cleared', 'mq_barely']);
     function renderAchievementsOverlay(tab, opening = false) {
         tab = tab || 'all';
         checkProgressAchievements();
@@ -6514,11 +6610,12 @@
                 const card = document.createElement('div');
                 card.className = 'ach-pending-row';
                 card.dataset.rarity = rarity;
-                const nameHtml = `<div class="ach-row-copy"><strong>${escapeHtml(claim.name)}</strong><small class="lb-ledger-rarity-label">${rc.label}</small></div>`;
+                const name = retiredStreakAchievements.has(claim.id) ? 'Legacy achievement' : claim.name;
+                const nameHtml = `<div class="ach-row-copy"><strong>${escapeHtml(name)}</strong><small class="lb-ledger-rarity-label">${rc.label}</small></div>`;
                 const claimBtn = document.createElement('button');
                 claimBtn.className = 'lb-block-btn lb-block-btn--primary lb-ledger-claim';
                 claimBtn.textContent = 'Claim';
-                claimBtn.setAttribute('aria-label', `Claim ${claim.name}`);
+                claimBtn.setAttribute('aria-label', `Claim ${name}`);
                 claimBtn.addEventListener('click', () => _claimAfterPaint(claimBtn, () => {
                     const idx = saveData.pendingAchievementClaims.indexOf(claim);
                     if (idx < 0) return;
@@ -6667,10 +6764,9 @@
                 : `<svg class="ach-card-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${icon}</svg>`;
             wrap.innerHTML = `${art}
                 <span class="ach-row-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small>${meter}</span>
-                <span class="ach-card-state">${isUnlocked
-                    ? '<span class="lb-ledger-tag"><svg viewBox="0 0 24 24" role="img" aria-label="Unlocked"><use href="#lb-reward-check"/></svg></span>'
-                    : progressText ? `<small>${escapeHtml(progressText)}</small>`
-                    : '<svg class="lb-ledger-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg>'}</span>`;
+                <span class="ach-card-state">${progressText ? `<small>${escapeHtml(progressText)}</small>`
+                    : `<span class="lb-ledger-tag" role="img" aria-label="${state}">${isUnlocked
+                        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-reward-check"/></svg>' : ''}</span>`}</span>`;
             const iconEl = wrap.querySelector('.ach-card-icon');
             bindInfoPreview(wrap, () => {
                 const dateLine = value => {
@@ -6718,7 +6814,7 @@
                     tip.hidden = true;
                     wrap.removeAttribute('aria-describedby');
                 } });
-            }, { tap: true });
+            }, { tap: true, toggle: true });
             return wrap;
         }
 
@@ -7000,7 +7096,7 @@
             ctx.lineWidth = .8;
             ctx.stroke();
         });
-        const filled = _makeBadgeSprite(size, (ctx, scale) => {
+        const filled = _makeBadgeSprite(size, ctx => {
             _traceMiniShape(ctx, extent, extent, r, shape);
             const surface = ctx.createLinearGradient(extent - r, extent - r, extent - r * .5, extent + r);
             surface.addColorStop(0, muted);
@@ -7011,10 +7107,7 @@
             _traceMiniShape(ctx, extent, extent, r * _HALO_RIM_SCALE, shape);
             ctx.strokeStyle = color;
             ctx.lineWidth = 4.2;
-            ctx.shadowColor = color;
-            ctx.shadowBlur = 8 * scale;
             ctx.stroke();
-            ctx.shadowBlur = 0;
             ctx.strokeStyle = _badgeTone(color, .69);
             ctx.lineWidth = .9;
             ctx.stroke();
@@ -7301,6 +7394,7 @@
         const name = document.getElementById('badge-rank-name');
         name.textContent = info.isCelestite ? 'Celestite' : _rewardRankIdentity(info.level).name;
         name.style.setProperty('--lb-rank-tone', info.rank.c);
+        document.getElementById('level-badge-container').style.setProperty('--lb-rank-tone', info.rank.c);
         document.getElementById('badge-level-num').textContent = `Level ${info.level.toLocaleString()}`;
         document.getElementById('menu-xp-detail').textContent = info.isCelestite
             ? `${Math.floor(totalXP).toLocaleString()} total XP`
@@ -8371,13 +8465,8 @@
                 pbBonus = Math.round(score * bonusPct / 100);
             }
             finalXP = Math.round(score + pbBonus);
-            const _rawGameXP = finalXP;
-            // Apply daily mission streak XP multiplier
-            { const _msxm = _getMissionStreakXPMult(); if (_msxm > 1) finalXP = Math.round(finalXP * _msxm); }
             // Multiplier already applied to score during gameplay
             saveToLeaderboard(Math.round(score), linesClearedThisGame, blocksPlacedThisGame, gameTime, speedLevel, finalXP, _maxComboThisGame, playedAt);
-            // Track raw XP (pre-multiplier) for daily streak threshold check
-            if (saveData.missions?.daily) saveData.missions.daily.rawXPToday = (saveData.missions.daily.rawXPToday || 0) + _rawGameXP;
         }
         const best = _bestScore();
         _renderGoStats(best, best > previousBest, false, finalXP, pbBonus);
@@ -8418,12 +8507,11 @@
         if (_maxBlocksUnderHalfThisGame > (saveData.stats.bestHighPlacer || 0)) saveData.stats.bestHighPlacer = _maxBlocksUnderHalfThisGame;
         if (finalXP > (saveData.stats.bestEarnedXP || 0)) saveData.stats.bestEarnedXP = finalXP;
         if (linesClearedThisGame >= 10 && gameTime < (saveData.stats.bestSpeedrunnerTime || 9999)) saveData.stats.bestSpeedrunnerTime = gameTime;
-        // streak_lost: must check BEFORE daily streak gets reset
-        { const _ldk2 = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); const _today = _ldk2(new Date()); const _lastPlay = saveData.stats.lastPlayDate || ''; const _prevDay = _ldk2(new Date(Date.now()-86400000)); if (_lastPlay !== _today && _lastPlay !== _prevDay && _lastPlay !== '') { const _oldStreak = saveData.stats.dailyStreak || 0; if (_oldStreak >= 20 && !saveData.achievements?.['streak_lost']?.unlocked) unlockAchievement('streak_lost'); } }
-        // Daily streak tracking
-        { const _ldk2 = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); const _today = _ldk2(new Date()); const _lastPlay = saveData.stats.lastPlayDate || ''; const _prevDay = _ldk2(new Date(Date.now()-86400000)); if (_lastPlay === _today) {} else if (_lastPlay === _prevDay) { saveData.stats.dailyStreak = (saveData.stats.dailyStreak||0) + 1; } else { saveData.stats.dailyStreak = 1; } saveData.stats.lastPlayDate = _today; saveData.stats.highestDailyStreak = Math.max(saveData.stats.highestDailyStreak || 0, saveData.stats.dailyStreak); }
         // Track play history for calendar
-        { const _ldk2 = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); const _today = _ldk2(new Date()); if (!saveData.stats.playHistory) saveData.stats.playHistory = {}; saveData.stats.playHistory[_today] = (saveData.stats.playHistory[_today] || 0) + 1; }
+        const playDate = LBSave.localDate(new Date());
+        saveData.stats.lastPlayDate = playDate;
+        const playHistory = saveData.stats.playHistory ||= {};
+        playHistory[playDate] = (playHistory[playDate] || 0) + 1;
         // --- NEW ACHIEVEMENT TRACKING (batch 2) ---
         // loser: 5 games with 0 lines in a row
         if (linesClearedThisGame === 0) { saveData.stats.noLineStreak = (saveData.stats.noLineStreak || 0) + 1; } else { saveData.stats.noLineStreak = 0; }
@@ -8677,7 +8765,6 @@
     function resetGameToMenu(){
         if (_gameOverProtect) return;
         isGameOver = false; isPaused = true;
-        musicPlaying = false;
         startMusic('menu');
         const goOverlay = document.getElementById('go-overlay');
         _animateOut(goOverlay, 'anim-out-down', function() {
@@ -8876,9 +8963,10 @@
     });
     window.addEventListener('pagehide', event => {
         _audioPageHidden = true;
-        if (!event.persisted) stopMusic();
+        if (!event.persisted) retireAudio();
         else _syncAudioLifecycle();
     });
+    window.addEventListener('lb:bundle-restart', retireAudio);
     window.addEventListener('pageshow', () => {
         _audioPageHidden = false;
         _syncAudioLifecycle();
@@ -9321,11 +9409,10 @@
 
     const MQ_SPECIAL_BOX_CAP = 30;
     const MQ_SPECIAL_BOX_PARTS = 5;
-    const MISSION_STREAK_XP_TIERS = [[3, 1.25], [6, 1.5], [11, 1.75], [21, 2]];
     function _defaultMissions() {
         return {
-            daily:   { quests: [], secret: null, lastRefreshDate: '', changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: false, rawXPToday: 0 },
-            weekly:  { missions: [], weekKey: '', changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, dailyPtsLog: {}, newVisit: false, pendingUniversalParts: 0, universalPtsTracked: 0, hitAnyMilestone: false, dailyAllCompleteCount: 0, dailyAllCompleteDate: '' },
+            daily:   { quests: [], secret: null, lastRefreshDate: '', changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: false },
+            weekly:  { missions: [], weekKey: '', changeUsed: false, points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: false, pendingUniversalParts: 0, universalPtsTracked: 0 },
             streaks: { daily: 0 },
             stats:   { totalCompleted: 0, byTier: { easy: 0, normal: 0, hard: 0, secret: 0 }, weeklyCompleted: 0, totalPts: 0, completionHistory: {} },
             specialBox: { pts: 0 },
@@ -9373,14 +9460,6 @@
     function _makeMissionDesc(metric, template, target) {
         const val = metric === 'gameTime' ? _fmtMissionTime(target) : target;
         return template.replace('{n}', val);
-    }
-    function _dailyStreakXPThreshold() {
-        const lv = getLevelInfo(saveData.totalXP).level;
-        const BOUNDS = [1, 11, 21, 31, 41, 51, 61, 71, 81];
-        const THRESHOLDS = [50, 100, 150, 200, 250, 300, 400, 500, 600];
-        let rank = 0;
-        for (let i = BOUNDS.length - 1; i >= 0; i--) { if (lv >= BOUNDS[i]) { rank = i; break; } }
-        return THRESHOLDS[rank] || 50;
     }
     function _missionTarget(q, mult) {
         const rankMult = ['maxSpeed', 'maxCombo'].includes(q.metric) ? 1 : mult;
@@ -9469,21 +9548,15 @@
         if (!m.stats)   m.stats   = _defaultMissions().stats;
         // Migration: ensure new fields exist
         if (m.daily.completedToday === undefined) m.daily.completedToday = false;
-        if (m.weekly.anyCompleted === undefined) m.weekly.anyCompleted = false;
         if (m.daily.newVisit === undefined) m.daily.newVisit = false;
         if (m.weekly.newVisit === undefined) m.weekly.newVisit = false;
         if (!m.weekly.dailyPtsLog) m.weekly.dailyPtsLog = {};
-        if (m.streaks.bestDaily === undefined) m.streaks.bestDaily = m.streaks.daily || 0;
-        if (m.daily.rawXPToday === undefined) m.daily.rawXPToday = 0;
         if (!m.specialBox) m.specialBox = { pts: 0 };
         if (m.stats.totalPts === undefined) m.stats.totalPts = 0;
         if (!m.stats.completionHistory) m.stats.completionHistory = {};
         // Migration: add golden zone tracking fields
         if (m.weekly.pendingUniversalParts === undefined) m.weekly.pendingUniversalParts = 0;
         if (m.weekly.universalPtsTracked === undefined) m.weekly.universalPtsTracked = 0;
-        if (m.weekly.hitAnyMilestone === undefined) m.weekly.hitAnyMilestone = false;
-        if (m.weekly.dailyAllCompleteCount === undefined) m.weekly.dailyAllCompleteCount = 0;
-        if (m.weekly.dailyAllCompleteDate === undefined) m.weekly.dailyAllCompleteDate = '';
         const today = _missionDateKey();
         const thisWeek = _missionWeekKey();
         let changed = false;
@@ -9500,15 +9573,8 @@
             { const _tryU = id => { if (!saveData.achievements?.[id]?.unlocked) unlockAchievement(id); };
               const _regDone = m.daily.quests?.filter(q => q.completed).length || 0;
               if ((m.daily.secret?.completed) && _regDone === 0) _tryU('mq_lazy_lucky'); }
-            // Streak: only increment if enough raw XP earned on previous day
-            const diff = previousDay ? (Date.parse(today) - Date.parse(previousDay)) / 86400000 : Infinity;
-            const _xpThresh = _dailyStreakXPThreshold();
-            if (diff === 1 && (m.daily.rawXPToday || 0) >= _xpThresh) {
-                m.streaks.daily++;
-                if (m.streaks.daily > (m.streaks.bestDaily || 0)) m.streaks.bestDaily = m.streaks.daily;
-            } else if (diff >= 1) { m.streaks.daily = 0; }
             const { quests, secret } = _generateDailyQuests();
-            m.daily = { quests, secret, lastRefreshDate: today, changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: true, rawXPToday: 0 };
+            m.daily = { quests, secret, lastRefreshDate: today, changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: true };
             if (m.specialBox) m.specialBox.excessTracked = 0;
             changed = true;
         }
@@ -9522,14 +9588,9 @@
               const _hardDone = wm.filter(x => x.tier === 'hard' && x.completed).length;
               const _nonHardDone = wm.filter(x => x.tier !== 'hard' && x.completed).length;
               if (_hardDone >= 1 && _nonHardDone === 0 && wm.length > 0) _tryU('mq_hard_they_said');
-              // "Barely" — 7+ streak but no milestones claimed all week
-              if ((m.streaks?.daily || 0) >= 7 && !m.weekly.hitAnyMilestone && m.weekly.anyCompleted) _tryU('mq_barely');
-              // "All Cleared" — all weekly done AND all daily done every day for 7 days
-              const _allWeeklyDone = wm.length > 0 && wm.every(x => x.completed);
-              if (_allWeeklyDone && (m.weekly.dailyAllCompleteCount || 0) >= 7) _tryU('mq_all_cleared');
             }
             const missions = _generateWeeklyMissions();
-            m.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0, hitAnyMilestone: false, dailyAllCompleteCount: 0, dailyAllCompleteDate: '' };
+            m.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
             changed = true;
         }
         if (changed) saveDataToFile();
@@ -9547,10 +9608,6 @@
         _achsThisGame = 0;
     }
 
-    function _getMissionStreakXPMult(streak = saveData.missions?.streaks?.daily || 0) {
-        return MISSION_STREAK_XP_TIERS.findLast(([days]) => streak >= days)?.[1] ?? 1;
-    }
-
     function _updateGameMissionProgress(totalXP) {
         _updateMissionProgress(_runMissionMetrics(totalXP));
     }
@@ -9562,7 +9619,7 @@
     function _runMissionMetrics(totalXP) {
         if (totalXP === undefined) {
             const pbBonus = Math.round(score * _gamePersonalBestBonusPercent() / 100);
-            totalXP = Math.round(Math.round(score + pbBonus) * _getMissionStreakXPMult());
+            totalXP = Math.round(score + pbBonus);
         }
         return {
             rawXP: rawGameplayXPThisGame, totalXP,
@@ -9694,13 +9751,6 @@
                 _completedThisCall++;
             }
         });
-        // Track days where all regular daily quests complete (for mq_all_cleared badge)
-        { const _allDone = m.daily.quests.length > 0 && m.daily.quests.every(q => q.completed);
-          const _today2 = _missionDateKey();
-          if (_allDone && m.weekly.dailyAllCompleteDate !== _today2) {
-              m.weekly.dailyAllCompleteDate = _today2;
-              m.weekly.dailyAllCompleteCount = (m.weekly.dailyAllCompleteCount || 0) + 1;
-          } }
         // Weekly missions (run before secret so doubleCompletion can count them)
         const today = _missionDateKey();
         if (!m.weekly.dailyPtsLog) m.weekly.dailyPtsLog = {};
@@ -9710,7 +9760,6 @@
             wm.progress = _missionRunProgress(wm, val);
             if (wm.progress >= wm.target) {
                 wm.completed = true;
-                m.weekly.anyCompleted = true;
                 m.stats.totalCompleted++;
                 m.stats.byTier[wm.tier] = (m.stats.byTier[wm.tier] || 0) + 1;
                 _completedThisCall++;
@@ -9784,8 +9833,6 @@
         if ((s.byTier?.hard || 0) >= 5)   tryU('mq_hard_5');
         if ((s.byTier?.secret || 0) >= 1)  tryU('mq_secret_1');
         if ((s.totalCompleted || 0) >= 50)  tryU('mq_total_50');
-        if ((m.streaks?.daily || 0) >= 7)  tryU('mq_streak_7');
-        if ((m.streaks?.daily || 0) >= 30) tryU('mq_streak_30');
         const allDone = m.daily.quests?.every(q => q.completed);
         const secDone = m.daily.secret?.completed;
         if (allDone && secDone) tryU('mq_daily_perfect');
@@ -9871,45 +9918,6 @@
             <span class="mq-pb-points">${escapeHtml(points)} pts</span>
             <progress class="lb-block-progress" aria-label="Crate milestone progress" max="${goal}" value="${Math.min(points, goal)}"></progress>
         </div><div class="mq-pb-icons">${markers.join('')}</div>`;
-    }
-
-    function _renderMissionStatsSection() {
-        const el = document.getElementById('mq-stats-section');
-        if (!el || !saveData.missions) return;
-        const m = saveData.missions;
-        const st = m.stats || {};
-        const hist = st.completionHistory || {};
-        const now = new Date();
-        const _ldk = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-        const todayStr = _ldk(now);
-        const renderKey = JSON.stringify([todayStr, hist]);
-        if (el.renderKey === renderKey) return;
-        el.renderKey = renderKey;
-
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - (now.getDay() + 6) % 7);
-        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        const squares = days.map((label, index) => {
-            const date = new Date(weekStart);
-            date.setDate(weekStart.getDate() + index);
-            const key = _ldk(date);
-            const count = key <= todayStr ? hist[key] || 0 : null;
-            return `<div class="mq-day"${key === todayStr ? ' aria-current="date"' : ''}>
-                <span>${label}</span><span${count == null ? '' : ` data-mq-day-count="${escapeHtml(count)}"`}>${count == null ? '–' : escapeHtml(count)}</span>
-            </div>`;
-        }).join('');
-        el.innerHTML = `<section class="lb-block-card mq-calendar">
-            <h3 class="lb-block-section-title">This week</h3><div class="mq-days">${squares}</div>
-        </section>`;
-
-        for (const cell of el.querySelectorAll('[data-mq-day-count]')) {
-            bindInfoPreview(cell, () => {
-                const panel = infoPanel('mq-cal-tip');
-                const count = Number(cell.dataset.mqDayCount);
-                panel.textContent = count === 0 ? 'No missions' : `${count} ${count === 1 ? 'mission' : 'missions'}`;
-                showInfo(panel, cell);
-            }, { tap: true });
-        }
     }
 
     function _sortQuests(quests) {
@@ -10006,29 +10014,6 @@
         swap.disabled = !!period.changeUsed && !swapping;
         swap.textContent = swapping ? 'Cancel swap' : period.changeUsed ? 'Swap used' : 'Swap';
 
-        const streak = m.streaks?.daily || 0;
-        const best = m.streaks?.bestDaily || streak;
-        const multiplier = _getMissionStreakXPMult();
-        const xpTarget = _dailyStreakXPThreshold();
-        const rawXP = m.daily.rawXPToday || 0;
-        const streakPanel = el.querySelector('#mq-streak-panel');
-        streakPanel.innerHTML = `<section class="lb-block-card mq-streak-summary">
-            <button type="button" class="lb-block-btn lb-block-btn--ghost mq-streak-half">
-                <span class="mq-streak-flame" aria-hidden="true">🔥</span> <strong>${escapeHtml(streak)}-day streak</strong><span>Best: ${escapeHtml(best)}</span>
-            </button>
-            <div class="mq-streak-xp"><span>Today’s XP</span><strong>${escapeHtml(rawXP)} / ${xpTarget}</strong></div>
-            <progress class="lb-block-progress" aria-label="XP to keep daily streak" max="${xpTarget}" value="${Math.min(rawXP, xpTarget)}"></progress>
-        </section>`;
-        const streakButton = streakPanel.querySelector('.mq-streak-half');
-        bindInfoPreview(streakButton, () => {
-            const panel = infoPanel('mq-streak-panel-tip');
-            const tiers = MISSION_STREAK_XP_TIERS.map(([days, bonus]) => `<div>${days} days · ×${bonus.toFixed(2)}</div>`).join('');
-            panel.innerHTML = `<strong>XP multiplier</strong>${tiers}
-                ${multiplier > 1 ? `<div>Active: ${multiplier.toFixed(2)}×</div>` : ''}
-                <div>Streak requires ${xpTarget} raw XP/day</div>`;
-            showInfo(panel, streakButton);
-        }, { tap: true });
-
         const active = _sortQuests(entries.filter(quest => !quest.ptsClaimed));
         const completed = _sortQuests(entries.filter(quest => quest.ptsClaimed));
         const bonus = m.specialBox?.pts || 0;
@@ -10052,7 +10037,6 @@
                 showInfo(panel, star);
             }, { tap: true });
         }
-        _renderMissionStatsSection();
         if (tab === 'daily' && m.daily.newVisit) { m.daily.newVisit = false; saveDataToFile(); }
         if (tab === 'weekly' && m.weekly.newVisit) { m.weekly.newVisit = false; saveDataToFile(); }
         _updateMissionCountdown();
@@ -10241,7 +10225,6 @@
         const currentPts = isWeekly ? (m.weekly.points || 0) : (m.daily.pointsToday || 0);
         if (currentPts < pts) return;
         claimed.push(pts);
-        if (m.weekly) m.weekly.hitAnyMilestone = true;
         const r = ms.reward;
         const rewards = [];
         if (r.type === 'parts') {
@@ -11001,7 +10984,7 @@
         if (!saveData.missions) saveData.missions = _defaultMissions();
         const { quests, secret } = _generateDailyQuests();
         const today = _missionDateKey();
-        saveData.missions.daily = { quests, secret, lastRefreshDate: today, changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: true, rawXPToday: 0 };
+        saveData.missions.daily = { quests, secret, lastRefreshDate: today, changeUsed: false, pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: true };
         saveDataToFile();
         if (!document.getElementById('missions-overlay').classList.contains('hidden')) renderMissionsOverlay('daily');
         customAlert('Daily missions reset!', 'DEV MODE');
@@ -11010,7 +10993,7 @@
         if (!saveData.missions) saveData.missions = _defaultMissions();
         const missions = _generateWeeklyMissions();
         const thisWeek = _missionWeekKey();
-        saveData.missions.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], anyCompleted: false, dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
+        saveData.missions.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, changeUsed: false, points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
         saveDataToFile();
         if (!document.getElementById('missions-overlay').classList.contains('hidden')) renderMissionsOverlay('weekly');
         customAlert('Weekly missions reset!', 'DEV MODE');
@@ -11127,17 +11110,13 @@
                 ${block('Run levels', `<p>Every <strong>${LINES_PER_SPEED} lines</strong>, the run advances one level and pieces fall faster. Run levels top out at ${SPEED_MULTIPLIERS.length}; placement and clear points scale from ×${SPEED_MULTIPLIERS[0]} to ×${SPEED_MULTIPLIERS.at(-1)}.</p>`)}
                 ${block('Combos', `<p>Each line adds a combo step. After the first step, each adds <strong>${COMBO_STEP_POINTS} points</strong> before modifiers. A placement without a clear breaks the combo.</p>`)}`],
             ['ranks', 'Ranks & XP', `
-                ${block('Earn run XP', '<p>Clear <strong>at least one line in Normal</strong>. Your score and any personal-best bonus count before the streak multiplier.</p><p>Total XP unlocks levels, ranks, rewards and modifiers.</p>')}
+                ${block('Earn run XP', '<p>Clear <strong>at least one line in Normal</strong>. Your score and any personal-best bonus count toward run XP.</p><p>Total XP unlocks levels, ranks, rewards and modifiers.</p>')}
                 ${block('Rank ladder', table('Rank ladder', ['Rank', 'Levels', 'XP / level'], rankRows))}`],
             ['missions', 'Missions & milestones', `
                 ${block('Play & claim', '<p>Play <strong>Normal</strong> to progress missions. Daily points count toward weekly milestones. Daily quests refresh each day and weekly missions reset on Monday.</p><p>Claim rewards in <strong>Missions</strong>. Use <strong>Change</strong> to swap eligible missions, not hidden secret quests.</p>')}
                 ${block('Daily milestones', milestones(MQ_DAILY_MILESTONES))}
                 ${block('Weekly milestones', milestones(MQ_WEEKLY_MILESTONES))}
                 ${block('Extra rewards', `<p><strong>Bonus Box:</strong> Earn ${MQ_SPECIAL_BOX_PARTS} universal parts for every ${MQ_SPECIAL_BOX_CAP} points past the last daily milestone.</p><p><strong>Golden Zone:</strong> Claim one universal part per weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD}.</p>`)}`],
-            ['streaks', 'Streaks & multipliers', `
-                ${block('Keep your streak', `<p>Earn <strong>${number(_dailyStreakXPThreshold())} raw XP</strong> in Normal each day, before the streak multiplier. The target depends on rank. Fall short or miss a day and the streak ends.</p>`)}
-                ${block('Streak bonuses', definitions(MISSION_STREAK_XP_TIERS.map(([days, multiplier]) => [`${days}+ days`, `×${multiplier.toFixed(2)} run XP`])))}
-                ${block('What changes', '<p><strong>Streaks</strong> boost run XP. <strong>Modifiers</strong> change Normal scoring. <strong>Boosters</strong> multiply XP after the run.</p>')}`],
             ['boxes', 'Boxes & parts', `
                 ${block('Find & use parts', '<p>Earn parts from <strong>level boxes, milestones and missions</strong>. Each cosmetic has its own parts. Collect enough to unlock and equip it in Inventory.</p>')}
                 ${block('Universal parts', '<p>Fill in missing item parts in <strong>Inventory → Parts</strong>. Once no part unlocks remain, trade universal parts for XP.</p>')}`],
@@ -11168,7 +11147,7 @@
         ];
         helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-block-btn lb-block-tab" data-help-jump="${id}">${title}</button>`).join('');
         const topicIcons = { basics: 'lb-metric-gamepad', scoring: 'lb-run-icon-lines', ranks: 'lb-metric-total-xp', boxes: 'lb-metric-box', achievements: 'lb-metric-trophy' };
-        const topicIcon = id => id === 'streaks' ? '<span aria-hidden="true">🔥</span>' : topicIcons[id] ? `<svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#${topicIcons[id]}"/></svg>` : '';
+        const topicIcon = id => topicIcons[id] ? `<svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#${topicIcons[id]}"/></svg>` : '';
         helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-help-topic lb-block-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" class="lb-block-panel-head lb-block-section-title" tabindex="-1">${topicIcon(id)}${title}</h2>${body}</section>`).join('');
         document.getElementById('help-tutorial').addEventListener('click', () => {
             window.openTutorial();
@@ -11258,7 +11237,7 @@
     });
     const achievementCategory = achievementsOverlay.querySelector('#ach-category');
     for (const category of new Set(ACHIEVEMENTS_DEF.map(ach => ach.cat))) {
-        achievementCategory.add(new Option(category[0].toUpperCase() + category.slice(1), category));
+        achievementCategory.addOption(category, category[0].toUpperCase() + category.slice(1));
     }
     achievementsOverlay.querySelectorAll('#ach-category, #ach-sort, #ach-dates-toggle').forEach(control => {
         control.addEventListener('change', () => {
@@ -11384,11 +11363,7 @@
     LBGamepad.start({ press: pressGameInput, release: releaseGameInput, back: backFromOverlay });
     const _reminders = _qaDemo ? null : window.LBNotifications.mount({
         getSettings: () => settings,
-        saveSettings,
-        streakRequirementMet: () => {
-            const daily = saveData.missions?.daily;
-            return daily?.lastRefreshDate === _missionDateKey() && (daily.rawXPToday || 0) >= _dailyStreakXPThreshold();
-        }
+        saveSettings
     });
     _sfxMuted = settings.sfxMuted || false;
     syncMusicGain();
@@ -11448,8 +11423,7 @@
             defaultMissions: _defaultMissions, refreshMissions: _checkMissionsRefresh,
             generateDailyQuests: _generateDailyQuests, generateWeeklyMissions: _generateWeeklyMissions,
             missionSwapPool: _missionSwapPool,
-            autoClaimMissions: _autoClaimMissions, streakMultiplier: _getMissionStreakXPMult,
-            streakThreshold: _dailyStreakXPThreshold, modeXpMultiplier: _calcModeXpMult,
+            autoClaimMissions: _autoClaimMissions, modeXpMultiplier: _calcModeXpMult,
             showLevelBox: _showLevelBox
         };
     }

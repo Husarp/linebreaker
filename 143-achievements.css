@@ -21,26 +21,6 @@
     flex-wrap: wrap;
 }
 
-.ach-select {
-    box-sizing: border-box;
-    min-height: var(--target);
-    max-width: 100%;
-    padding: 0 4px 3px 8px;
-    border: var(--bb-stroke) solid var(--bb-edge);
-    border-radius: var(--bb-cap);
-    background: var(--bb-face);
-    color: var(--bb-ink);
-    color-scheme: dark;
-    box-shadow: var(--bb-cap-shadow);
-    font: 650 12px/1.25 var(--font-body);
-    cursor: pointer;
-}
-
-.ach-select:hover { background: var(--bb-hover); }
-.ach-select:focus-visible {
-    outline: var(--focus-width) solid var(--accent-bright);
-    outline-offset: var(--focus-offset);
-}
 
 .ach-dates {
     display: flex;
@@ -111,8 +91,6 @@
     .ach-toolbar,
     .ach-status { gap: 4px; }
 
-    .ach-select { padding-inline: 4px 2px; }
-
     #achievements-overlay .ach-status .lb-block-tab { padding-inline: 7px !important; }
 }
 
@@ -129,6 +107,5 @@
         gap: 3px;
     }
 
-    #ach-category { padding-inline: 4px 2px; }
     .ach-dates { justify-self: end; }
 }

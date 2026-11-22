@@ -35,12 +35,29 @@
     const heldButtons = new Map();
     const resetGesture = () => { pointers.clear(); gesture = null; };
     const releaseButton = pointerId => {
-        if (heldButtons.delete(pointerId)) game.release(pointerId);
+        const action = heldButtons.get(pointerId);
+        heldButtons.delete(pointerId);
+        if (action === 'left' || action === 'right' || action === 'soft') game.release(pointerId);
     };
     const reset = () => {
         resetGesture();
         for (const pointerId of heldButtons.keys()) releaseButton(pointerId);
     };
+    function bindButton(button, action, repeat = false) {
+        button.addEventListener('pointerdown', event => {
+            if (event.button !== 0 || heldButtons.has(event.pointerId)) return;
+            if (event.pointerType === 'mouse') button.setPointerCapture?.(event.pointerId);
+            heldButtons.set(event.pointerId, action);
+            if (repeat) game.press(action, event.pointerId);
+            else game.action(action);
+        });
+        for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+            button.addEventListener(type, event => releaseButton(event.pointerId));
+        }
+        button.addEventListener('click', event => {
+            if (!event.pointerType && event.detail === 0) game.action(action);
+        });
+    }
     const glyphs = {
         left: 'M12 5l-7 7 7 7m-7-7h14', right: 'M12 5l7 7-7 7m7-7H5',
         cw: 'M5 9a8 8 0 1 1 0 7m0-7V3m0 6h6',
@@ -54,13 +71,7 @@
         button.append(caption);
         if (glyphs[action]) button.insertAdjacentHTML('beforeend', `<svg class="lb-touch-glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${glyphs[action]}"/></svg>`);
         const isMove = action === 'left' || action === 'right';
-        button.addEventListener('pointerdown', event => {
-            event.preventDefault(); button.setPointerCapture(event.pointerId);
-            if (isMove || action === 'soft') {
-                heldButtons.set(event.pointerId, action);
-                game.press(action, event.pointerId);
-            } else game.action(action);
-        });
+        bindButton(button, action, isMove || action === 'soft');
         if (isMove) button.addEventListener('pointermove', event => {
             const held = heldButtons.get(event.pointerId);
             if (!held) return;
@@ -70,8 +81,6 @@
             heldButtons.set(event.pointerId, direction);
             game.press(direction, event.pointerId);
         });
-        for (const type of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(type, event => releaseButton(event.pointerId));
-        button.addEventListener('click', event => { if (event.detail === 0) game.action(action); });
         bar.append(button);
     }
     document.getElementById('app').append(bar);
@@ -80,8 +89,13 @@
         const holdButton = document.createElement('button'); holdButton.type = 'button';
         holdButton.className = 'lb-phone-hold';
         holdButton.setAttribute('aria-label', 'Hold piece');
-        holdButton.addEventListener('click', () => game.action('hold'));
+        bindButton(holdButton, 'hold');
         holdPanel.append(holdButton);
+    }
+    const pauseButton = document.querySelector('#app .btn-pause-pc');
+    if (pauseButton) {
+        pauseButton.onclick = null;
+        bindButton(pauseButton, 'pause');
     }
     board.addEventListener('pointerdown', event => {
         if (!game.active()) return;

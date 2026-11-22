@@ -14,10 +14,9 @@ const { getTrack, createSource } = globalThis.LBMusicSynth;
 
 const synthCatalog = async () => ({ ok: true, json: async () => original });
 
-async function resetMusicAfterBoot(win) {
+async function resetMusicAfterBoot(win, api) {
   await vi.waitFor(() => expect(win.document.getElementById('loading-screen').dataset.dismissed).toBe('1'));
-  win.dispatchEvent(new win.PageTransitionEvent('pagehide'));
-  win.dispatchEvent(new win.PageTransitionEvent('pageshow'));
+  api.stopMusic();
 }
 
 function observeMusic(win, active = new Set()) {
@@ -47,7 +46,7 @@ it('updates the menu music widget on its interval only while music is playing', 
     };
   });
   try {
-    await resetMusicAfterBoot(w);
+    await resetMusicAfterBoot(w, api);
     observeMusic(w);
     await api.startMusic();
     expect(refreshes).toHaveLength(1);
@@ -70,7 +69,7 @@ it('lets only the latest catalog request or source completion start music', asyn
   const { w, api, close } = await loadGame(true, null, null, async path => path === 'assets/music.json'
     ? catalog : { ok: true, json: async () => [] });
   try {
-    await resetMusicAfterBoot(w);
+    await resetMusicAfterBoot(w, api);
     const { sources, active } = observeMusic(w);
     w.Math.random = () => 0.75;
     api.setup();
@@ -97,10 +96,57 @@ it('lets only the latest catalog request or source completion start music', asyn
   } finally { close(); }
 });
 
+it('retires the outgoing OTA player before the new document starts music', async () => {
+  const first = await loadGame(true, null, null, synthCatalog);
+  let replacement;
+  try {
+    await resetMusicAfterBoot(first.w, first.api);
+    const { sources, active } = observeMusic(first.w);
+    await first.api.startMusic();
+    const track = sources[0];
+    const staleEnd = track.onended;
+    const switching = first.api.switchMusicMode('game');
+    first.w.dispatchEvent(new first.w.Event('lb:bundle-restart'));
+    await switching;
+    replacement = await loadGame(true, null, null, synthCatalog);
+    await resetMusicAfterBoot(replacement.w, replacement.api);
+    const next = observeMusic(replacement.w, active);
+    await replacement.api.startMusic();
+    first.w.dispatchEvent(new first.w.PageTransitionEvent('pageshow'));
+    first.w.document.dispatchEvent(new first.w.Event('visibilitychange'));
+    await first.api.startMusic();
+    staleEnd();
+    expect(track.stop).toHaveBeenCalledOnce();
+    expect(sources).toEqual([track]);
+    expect([...active]).toEqual(next.sources);
+    expect(active.size).toBe(1);
+  } finally {
+    first.close();
+    replacement?.close();
+  }
+});
+
+it('cues the next track silently if the current track ends as the app backgrounds', async () => {
+  const { w, api, close } = await loadGame(true, null, null, synthCatalog);
+  try {
+    await resetMusicAfterBoot(w, api);
+    const { sources, active } = observeMusic(w);
+    await api.startMusic();
+    let hidden = true;
+    Object.defineProperty(w.document, 'hidden', { get: () => hidden });
+    sources[0].onended();
+    expect(sources).toHaveLength(2);
+    expect(active.size).toBe(0);
+    hidden = false;
+    w.document.dispatchEvent(new w.Event('visibilitychange'));
+    expect([...active]).toEqual([sources[1]]);
+  } finally { close(); }
+});
+
 it('disconnects a lingering Fernlight output before any replacement can play', async () => {
   const { w, api, close } = await loadGame(true, null, null, synthCatalog);
   try {
-    await resetMusicAfterBoot(w);
+    await resetMusicAfterBoot(w, api);
     const connected = new Set();
     const sources = [];
     const createGain = w.AudioContext.prototype.createGain;
@@ -150,8 +196,9 @@ it('disconnects a lingering Fernlight output before any replacement can play', a
     expect(audible()).toEqual([sources.at(-1)]);
     w.playTrackInPlaylist('Fernlight');
     const ending = sources.at(-1);
-    ending.onended();
-    ending.onended();
+    const finish = ending.onended;
+    finish();
+    finish();
     expect(ending.playing).toBe(true);
     expect(audible()).toEqual([sources.at(-1)]);
     expect(audible()).not.toContain(ending);
@@ -161,7 +208,7 @@ it('disconnects a lingering Fernlight output before any replacement can play', a
 it('does not resume a widget-paused track on foregrounding or revive it after pagehide', async () => {
   const { w, api, close } = await loadGame(true, null, null, synthCatalog);
   try {
-    await resetMusicAfterBoot(w);
+    await resetMusicAfterBoot(w, api);
     let hidden = false;
     Object.defineProperty(w.document, 'hidden', { get: () => hidden });
     const visibility = value => {
@@ -191,10 +238,11 @@ it('does not resume a widget-paused track on foregrounding or revive it after pa
     expect(track.resume).toHaveBeenCalledTimes(2);
     expect(panel.hasAttribute('data-playing')).toBe(true);
 
+    const staleEnd = track.onended;
     const pendingSwitch = api.switchMusicMode('game');
     w.dispatchEvent(new w.PageTransitionEvent('pagehide'));
     await pendingSwitch;
-    track.onended();
+    staleEnd();
     expect(sources).toHaveLength(1);
     expect(active.size).toBe(0);
   } finally { close(); }
@@ -204,7 +252,7 @@ it('keeps the player pause through a game, menu return, and reload until Play is
   const first = await loadGame(true, null, null, synthCatalog);
   let saved;
   try {
-    await resetMusicAfterBoot(first.w);
+    await resetMusicAfterBoot(first.w, first.api);
     const { active } = observeMusic(first.w);
     first.api.setup();
     await first.api.startMusic();
@@ -219,7 +267,7 @@ it('keeps the player pause through a game, menu return, and reload until Play is
   } finally { first.close(); }
   const reopened = await loadGame(true, null, null, synthCatalog, saved);
   try {
-    await resetMusicAfterBoot(reopened.w);
+    await resetMusicAfterBoot(reopened.w, reopened.api);
     const { active } = observeMusic(reopened.w);
     reopened.api.setup();
     await reopened.api.startMusic();
@@ -240,7 +288,7 @@ it.each(['visibilitychange', 'pagehide', 'native pause'])('silences all output o
   } } : null;
   const { w, api, close } = await loadGame(true, null, capacitor, synthCatalog);
   try {
-    await resetMusicAfterBoot(w);
+    await resetMusicAfterBoot(w, api);
     let hidden = false;
     Object.defineProperty(w.document, 'hidden', { get: () => hidden });
     const visibility = value => {
@@ -311,7 +359,7 @@ it('unlocks the idle achievement in the background without playing its sound or 
     };
   });
   try {
-    await resetMusicAfterBoot(w);
+    await resetMusicAfterBoot(w, api);
     observeMusic(w);
     api.setup();
     await api.startMusic();
@@ -353,7 +401,7 @@ it('disconnects a failed recording before starting synth and ignores stale media
     });
   });
   try {
-    await resetMusicAfterBoot(w);
+    await resetMusicAfterBoot(w, api);
     media.length = requests.length = 0;
     const warn = vi.spyOn(w.console, 'warn').mockImplementation(() => {});
     vi.spyOn(w.console, 'info').mockImplementation(() => {});
@@ -371,8 +419,9 @@ it('disconnects a failed recording before starting synth and ignores stale media
     media[1].onerror();
     media[1].onloadedmetadata();
     media[1].onended();
-    requests[1].reject(new Error('Delayed rejection'));
+    requests[1].resolve();
     await Promise.resolve();
+    expect(media[1].pause).toHaveBeenCalledTimes(2);
     expect(warn).toHaveBeenCalledOnce();
     expect([...active]).toEqual([sources[1]]);
   } finally { close(); }
@@ -389,7 +438,7 @@ it('unlocks a previously blocked context without replacing the source or restori
     };
   });
   try {
-    await resetMusicAfterBoot(w);
+    await resetMusicAfterBoot(w, api);
     const { sources } = observeMusic(w);
     api.setup();
     await api.startMusic();
@@ -412,7 +461,7 @@ it('still plays a built-in score when both catalogs fail to load', async () => {
     warn = vi.spyOn(win.console, 'warn').mockImplementation(() => {});
   });
   try {
-    await resetMusicAfterBoot(w);
+    await resetMusicAfterBoot(w, api);
     const { sources } = observeMusic(w);
     api.setup();
     await api.startMusic();

@@ -4,7 +4,6 @@
 @media (orientation: portrait) and (max-width: 600px) {
     #app.active-game,
     .lb-touch #app.active-game {
-        --hud-top: max(12px, var(--lb-safe-top));
         --hud-bottom: max(12px, var(--lb-safe-bottom));
         --hud-left: max(12px, var(--lb-safe-left));
         --hud-right: max(12px, var(--lb-safe-right));
@@ -89,7 +88,7 @@
         border: 0;
         border-radius: inherit;
         background: transparent;
-        touch-action: manipulation;
+        touch-action: none;
         cursor: pointer;
     }
 

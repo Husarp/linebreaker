@@ -191,7 +191,7 @@ it('credits raw and multiplied game XP separately and adds booster XP only once'
     {id: `${prefix}-games`, tier: 'easy', metric: 'gamesPlayed', target: 5, cumulative: true, progress: 0},
   ];
   missions.daily.lastRefreshDate = api.missionDateKey();
-  missions.daily.quests = xpQuests('daily', 35);
+  missions.daily.quests = xpQuests('daily', 25);
   missions.daily.pointsToday = 8;
   missions.weekly.weekKey = api.missionWeekKey();
   missions.weekly.isoWeekKey = true;
@@ -219,14 +219,14 @@ it('credits raw and multiplied game XP separately and adds booster XP only once'
   expect(progress()).toEqual([[0, 0, 0], [0, 0, 0]]);
   api.setup({save: api.save, scoreMultiplier: 1.3});
   clearSingle();
-  expect(progress()).toEqual([[10, 20, 1], [10, 20, 1]]);
+  expect(progress()).toEqual([[10, 13, 1], [10, 13, 1]]);
   expect(results.textContent).not.toContain('Mission progress');
   game.w.useScoreBooster('2xp_game');
   game.w.useScoreBooster('2xp_game');
-  expect(progress()).toEqual([[10, 35, 1], [10, 40, 1]]);
+  expect(progress()).toEqual([[10, 25, 1], [10, 26, 1]]);
   expect(api.save.missions.daily.quests[1].completed).toBe(true);
   api.setup({save: api.save, scoreMultiplier: 1.3});
   clearSingle();
-  expect(progress()).toEqual([[20, 35, 2], [20, 60, 2]]);
+  expect(progress()).toEqual([[20, 25, 2], [20, 39, 2]]);
   expect(results.textContent).not.toContain('daily total XP');
 });

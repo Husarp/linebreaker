@@ -136,7 +136,7 @@ class MainActivity : BridgeActivity() {
                 status.text = "Applying the fix…"
                 updater.applyStartupFix(selected) { error ->
                     if (!isDestroyed && !isFinishing) {
-                        if (error == null) recreate()
+                        if (error == null) recreateBundle()
                         else if (recoveryDialog === dialog) {
                             applyingStartupFix = false; fix = null
                             status.text = error; check.text = "Check for fix"; check.isEnabled = true
@@ -349,7 +349,21 @@ class MainActivity : BridgeActivity() {
         if(requestCode == 701) { val action=afterNotificationPermission; afterNotificationPermission=null; action?.invoke() }
     }
     private val Int.dp get() = (this * resources.displayMetrics.density).toInt()
-    fun restartBundle(reset: Boolean = false, startupRecovery: Boolean = false) { updater.restart(reset, startupRecovery) { recreate() } }
+    private fun recreateBundle() {
+        var restarted = false
+        val restart = Runnable {
+            if (!restarted && !isDestroyed && !isFinishing) {
+                restarted = true
+                recreate()
+            }
+        }
+        handler.postDelayed(restart, 250)
+        bridge?.webView?.evaluateJavascript("window.dispatchEvent(new Event('lb:bundle-restart'))") {
+            handler.removeCallbacks(restart)
+            restart.run()
+        }
+    }
+    fun restartBundle(reset: Boolean = false, startupRecovery: Boolean = false) { updater.restart(reset, startupRecovery, ::recreateBundle) }
     fun openReleases(): Boolean {
         try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.RELEASES_URL))); return true }
         catch (e: android.content.ActivityNotFoundException) {

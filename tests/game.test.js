@@ -141,11 +141,23 @@ it('daily reset auto-claims rewards exactly once', () => {
   const first=a.save;expect(first.universalParts).toBe(3);expect(first.missions.stats.totalPts).toBe(1);
   a.refreshMissions();expect(a.save).toEqual(first);
 });
-it.each([[1,50,5],[1,49,0],[2,100,0]])('streak reset after %i days with %i XP', (days,xp,expected) => {
-  const save=a.save,m=a.defaultMissions();const yesterday=new game.w.Date();yesterday.setDate(yesterday.getDate()-days);
-  m.daily.lastRefreshDate=`${yesterday.getFullYear()}-${yesterday.getMonth()+1}-${yesterday.getDate()}`;
-  m.daily.rawXPToday=xp;m.streaks.daily=4;m.weekly.weekKey=a.missionWeekKey();m.weekly.isoWeekKey=true;
-  save.missions=m;a.setSave(save);a.refreshMissions();expect(a.save.missions.streaks.daily).toBe(expected);
+it('loads legacy daily streaks without updating them or unlocking their achievements', () => {
+  const save = a.save;
+  const missions = a.defaultMissions();
+  missions.daily.lastRefreshDate = '2020-01-01';
+  missions.daily.rawXPToday = 600;
+  missions.streaks = { daily: 30, bestDaily: 48 };
+  Object.assign(save.stats, { dailyStreak: 30, highestDailyStreak: 48, lastPlayDate: '2020-01-01' });
+  save.missions = missions;
+  a.applyLoadedData(save);
+  a.refreshMissions();
+  a.gameOver();
+  expect(a.save.missions.daily.lastRefreshDate).toBe(a.missionDateKey());
+  expect(a.save.missions.streaks).toEqual(missions.streaks);
+  expect(a.save.stats).toMatchObject({ dailyStreak: 30, highestDailyStreak: 48, lastPlayDate: a.missionDateKey() });
+  expect(a.save.achievements).not.toHaveProperty('streak_lost');
+  expect(a.save.achievements).not.toHaveProperty('mq_streak_7');
+  expect(a.save.achievements).not.toHaveProperty('mq_streak_30');
 });
 it('fixed seed and 200 inputs replay identically', async () => {
   // Eight placements plus movement/rotation/gravity inputs exercise the live update path.

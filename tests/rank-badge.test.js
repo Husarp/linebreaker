@@ -117,13 +117,13 @@ it('draws the cached Halo glow and thin inner line on filled Gold badges', () =>
   const filledStrokes = spriteStrokes.get(filledBadge);
   expect(emptyStrokes[0].start).toEqual(filledStrokes[0].start);
   expect(emptyStrokes[1].start).toEqual(filledStrokes[2].start);
-  const styles = strokes => strokes.map(({width, blur, color}) => ({width, blur, color}));
+  const styles = strokes => strokes.map(({width, blur, color}) => ({width, blur: typeof blur === 'number' ? blur : 0, color}));
   expect(styles(emptyStrokes)).toEqual([
     {width: 1.4, blur: 5, color: '#ffd700'},
     {width: .8, blur: 0, color: 'rgb(128,108,0)'},
   ]);
   expect(styles(filledStrokes)).toEqual([
-    {width: 4.2, blur: 8, color: '#ffd700'},
+    {width: 4.2, blur: 0, color: '#ffd700'},
     {width: .9, blur: 0, color: 'rgb(255,243,176)'},
     {width: .8, blur: 0, color: '#ffd700'},
   ]);

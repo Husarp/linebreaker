@@ -150,9 +150,6 @@
 <div id="menu-overlay" class="overlay">
     <div class="menu-scale-wrapper lb-scroll-fade">
         <div class="lb-menu-banner lb-block-card">
-            <div class="lb-menu-banner-head">
-                <span class="lb-menu-kicker">Block Puzzle RPG</span>
-            </div>
             <div class="lb-menu-logo-lockup">
                 <h1 id="main-title"><button type="button" id="lb122-logo-button"><img class="lb122-logo" src="assets/ui/logo-title.png" srcset="assets/ui/logo-title@2x.png 2x" width="640" height="211" alt="Linebreaker" draggable="false"></button></h1>
                 <div id="splash-quote"></div>
@@ -339,7 +336,6 @@
                 <div class="lb-metric-activity"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-calendar"/></svg><span>Days played</span></dt><dd id="stat-days-played">—</dd></div>
                 <div class="lb-metric-field"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-lines"/></svg><span>Lines cleared</span></dt><dd id="stat-lines">—</dd></div>
                 <div class="lb-metric-field"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-blocks"/></svg><span>Blocks placed</span></dt><dd id="stat-blocks">—</dd></div>
-                <div class="lb-metric-streak"><dt><span class="lb-metric-icon" aria-hidden="true">🔥</span><span>Daily streak</span></dt><dd id="stat-daily-streak">—</dd></div>
                 <div class="lb-metric-progress"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-box"/></svg><span>Items collected</span></dt><dd id="stat-items-collected">—</dd></div>
             </dl>
             <section class="lb-block-panel">
@@ -495,10 +491,6 @@
                 </div>
                 <div id="mq-milestones"></div>
             </section>
-            <aside class="mq-board-details" aria-label="Mission activity">
-                <div id="mq-streak-panel"></div>
-                <div id="mq-stats-section"></div>
-            </aside>
         </div>
     </div>
     <section id="season-pass-overlay" class="sp-pass lb-scroll-fade" aria-labelledby="sp-title" hidden></section>
@@ -665,13 +657,13 @@
                     </div>
                     <div class="settings-tip">How long rows take to clear. Instant = 0ms, Slow = 300ms.</div>
                 </div>
-                <label class="settings-row lb-line-clear-setting" for="setting-line-clear-effect">
+                <div class="settings-row lb-line-clear-setting">
                     <span>Line-clear effect</span>
-                    <select class="lb-select" id="setting-line-clear-effect">
+                    <div class="lb-dropdown" id="setting-line-clear-effect" data-label="Line-clear effect"><template>
                         <option value="skin">Skin</option>
                         <option value="default" selected>Default</option>
-                    </select>
-                </label>
+                    </template></div>
+                </div>
                 <div class="settings-row">
                     <label for="setting-speed-up-text">Level-up callout</label>
                     <div style="display:flex;align-items:center;justify-content:flex-end;min-width:190px;">
@@ -724,13 +716,13 @@
                     </div>
                     <div class="settings-tip">Controls how visible the grid lines are during gameplay (0% = invisible). Helps see where pieces will land.</div>
                 </div>
-                <label class="settings-row" for="setting-run-missions">
+                <div class="settings-row">
                     <span>Show daily missions in gameplay</span>
-                    <select class="lb-select" id="setting-run-missions">
+                    <div class="lb-dropdown" id="setting-run-missions" data-label="Show daily missions in gameplay"><template>
                         <option value="off">Off</option>
                         <option value="on">On</option>
-                    </select>
-                </label>
+                    </template></div>
+                </div>
             </div>
         </div>
         <div id="settings-display" hidden>
@@ -770,14 +762,14 @@
                         <button type="button" class="lb-block-tab" data-ui-theme="system" aria-pressed="false">System</button>
                     </div>
                 </div>
-                <label class="settings-row lb102-wallpaper-picker" for="setting-theme-background">
+                <div class="settings-row lb102-wallpaper-picker">
                     <span>Wallpaper <small>Independent of Theme</small></span>
-                    <select class="lb-select" id="setting-theme-background">
+                    <div class="lb-dropdown" id="setting-theme-background" data-label="Wallpaper"><template>
                         <option value="image">Equipped theme</option>
                         <option value="plain">Plain</option>
-                    </select>
+                    </template></div>
                     <span class="lb102-wallpaper-preview" aria-hidden="true"></span>
-                </label>
+                </div>
                 <label class="settings-row">
                     <span>Moving background</span>
                     <span class="toggle lb-block-switch">
@@ -795,16 +787,12 @@
             <div id="notification-settings" class="settings-section" hidden>
                 <h2 class="settings-title">App alerts</h2>
                 <label class="settings-row">
-                    <span>Enable reminders <small>Get Android notifications for missions and streaks.</small></span>
+                    <span>Enable reminders <small>Get Android notifications for missions.</small></span>
                     <span class="toggle lb-block-switch"><input type="checkbox" role="switch" data-reminder="enabled"><span class="toggle-slider" aria-hidden="true"></span></span>
                 </label>
                 <label class="settings-row">
                     <span>Daily mission refresh</span>
                     <span class="toggle lb-block-switch"><input type="checkbox" role="switch" data-reminder="daily"><span class="toggle-slider" aria-hidden="true"></span></span>
-                </label>
-                <label class="settings-row">
-                    <span>Streak ending tonight</span>
-                    <span class="toggle lb-block-switch"><input type="checkbox" role="switch" data-reminder="streak"><span class="toggle-slider" aria-hidden="true"></span></span>
                 </label>
                 <label class="settings-row">
                     <span>Weekly mission refresh</span>
@@ -1117,15 +1105,15 @@
                 <button class="lb-block-btn lb-block-tab" data-achtab="unlocked" aria-pressed="false">Unlocked</button>
                 <button class="lb-block-btn lb-block-tab" data-achtab="locked" aria-pressed="false">In progress</button>
             </div>
-            <select class="ach-select lb-select" id="ach-category" aria-label="Achievement category">
+            <div class="ach-select lb-dropdown" id="ach-category" data-label="Achievement category"><template>
                 <option value="all">All categories</option>
-            </select>
-            <select class="ach-select lb-select" id="ach-sort" aria-label="Sort achievements">
+            </template></div>
+            <div class="ach-select lb-dropdown" id="ach-sort" data-label="Sort achievements"><template>
                 <option value="default">Sort: Default</option>
                 <option value="rarity">Rarity</option>
                 <option value="progress">Progress</option>
                 <option value="recent">Recently unlocked</option>
-            </select>
+            </template></div>
             <label class="ach-dates" data-control-tip="Show unlock dates in achievement details">
                 <span>Dates</span>
                 <span class="toggle lb-block-switch">

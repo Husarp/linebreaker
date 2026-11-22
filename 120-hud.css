@@ -1,5 +1,6 @@
 #app.active-game {
     --hud-gap: clamp(8px, 1.45vw, 18px);
+    --hud-top: calc(var(--lb-safe-top) + var(--lb-space-sm));
     --hud-scaled-height: calc(646px * var(--game-scale) / .7);
     --hud-fit-height: calc((100vw - 320px) / var(--hud-board-ratio, .5));
     --hud-height: min(var(--hud-scaled-height), var(--hud-fit-height), calc(100dvh - 36px - var(--lb-safe-top) - var(--lb-safe-bottom)));
@@ -10,6 +11,7 @@
     gap: 10px var(--hud-gap);
     align-content: center;
     align-items: stretch;
+    padding-block-start: var(--hud-top);
 }
 
 #app .pc-panel {
@@ -134,7 +136,7 @@
         grid-template-areas: 'hold score lines pause' 'next level level time' 'board board board board';
         gap: 6px;
         width: 100%;
-        padding: max(8px, var(--lb-safe-top)) max(12px, var(--lb-safe-right)) max(8px, var(--lb-safe-bottom)) max(12px, var(--lb-safe-left));
+        padding: var(--hud-top) max(12px, var(--lb-safe-right)) max(8px, var(--lb-safe-bottom)) max(12px, var(--lb-safe-left));
         justify-content: center;
         align-content: start;
     }

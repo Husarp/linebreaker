@@ -18,7 +18,7 @@ it('opens contextual Help, scrolls the matching topic, and restores focus on clo
   expect(help.classList.contains('hidden')).toBe(false);
   expect(document.activeElement.id).toBe('help-missions');
   expect(help.querySelector('[aria-current="location"]').dataset.helpJump).toBe('missions');
-  expect(help.querySelectorAll('[data-help-topic]')).toHaveLength(10);
+  expect(help.querySelectorAll('[data-help-topic]')).toHaveLength(9);
 
   const ranks = document.getElementById('help-ranks');
   Object.defineProperty(ranks, 'offsetTop', { value: 800 });
@@ -99,14 +99,12 @@ it('uses the XP bar itself for hover help, keyboard dismissal and compact tap de
   expect(detail.hidden).toBe(true);
 });
 
-it('keeps the daily streak multiplier at each documented boundary', () => {
-  const cases = [[0, 1], [2, 1], [3, 1.25], [5, 1.25], [6, 1.5], [10, 1.5], [11, 1.75], [20, 1.75], [21, 2], [50, 2]];
-  expect(cases.map(([days]) => game.api.streakMultiplier(days))).toEqual(cases.map(([, multiplier]) => multiplier));
-  game.w.openHelp('streaks');
-  const headings = game.w.document.querySelectorAll('[data-help-topic="streaks"] h3');
-  const bonuses = Array.from(headings).find(heading => heading.textContent === 'Streak bonuses').parentElement;
-  const multipliers = Array.from(bonuses.querySelectorAll('dd'), node => node.textContent);
-  expect(multipliers).toEqual([3, 6, 11, 21].map(days => `×${game.api.streakMultiplier(days).toFixed(2)} run XP`));
+it('explains run XP without a daily streak multiplier', () => {
+  game.w.openHelp('ranks');
+  const help = game.w.document.getElementById('rules-overlay');
+  expect(help.textContent).toContain('Your score and any personal-best bonus count toward run XP.');
+  expect(help.textContent).not.toMatch(/streak multiplier|streak bonus|keep your streak/i);
+  expect(help.querySelector('[data-help-topic="streaks"]')).toBeNull();
 });
 
 it('adds enabled Normal-mode modifiers and ignores disabled modifiers', () => {
