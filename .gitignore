@@ -15,8 +15,8 @@ CHANGELOG.md
 *.[t]etris
 
 # Third-party material that must never be published
-# (ripped music: to be replaced; unused community skins and FX pack)
-assets/music/*.mp3
+# (private music recordings, unused community skins and FX pack)
+/assets/music/
 images/
 Effect and FX Pixel All Free/
 

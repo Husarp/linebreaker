@@ -13,7 +13,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const android = fileURLToPath(new URL('../android/', import.meta.url));
 const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' }).split('\0');
 const forbidden = tracked.filter(file => /\.(?:apk|aab|exe|zip|7z|log|jks|keystore|p12|pfx|key|pem|mp3|lbsave|[t]etris)$/i.test(file)
-  || /^(?:dist-web|dist|\.local|design|\.loki|\.claude|android\/app\/build|src-tauri\/target)\//.test(file)
+  || /^(?:assets\/music|dist-web|dist|\.local|design|\.loki|\.claude|android\/app\/build|src-tauri\/target)\//.test(file)
   || /(?:^|\/)(?:[^/]*_save\.json|signing\.properties)$/i.test(file));
 if (forbidden.length) throw new Error(`Remove private or generated files from Git before release:\n${forbidden.join('\n')}`);
 console.log('Android release artifact audit passed.');

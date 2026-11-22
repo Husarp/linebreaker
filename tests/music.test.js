@@ -579,7 +579,7 @@ it('keeps the music volume and mute independent of run fades and settings edits'
   } finally { close(); }
 });
 
-it('does not ship local MP3s or catalogue entries without the private build flag', () => {
+it('stages only catalogued Ogg recordings and only with the private build flag', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'lb-music-build-'));
   const path = relative => join(fixture, relative);
   const build = fileURLToPath(new URL('../scripts/build-web.mjs', import.meta.url));
@@ -597,13 +597,18 @@ it('does not ship local MP3s or catalogue entries without the private build flag
     for (const file of ['music.json', 'music.release.json']) cpSync(new URL('../assets/' + file, import.meta.url), path('assets/' + file));
     cpSync(new URL('../data/missions.json', import.meta.url), path('data/missions.json'));
     cpSync(new URL('../data/season.json', import.meta.url), path('data/season.json'));
-    writeFileSync(path('assets/music/Rest Area.mp3'), 'test fixture');
-    writeFileSync(path('assets/music/unlisted.mp3'), 'test fixture');
+    const localCatalog = structuredClone(local);
+    localCatalog.menu.push({ file: 'archived.mp3', title: 'Archived' });
+    writeFileSync(path('assets/music.json'), JSON.stringify(localCatalog));
+    writeFileSync(path('assets/music/Rest Area.ogg'), 'test fixture');
+    writeFileSync(path('assets/music/unlisted.ogg'), 'test fixture');
+    writeFileSync(path('assets/music/archived.mp3'), 'test fixture');
 
     execFileSync(process.execPath, [build, '--local-music'], { cwd: fixture });
     expect(packagedCatalog().menu.filter(track => track.file)).toEqual([local.menu[0]]);
-    expect(existsSync(path('dist-web/assets/music/Rest Area.mp3'))).toBe(true);
-    expect(existsSync(path('dist-web/assets/music/unlisted.mp3'))).toBe(false);
+    expect(existsSync(path('dist-web/assets/music/Rest Area.ogg'))).toBe(true);
+    expect(existsSync(path('dist-web/assets/music/unlisted.ogg'))).toBe(false);
+    expect(existsSync(path('dist-web/assets/music/archived.mp3'))).toBe(false);
 
     execFileSync(process.execPath, [build], { cwd: fixture });
     expect(packagedCatalog()).toEqual(original);

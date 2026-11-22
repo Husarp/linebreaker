@@ -2299,7 +2299,7 @@
                 } catch (error) { console.warn(`Music file could not be checked (${url}):`, error); }
             }
             if (!buf) return null;
-            const name = track.title || track.file?.replace(/\.mp3$/i, '');
+            const name = track.title || track.file?.replace(/\.ogg$/i, '');
             if (name && !_trackPool.has(name)) _trackPool.set(name, { buf, artist: track.artist || '', tags: track.tags || [] });
             return name;
         }));

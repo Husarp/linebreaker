@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 const markup = `<b data-render-probe>quotes: ' " &amp; \\</b>`;
 const invalidColor = `#123456" data-render-probe="invalid`;
 const importedTrack = {
-  file: 'track.mp3', title: `${markup} title`, artist: `${markup} artist`, tags: [`${markup} tag`]
+  file: 'track.ogg', title: `${markup} title`, artist: `${markup} artist`, tags: [`${markup} tag`]
 };
 const ownedThemes = ['ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura'];
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -43,7 +43,7 @@ beforeEach(async () => {
     }, { get: (context, key) => context[key] ?? (() => {}) });
   };
   window.fetch = async (path, options) => {
-    if (options?.method === 'HEAD') return { ok: path === 'assets/music/track.mp3' };
+    if (options?.method === 'HEAD') return { ok: path === 'assets/music/track.ogg' };
     if (path === 'assets/music.json') return { ok: true, json: async () => ({ menu: [importedTrack] }) };
     if (path === 'assets/music.release.json') {
       return { ok: true, json: async () => ({ menu: [{ synth: 'glass-harbor', title: 'Glass Harbor' }] }) };
