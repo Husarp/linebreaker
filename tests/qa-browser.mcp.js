@@ -1,4 +1,4 @@
-(async (page, { viewport = { width: 390, height: 844 }, cutout, theme = 'dark', capture } = {}) => {
+(async (page, { viewport = { width: 390, height: 844 }, cutout, theme = 'dark', capture, batch } = {}) => {
     const url = new URL('/index.html?dev&demo', page.url());
     if (cutout !== undefined) url.searchParams.set('cutout', cutout);
     const localCatalog = await (await page.request.get(new URL('/assets/music.json', url).href)).json();
@@ -60,13 +60,14 @@
             chrome.color !== bandColor || chrome.pointers !== 'none' || chrome.scheme !== resolved || chrome.theme !== resolved || chrome.choice !== theme) {
             fail(`Unexpected Ledger band or theme: ${JSON.stringify(chrome)}`);
         }
-        const names = await page.evaluate(() => window.__LB_QA.list());
+        const allNames = await page.evaluate(() => window.__LB_QA.list());
         const docs = await (await page.request.get(new URL('/docs/QA-SCREENS.md', url).href)).text();
         const documented = docs.split('\n').filter(line => line.startsWith('|'))
             .flatMap(line => Array.from(line.matchAll(/`([^`]+)`/g), match => match[1]));
-        if ([...names].sort().join() !== documented.sort().join()) fail('QA screen list differs from the documented targets');
+        if ([...allNames].sort().join() !== documented.sort().join()) fail('QA screen list differs from the documented targets');
         await page.evaluate(() => document.fonts.ready);
 
+        const names = batch ? allNames.slice(...batch) : allNames;
         for (const name of names) {
             screen = name;
             try {
@@ -117,15 +118,21 @@
                     const lineHeight = parseFloat(getComputedStyle(title).lineHeight);
                     const header = title.closest('.lb-block-topbar');
                     const headerBounds = header.getBoundingClientRect();
-                    const endControls = [...header.querySelectorAll('.lb-topbar-meta, .lb-info-btn')]
+                    const endControls = [...header.querySelectorAll(':scope > button, .lb-topbar-meta, .lb-info-btn')]
                         .filter(control => control.getClientRects().length)
-                        .map(control => control.getBoundingClientRect().left);
+                        .map(control => control.getBoundingClientRect().left)
+                        .filter(left => left >= bounds.left);
                     return ink.left < Math.max(0, bounds.left, headerBounds.left) - 1
                         || ink.right > Math.min(innerWidth, bounds.right, headerBounds.right, ...endControls) + 1
                         || bounds.height > lineHeight + 1;
                 }).map(title => title.textContent.trim());
             });
             if (squeezedTitles.length) fail(`Header titles wrap or clip at ${viewport.width}px: ${squeezedTitles.join(', ')}`);
+            if (name === 'settings-updates' || name === 'whats-new-notice') {
+                const selector = name === 'settings-updates' ? '#settings-whats-new' : '[data-release-notes][open]';
+                const heading = page.locator(`${selector} > .lb-block-topbar > .lb-topbar-crumb > .lb-topbar-title`);
+                if (await heading.count() !== 1 || await heading.textContent() !== "What's new") fail('What’s new must use the shared header');
+            }
             const textLayoutFailures = await page.evaluate(isMenu => {
                 const issues = new Set();
                 const labelSelector = 'button, [role="button"], [role="tab"], nav a, [role="navigation"] a, h1, h2, h3, h4, h5, h6, [role="heading"]';
@@ -213,25 +220,6 @@
                     });
                 });
                 if (!gallery) fail('Stored crate cards must be two across with space for the full aura');
-                const mythic = cards.filter({ has: page.getByRole('button', { name: 'Open mythic crate' }) });
-                await mythic.locator('img').click();
-                const reveal = page.locator('#inventory-crate-overlay');
-                const total = page.locator('.lb43-locker-total');
-                const before = Number.parseInt(await total.textContent(), 10);
-                if (await reveal.count()) fail('Clicking crate art must not open a crate');
-                await mythic.getByRole('button', { name: 'Open mythic crate' }).click();
-                if (Number.parseInt(await total.textContent(), 10) !== before - 1) fail('Open must consume exactly one crate');
-                const auraFits = await reveal.locator('.lb43-crate-sprite').evaluate(sprite => {
-                    const title = sprite.closest('.lb64-crate-panel').querySelector('h2').getBoundingClientRect();
-                    const art = sprite.getBoundingClientRect();
-                    const shine = sprite.querySelector('.lb43-crate-shine');
-                    const sideAllowance = shine.offsetWidth * .62;
-                    return getComputedStyle(sprite).overflow === 'visible' && art.top >= title.bottom
-                        && art.left + art.width / 2 - sideAllowance >= 0
-                        && art.left + art.width / 2 + sideAllowance <= innerWidth;
-                });
-                if (!auraFits) fail('Mythic reveal must leave room around the sprite and shine');
-                await reveal.getByRole('button', { name: 'Done' }).click();
             }
             if (name === 'inventory-boosters' || name === 'booster-exchange' || name === 'game-over') {
                 const container = { 'inventory-boosters': '#inventory-boosters', 'booster-exchange': '#exc-modal-overlay', 'game-over': '#go-boost-row' }[name];
@@ -332,12 +320,21 @@
                 if (await page.locator('html').getAttribute('data-lb-ui-theme') !== resolved) fail('Changing wallpaper also changed the theme');
                 const otherTheme = resolved === 'dark' ? 'light' : 'dark';
                 await page.locator(`[data-ui-theme="${otherTheme}"]`).click();
-                if (await wallpaper.evaluate(element => element.value) !== 'ocean' ||
-                    !(await preview.evaluate(element => getComputedStyle(element).backgroundImage)).includes('ocean-')) {
+                const selected = wallpapers.at(-1);
+                if (await wallpaper.evaluate(element => element.value) !== selected ||
+                    !(await preview.evaluate(element => getComputedStyle(element).backgroundImage)).includes(`${selected}-`)) {
                     fail('Changing theme also changed the wallpaper');
                 }
                 await page.locator(`[data-ui-theme="${theme}"]`).click();
                 await chooseWallpaper(original);
+            }
+            if (name === 'whats-new-notice') {
+                await page.getByRole('button', { name: 'Full changelog in Settings' }).click();
+                await page.locator('#settings-whats-new').waitFor();
+                const focused = await page.locator('#settings-whats-new').evaluate(history =>
+                    history === document.activeElement && !history.closest('[hidden]') && !document.querySelector('[data-release-notes][open]'));
+                if (!focused) fail('Details must close the sheet and focus the release history in Settings');
+                await page.evaluate(() => window.closeSettings());
             }
             if (name === 'inventory-parts') {
                 const parts = await page.locator('#inventory-parts .lb-inventory-parts').evaluateAll(rows => rows.map(row => ({
@@ -400,13 +397,16 @@
                 const summit = await page.locator('#achievements-overlay .lb-r17-feature').evaluate(card =>
                     getComputedStyle(card).backgroundImage.includes('summit-shrine.webp'));
                 if (!summit) fail('Featured Milestones is missing Summit shrine');
-                await page.locator('[data-ach-id="games"]').click();
+                const games = page.locator('[data-ach-id="games"]');
+                await games.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+                await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+                await games.click();
                 const earnsOnly = await page.locator('#ach-tip').evaluate(tip => !tip.hidden
                     && tip.textContent.includes('Play 10 games') && !/100|1,000/.test(tip.textContent)
                     && [...tip.querySelectorAll('.ach-tip-reward')].map(line => line.textContent).join() === 'Reward: +200 XP'
                     && tip.querySelectorAll('svg[data-locked="true"]').length === 2);
                 if (!earnsOnly) fail('Achievement details must hide locked tier requirements');
-                await page.locator('[data-ach-id="games"]').click();
+                await games.click();
                 await page.locator('#achievements-overlay .ach-content').evaluate(content => { content.scrollTop = 0; });
             }
             if (name === 'playlist') {
@@ -645,6 +645,34 @@
                 if (!track) fail('Season Pass is missing the next-stage meter or rarity-labelled rewards');
             }
         }
+        if (names.includes('inventory')) {
+            screen = 'inventory-crate-interaction';
+            await page.evaluate(() => window.__LB_QA.open('inventory'));
+            const openMythic = page.getByRole('button', { name: 'Open mythic crate' });
+            await page.locator('.lb43-locker-card').filter({ has: openMythic }).locator('img').click();
+            const reveal = page.locator('#inventory-crate-overlay');
+            const total = page.locator('.lb43-locker-total');
+            const before = Number.parseInt(await total.textContent(), 10);
+            if (await reveal.count()) fail('Clicking crate art must not open a crate');
+            await openMythic.click();
+            if (Number.parseInt(await total.textContent(), 10) !== before - 1) fail('Open must consume exactly one crate');
+            const auraFits = await reveal.locator('.lb43-crate-sprite').evaluate(sprite => {
+                const title = sprite.closest('.lb64-crate-panel').querySelector('h2').getBoundingClientRect();
+                const art = sprite.getBoundingClientRect();
+                const shine = sprite.querySelector('.lb43-crate-shine');
+                const sideAllowance = shine.offsetWidth * .62;
+                return getComputedStyle(sprite).overflow === 'visible' && art.top >= title.bottom
+                    && art.left + art.width / 2 - sideAllowance >= 0
+                    && art.left + art.width / 2 + sideAllowance <= innerWidth;
+            });
+            if (!auraFits) fail('Mythic reveal must leave room around the sprite and shine');
+            await reveal.getByRole('button', { name: 'Done' }).click();
+        }
+        const result = { passed: names.length, total: allNames.length, viewport: `${viewport.width}×${viewport.height}` };
+        if (batch && batch[1] < allNames.length) {
+            if (failures.size) throw new Error([...failures].join('\n'));
+            return result;
+        }
         screen = 'crate-animation';
         await page.emulateMedia({ reducedMotion: 'no-preference' });
         await page.evaluate(() => window.__LB_QA.open('level-crate'));
@@ -666,7 +694,7 @@
         });
         if (!instant) fail('Reduced motion must show the result immediately');
         if (failures.size) throw new Error([...failures].join('\n'));
-        return { passed: names.length, viewport: `${viewport.width}×${viewport.height}` };
+        return result;
     } finally {
         page.off('response', onResponse);
         page.off('console', onConsole);

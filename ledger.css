@@ -1549,14 +1549,14 @@ svg.lb-ledger-chevron {
     padding-block-end: 0 !important;
     border: 0;
 }
-#settings-overlay .lb-topbar-crumb {
+#settings-overlay > .lb-block-topbar .lb-topbar-crumb {
     width: 100%;
     min-height: 56px;
     column-gap: 11px;
     padding-bottom: 10px;
     border-bottom: var(--lb-border) dashed var(--lb-rule);
 }
-#settings-overlay:has(:is(#settings-about, #settings-updates):not([hidden])) .lb-topbar-title {
+#settings-overlay:has(:is(#settings-about, #settings-updates):not([hidden])) > .lb-block-topbar .lb-topbar-title {
     font-size: clamp(16px, 5.25vw, 24px) !important;
 }
 #settings-overlay .lb-topbar-kicker { font: 400 10px/1.35 var(--lb-font-heading) !important; }
@@ -1581,6 +1581,9 @@ svg.lb-ledger-chevron {
     min-height: 76px !important;
     gap: var(--lb-space-md);
     padding: 9px 11px !important;
+}
+@media (max-height: 700px) {
+    #settings-overlay .lb102-categories .lb-ledger-row { min-height: 68px !important; }
 }
 #settings-overlay .lb102-categories .lb-ledger-row > svg:first-child { width: 20px; justify-self: center; }
 #settings-overlay .lb102-categories .lb-ledger-row::before { border-top-style: dashed; }

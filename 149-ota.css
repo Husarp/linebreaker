@@ -109,9 +109,20 @@
     border-end-start-radius: 0;
     border-end-end-radius: 0;
 }
-.lb184-release-sheet header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.lb184-release-sheet header h2 { margin: 0; }
-.lb184-release-sheet header button { font-size: .75rem; }
+.lb-game-root .lb184-release-sheet .lb-block-topbar,
+#settings-whats-new .lb-block-topbar {
+    --lb-topbar-surface: transparent;
+    padding: 0 0 .5rem;
+}
+:is(.lb184-release-sheet, #settings-whats-new) .lb-topbar-crumb {
+    grid-template: 'kicker' auto 'title' auto / minmax(0, 1fr);
+}
+.lb149-dialog.lb184-release-sheet .lb-block-topbar {
+    border-bottom: 0;
+    --lb-ink: var(--postcard-ink);
+    --lb-label: var(--postcard-ink);
+}
+.lb184-release-sheet header button { flex: none; font-size: .75rem; }
 .lb184-release-sheet [data-notes] { border-block: 1px dashed var(--postcard-edge); padding-block: .7rem; }
 .lb184-release-sheet [data-close] { width: 100%; }
 .lb149-settings .lb184-secondary { font-size: .75rem; background: transparent; box-shadow: none; }

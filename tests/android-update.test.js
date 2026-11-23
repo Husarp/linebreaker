@@ -278,12 +278,15 @@ it('shows literal release notes once without a duplicate installed banner, then 
   expect(banner.hidden).toBe(true);
   expect(game.get('[data-notes]').textContent).toBe(updated.notes);
   expect(game.get('[data-notes] img')).toBeNull();
+  expect(game.get('[data-release-notes] .lb-block-topbar .lb-topbar-crumb > h1.lb-topbar-title').textContent).toBe("What's new");
+  expect(game.get('[data-release-notes] .lb-topbar-kicker').textContent).toBe('Version 0.1.1');
   expect(game.get('[data-release-notes] header button').textContent).toBe('Details');
   game.get('[data-release-notes] [data-close]').click();
   expect(banner.querySelector('[data-title]').textContent).toBe('Update available');
   const reopened = await boot({ native: { updated }, saved: Object.fromEntries(Object.entries(game.window.localStorage)) });
   await reopened.restoreSave(); await reopened.ready();
   expect(reopened.get('.lb184-banner').hidden).toBe(true);
+  expect(reopened.get('#settings-whats-new .lb-block-topbar .lb-topbar-crumb > h2.lb-topbar-title').textContent).toBe("What's new");
   expect(reopened.get('#settings-whats-new').textContent).toContain(updated.notes);
 });
 
@@ -377,7 +380,7 @@ it.each(['bundle', 'apk'])('runs 1.4.0 → 1.4.1 for a %s without hiding or repl
   await next.restoreSave(); await next.ready();
   next.emit('updated', { to: version });
   await next.redraw();
-  expect(next.get('[data-release-notes][open] h2').textContent).toContain(version);
+  expect(next.get('[data-release-notes][open] .lb-topbar-kicker').textContent).toBe(`Version ${version}`);
   expect(briefTimers).toHaveLength(0);
   next.get('[data-release-notes] [data-close]').click();
   expect(next.get('.lb184-banner').hidden).toBe(true);

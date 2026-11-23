@@ -46,7 +46,7 @@
     const panel = document.createElement('dialog');
     panel.className = 'lb-block-panel lb149-dialog lb-scroll-fade';
     panel.setAttribute('aria-label', title);
-    panel.innerHTML = '<h2 class="lb-topbar-title"></h2>' + markup;
+    panel.innerHTML = '<h2></h2>' + markup;
     panel.querySelector('h2').textContent = title;
     panel.querySelector('[data-close]')?.addEventListener('click', () => panel.close());
     panel.addEventListener('keydown', event => event.stopPropagation());
@@ -58,9 +58,16 @@
     return bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / 1048576).toFixed(1)} MiB`;
   }
   function showNotes(version, notes) {
-    const panel = dialog(`What's new in ${version}`, '<p data-notes></p><button class="lb-block-btn lb-block-btn--primary" data-close>Done</button>');
+    const panel = document.createElement('dialog');
+    panel.className = 'lb-block-panel lb149-dialog lb-scroll-fade lb184-postcard lb184-release-sheet';
+    panel.setAttribute('aria-label', `What's new in ${version}`);
     panel.dataset.releaseNotes = '';
-    panel.classList.add('lb184-postcard', 'lb184-release-sheet');
+    panel.innerHTML = `<header class="lb-header lb-block-topbar">
+      <div class="lb-topbar-crumb"><span class="lb-topbar-kicker"></span><h1 class="lb-topbar-title">What's new</h1></div>
+    </header><p data-notes></p><button class="lb-block-btn lb-block-btn--primary" data-close autofocus>Done</button>`;
+    panel.querySelector('.lb-topbar-kicker').textContent = `Version ${version}`;
+    panel.querySelector('[data-close]').addEventListener('click', () => panel.close());
+    panel.addEventListener('keydown', event => event.stopPropagation());
     const details = document.getElementById('settings-whats-new');
     panel.querySelector('[data-notes]').textContent = (notes || releaseNotes[version])?.split('\n').filter(Boolean).slice(0, 3).join('\n')
       || 'This version is installed. See Settings for release history.';
@@ -76,13 +83,10 @@
         details.focus({ preventScroll: true });
         details.scrollIntoView({ block: 'start' });
       };
-      const heading = panel.querySelector('h2');
-      const header = document.createElement('header');
-      heading.replaceWith(header);
-      header.append(heading, settings);
+      panel.querySelector('header').append(settings);
     }
-    panel.querySelector('[data-close]').autofocus = true;
     panel.addEventListener('close', () => { panel.remove(); renderNotice(); }, { once: true });
+    document.body.append(panel);
     panel.showModal();
     renderNotice();
     return panel;
@@ -205,7 +209,9 @@
     const key = JSON.stringify([version, entries[version]]);
     if (section.dataset.release === key) return;
     section.dataset.release = key;
-    section.innerHTML = `<h2 class="settings-title">What's new</h2><div class="lb149-latest-note"></div>`;
+    section.innerHTML = `<header class="lb-header lb-block-topbar">
+      <div class="lb-topbar-crumb"><h2 class="lb-topbar-title">What's new</h2></div>
+    </header><div class="lb149-latest-note"></div>`;
     const add = (container, entry) => {
       const heading = document.createElement('h3');
       heading.textContent = `Version ${entry}`;
