@@ -1569,9 +1569,6 @@ svg.lb-ledger-chevron {
 
 #achievements-overlay .lb-collection-feature { margin-block-end: var(--lb-space-lg); }
 #achievements-overlay #ach-milestone-count { font-size: clamp(.8125rem, 4.7vw, 1.3125rem); white-space: nowrap; }
-@media (max-width: 390px) {
-    #achievements-overlay .lb-collection-feature img { width: clamp(48px, calc(100vw - 312px), 78px); height: auto; }
-}
 #achievements-overlay .ach-toolbar { padding: 0; }
 #achievements-overlay .ach-summary { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; width: 100%; }
 #achievements-overlay .ach-count-label { padding: 0; border: 0; background: none; color: var(--lb-muted); }

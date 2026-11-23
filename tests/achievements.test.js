@@ -32,6 +32,7 @@ describe('achievement screen', () => {
     expect(query('#ach-counter').textContent).toBe('2% complete');
     expect(query('#ach-milestone-count').textContent).toBe('2 of 117 unlocked');
     expect(query('#ach-milestone-progress').position).toBeCloseTo(2 / 117);
+    expect(query('#achievements-overlay .lb-collection-feature img')).toBeNull();
     expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 55');
     expect(sectionCount('BASIC')).toBe('2 of 117');
     expect(sectionCount('SECRET')).toBe('1 of 55');
