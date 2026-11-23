@@ -4655,8 +4655,14 @@
         overlay.classList.add('hidden');
     }
 
+    function pickFeatureArt(overlay, first, second) {
+        const feature = overlay.querySelector('.lb-r17-feature');
+        if (feature && overlay.classList.contains('hidden')) feature.dataset.featureArt = Math.random() < 0.5 ? first : second;
+    }
+
     function openInventory(tab = 'blocks') {
         const overlay = document.getElementById('inventory-overlay');
+        pickFeatureArt(overlay, 'locker-quartermaster', 'locker-vault-corridor');
         overlay.classList.remove('hidden');
         return fillScreenAfterPaint(overlay, () => {
             inventoryTab(tab);
@@ -5632,9 +5638,9 @@
             id: 'high_placer', cat: 'basic', name: 'Floor Dweller', type: 'tiered',
             counter: { path:'stats.bestHighPlacer', label:'Best (in one game)', unit:'pieces' },
             tiers: [
-                { rarity:'rare',      name:'Low Life',       desc:'Place 50 pieces fully in the bottom half (one game)',  check: g => g.highPlacer >= 50  },
-                { rarity:'epic',      name:'Subterranean',   desc:'Place 100 pieces fully in the bottom half (one game)', check: g => g.highPlacer >= 100 },
-                { rarity:'legendary', name:'The Undertaker', desc:'Place 200 pieces fully in the bottom half (one game)', check: g => g.highPlacer >= 200 },
+                { rarity:'rare',      name:'Low Life',       desc:'Place 50 pieces fully in the bottom half (one game)',  check: g => g.highPlacer >= 50,  progressDisplay: { path: 'stats.bestHighPlacer', target: 50 } },
+                { rarity:'epic',      name:'Subterranean',   desc:'Place 100 pieces fully in the bottom half (one game)', check: g => g.highPlacer >= 100, progressDisplay: { path: 'stats.bestHighPlacer', target: 100 } },
+                { rarity:'legendary', name:'The Undertaker', desc:'Place 200 pieces fully in the bottom half (one game)', check: g => g.highPlacer >= 200, progressDisplay: { path: 'stats.bestHighPlacer', target: 200 } },
             ],
         },
         {
@@ -5661,19 +5667,9 @@
             id: 'i_piece_lines', cat: 'basic', name: 'I-Piece Devotion', type: 'tiered',
             counter: { path:'stats.bestIPieceLines', label:'Best (one game)', unit:'I-lines' },
             tiers: [
-                { rarity:'common', name:'Straight Shot',     desc:'Clear 2 lines using I-pieces in one game',  check: g => g.iPieceLines >= 2  },
-                { rarity:'rare',   name:'Bar Lover',         desc:'Clear 5 lines using I-pieces in one game',  check: g => g.iPieceLines >= 5  },
-                { rarity:'epic',   name:'Strictly Vertical', desc:'Clear 10 lines using I-pieces in one game', check: g => g.iPieceLines >= 10 },
-            ],
-        },
-        {
-            id: 'daily_streak', cat: 'basic', name: 'Day by Day', type: 'tiered',
-            counter: { path:'missions.streaks.bestDaily', label:'Best Streak', unit:'days' },
-            tiers: [
-                { rarity:'common',    name:'Consistent', desc:'Keep a 3-day XP streak',  progress:{ path:'missions.streaks.daily', target:3  } },
-                { rarity:'rare',      name:'Dedicated',  desc:'Keep a 6-day XP streak',  progress:{ path:'missions.streaks.daily', target:6  } },
-                { rarity:'epic',      name:'Committed',  desc:'Keep an 11-day XP streak', progress:{ path:'missions.streaks.daily', target:11 } },
-                { rarity:'legendary', name:'Addicted',   desc:'Keep a 21-day XP streak', progress:{ path:'missions.streaks.daily', target:21 } },
+                { rarity:'common', name:'Straight Shot',     desc:'Clear 2 lines using I-pieces in one game',  check: g => g.iPieceLines >= 2,  progressDisplay: { path: 'stats.bestIPieceLines', target: 2 } },
+                { rarity:'rare',   name:'Bar Lover',         desc:'Clear 5 lines using I-pieces in one game',  check: g => g.iPieceLines >= 5,  progressDisplay: { path: 'stats.bestIPieceLines', target: 5 } },
+                { rarity:'epic',   name:'Strictly Vertical', desc:'Clear 10 lines using I-pieces in one game', check: g => g.iPieceLines >= 10, progressDisplay: { path: 'stats.bestIPieceLines', target: 10 } },
             ],
         },
         // ── NEW VISIBLE SINGLE ────────────────────────────────────────────────
@@ -6053,43 +6049,12 @@
         desc: 'Score exactly 2,048 in a game.',
         check: () => false,
     },
-    // ── MISSIONS ──────────────────────────────────────────────
-    {
-        id: 'mq_first_easy', cat: 'basic', name: 'First Steps', type: 'single',
-        rarity: 'common', clue: 'Every journey begins somewhere.',
-        desc: 'Complete your first Easy daily quest.',
-        check: () => false,
-    },
-    {
-        id: 'mq_normal_10', cat: 'basic', name: 'Quest Veteran', type: 'single',
-        rarity: 'rare', clue: 'A veteran of the grind.',
-        desc: 'Complete 10 Normal tier daily quests.',
-        check: () => false,
-    },
-    {
-        id: 'mq_hard_5', cat: 'basic', name: 'Hard Worker', type: 'single',
-        rarity: 'epic', clue: 'You don\'t back down from a challenge.',
-        desc: 'Complete 5 Hard tier daily quests.',
-        check: () => false,
-    },
-    {
-        id: 'mq_secret_1', cat: 'basic', name: 'Secret Keeper', type: 'single',
-        rarity: 'epic', clue: 'Not everything is what it seems.',
-        desc: 'Complete a Secret daily quest.',
-        check: () => false,
-    },
-    {
-        id: 'mq_total_50', cat: 'basic', name: 'Quest Machine', type: 'single',
-        rarity: 'legendary', clue: 'Fifty goals. Fifty victories.',
-        desc: 'Complete 50 total daily quests.',
-        check: () => false,
-    },
     // ── TIERED MISSION COUNT BADGES ───────────────────────────────────────
     {
         id: 'mq_easy_quests', cat: 'basic', name: 'Easy Runner', type: 'tiered',
         counter: { path: 'missions.stats.byTier.easy', label: 'Easy Quests Done' },
         tiers: [
-            { rarity: 'common',    name: 'Casual Grinder', desc: 'Complete 10 Easy quests (daily or weekly)',    progress: { path: 'missions.stats.byTier.easy', target: 10  } },
+            { rarity: 'common',    name: 'First Steps',   desc: 'Complete an Easy quest (daily or weekly)',     progress: { path: 'missions.stats.byTier.easy', target: 1   } },
             { rarity: 'rare',      name: 'Easy Streak',    desc: 'Complete 30 Easy quests (daily or weekly)',    progress: { path: 'missions.stats.byTier.easy', target: 30  } },
             { rarity: 'epic',      name: 'Green Thumb',    desc: 'Complete 50 Easy quests (daily or weekly)',    progress: { path: 'missions.stats.byTier.easy', target: 50  } },
         ],
@@ -6117,7 +6082,7 @@
         counter: { path: 'missions.stats.totalCompleted', label: 'Total Quests Done' },
         tiers: [
             { rarity: 'common',    name: 'Quest Taker',    desc: 'Complete 30 quests total',                    progress: { path: 'missions.stats.totalCompleted', target: 30  } },
-            { rarity: 'rare',      name: 'Mission Count',  desc: 'Complete 80 quests total',                    progress: { path: 'missions.stats.totalCompleted', target: 80  } },
+            { rarity: 'rare',      name: 'Quest Machine',  desc: 'Complete 50 quests total',                    progress: { path: 'missions.stats.totalCompleted', target: 50  } },
             { rarity: 'epic',      name: 'The Grind',      desc: 'Complete 130 quests total',                   progress: { path: 'missions.stats.totalCompleted', target: 130 } },
             { rarity: 'legendary', name: 'Committed',      desc: 'Complete 200 quests total',                   progress: { path: 'missions.stats.totalCompleted', target: 200 } },
         ],
@@ -6126,7 +6091,7 @@
         id: 'mq_secret_quests', cat: 'basic', name: 'Secret Hunter', type: 'tiered',
         counter: { path: 'missions.stats.byTier.secret', label: 'Secret Quests Done' },
         tiers: [
-            { rarity: 'common',    name: 'Curious',        desc: 'Complete 2 Secret daily quests',              progress: { path: 'missions.stats.byTier.secret', target: 2   } },
+            { rarity: 'common',    name: 'Secret Keeper',  desc: 'Complete a Secret daily quest',               progress: { path: 'missions.stats.byTier.secret', target: 1   } },
             { rarity: 'rare',      name: 'Mystery Hunter', desc: 'Complete 5 Secret daily quests',              progress: { path: 'missions.stats.byTier.secret', target: 5   } },
             { rarity: 'epic',      name: 'The Unseen',     desc: 'Complete 10 Secret daily quests',             progress: { path: 'missions.stats.byTier.secret', target: 10  } },
         ],
@@ -6168,7 +6133,11 @@
         desc: 'Unlock any 2 achievements in a single game.',
         check: () => false,
     },
-    ].map(ach => ({ ...ach, svgIcon: achievementIcon(ach.id) }));
+    ].map(ach => {
+        const retained = LBSave.retainedAchievementTiers[ach.id];
+        if (retained) ach.tiers = retained.map(tier => ach.tiers[tier - 1]);
+        return { ...ach, svgIcon: achievementIcon(ach.id) };
+    });
 
     // Patch collector badge — set final tier target to total buyable items
     (function() {
@@ -6208,7 +6177,7 @@
             for (const a of ACHIEVEMENTS_DEF) {
                 const st = saveData.achievements[a.id];
                 if (!st) continue;
-                if (a.type === 'tiered') count += Number(st.tier) || 0;
+                if (a.type === 'tiered') count += Number(st.tier > 0);
                 else if (st.unlocked) count++;
             }
             return count;
@@ -6220,12 +6189,13 @@
     }
 
     function _fmtCounter(counter, v) {
-        if (counter.fmt === 'time') {
+        if (counter?.fmt === 'time') {
+            v = Math.floor(v);
             const m = Math.floor(v / 60), s = v % 60;
             return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
         }
-        if (counter.fmt === 'combo') return '×' + v.toLocaleString();
-        return v.toLocaleString() + (counter.unit ? ' ' + counter.unit : '');
+        if (counter?.fmt === 'combo') return '×' + v.toLocaleString('en-US');
+        return v.toLocaleString('en-US');
     }
 
     function unlockAchievement(id) {
@@ -6331,9 +6301,11 @@
                 const tier = ach.tiers[i];
                 const pInfo = tier.progress || tier.progressDisplay;
                 if (pInfo) {
-                    if (_getProgressVal(pInfo.path) >= pInfo.target) {
+                    const value = _getProgressVal(pInfo.path);
+                    if (ach.id === 'speedrunner' ? value > 0 && value <= pInfo.target : value >= pInfo.target) {
                         if (!saveData.achievements[ach.id]) saveData.achievements[ach.id] = {};
                         saveData.achievements[ach.id].tier = i + 1;
+                        (saveData.achievements[ach.id].tierDates ||= {})[i + 1] = LBSave.localDate(new Date());
                         const xp = _ACH_XP[tier.rarity] || 500;
                         saveData.pendingAchievementClaims.push({ id: ach.id, tierNum: i + 1, rarity: tier.rarity, xp, name: tier.name });
                         current = i + 1;
@@ -6522,7 +6494,16 @@
 
     const achievementProgressPaths = [...new Set(ACHIEVEMENTS_DEF.flatMap(ach => (ach.tiers || [])
         .map(tier => tier.progress?.path || tier.progressDisplay?.path)).filter(Boolean))];
-    const retiredStreakAchievements = new Set(['streak_lost', 'mq_streak_7', 'mq_streak_30', 'mq_all_cleared', 'mq_barely']);
+    const retiredStreakAchievements = new Set(['daily_streak', 'streak_lost', 'mq_streak_7', 'mq_streak_30', 'mq_all_cleared', 'mq_barely']);
+    const achievementTiers = [
+        ['Bronze', '<circle cx="8" cy="8" r="5.2"/>'],
+        ['Silver', '<path d="M8 1.6 14.4 8 8 14.4 1.6 8Z"/>'],
+        ['Gold', '<path d="M8 1.4 13.7 4.7v6.6L8 14.6 2.3 11.3V4.7Z"/>'],
+    ];
+    function achievementTierShape(index, locked, extraClass = '') {
+        const [name, shape] = achievementTiers[index];
+        return `<svg class="ach-tier-shape ${extraClass}" data-tier="${name.toLowerCase()}" data-locked="${locked}" viewBox="0 0 16 16" role="img" aria-label="${name} ${locked ? 'locked' : 'earned'}">${shape}</svg>`;
+    }
     function renderAchievementsOverlay(tab, opening = false) {
         tab = tab || 'all';
         checkProgressAchievements();
@@ -6643,23 +6624,16 @@
             const maxTier = ach.type === 'tiered' ? ach.tiers.length : 1;
             const curTier = ach.type === 'tiered' ? Math.min(Math.max(0, entry?.tier || 0), maxTier) : Number(!!entry?.unlocked);
             const counts = sectionCounts.get(ach.cat) || { total: 0, done: 0 };
-            counts.total += maxTier;
-            counts.done += curTier;
+            counts.total++;
+            counts.done += Number(curTier > 0);
             sectionCounts.set(ach.cat, counts);
             if (ach.cat !== 'secret') {
-                publicTotal += maxTier;
-                publicDone += curTier;
+                publicTotal++;
+                publicDone += Number(curTier > 0);
             }
             if (category !== 'all' && ach.cat !== category) continue;
-            if (ach.type === 'tiered') {
-                if (curTier > 0 && (tab === 'all' || tab === 'unlocked'))
-                    renderItems.push({ ach, kind: 'unlocked', curTier, maxTier });
-                if (curTier < maxTier && (tab === 'all' || tab === 'locked'))
-                    renderItems.push({ ach, kind: 'locked', curTier, maxTier });
-            } else {
-                const kind = curTier ? 'unlocked' : 'locked';
-                if (tab === 'all' || tab === kind) renderItems.push({ ach, kind, curTier, maxTier });
-            }
+            const kind = curTier ? 'unlocked' : 'locked';
+            if (tab === 'all' || tab === kind) renderItems.push({ ach, kind, curTier });
         }
         const secretCounts = sectionCounts.get('secret') || { total: 0, done: 0 };
         const completion = publicTotal ? Math.round(publicDone / publicTotal * 100) : 0;
@@ -6678,25 +6652,16 @@
             }
             return ach.rarity;
         }
-        function _getProgressOfItem(item) {
-            const { ach, kind, curTier } = item;
-            if (kind === 'unlocked') return 1;
-            if (ach.cat !== 'secret' && ach.type === 'tiered' && curTier < ach.tiers.length) {
-                const nxt = ach.tiers[curTier];
-                const progressInfo = nxt.progress || nxt.progressDisplay;
-                if (progressInfo) {
-                    const cur = _getProgressVal(progressInfo.path);
-                    return Math.max(0, Math.min(1, cur / progressInfo.target));
-                }
-            }
-            return 0;
+        function nextTierProgress({ ach, curTier }) {
+            const tier = ach.tiers?.[curTier];
+            return tier?.progress || tier?.progressDisplay;
         }
-        function _getNameOfItem(item) {
-            const { ach, kind, curTier } = item;
-            if (ach.type === 'tiered') {
-                return kind === 'unlocked' ? ach.tiers[curTier - 1].name : ach.tiers[curTier].name;
-            }
-            return ach.name;
+        function _getProgressOfItem(item) {
+            const progress = nextTierProgress(item);
+            if (!progress) return item.kind === 'unlocked' ? 1 : 0;
+            const current = _getProgressVal(progress.path);
+            if (current <= 0) return 0;
+            return Math.min(1, item.ach.id === 'speedrunner' ? progress.target / current : current / progress.target);
         }
         const byRarity = (a, b) => (_RARITY_ORDER[_getRarityOfItem(b)] || 0) - (_RARITY_ORDER[_getRarityOfItem(a)] || 0);
         const byProgress = (a, b) => _getProgressOfItem(b) - _getProgressOfItem(a);
@@ -6705,7 +6670,7 @@
             if (rarityDelta) return rarityDelta;
             const progressDelta = byProgress(a, b);
             if (Math.abs(progressDelta) > 0.001) return progressDelta;
-            return _getNameOfItem(a).localeCompare(_getNameOfItem(b));
+            return a.ach.name.localeCompare(b.ach.name);
         }
         function unlockDate({ ach, kind, curTier }) {
             if (kind !== 'unlocked') return '';
@@ -6732,7 +6697,7 @@
         }
 
         function buildCard(item) {
-            const { ach, kind, curTier, maxTier } = item;
+            const { ach, kind, curTier } = item;
             const isUnlocked = kind === 'unlocked';
             let rarity;
             if (ach.type === 'tiered') {
@@ -6743,7 +6708,7 @@
             const rc = RARITY_ACH[rarity] || RARITY_ACH.common;
             const isSecretLocked = ach.cat === 'secret' && !isUnlocked;
             const _progressFrac = _getProgressOfItem(item);
-            const title = isSecretLocked ? 'Secret achievement' : _getNameOfItem(item);
+            const title = isSecretLocked ? 'Secret achievement' : ach.name;
 
             const wrap = document.createElement('button');
             wrap.type = 'button';
@@ -6752,13 +6717,13 @@
             if (!isSecretLocked) wrap.dataset.achId = ach.id;
             const icon = isSecretLocked ? achievementIcon('question') : ach.svgIcon;
             const state = isUnlocked ? 'Unlocked' : 'Locked';
-            const tier = ach.type === 'tiered' ? ach.tiers[isUnlocked ? curTier - 1 : curTier] : null;
-            const detail = isSecretLocked ? state : tier?.desc || ach.desc || rc.label;
-            const medal = tier && (rarity === 'common' ? 'bronze' : rarity === 'rare' ? 'silver' : 'gold');
-            const progressInfo = !isSecretLocked && !isUnlocked && (tier?.progress || tier?.progressDisplay);
+            const progressInfo = !isSecretLocked && nextTierProgress(item);
+            const detail = isSecretLocked ? state : ach.type === 'tiered'
+                ? (progressInfo ? `${achievementTiers[curTier][0]} progress` : `${achievementTiers[curTier - 1][0]} earned`)
+                : ach.desc || rc.label;
             const meter = progressInfo ? `<progress class="lb-block-progress" max="1" value="${_progressFrac}" aria-label="Achievement progress"></progress>` : '';
-            const progressText = progressInfo && `${_getProgressVal(progressInfo.path).toLocaleString('en-US')} / ${progressInfo.target.toLocaleString('en-US')}`;
-            const art = medal ? `<img class="ach-card-icon" src="assets/ui/medals/${medal}.png" alt="">`
+            const progressText = progressInfo && `${_fmtCounter(ach.counter, _getProgressVal(progressInfo.path))} / ${_fmtCounter(ach.counter, progressInfo.target)}`;
+            const art = ach.type === 'tiered' ? achievementTierShape(Math.max(0, curTier - 1), !isUnlocked, 'ach-card-icon')
                 : `<svg class="ach-card-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${icon}</svg>`;
             wrap.innerHTML = `${art}
                 <span class="ach-row-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small>${meter}</span>
@@ -6771,30 +6736,14 @@
                     const date = showDates && LBSave.displayDate(value);
                     return date ? `<div class="ach-tip-note">${_SVG_CALENDAR}${escapeHtml(date)}</div>` : '';
                 };
-                const tierLine = (tier, prefix = '') => `<div class="ach-tip-tier" data-rarity="${tier.rarity}">${prefix}${escapeHtml(tier.name)}</div><div>${escapeHtml(tier.desc)}</div>`;
-                const counterLine = () => {
-                    const count = ach.counter && _getProgressVal(ach.counter.path);
-                    return count > 0 ? `<div class="ach-tip-note">${escapeHtml(ach.counter.label)}: ${escapeHtml(_fmtCounter(ach.counter, count))}</div>` : '';
-                };
                 let html = `<div class="ach-tip-title">${isSecretLocked ? '???' : escapeHtml(ach.name)}</div>`;
                 if (ach.type === 'tiered') {
-                    if (isUnlocked) {
-                        const tierDates = saveData.achievements?.[ach.id]?.tierDates || {};
-                        for (const [index, tier] of ach.tiers.slice(0, curTier).entries()) {
-                            html += tierLine(tier, `${RARITY_ACH[tier.rarity].label} — `) + dateLine(tierDates[index + 1]);
-                        }
-                        if (curTier === maxTier) html += counterLine();
-                    } else {
-                        const next = ach.tiers[curTier];
-                        html += tierLine(next, curTier === 0 ? 'First tier: ' : 'Next: ');
-                        const progressInfo = next.progress || next.progressDisplay;
-                        if (progressInfo) {
-                            html += `<div class="ach-tip-note">${escapeHtml(_getProgressVal(progressInfo.path))} / ${progressInfo.target}</div>`;
-                        } else if (!ach.tiers.some(tier => tier.progress || tier.progressDisplay)) {
-                            html += counterLine();
-                        }
+                    const tierDates = saveData.achievements?.[ach.id]?.tierDates || {};
+                    for (const [index, tier] of ach.tiers.entries()) {
+                        const locked = index >= curTier;
+                        html += `<div class="ach-tip-milestone">${achievementTierShape(index, locked)}${locked ? ''
+                            : `<div><strong>${achievementTiers[index][0]} — ${escapeHtml(tier.name)}</strong><div>${escapeHtml(tier.desc)}</div>${dateLine(tierDates[index + 1])}</div>`}</div>`;
                     }
-                    html += `<div class="ach-tip-total">Tiers earned: ${curTier} / ${maxTier}</div>`;
                 } else {
                     if (!isSecretLocked) {
                         html += `<div class="ach-tip-tier" data-rarity="${rarity}">${rc.label}</div><div>${escapeHtml(ach.desc)}</div>`;
@@ -8605,6 +8554,7 @@
         gainedXPThisRound += bonus;
         _grantXP(bonus);
         if (bonus > 0) _updateMissionProgress({ totalXP: bonus });
+        checkProgressAchievements();
         _renderGoXP(gainedXPThisRound, saveData.totalXP);
         _renderGoBoostRow(gainedXPThisRound);
         animateXPGain();
@@ -9037,14 +8987,13 @@
         const titleEl = document.getElementById('mw-title');
         if (!titleEl) return;
         const titleText = _nowPlayingName || 'Nothing playing';
-        const statusText = settings.musicPaused ? 'Paused' : 'Now playing';
-        for (const id of ['mw-status', 'pl-mw-status']) {
-            const status = document.getElementById(id);
-            if (!status) continue;
-            status.hidden = !_nowPlayingName;
-            status.textContent = statusText;
+        const playlistStatus = document.getElementById('pl-mw-status');
+        if (playlistStatus) {
+            playlistStatus.hidden = !_nowPlayingName;
+            playlistStatus.textContent = settings.musicPaused ? 'Paused' : 'Now playing';
         }
-        titleEl.innerHTML = `<span class="mw-title-inner">${escapeHtml(titleText)}</span>`;
+        const widgetTitle = _nowPlayingName && settings.musicPaused ? `Paused · ${titleText}` : titleText;
+        titleEl.innerHTML = `<span class="mw-title-inner">${escapeHtml(widgetTitle)}</span>`;
         const inner = titleEl.querySelector('.mw-title-inner');
         requestAnimationFrame(() => {
             if (inner && inner.scrollWidth > titleEl.clientWidth) {
@@ -9876,15 +9825,8 @@
 
     function _checkMissionBadges() {
         if (!saveData.missions?.stats) return;
-        const s = saveData.missions.stats;
         const m = saveData.missions;
         const tryU = id => { if (!saveData.achievements?.[id]?.unlocked) unlockAchievement(id); };
-        // Existing single badges
-        if ((s.byTier?.easy || 0) >= 1)   tryU('mq_first_easy');
-        if ((s.byTier?.normal || 0) >= 10) tryU('mq_normal_10');
-        if ((s.byTier?.hard || 0) >= 5)   tryU('mq_hard_5');
-        if ((s.byTier?.secret || 0) >= 1)  tryU('mq_secret_1');
-        if ((s.totalCompleted || 0) >= 50)  tryU('mq_total_50');
         const allDone = m.daily.quests?.every(q => q.completed);
         const secDone = m.daily.secret?.completed;
         if (allDone && secDone) tryU('mq_daily_perfect');
@@ -10121,6 +10063,7 @@
         if (tab === 'season') return window.openSeasonPass();
         window._mqChangeMode = false;
         const overlay = document.getElementById('missions-overlay');
+        pickFeatureArt(overlay, 'mission-forest-outpost', 'mission-map-room');
         overlay.classList.remove('hidden');
         if (_missionCountdownInterval) clearInterval(_missionCountdownInterval);
         _missionCountdownInterval = setInterval(_updateMissionCountdown, 1000);

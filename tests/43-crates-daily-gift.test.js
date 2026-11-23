@@ -64,7 +64,7 @@ it('blocks rollbacks over ten minutes without losing the high-water timestamp', 
 it('sanitizes and round-trips schema v1 gift fields without truncating millisecond timestamps', () => {
   const now = new Date(2026, 10, 18, 12).getTime();
   const valid = { schemaVersion: 1, lastDailyGift: '2026-11-18', lastSeenTime: now, dailyGiftStreak: 3 };
-  expect(sanitizeSave(LBSave.serializeSave(valid), defaults)).toMatchObject(valid);
+  expect(sanitizeSave(LBSave.serializeSave(valid), defaults)).toMatchObject({ ...valid, schemaVersion: 2 });
   for (const invalid of ['123', -1, 0.5, Infinity, Number.MAX_SAFE_INTEGER]) {
     expect(sanitizeSave({ ...valid, lastSeenTime: invalid }, defaults).lastSeenTime).toBe(0);
   }

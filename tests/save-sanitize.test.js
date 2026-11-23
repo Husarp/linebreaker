@@ -40,7 +40,7 @@ it('loads a defaults-based real save with progress, dates, missions and legacy b
  fixture.missions.weekly.weekKey = a.missionWeekKey(); fixture.missions.weekly.isoWeekKey=true;
  fixture.missions.stats.totalPts=25;
  a.applyLoadedData(fixture);
- expect(a.save).toMatchObject({schemaVersion:1,skinCatalogVersion:1,totalXP:12345,parts:{shadow:4},universalParts:3.4,ownedSkins:['retro'],boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
+ expect(a.save).toMatchObject({schemaVersion:2,skinCatalogVersion:1,totalXP:12345,parts:{shadow:4},universalParts:3.4,ownedSkins:['retro'],boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
  expect(a.save.leaderboard[0]).toMatchObject({score:5000,date:'2026-11-18',clock:'12:30'});
  expect(a.save.pinnedScores[0].note).toBe('Nice run');
  expect(a.save.storedCrates[0].rewards).toHaveLength(2);
@@ -92,7 +92,7 @@ it('sanitizes schema v1 skin keys while preserving image rewards and the Neon pa
   ownedSkins:['lava','lava-glass','gem','neon'],ownedPalettes:['classic','neon'],parts:{'golden-dragon':7,lava:4,gem:3,neon:2},
   _settings:{skin:'gem',blockShape:'round'},
   pendingLevelBox:{rewards:[{type:'parts',key:'golden-dragon'},{type:'parts',key:'gem'},{type:'parts',key:'lava'}]}});
- expect(a.save).toMatchObject({schemaVersion:1,ownedSkins:['retro','lava-glass'],ownedPalettes:['classic','neon'],universalParts:3,
+ expect(a.save).toMatchObject({schemaVersion:2,ownedSkins:['retro','lava-glass'],ownedPalettes:['classic','neon'],universalParts:3,
   _settings:{skin:'retro',blockShape:'square'}});
  expect(a.save.parts).toEqual({'golden-dragon':7,neon:2});
  expect(a.save.storedCrates[0].rewards).toEqual([expect.objectContaining({key:'golden-dragon',label:'+1 Part: Golden Dragon',desc:'7/250 parts'})]);

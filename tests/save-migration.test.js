@@ -72,7 +72,7 @@ it('copies browser progress and the remembered file handle once, retaining the o
   expect(game.api.save.totalXP).toBe(0);
 });
 
-it('keeps renamed achievement tiers, pending rewards and playlist history on current-schema saves', async () => {
+it('keeps renamed achievement tiers, pending rewards and playlist history on schema 1 saves', async () => {
   game = await loadGame();
   const clean = game.w.sanitizeSave({
     schemaVersion: 1,
@@ -87,10 +87,62 @@ it('keeps renamed achievement tiers, pending rewards and playlist history on cur
   expect(clean.stats.songPlayCounts).toEqual({ 'Classic Block Theme': 7 });
 });
 
+it('maps retained tiers and overlapping mission milestones without paying earned rewards twice', async () => {
+  game = await loadGame();
+  const { w, api } = game;
+  api.applyLoadedData({
+    schemaVersion: 1,
+    totalXP: 12000,
+    stats: { totalLinesCleared: 2000, gamesPlayed: 100 },
+    achievements: {
+      total_lines: { tier: 4, tierDates: { 1: '2026-01-01', 3: '2026-02-01', 4: '2026-03-01' } },
+      games: { tier: 2 },
+      mq_total_50: { unlocked: true, unlockedAt: '2026-03-02' },
+      mq_secret_1: { unlocked: true, unlockedAt: '2026-03-03' },
+      mq_hard_5: { unlocked: true, unlockedAt: '2026-03-04' },
+    },
+    pendingAchievementClaims: [
+      { id: 'total_lines', tierNum: 3, name: 'Eraser', rarity: 'epic', xp: 1500 },
+      { id: 'total_lines', tierNum: 4, name: 'Destroyer', rarity: 'legendary', xp: 2000 },
+      { id: 'mq_total_50', name: 'Quest Machine', rarity: 'legendary', xp: 2000 },
+    ],
+  }, false);
+  expect(api.save.achievements).toMatchObject({
+    total_lines: { tier: 2, tierDates: { 1: '2026-01-01', 2: '2026-02-01' } },
+    games: { tier: 1 },
+    mq_total_quests: { tier: 2, tierDates: { 2: '2026-03-02' } },
+    mq_secret_quests: { tier: 1, tierDates: { 1: '2026-03-03' } },
+    mq_hard_quests: { tier: 1, tierDates: { 1: '2026-03-04' } },
+  });
+  expect(api.save.achievements).not.toHaveProperty('mq_total_50');
+  expect(api.save.pendingAchievementClaims.map(claim => [claim.name, claim.tierNum, claim.xp])).toEqual([
+    ['Eraser', 2, 1500], ['Destroyer', undefined, 2000], ['Quest Machine', undefined, 2000],
+  ]);
+  api.checkAchievementsOnLoad();
+  expect(api.save.pendingAchievementClaims.filter(claim => claim.id === 'games').map(claim => claim.tierNum)).toEqual([2]);
+  const migrated = w.LBSave.serializeSave(api.save);
+  api.applyLoadedData(migrated, false);
+  api.checkAchievementsOnLoad();
+  expect(api.save.achievements).toMatchObject({ total_lines: { tier: 2 }, games: { tier: 2 } });
+  expect(api.save.pendingAchievementClaims).toEqual(migrated.pendingAchievementClaims);
+  expect(api.save.totalXP).toBe(12000);
+});
+
+it('does not award a time trial tier without a qualifying saved time', async () => {
+  game = await loadGame();
+  const { api } = game;
+  for (const bestSpeedrunnerTime of [0, 91, 39]) {
+    api.setup({ save: { stats: { bestSpeedrunnerTime } } });
+    api.checkAchievementsOnLoad();
+    const claims = api.save.pendingAchievementClaims.filter(claim => claim.id === 'speedrunner');
+    expect(claims.map(claim => claim.tierNum)).toEqual(bestSpeedrunnerTime === 39 ? [1, 2] : []);
+  }
+});
+
 it('migrates legacy scores, listening counts, and dates without retaining duplicates', async () => {
   game = await loadGame();
   const clean = game.w.sanitizeSave(legacy, { ...game.api.save, lastSeenTime: 0 });
-  expect(clean.schemaVersion).toBe(1);
+  expect(clean.schemaVersion).toBe(2);
   expect(clean.leaderboard.map(entry => entry.score)).toEqual([1500, 1000, 800]);
   expect(clean.leaderboard[0]).toMatchObject({ date: '2026-02-07', lines: 20, maxSpeed: 5 });
   expect(clean.pinnedScores[0]).toMatchObject({ date: '2026-11-18', clock: '12:30', note: 'Keep this' });

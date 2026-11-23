@@ -166,6 +166,11 @@
                 });
                 if (!tabsFit) fail('Inventory categories do not all fit in the segmented control');
             }
+            if (name === 'inventory') {
+                const locker = await page.locator('#inventory-crates .lb-r17-feature').evaluate(card =>
+                    /locker-(quartermaster|vault-corridor)\.webp/.test(getComputedStyle(card).backgroundImage));
+                if (!locker) fail('Locker is missing its selected artwork');
+            }
             if (['inventory-blocks', 'inventory-colors', 'inventory-other'].includes(name)) {
                 const labels = await page.evaluate(() => [...document.querySelectorAll('#inventory-overlay [role="tabpanel"]:not(.hidden) .lb-inventory-rarity')]
                     .map(label => [label.textContent.toLowerCase(), label.dataset.rarity, getComputedStyle(label).backgroundColor]));
@@ -262,8 +267,28 @@
                             (Math.abs(row.left - rows[0].left) <= 1 && row.top >= rows[index - 1].bottom - 1)));
                     }));
                 if (!singleColumn) fail('Achievements must have one record per line');
+                const tierRows = await page.locator('#ach-list [data-ach-id]').evaluateAll(rows => {
+                    const games = rows.find(row => row.dataset.achId === 'games');
+                    return new Set(rows.map(row => row.dataset.achId)).size === rows.length
+                        && games?.querySelector('svg[aria-label="Bronze earned"]')
+                        && games.querySelectorAll('progress').length === 1;
+                });
+                if (!tierRows) fail('Tiered goals must have one row and one next-tier meter');
+                const summit = await page.locator('#achievements-overlay .lb-r17-feature').evaluate(card =>
+                    getComputedStyle(card).backgroundImage.includes('summit-shrine.webp'));
+                if (!summit) fail('Featured Milestones is missing Summit shrine');
+                await page.locator('[data-ach-id="games"]').click();
+                const earnsOnly = await page.locator('#ach-tip').evaluate(tip => !tip.hidden
+                    && tip.textContent.includes('Play 10 games') && !/100|1,000/.test(tip.textContent)
+                    && tip.querySelectorAll('svg[data-locked="true"]').length === 2);
+                if (!earnsOnly) fail('Achievement details must hide locked tier requirements');
+                await page.locator('[data-ach-id="games"]').click();
+                await page.locator('#achievements-overlay .ach-content').evaluate(content => { content.scrollTop = 0; });
             }
             if (name === 'menu') {
+                if ((await page.locator('#mw-info .lb-block-kicker').textContent()).trim() !== 'Music') {
+                    fail('Music widget is missing its stacked label');
+                }
                 const forestEdge = await page.getByRole('button', { name: 'Play', exact: true }).evaluate(button => {
                     const style = getComputedStyle(button);
                     return !button.querySelector('.lb-ledger-chevron') && (button.hasAttribute('data-menu-art')
@@ -420,6 +445,7 @@
                     const rows = [...document.querySelectorAll('#missions-body .mq-card')].slice(0, 2);
                     const count = document.querySelector('.mq-header #mq-list-meta');
                     return card?.querySelector('time')?.dateTime && selected?.dataset.tab === period
+                        && /mission-(forest-outpost|map-room)\.webp/.test(getComputedStyle(card).backgroundImage)
                         && selected.getBoundingClientRect().bottom <= card.getBoundingClientRect().top
                         && /\d+ \/ \d+ complete/.test(count?.textContent) && !count.hidden
                         && rows.length === 2 && rows[0].getBoundingClientRect().left === rows[1].getBoundingClientRect().left

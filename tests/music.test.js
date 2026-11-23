@@ -69,11 +69,12 @@ it('shows idle, playing, and paused states with a title in both music widgets', 
   try {
     await resetMusicAfterBoot(w, api);
     observeMusic(w);
-    const statuses = ['mw-status', 'pl-mw-status'].map(id => w.document.getElementById(id));
+    const statusLabel = w.document.getElementById('pl-mw-status');
     const titles = ['mw-title', 'pl-mw-title'].map(id => w.document.getElementById(id));
     const expectWidgets = (title, status) => {
-      expect(titles.map(el => el.textContent)).toEqual([title, title]);
-      expect(statuses.map(el => el.hidden ? '' : el.textContent)).toEqual([status, status]);
+      expect(w.document.querySelector('#mw-info .lb-block-kicker').textContent).toBe('Music');
+      expect(titles.map(el => el.textContent)).toEqual([status === 'Paused' ? `Paused · ${title}` : title, title]);
+      expect(statusLabel.hidden ? '' : statusLabel.textContent).toBe(status);
     };
     expectWidgets('Nothing playing', '');
     await api.startMusic();

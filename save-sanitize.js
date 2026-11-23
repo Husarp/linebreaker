@@ -8,7 +8,19 @@
     const number = (v, fallback = 0, max = 1e12) => typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, v)) : fallback;
     const string = v => typeof v === 'string' ? v.replace(/[&<>"'`\\\u0000-\u001f]/g, '').slice(0, 200) : '';
     const colour = (v, fallback = '#ffffff') => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v : fallback;
-    const version = 1;
+    const version = 2;
+    const retainedAchievementTiers = {
+        score: [1, 3, 5], games: [1, 3, 5], speed: [1, 3, 5], survival: [1, 3, 5],
+        total_blocks: [1, 3, 5], total_lines: [1, 3, 5], speedrunner: [1, 3, 4],
+        quad_count: [1, 3, 4], combo_master: [1, 3, 4], booster_user: [1, 3, 4],
+        fun_score: [1, 3, 4], daily_xp: [1, 3, 4], mirror_score: [1, 3, 4],
+        fun_squared: [1, 3, 4], spinner: [1, 3, 4], mq_total_quests: [1, 2, 4],
+    };
+    const mergedMissionAchievements = {
+        mq_first_easy: ['mq_easy_quests', 1], mq_normal_10: ['mq_normal_quests', 1],
+        mq_hard_5: ['mq_hard_quests', 1], mq_total_50: ['mq_total_quests', 2],
+        mq_secret_1: ['mq_secret_quests', 1],
+    };
     const scoreKeys = ['highscoreHistory', 'pinnedScores', 'funLeaderboard', 'leaderboard'];
     const keyGroups = [
         ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'pendingDailyGift', 'dailyGiftStreak', 'lastSeenTime', 'levelRewardsThrough', 'pendingRankRewards', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
@@ -99,6 +111,42 @@
         }));
     }
     const achievementId = key => key === '\u0074etris_lines' ? 'i_piece_lines' : key;
+    function migrateAchievementTiers(save) {
+        const achievements = save.achievements;
+        const markReached = (id, tier, when) => {
+            const entry = achievements[id] ||= {};
+            entry.tier = Math.max(entry.tier || 0, tier);
+            if (!when) return;
+            const dates = entry.tierDates ||= {};
+            if (!dates[tier] || when < dates[tier]) dates[tier] = when;
+        };
+        for (const [id, retained] of Object.entries(retainedAchievementTiers)) {
+            const entry = achievements[id];
+            if (!entry) continue;
+            const oldTier = entry.tier || 0;
+            const oldDates = entry.tierDates || {};
+            entry.tier = 0;
+            entry.tierDates = {};
+            retained.forEach((tier, index) => {
+                if (oldTier >= tier) markReached(id, index + 1, oldDates[tier]);
+            });
+        }
+        for (const [oldId, [id, tier]] of Object.entries(mergedMissionAchievements)) {
+            if (achievements[oldId]?.unlocked) markReached(id, tier, achievements[oldId].unlockedAt);
+            delete achievements[oldId];
+        }
+        for (const claim of save.pendingAchievementClaims) {
+            if (Object.hasOwn(mergedMissionAchievements, claim.id)) {
+                markReached(...mergedMissionAchievements[claim.id]);
+            } else if (claim.tierNum && Object.hasOwn(retainedAchievementTiers, claim.id)) {
+                const retained = retainedAchievementTiers[claim.id];
+                const reached = retained.filter(tier => tier <= claim.tierNum).length;
+                if (reached) markReached(claim.id, reached);
+                if (retained.includes(claim.tierNum)) claim.tierNum = reached;
+                else delete claim.tierNum;
+            }
+        }
+    }
     const trackTitle = name => {
         if (name === 'Original \u0054etris Theme') return 'Classic Block Theme';
         if (name === '\u0054etris (Hardcore Remix)') return 'Block Theme (Hardcore Remix)';
@@ -169,7 +217,8 @@
     }
     function sanitizeSave(data, defaults, definitions = {}) {
         data = object(data) ? data : {};
-        const legacy = number(data.schemaVersion) < version;
+        const sourceVersion = number(data.schemaVersion);
+        const legacy = sourceVersion < 1;
         if (legacy) data = migrateLegacy(data);
         const out = JSON.parse(JSON.stringify(defaults));
         out.schemaVersion = version;
@@ -223,6 +272,7 @@
             id: achievementId(claim.id), name: string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common', xp: number(claim.xp, 0, 100000),
             ...(claim.tierNum ? { tierNum: Math.floor(number(claim.tierNum, 0, 100)) } : {}),
         }));
+        if (sourceVersion < 2) migrateAchievementTiers(out);
         out.season = (window.LBSeason || globalThis.LBSeason).sanitizeSeason(data.season);
         out.lastSeenTime = (window.LBSeason || globalThis.LBSeason).timestamp(data.lastSeenTime);
         out.seasonBlockedUntil = (window.LBSeason || globalThis.LBSeason).timestamp(data.seasonBlockedUntil);
@@ -329,5 +379,5 @@
         return out;
     }
     window.sanitizeSave = sanitizeSave;
-    window.LBSave = { version, serializeSave, cleanSettings, localDate, localClock, date, displayDate, musicCounts };
+    window.LBSave = { version, serializeSave, cleanSettings, localDate, localClock, date, displayDate, musicCounts, retainedAchievementTiers };
 })();

@@ -217,7 +217,7 @@ it('migrates old saves without resetting points or already-claimed stage receipt
   } };
   const clock = { lastSeenTime: EPOCH + DAY, seasonBlockedUntil: EPOCH + 2 * DAY };
   const clean = sanitizeSave({ ...defaults, season, ...clock }, defaults);
-  expect(clean).toMatchObject({ schemaVersion: 1, ...clock });
+  expect(clean).toMatchObject({ schemaVersion: 2, ...clock });
   expect(clean.season).toEqual({ id: 1, points: 45, bonusClaimed: 0, claimed: {
     1: { type: 'crate', tier: 'common', contents: [{ type: 'parts', key: 'shadow', amount: 1 }] },
     30: { type: 'skin', key: 'season-prism' },

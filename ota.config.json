@@ -5,7 +5,7 @@
   "channels": { "bundle": "channel", "shell": "shell-channel" },
   "artifacts": { "manifest": "manifest.json", "shellManifest": "shell.json", "apk": "LinebreakerShell-{code}.apk", "asset": "f-{sha256}.bin" },
   "updateUrls": { "bundle": null, "shell": null, "releases": null },
-  "build": { "shellApi": 1, "versionCode": 1400, "versionName": "1.4.0", "webVersion": "1.4.0", "minShellApi": 1, "message": "Shake your Daily Gift, open mission crates on the spot, and collect level-up crates together. Get one free daily and one free weekly mission swap each day. Six new chiptunes are available to everyone." },
+  "build": { "shellApi": 1, "versionCode": 1401, "versionName": "1.4.1", "webVersion": "1.4.1", "minShellApi": 1, "message": "Discover rotating illustrations and earn Bronze, Silver, and Gold achievement rewards. The music player now shows when a track is paused or nothing is playing." },
   "signing": {
     "privateKey": "~/.keystores/linebreaker/ota-private.pem",
     "publicKey": "keys/public-key.b64",

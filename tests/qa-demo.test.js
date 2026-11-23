@@ -429,17 +429,16 @@ it('shows plain booster balances and puts the cost inside the exchange dialog', 
   expect(quantityLabel.hidden).toBe(true);
 });
 
-it('shows a check for earned achievements and live counts for the next tier', async () => {
+it('shows the highest earned shape and live counts for the next tier in one row', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w } = game;
   await w.__LB_QA.open('achievements');
   const screen = w.document.getElementById('achievements-overlay');
   const unlocked = screen.querySelector('[data-ach-id="games"][data-state="unlocked"]');
-  const nextTier = screen.querySelector('[data-ach-id="games"][data-state="locked"]');
-  expect(unlocked.querySelector('[aria-label="Unlocked"]')).not.toBeNull();
-  expect(unlocked.querySelector('progress')).toBeNull();
-  expect(nextTier.querySelector('.ach-card-state').textContent).toBe('12 / 50');
-  expect(nextTier.querySelector('progress').value).toBeCloseTo(12 / 50);
+  expect(screen.querySelectorAll('[data-ach-id="games"]')).toHaveLength(1);
+  expect(unlocked.querySelector('[aria-label="Bronze earned"]')).not.toBeNull();
+  expect(unlocked.querySelector('.ach-card-state').textContent).toBe('12 / 100');
+  expect(unlocked.querySelector('progress').value).toBeCloseTo(12 / 100);
   screen.querySelector('[data-achtab="unlocked"]').click();
   expect(screen.querySelector('[data-state="locked"]')).toBeNull();
 });

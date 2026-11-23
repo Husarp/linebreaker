@@ -859,6 +859,7 @@
 #menu-overlay #music-widget::after { display: none; }
 #menu-overlay .lb110-track { min-height: 53px; padding: 5px; border: 0; }
 #menu-overlay .lb110-track #mw-title { font-size: var(--lb-type-small); }
+#menu-overlay #mw-info .lb-block-kicker { color: var(--lb-muted); }
 #menu-overlay .lb110-signal { display: none; }
 #menu-overlay #mw-controls { gap: 0; margin: 0; }
 #menu-overlay #music-widget #mw-controls .lb-block-btn {
@@ -1514,6 +1515,15 @@ svg.lb-ledger-chevron {
     letter-spacing: -.045em;
     text-transform: none;
 }
+.lb-block-feature.lb-r17-feature, .lb-collection-feature.lb-r17-feature {
+    background: linear-gradient(95deg, #141b17f7 4%, #181f1be8 40%, #161e1ba6 64%, #181f1b22 100%),
+        var(--lb-r17-art) right center / cover no-repeat, var(--lb-tone-art, var(--lb-art));
+}
+[data-feature-art='summit-shrine'] { --lb-r17-art: url('assets/ui/tiles/summit-shrine.webp'); }
+[data-feature-art='mission-forest-outpost'] { --lb-r17-art: url('assets/ui/tiles/mission-forest-outpost.webp'); }
+[data-feature-art='mission-map-room'] { --lb-r17-art: url('assets/ui/tiles/mission-map-room.webp'); }
+[data-feature-art='locker-quartermaster'] { --lb-r17-art: url('assets/ui/tiles/locker-quartermaster.webp'); }
+[data-feature-art='locker-vault-corridor'] { --lb-r17-art: url('assets/ui/tiles/locker-vault-corridor.webp'); }
 .lb-game-root .lb-collection-feature p { margin: 0; color: var(--lb-art-ink) !important; font: var(--lb-type-small)/1.32 var(--lb-font-body); }
 .lb-collection-feature img { flex: none; width: 78px; height: 78px; object-fit: contain; filter: drop-shadow(0 6px 7px var(--lb-scrim)); }
 .lb-collection-feature progress {
@@ -1605,7 +1615,17 @@ svg.lb-ledger-chevron {
     --lb-button-shadow: var(--lb-card-shadow);
 }
 #achievements-overlay .ach-card-icon { justify-self: center; }
-#achievements-overlay img.ach-card-icon { width: 43px; height: 43px; object-fit: contain; }
+#achievements-overlay .ach-card .ach-card-icon.ach-tier-shape { width: 24px; height: 24px; color: var(--lb-tier-ink); }
+.ach-tier-shape { width: 16px; height: 16px; flex: none; fill: currentColor; }
+.ach-tier-shape[data-tier='bronze'] { --lb-tier-ink: #e8b18c; }
+.ach-tier-shape[data-tier='silver'] { --lb-tier-ink: #c5d9ec; }
+.ach-tier-shape[data-tier='gold'] { --lb-tier-ink: #f2cb73; }
+[data-lb-ui-theme='light'] .ach-tier-shape[data-tier='bronze'] { --lb-tier-ink: #854824; }
+[data-lb-ui-theme='light'] .ach-tier-shape[data-tier='silver'] { --lb-tier-ink: #3d5974; }
+[data-lb-ui-theme='light'] .ach-tier-shape[data-tier='gold'] { --lb-tier-ink: #785500; }
+.ach-tip-milestone .ach-tier-shape { color: var(--lb-tier-ink); }
+.ach-tier-shape[data-locked='true'] { fill: none; stroke: currentColor; stroke-width: 1; }
+.ach-tip-milestone { display: flex; align-items: flex-start; gap: var(--lb-space-sm); margin-block-start: var(--lb-space-sm); }
 #achievements-overlay .ach-row-copy { gap: 2px; }
 #achievements-overlay .ach-row-copy strong { font: 700 .9375rem/1.25 var(--lb-font-body); }
 #achievements-overlay .ach-row-copy progress { width: min(100%, 12rem); margin-block-start: var(--lb-space-xs); }

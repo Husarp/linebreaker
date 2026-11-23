@@ -74,7 +74,7 @@ it('refunds each retired owned skin once and persists Retro and square through a
   game = await loadGame(true, invoke);
   await game.w.flushLinebreakerSave();
   expect(JSON.parse(persisted)).toMatchObject({
-    schemaVersion: 1, skinCatalogVersion: 1,
+    schemaVersion: 2, skinCatalogVersion: 1,
     ownedSkins: ['retro', 'bubble', 'glass'], universalParts: 6.4,
     _settings: { skin: 'retro', blockShape: 'square' },
   });

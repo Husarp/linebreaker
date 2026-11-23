@@ -95,6 +95,28 @@ it('migrates missing art history and sanitizes incoming and outgoing entries', a
   } finally { close(); }
 });
 
+it('picks one illustration per Mission Log or Locker opening and keeps it through tab changes', async () => {
+  const { w, close } = await loadGame();
+  try {
+    for (const [selector, open, switchTab, hide, first, second] of [
+      ['.mq-board', () => w.openMissions('daily'), () => w.renderMissionsOverlay('weekly'), () => w.closeMissions(), 'mission-forest-outpost', 'mission-map-room'],
+      ['#inventory-crates .lb-collection-feature', () => w.openInventory('crates'), () => w.inventoryTab('boosters'), () => w.closeInventory(), 'locker-quartermaster', 'locker-vault-corridor'],
+    ]) {
+      const selected = () => w.document.querySelector(selector).dataset.featureArt;
+      w.Math.random = () => 0.2;
+      await open();
+      expect(selected()).toBe(first);
+      w.Math.random = () => 0.8;
+      switchTab();
+      expect(selected()).toBe(first);
+      hide();
+      await open();
+      expect(selected()).toBe(second);
+      hide();
+    }
+  } finally { close(); }
+});
+
 it('shows Art collector progress and unlocks the tiers at 10, 18 and the complete catalog', async () => {
   const { w, api, close } = await loadGame();
   try {
@@ -104,10 +126,11 @@ it('shows Art collector progress and unlocks the tiers at 10, 18 and the complet
       w.openAchievements();
       const list = w.document.getElementById('ach-list');
       expect(list.textContent).toContain('Art collector');
-      const card = list.querySelector(`[data-ach-id="art_collector"][data-state="${tier === 3 ? 'unlocked' : 'locked'}"]`);
+      const card = list.querySelector(`[data-ach-id="art_collector"][data-state="${tier ? 'unlocked' : 'locked'}"]`);
       if (tier === 3) {
         card.click();
-        expect(w.document.getElementById('ach-tip').textContent).toContain(`Artworks seen: ${count}`);
+        expect(w.document.getElementById('ach-tip').textContent).toContain('See every artwork');
+        expect(card.querySelector('progress')).toBeNull();
       } else {
         expect(card.textContent).toContain(`${count} / ${[10, 18, ids.length][tier]}`);
       }

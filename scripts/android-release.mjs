@@ -34,7 +34,7 @@ if (mode === '--build') {
   if (await exists(shellApk) || await exists(metadata)) throw new Error('APK versionCode already staged');
   run(npm, ['test'], root);
   run(process.execPath, ['scripts/ota-prepare-android.mjs', '--release'], root, { ...process.env, LINEBREAKER_SHELL_RELEASED_AT: String(releasedAt) });
-  run(gradle, [':app:assembleRelease', `-PshellReleasedAt=${releasedAt}`], android);
+  run(gradle, ['--no-daemon', ':app:assembleRelease', `-PshellReleasedAt=${releasedAt}`], android);
   const output = new URL('../android/app/build/releases/', import.meta.url);
   await mkdir(output, { recursive: true });
   const apk = new URL(`Linebreaker-${version}.apk`, output);
