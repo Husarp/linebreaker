@@ -1,6 +1,9 @@
 (function () {
   const holdTime = 650;
   const releaseNotes = {
+    '1.4.1': 'Update notices now sit below the status bar and show live download speed. After an update, open Settings → Updates for the full version history.\nThe Daily Gift shows how long until the next gift after you claim it.\nMain-menu illustrations rotate between visits and count toward Art Collector.\nFeatured Milestones has new art, and related achievements share a row with Bronze, Silver, and Gold rewards.\nOpen stored crates one at a time. The main-menu level and XP bar stays visible, and the player labels paused or empty playback.',
+    '1.4.0': 'Complete missions to advance the monthly Season Pass. Shake your Daily Gift three times to open it.\nCollect level-up rewards together or open stored crates one at a time or all at once.\nPhone controls support holding a direction while rotating, dropping, or swapping. Stats shows games played each day this week.',
+    '1.3.0': 'Choose Dark, Light, or System separately from your wallpaper.\nThe main menu, Android update screens, and progression screens share the Ledger Forest look.',
     '1.1.3': 'Settings opens to a category menu, with a separate Notifications page for game reminders.\nTop notices and Inventory now respect the camera cutout.',
     '1.1.2': 'Settings now has tabs and a permanent What’s new section.\nMission Swap works on phones again, and Missions and Season use rarity crate art.\nMenu screens open faster. Android uses the Linebreaker icon for update notifications.',
     '1.1.1': 'Removed falling background blocks and Supply Drops. Completed rank badges now show rank-coloured numbers.',
@@ -54,26 +57,54 @@
     if (bytes < 1024) return `${bytes} B`;
     return bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / 1048576).toFixed(1)} MiB`;
   }
-  function showNotes(version, notes, fallback) {
-    const panel = dialog(`What's new in ${version}`, '<p data-notes></p><div class="lb149-actions"><button class="lb-block-btn" data-close>Close</button></div>');
+  function showNotes(version, notes) {
+    const panel = dialog(`What's new in ${version}`, '<p data-notes></p><button class="lb-block-btn lb-block-btn--primary" data-close>Done</button>');
     panel.dataset.releaseNotes = '';
-    panel.querySelector('[data-notes]').textContent = notes || 'This version is installed. See GitHub for release notes.';
-    if (!notes && fallback) {
-      const github = document.createElement('button');
-      github.className = 'lb-block-btn';
-      github.textContent = 'GitHub';
-      github.onclick = fallback;
-      panel.querySelector('.lb149-actions').append(github);
-    }
-    if (document.getElementById('settings-whats-new')) {
+    panel.classList.add('lb184-postcard', 'lb184-release-sheet');
+    const details = document.getElementById('settings-whats-new');
+    panel.querySelector('[data-notes]').textContent = (notes || releaseNotes[version])?.split('\n').filter(Boolean).slice(0, 3).join('\n')
+      || 'This version is installed. See Settings for release history.';
+    if (details) {
       const settings = document.createElement('button');
       settings.className = 'lb-block-btn';
-      settings.textContent = 'Open Settings → Updates';
-      settings.onclick = () => { panel.close(); window.openSettings(false, 'updates'); };
-      panel.querySelector('.lb149-actions').append(settings);
+      settings.textContent = 'Details';
+      settings.setAttribute('aria-label', 'Full changelog in Settings');
+      settings.onclick = async () => {
+        panel.close();
+        const pause = document.getElementById('pause-overlay');
+        await window.openSettings(!!pause && !pause.classList.contains('hidden'), 'updates');
+        details.focus({ preventScroll: true });
+        details.scrollIntoView({ block: 'start' });
+      };
+      const heading = panel.querySelector('h2');
+      const header = document.createElement('header');
+      heading.replaceWith(header);
+      header.append(heading, settings);
     }
-    panel.addEventListener('close', () => panel.remove(), { once: true });
+    panel.querySelector('[data-close]').autofocus = true;
+    panel.addEventListener('close', () => { panel.remove(); renderNotice(); }, { once: true });
     panel.showModal();
+    renderNotice();
+    return panel;
+  }
+
+  function measureDownloadSpeed(startedAt) {
+    let done = 0, time = startedAt, speed;
+    return (nextDone, nextTime) => {
+      if (!Number.isFinite(nextDone) || !Number.isFinite(nextTime) || nextTime <= time) return speed;
+      if (nextDone < done) speed = undefined;
+      else if (nextTime - time < 250) return speed;
+      else speed = (nextDone - done) * 1000 / (nextTime - time);
+      done = nextDone;
+      time = nextTime;
+      return speed;
+    };
+  }
+  function formatDownloadSpeed(speed) {
+    if (!Number.isFinite(speed) || speed <= 0) return '';
+    if (speed >= 1e6) return `${(speed / 1e6).toFixed(1)} MB/s`;
+    if (speed >= 1e3) return `${(speed / 1e3).toFixed(1)} kB/s`;
+    return `${Math.round(speed)} B/s`;
   }
 
   const sources = new Map();
@@ -81,8 +112,8 @@
   let banner, showing, swipe;
   const getLabel = (version, ready = false) => `${ready ? 'Install' : 'Download'} update ${version}`;
   const githubIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .8a11.2 11.2 0 0 0-3.54 21.83c.56.1.77-.24.77-.54v-2.09c-3.13.68-3.79-1.33-3.79-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.72 1.16 1.72 1.16 1 1.72 2.63 1.22 3.27.93.1-.73.39-1.22.71-1.5-2.5-.28-5.13-1.25-5.13-5.57 0-1.23.44-2.24 1.16-3.03-.12-.28-.5-1.43.11-2.99 0 0 .95-.3 3.08 1.16a10.7 10.7 0 0 1 5.61 0c2.14-1.46 3.08-1.16 3.08-1.16.61 1.56.23 2.71.11 2.99.72.79 1.16 1.8 1.16 3.03 0 4.33-2.64 5.28-5.15 5.56.4.35.76 1.03.76 2.08v3.1c0 .3.21.64.77.53A11.2 11.2 0 0 0 12 .8Z"/></svg>';
-  const statusMarkup = '<div class="lb184-status"><span data-status></span> <span data-percent></span></div><progress class="lb-block-progress" aria-label="Update download progress" max="100" hidden></progress>';
-  function setStatus(container, text, percent) {
+  const statusMarkup = '<div class="lb184-status"><span data-status></span> <span data-percent></span> <span data-speed></span></div><progress class="lb-block-progress" aria-label="Update download progress" max="100" hidden></progress>';
+  function setStatus(container, text, percent, speed) {
     const status = container.querySelector('[data-status]');
     const digits = container.querySelector('[data-percent]');
     const progress = container.querySelector('progress');
@@ -90,6 +121,9 @@
     if (status.textContent !== text) status.textContent = text;
     const label = value === null ? '' : `${value}%`;
     if (digits.textContent !== label) digits.textContent = label;
+    const rate = container.querySelector('[data-speed]');
+    const speedLabel = percent === undefined ? '' : formatDownloadSpeed(speed);
+    if (rate.textContent !== speedLabel) rate.textContent = speedLabel;
     progress.hidden = percent === undefined;
     if (value === null) progress.removeAttribute('value'); else if (progress.value !== value || !progress.hasAttribute('value')) progress.value = value;
   }
@@ -111,7 +145,7 @@
   function renderNotice() {
     if (!banner) {
       banner = document.createElement('aside');
-      banner.className = 'lb-block-panel lb184-banner';
+      banner.className = 'lb-block-panel lb184-banner lb184-postcard';
       banner.setAttribute('aria-label', 'Update notice');
       banner.innerHTML = `<svg class="lb184-notice-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-update"/></svg>
         <div class="lb184-notice-copy"><div role="status"><strong data-title></strong><p data-detail></p></div>${statusMarkup}<div class="lb149-actions" data-actions></div></div>
@@ -128,7 +162,7 @@
     const queue = [...sources.values()].flat().filter(item => !dismissed.has(item.key));
     const item = queue.find(entry => entry.locked) || queue.find(entry => entry.brief) || queue.find(entry => entry.active)
       || queue.find(entry => entry.key === showing?.key) || queue[0];
-    banner.hidden = !item;
+    banner.hidden = !item || !!document.querySelector('dialog[data-release-notes][open]');
     if (!item) { showing = null; return; }
     if (showing?.key !== item.key) {
       banner.dataset.notice = item.key;
@@ -141,6 +175,8 @@
       banner.querySelector('[data-title]').textContent = item.title;
       banner.querySelector('[data-detail]').textContent = item.text || '';
       banner.querySelector('[data-dismiss]').hidden = Boolean(item.locked);
+      banner.toggleAttribute('data-locked', Boolean(item.locked));
+      banner.querySelector('progress').setAttribute('aria-label', item.locked ? 'Installing update' : 'Update download progress');
       banner.querySelector('[data-actions]').replaceChildren(...(item.actions || []).map(([label, action], index) => {
         const button = document.createElement('button');
         button.type = 'button';
@@ -158,14 +194,14 @@
         setTimeout(() => { if (showing?.key === item.key) closeNotice(); }, 5000);
       }
     }
-    setStatus(banner, '', item.percent);
+    setStatus(banner, '', item.locked ? null : item.percent, item.speed);
     showing = item;
   }
   function setReleaseNotes(version, suppliedNotes, fallback) {
     const section = document.getElementById('settings-whats-new');
     if (!section || !version) return;
     const entries = { ...releaseNotes, [version]: releaseNotes[version] || suppliedNotes || 'This version is installed.' };
-    const older = Object.keys(entries).filter(other => newer(version, other));
+    const older = Object.keys(entries).filter(other => newer(version, other)).sort((left, right) => newer(left, right) ? -1 : 1);
     const key = JSON.stringify([version, entries[version]]);
     if (section.dataset.release === key) return;
     section.dataset.release = key;
@@ -181,7 +217,7 @@
     if (older.length) {
       const history = document.createElement('details');
       history.className = 'lb-block-expand lb149-note-history';
-      history.innerHTML = '<summary>Show all versions</summary><div class="lb-block-expand-body"></div>';
+      history.innerHTML = '<summary>Recent versions</summary><div class="lb-block-expand-body"></div>';
       older.forEach(entry => add(history.lastElementChild, entry));
       section.append(history);
     }
@@ -195,13 +231,20 @@
   }
 
   const briefShownHere = new Set();
-  function showReleaseNotice(version, notes, { upgraded = false, suppressed = false, fallback, preview = false, brief = false } = {}) {
+  function showReleaseNotice(version, notes, { upgraded = false, suppressed = false, preview = false, brief = false } = {}) {
     const key = `lb149:release-notice:${version}`;
     if (upgraded && !localStorage.getItem(key)) localStorage.setItem(key, 'pending');
+    const summary = notes?.trim() || releaseNotes[version] || (preview ? 'Preview the latest changes in this release.' : '');
+    if (!suppressed && summary && (preview || localStorage.getItem(key) === 'pending')) {
+      notices('installed', []);
+      const sheet = showNotes(version, summary);
+      if (!preview) localStorage.setItem(key, 'shown');
+      return sheet;
+    }
     notices('installed', suppressed || (!preview && localStorage.getItem(key) !== 'pending' && !briefShownHere.has(key)) ? [] : [{
       key, brief, title: brief ? `Updated to ${version}` : 'Update installed', text: brief ? '' : `You’re now playing version ${version}.`,
       onShow: () => { briefShownHere.add(key); localStorage.setItem(key, 'shown'); },
-      actions: [["What's new", () => showNotes(version, releaseNotes[version] || notes, fallback)]],
+      actions: [["What's new", () => showNotes(version, summary)]],
       dismiss: () => { if (!preview) localStorage.setItem(key, 'dismissed'); },
     }]);
   }
@@ -210,7 +253,7 @@
     catch { field.focus(); field.select(); if (!document.execCommand('copy')) throw new Error('Copy failed'); }
   }
   window.LBUpdateTools = { newer, startupUpgrade, attachVersion, dialog, size, setReleaseNotes, showReleaseNotice, copy,
-    notices, queueNotice, getLabel, githubIcon, statusMarkup, setStatus, showNotes };
+    notices, queueNotice, getLabel, githubIcon, statusMarkup, setStatus, showNotes, measureDownloadSpeed, formatDownloadSpeed };
   const version = window.BUNDLE?.version;
   setReleaseNotes(version);
   const browser = version && !window.__TAURI__ && window.Capacitor?.getPlatform?.() !== 'android';

@@ -67,7 +67,7 @@
   overlays.observe(document.body, { childList: true });
   const transferPanel = document.getElementById('transfer-overlay');
   if (transferPanel) overlays.observe(transferPanel, { attributes: true, attributeFilter: ['class'] });
-  const status = (value, percent) => setStatus(section, value, percent);
+  const status = (value, percent, speed) => setStatus(section, value, percent, speed);
   let eventId = 0;
   const message = (title, text, actions) => queueNotice('android-message', { key: `android-message:${++eventId}`, title, text, actions });
   const unavailable = error => {
@@ -163,7 +163,7 @@
   const github = makeButton('GitHub releases', () => run(openGitHub));
   github.insertAdjacentHTML('afterbegin', githubIcon);
   section.querySelector('[data-section-actions]').append(retry, getUpdate,
-    makeButton("What's new", () => showNotes(...releaseInfo, openGitHub)), github);
+    makeButton("What's new", () => showNotes(...releaseInfo)), github);
   const shellButton = makeButton('Open app shell', () => typeof ota.settings === 'function' ? run(() => ota.settings()) : openShell());
   shellButton.classList.add('lb184-secondary');
   section.querySelector('[data-secondary]').append(shellButton, setupButton);
@@ -346,7 +346,7 @@
       : newer(installVersion, bundle.version)) ? target(installChannel, installVersion, 'installing') : null;
     const transfers = [[webDownload, 'web', current.webTransfer], [shellDownload, 'shell', current.shellTransfer]]
       .filter(([version]) => version).map(([version, channel, transfer]) => ({ ...target(channel, version, 'downloading'),
-        percent: transfer?.total ? 100 * transfer.done / transfer.total : null }));
+        percent: transfer?.total ? 100 * transfer.done / transfer.total : null, speed: transfer?.speed }));
     const flowFailure = flow && failureStatus(current, flow.channel);
     if (flow && !flowFailure) flow.baseline = undefined;
     if (flow && ((flow.channel === 'web' && current.rolledBack?.from === flow.version) || (flowFailure && flowFailure !== flow.baseline
@@ -365,11 +365,12 @@
     const busy = flow?.phase === 'downloading';
     const applying = flow?.phase === 'installing';
     const percent = busy ? flow.percent ?? null : undefined;
+    const speed = busy ? flow.speed : undefined;
     if (flow?.phase === 'ready') items.splice(0, items.length, flow, ...items.filter(item => item.flow !== flow.flow));
     const action = items.find(item => item.action);
     status(applying ? 'Installing…' : busy ? 'Downloading' : failure ? 'Could not update' : items.some(item => item.key.startsWith('shell-ready:')) ? 'Ready to install' : items.some(item => item.key.startsWith('staged:')) ? 'Ready to apply on restart'
       : current.updateChecks?.failed ? 'Could not check for updates' : items.some(item => item.label) ? 'Update available'
-      : current.busy ? 'Checking for updates…' : 'No update ready', percent);
+      : current.busy ? 'Checking for updates…' : 'No update ready', percent, speed);
     diagnostics.querySelector('[data-state]').textContent = [current.status, current.shellStatus, current.updateChecks?.summary].filter(Boolean).join(' · ');
     renderPolicy(current.updateSettings);
     setupButton.hidden = current.updateSettings?.setupAnswered !== false;
@@ -395,7 +396,7 @@
     getUpdate.hidden = !currentAction;
     getUpdate.textContent = action?.label || '';
     notices('android-state', !ready ? [] : applying ? [{ key: `installing:${flow.flow}`, flow: flow.flow, title: 'Installing…', text: `Update ${flow.version}`, locked: true }] : busy ? [{
-      key: `download:${flow.flow}`, flow: flow.flow, active: true, title: 'Downloading update', text: 'You can keep playing.', percent,
+      key: `download:${flow.flow}`, flow: flow.flow, active: true, title: 'Downloading update', text: 'You can keep playing.', percent, speed,
     }] : [failure && { key: `android-error:${failure}`, title: 'Could not update', text: 'Try again from Settings → Updates.', actions: [['Details', openShell]] },
       ...items.filter(item => !localStorage.getItem(`lb149:${item.key}`)).map(item => ({ ...item,
         keepOnAction: !!item.action, active: !failure && item === flow,
@@ -404,7 +405,7 @@
       }))]);
     if (ready) showReleaseNotice(notice?.to || releaseVersion, notice?.notes || releaseText, {
       upgraded: Boolean(notice),
-      suppressed: applying, fallback: openGitHub, brief: true,
+      suppressed: applying, brief: true,
     });
   }
   function refresh() {

@@ -7,7 +7,7 @@
   const settings = document.getElementById('settings-updates');
   if (!config.enabled || !settings) return;
   const { startupUpgrade, attachVersion, dialog, setReleaseNotes, showReleaseNotice, size, copy, newer,
-    notices, queueNotice, getLabel, githubIcon, statusMarkup, setStatus, showNotes } = window.LBUpdateTools;
+    notices, queueNotice, getLabel, githubIcon, statusMarkup, setStatus, showNotes, measureDownloadSpeed, formatDownloadSpeed } = window.LBUpdateTools;
   const section = document.createElement('section');
   section.className = 'settings-section lb-block-panel lb149-settings';
   section.innerHTML = `<div class="lb149-actions lb184-toolbar">
@@ -39,7 +39,7 @@
   const logField = diagnostics.querySelector('textarea');
   const feedback = diagnostics.querySelector('[data-feedback]');
   const interval = 5 * 60 * 1000;
-  let checking, lastCheck = -Infinity, update, ready = false, working = false, percent, outcome = 'No update ready', eventId = 0;
+  let checking, lastCheck = -Infinity, update, ready = false, working = false, percent, speed, outcome = 'No update ready', eventId = 0;
   const log = text => {
     const rows = `${new Date().toISOString()} · ${text}\n${localStorage.getItem(logKey) || ''}`.split('\n').slice(0, 120).join('\n');
     localStorage.setItem(logKey, rows);
@@ -57,18 +57,18 @@
     log(String(error)); tell('Could not open GitHub', 'Try opening the releases page again.', [], true);
   });
   function render() {
-    setStatus(section, outcome, percent);
+    setStatus(section, outcome, percent, speed);
     get.hidden = !update || working;
     get.textContent = update ? getLabel(update.version, ready) : '';
     const key = update && `lb149:desktop-${ready ? 'ready' : 'dismiss'}:${update.version}`;
     notices('desktop-state', !show.checked ? [] : percent !== undefined ? [{ key: `desktop-download:${update.version}`,
-      title: 'Downloading update', text: 'You can keep playing.', percent,
+      title: 'Downloading update', text: 'You can keep playing.', percent, speed,
     }] : !working && update && !localStorage.getItem(key) ? [{ key,
       title: ready ? 'Update ready' : 'Update available',
       text: ready ? 'Linebreaker will close to finish updating.' : `Version ${update.version}${update.size ? ` · ${size(update.size)}` : ''}`,
       actions: [[get.textContent, act]], dismiss: () => localStorage.setItem(key, '1'),
     }] : []);
-    showReleaseNotice(config.version, notes, { upgraded: !!upgraded, suppressed: !show.checked, fallback: openReleases });
+    showReleaseNotice(config.version, notes, { upgraded: !!upgraded, suppressed: !show.checked || !window.linebreakerReadyForUpdates, brief: true });
   }
   async function check(manual = false) {
     if ((!manual && !auto.checked) || working) return;
@@ -107,12 +107,13 @@
         outcome = 'Downloading';
         render();
         const channel = new Channel();
-        const started = performance.now();
+        const sampleSpeed = measureDownloadSpeed(performance.now());
         channel.onmessage = ({ done, total }) => {
           total ||= update.size;
           percent = total ? 100 * done / total : null;
+          speed = sampleSpeed(done, performance.now());
           render();
-          diagnostics.querySelector('[data-state]').textContent = `${size(done)} / ${size(total)} · ${size(done / Math.max((performance.now() - started) / 1000, .1))}/s`;
+          diagnostics.querySelector('[data-state]').textContent = [total ? `${size(done)} / ${size(total)}` : size(done), formatDownloadSpeed(speed)].filter(Boolean).join(' · ');
         };
         await invoke('download_desktop_update', { version: update.version, onProgress: channel });
         ready = true;
@@ -134,6 +135,7 @@
       tell(outcome, 'Try again from Settings → Updates.', [['Details', openLogs]], true);
     } finally {
       percent = undefined;
+      speed = undefined;
       working = false;
       render();
     }
@@ -145,7 +147,7 @@
   setReleaseNotes(config.version, notes, openReleases);
   attachVersion(config.version, openLogs);
   section.querySelector('[data-shell]').onclick = openLogs;
-  section.querySelector('[data-whats-new]').onclick = () => showNotes(config.version, notes, openReleases);
+  section.querySelector('[data-whats-new]').onclick = () => showNotes(config.version, notes);
   section.querySelector('[data-github]').onclick = openReleases;
   section.querySelector('[data-check]').onclick = () => check(true);
   get.onclick = act;
@@ -155,6 +157,7 @@
   };
   diagnostics.querySelector('[data-clear]').onclick = () => { localStorage.removeItem(logKey); logField.value = ''; feedback.textContent = 'Log cleared.'; };
   window.addEventListener('focus', () => check());
+  window.addEventListener('linebreaker-update-ready', render, { once: true });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void check(); });
   render();
   if (auto.checked) await check();

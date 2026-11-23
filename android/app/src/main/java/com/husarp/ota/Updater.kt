@@ -391,13 +391,14 @@ class Updater(private val context: Context, val engine: Engine, private val veri
         require(d.action == Action.AUTO || (consent && d.action == Action.PROMPT)) { d.reason }
         webDownloadVersion = m.version
         offer = null
-        val started = System.nanoTime()
+        val started = SystemClock.elapsedRealtime()
+        val downloadSpeed = DownloadSpeed(started)
         engine.log.add("${if(consent) "Consented" else "Automatic"} download ${m.version}: ${d.delta} bytes")
         transfer = TransferState(0, d.delta, 0)
         message("Downloading ${m.version} · ${formatSize(d.delta)}")
-        val installer = Installer(engine.root, engine.embedded, transport, engine.log, progress = { message(it) }, transferProgress = { done, total ->
+        val installer = Installer(engine.root, engine.embedded, transport, engine.log, progress = { message(it) }, transferProgress = { done, total, received ->
             progressPercent = if(total==0L) 100 else (done*100/total).toInt()
-            transfer = TransferState(done, total, done * 1000 / ((System.nanoTime()-started)/1_000_000).coerceAtLeast(1))
+            transfer = TransferState(done, total, downloadSpeed.sample(received, SystemClock.elapsedRealtime()))
             changed()
         }, beforeDownload = {
             if (!consent && !automaticDownload(settings,m.kind,d.delta,unmetered(),engine.currentManifest().version in engine.snapshot().blocked)) {
@@ -412,7 +413,7 @@ class Updater(private val context: Context, val engine: Engine, private val veri
         waitingWeb.delete()
         autoRestartPending = consent && recoveryToken == null && installAfterDownload
         message("Fixes downloaded (${m.version}) · Restart")
-        engine.log.add("Update staged ${m.version}; consent=$consent, foreground=$foreground, safe=$safeToInterrupt", (System.nanoTime()-started)/1_000_000)
+        engine.log.add("Update staged ${m.version}; consent=$consent, foreground=$foreground, safe=$safeToInterrupt", SystemClock.elapsedRealtime()-started)
         transfer?.let { engine.log.add("Web transfer ${it.done}/${it.total} bytes at ${it.speed} B/s") }
         event("updateStaged",webState(m).put("version",m.version).put("size",d.delta).put("kind",m.kind))
         return true

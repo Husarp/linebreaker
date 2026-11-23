@@ -17,6 +17,7 @@ async function launch(hook, preferences, saved = {}) {
   let time = 0;
   Object.defineProperty(window.performance, 'now', { value: () => time });
   window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  window.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new window.Event('close')); };
   window.openSettings = () => {};
   window.linebreakerReadyForUpdates = true;
   window.linebreakerCanInterrupt = () => true;
@@ -85,6 +86,7 @@ it('downloads with stable progress, retries, and waits for an explicit install a
       args.onProgress.onmessage({ done: 1048576, total: newer.size });
       expect(game.select('.lb149-settings [data-status]').textContent).toBe('Downloading');
       expect(game.select('.lb149-settings [data-percent]').textContent).toBe('50%');
+      expect(game.select('.lb184-banner [data-speed]').textContent).toBe('1.0 MB/s');
     }
   });
   game.window.flushLinebreakerSave = () => new Promise(resolve => { releaseSave = resolve; });
@@ -108,28 +110,33 @@ it('downloads with stable progress, retries, and waits for an explicit install a
   expect(game.invoke).toHaveBeenLastCalledWith('install_desktop_update', { version: newer.version });
 });
 
-it('keeps the Windows notice until opened or dismissed and retains the notes in Settings', async () => {
+it('shows the Windows release sheet once, suppresses competing notices, and retains notes in Settings', async () => {
   const saved = { 'lb149:desktop': '0.8.0', 'lb149:desktop-pending-notes:version': '0.9.0', 'lb149:desktop-pending-notes': '<b>New</b>' };
   const upgraded = await launch(() => null, 'off', saved);
   const persisted = game => Object.fromEntries(Object.entries(game.window.localStorage));
-  const pending = await launch(() => null, 'off', persisted(upgraded));
-  const notice = pending.select('.lb184-banner');
-  expect(notice.hidden).toBe(false);
-  expect(notice.querySelector('svg')).not.toBeNull();
-  notice.querySelector('[data-actions] button').click();
+  const notice = upgraded.select('.lb184-banner');
   expect(notice.hidden).toBe(true);
-  expect(pending.select('[data-notes]').textContent).toBe('<b>New</b>');
-  const reopened = await launch(() => null, 'off', persisted(pending));
+  expect(upgraded.select('[data-notes]').textContent).toBe('<b>New</b>');
+  upgraded.select('[data-release-notes] [data-close]').click();
+  const reopened = await launch(() => null, 'off', persisted(upgraded));
   expect(reopened.select('.lb184-banner').hidden).toBe(true);
+  expect(reopened.select('[data-release-notes][open]')).toBeNull();
   expect(reopened.select('#settings-whats-new p').textContent).toBe('<b>New</b>');
-  const dismissed = await launch(() => null, 'off', saved);
-  dismissed.select('[data-dismiss]').click();
-  const dismissedReopened = await launch(() => null, 'off', persisted(dismissed));
-  expect(dismissedReopened.select('.lb184-banner').hidden).toBe(true);
   const superseded = await launch(() => newer, undefined, saved);
-  expect(superseded.select('.lb184-banner [data-title]').textContent).toBe('Update installed');
-  superseded.select('[data-dismiss]').click();
+  expect(superseded.select('.lb184-banner').hidden).toBe(true);
+  superseded.select('[data-release-notes] [data-close]').click();
   expect(superseded.select('.lb184-banner [data-title]').textContent).toBe('Update available');
+});
+
+it('measures the recent progress interval, not the average since the download began', async () => {
+  const { window } = await launch(() => null, 'off');
+  const { measureDownloadSpeed, formatDownloadSpeed } = window.LBUpdateTools;
+  const sample = measureDownloadSpeed(100);
+  expect(sample(20, 200)).toBeUndefined();
+  expect(formatDownloadSpeed(sample(1_200_000, 600))).toBe('2.4 MB/s');
+  expect(formatDownloadSpeed(sample(1_250_000, 1100))).toBe('100.0 kB/s');
+  expect(formatDownloadSpeed(sample(1_250_000, 1600))).toBe('');
+  expect(sample(0, 1650)).toBeUndefined();
 });
 
 it('can silence in-app notifications without disabling the real updater', async () => {

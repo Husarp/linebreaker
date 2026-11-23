@@ -217,7 +217,7 @@ it('opens the documented screenshot targets through real UI handlers', async () 
     menu: '#menu-overlay', play: '#mode-select-overlay', 'play-fun': '#mode-select-overlay[data-mode="fun"]',
     'settings-home': '.lb102-directory', settings: '#settings-game', 'settings-controls': '#settings-controls', 'settings-audio': '#settings-audio',
     'settings-display': '#settings-display', 'settings-notifications': '#settings-notifications', 'settings-updates': '#settings-updates', 'settings-about': '#settings-about',
-    'whats-new-notice': '.lb184-banner', inventory: '[data-invtab-content="crates"]', 'inventory-blocks': '[data-invtab-content="blocks"]',
+    'whats-new-notice': 'dialog[data-release-notes][open]', 'update-postcard': '.lb184-banner', inventory: '[data-invtab-content="crates"]', 'inventory-blocks': '[data-invtab-content="blocks"]',
     'inventory-colors': '[data-invtab-content="colors"]', 'inventory-boosters': '[data-invtab-content="boosters"]',
     'inventory-parts': '[data-invtab-content="parts"]', 'inventory-other': '[data-invtab-content="other"]',
     stats: '#general-stats-container', leaderboard: '#leaderboard-container', pinned: '#pinned-container', highscores: '#highscores-container',

@@ -579,7 +579,8 @@ class MainActivity : BridgeActivity() {
             val total = transfer?.optLong("total") ?: 0
             val progress = if (total > 0) (100.0 * transfer!!.optLong("done") / total).toInt().coerceIn(0, 100) else null
             items.add(UpdateBannerItem("download:$channel:$version",
-                "Downloading update", "Leave Linebreaker open or come back later.", percent = progress, downloading = true,
+                "Downloading update", "You can keep playing.", percent = progress, downloading = true,
+                speed = transfer?.optLong("speed") ?: 0,
                 step = UpdateBannerStep("$channel:$version", UpdateBannerPhase.DOWNLOADING)))
         }
         val appReady = state.optJSONObject("shellReady")
@@ -620,7 +621,7 @@ class MainActivity : BridgeActivity() {
         activeBannerKey = next?.key
         val bandInset = maxOf(safeArea.top, systemTop)
         val bandHeight = if (bandInset > 0) bandInset + 14.dp else 0
-        if (maintenance == null) banner.render(next, bandHeight, safeArea.left, safeArea.right)
+        if (maintenance == null) banner.render(next, bandHeight + 8.dp, safeArea.left, safeArea.right)
         else banner.render(next, 0, 0, 0)
     }
     private fun updateFailure(vararg states: String) = states.firstOrNull {

@@ -14,6 +14,13 @@ const totalUniversal = save => Object.values(save.universalParts).reduce((total,
 let game;
 afterEach(() => game?.close());
 
+it('counts down to local midnight in hours, then minutes', () => {
+  for (const [hour, minute, second, label] of [
+    [18, 45, 0, 'Next in 5h'], [23, 0, 0, 'Next in 1h'], [23, 1, 0, 'Next in 59m'], [23, 59, 59, 'Next in 1m'],
+  ]) expect(crates.nextGiftCountdown(new Date(2026, 10, 23, hour, minute, second))).toBe(label);
+  expect(crates.giftStatus({ ...defaults, lastDailyGift: '2026-11-23' }, new Date(2026, 10, 24)).status).toBe('available');
+});
+
 it('rolls exactly 70/22/6.5/1.3/0.2 and scales each type of reward with rarity', () => {
   const rarities = ['common', 'rare', 'epic', 'legendary', 'mythic'];
   const rollCounts = Object.fromEntries(rarities.map(rarity => [rarity, 0]));

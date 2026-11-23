@@ -91,11 +91,15 @@ class TransferTest {
                 }
             },"https://example.test/manifest.json") else response("abcdefgh".toByteArray(),offset)
         }
-        val installer=Installer(h.root,embedded,t,h.log)
+        val progress = mutableListOf<Triple<Long, Long, Long>>()
+        val installer=Installer(h.root,embedded,t,h.log, transferProgress = { done, total, received ->
+            progress.add(Triple(done, total, received))
+        })
         expectFailure { installer.stage(m,embedded,{null},"https://example.test/manifest.json") }
         assertEquals(4,File(h.root,"staging").walkTopDown().first { it.name.endsWith(".part") }.length())
         val stage=installer.stage(m,embedded,{null},"https://example.test/manifest.json")!!
         assertEquals(listOf(0L,4L),offsets); assertEquals("abcdefgh",File(stage,"files/index.html").readText())
+        assertEquals(Triple(8L, 8L, 4L), progress.last())
     }
     @Test fun serverIgnoringRangeSafelyRestartsFile() {
         val h=Harness(); val m=bundle("1.0.1",listOf(entry("index.html","abcdefgh"))); var attempt=0

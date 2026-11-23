@@ -104,6 +104,9 @@
             window.LBUpdateTools.notices('installed', []);
             document.querySelector('dialog[data-release-notes]')?.close();
         });
+        add('update-postcard', () => window.LBUpdateTools.notices('qa-update', [{
+            key: 'qa-download', title: 'Downloading update', text: 'You can keep playing.', percent: 42, speed: 2_400_000,
+        }]), () => window.LBUpdateTools.notices('qa-update', []));
         for (const tab of ['crates', 'blocks', 'colors', 'boosters', 'parts', 'other']) screen(tab === 'crates' ? 'inventory' : `inventory-${tab}`, 'inventory-overlay', () => inventory(tab), window.closeInventory);
         for (const tab of ['general', 'leaderboard', 'pinned', 'highscores']) screen(tab === 'general' ? 'stats' : tab, 'stats-overlay', () => stats(tab), window.closeStats);
         for (const tab of ['daily', 'weekly']) screen(tab === 'daily' ? 'missions' : 'missions-weekly', 'missions-overlay', () => missions(tab), closeMissions);

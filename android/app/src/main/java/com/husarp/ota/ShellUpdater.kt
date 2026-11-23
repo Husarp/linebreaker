@@ -183,6 +183,7 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
             else { require(r.status==200); offset=0 }
             FileOutputStream(part,offset>0).use { out ->
                 val buffer=ByteArray(65536); var last=0L
+                val downloadSpeed = DownloadSpeed(0)
                 while(true) {
                     if(!consent) require(automaticDownload(settings(),"shell",m.size,unmetered())) { "Automatic APK download paused; Later / Update" }
                     val n=r.body.read(buffer); if(n<0) break
@@ -190,7 +191,7 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
                     out.write(buffer,0,n); received+=n
                     val ms=(System.nanoTime()-start)/1_000_000
                     if(ms-last>=500) {
-                        transfer=TransferState(offset+received,m.size,received*1000/ms.coerceAtLeast(1))
+                        transfer=TransferState(offset+received,m.size,downloadSpeed.sample(received, ms))
                         status="Downloading app ${m.versionName}"; changed(); last=ms
                     }
                 }

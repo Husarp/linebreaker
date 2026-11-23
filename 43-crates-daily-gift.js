@@ -34,6 +34,14 @@
         return { day, status: save.lastDailyGift === day ? 'claimed' : 'available' };
     }
 
+    function nextGiftCountdown(now = new Date()) {
+        const next = new Date(now);
+        next.setHours(24, 0, 0, 0);
+        const remaining = next - now;
+        return remaining >= 3_600_000 ? `Next in ${Math.floor(remaining / 3_600_000)}h`
+            : `Next in ${Math.ceil(remaining / 60_000)}m`;
+    }
+
     function shakeGift(gift, roll = Math.random()) {
         const index = rarities.indexOf(gift.rarity);
         return { day: gift.day, taps: gift.taps + 1, rarity: rarities[
@@ -426,18 +434,21 @@
 
     function mountDailyGift({ button, getSave, ready, save, claimAfterPaint, onShake, openGift }) {
         const text = document.getElementById(button.getAttribute('aria-describedby'));
-        let clockCheckpoint;
+        let clockCheckpoint, countdownTimer;
         function refresh() {
-            const state = giftStatus(getSave());
+            const now = new Date();
+            const state = giftStatus(getSave(), now);
             const status = ready() ? state.status : 'loading';
             const actionable = status === 'available' || status === 'in-progress';
             button.dataset.status = actionable ? 'available' : status;
             button.setAttribute('aria-disabled', String(!actionable));
             text.textContent = {
-                available: 'Gift ready', claimed: 'Claimed',
+                available: 'Gift ready', claimed: nextGiftCountdown(now),
                 'in-progress': 'Gift in progress',
                 'clock-blocked': 'Check system clock', loading: 'Checking save…',
             }[status];
+            clearTimeout(countdownTimer);
+            if (status === 'claimed') countdownTimer = window.setTimeout(refresh, 60_000 - now.getTime() % 60_000);
             return state;
         }
         function claim() {
@@ -491,5 +502,5 @@
         return { refresh, claim };
     }
 
-    window.LBCrates = Object.freeze({ rarities: Object.freeze(rarities), giftStatus, observeTime, rollRarity, rollPartRarity, shakeGift, restoreGift, giftContents, levelRarity, missionRarity, universalPartName, grantPartDrops, grantDailyGift, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
+    window.LBCrates = Object.freeze({ rarities: Object.freeze(rarities), giftStatus, nextGiftCountdown, observeTime, rollRarity, rollPartRarity, shakeGift, restoreGift, giftContents, levelRarity, missionRarity, universalPartName, grantPartDrops, grantDailyGift, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
 })();

@@ -568,7 +568,7 @@
 .lb-game-root .lb-block-progress::-webkit-progress-bar { background: var(--lb-track); }
 .lb-game-root .lb-block-progress::-webkit-progress-value { border-radius: 2px; }
 
-.lb-game-root :is(.lb-block-dialog, .lb184-banner, .ach-menu-toast, .lb-block-tooltip, .mq-reward-banner) {
+.lb-game-root :is(.lb-block-dialog, .lb184-banner:not(.lb184-postcard), .ach-menu-toast, .lb-block-tooltip, .mq-reward-banner) {
     background: var(--lb-panel) !important;
     border-color: var(--bb-frame-edge, var(--lb-rule));
     border-radius: var(--lb-radius);
@@ -917,8 +917,31 @@
 }
 #menu-overlay .lb43-gift-status { margin: 0; color: var(--lb-muted); letter-spacing: 0; text-transform: none; }
 #menu-overlay #lb43-daily-gift[data-status='clock-blocked'] .lb43-gift-status { color: var(--lb-utility); }
-#menu-overlay #lb43-daily-gift[data-status='claimed'] { --gift-tone: var(--lb-muted); }
 #menu-overlay #lb43-daily-gift[aria-disabled='true'] { --lb-control-face: var(--lb-disabled); }
+#menu-overlay #lb43-daily-gift[data-status='claimed'] {
+    --lb-control-face: color-mix(in srgb, var(--lb-control-ink) 12%, var(--lb-panel));
+    --lb-button-border: var(--lb-border) dashed var(--lb-control-edge);
+}
+.lb43-gift-receipt { display: none; }
+#menu-overlay #lb43-daily-gift[data-status='claimed'] > :is(svg, .lb43-gift-marker) { display: none; }
+#lb43-daily-gift[data-status='claimed'] .lb43-gift-receipt {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    white-space: nowrap;
+    font: 400 7px/1.2 var(--bb-font-pixel);
+}
+.lb43-gift-receipt svg {
+    width: 18px;
+    height: 18px;
+    padding: 2px;
+    border: 1px dashed currentColor;
+    border-radius: 2px;
+    transform: rotate(-9deg);
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+}
 #menu-overlay .lb43-gift-marker { border-color: var(--lb-rule); color: var(--lb-panel); }
 #menu-overlay #lb43-daily-gift[data-status='available']::before { animation-name: lb-menu-gift-pulse; }
 @keyframes lb-menu-gift-pulse {
@@ -1556,18 +1579,15 @@ svg.lb-ledger-chevron {
 #settings-overlay .lb102-theme button { min-width: 0; min-height: var(--target); }
 #settings-overlay .lb102-wallpaper-picker { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
 #settings-overlay .lb102-wallpaper-preview { height: clamp(92px, 16vw, 140px); }
-.lb-game-root :is(.lb184-banner, .lb149-dialog) {
+.lb-game-root .lb149-dialog:not(.lb184-postcard) {
     color: var(--lb-ink);
     background: var(--lb-panel);
     border: var(--lb-border) solid var(--lb-rule);
     border-radius: var(--lb-radius);
     box-shadow: var(--lb-card-shadow);
 }
-.lb184-banner [data-title], .lb149-dialog h2 { font: 650 var(--lb-type-body)/1.35 var(--lb-font-heading); }
-.lb184-banner :is([data-title], [data-dismiss]), .lb149-dialog h2 { color: var(--lb-label); }
-.lb184-notice-icon { stroke: var(--lb-label); }
-.lb184-banner [data-detail] { color: var(--lb-muted); }
-.lb149-dialog { --lb-card-face: var(--lb-panel); }
+.lb149-dialog:not(.lb184-postcard) h2 { color: var(--lb-label); font: 650 var(--lb-type-body)/1.35 var(--lb-font-heading); }
+.lb149-dialog:not(.lb184-postcard) { --lb-card-face: var(--lb-panel); }
 .lb149-dialog::backdrop { background: var(--lb-scrim); }
 
 #loading-screen { background: var(--lb-paper); }

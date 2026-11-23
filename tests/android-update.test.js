@@ -184,8 +184,8 @@ it('acknowledges readiness and retains notes when Preferences never replies', as
   expect(game.ota.appReady).toHaveBeenCalledOnce();
   expect(game.window.resumeLinebreakerOtaWrites).toHaveBeenCalledOnce();
   expect(preferences.get).toHaveBeenCalledOnce();
-  expect(game.get('dialog[open]')).toBeNull();
-  expect(game.get('.lb184-banner [data-title]').textContent).toBe('Updated to 0.1.1');
+  expect(game.get('dialog[data-release-notes][open] [data-notes]').textContent).toBe('New notes');
+  expect(game.get('.lb184-banner').hidden).toBe(true);
 });
 
 it('exposes Android policy and shell actions directly in the Updates section', async () => {
@@ -270,15 +270,16 @@ it('keeps dismissal scoped to the offered version and shows when the app needs u
   expect(game.ota.download).not.toHaveBeenCalled();
 });
 
-it('queues the installed banner with an offer and shows literal release notes only once', async () => {
+it('shows literal release notes once without a duplicate installed banner, then resumes queued offers', async () => {
   const updated = { to: '0.1.1', notes: '<img src=fake>\nNew theme' };
   const game = await boot({ native: { updated, available: { version: '0.2.0', size: 12 } } });
   await game.restoreSave(); await game.ready();
   const banner = game.get('.lb184-banner');
-  expect(banner.querySelector('[data-title]').textContent).toBe('Updated to 0.1.1');
-  banner.querySelector('[data-actions] button').click();
+  expect(banner.hidden).toBe(true);
   expect(game.get('[data-notes]').textContent).toBe(updated.notes);
   expect(game.get('[data-notes] img')).toBeNull();
+  expect(game.get('[data-release-notes] header button').textContent).toBe('Details');
+  game.get('[data-release-notes] [data-close]').click();
   expect(banner.querySelector('[data-title]').textContent).toBe('Update available');
   const reopened = await boot({ native: { updated }, saved: Object.fromEntries(Object.entries(game.window.localStorage)) });
   await reopened.restoreSave(); await reopened.ready();
@@ -293,12 +294,13 @@ it('keeps progress in the same slot and switches Download to Install when ready'
   expect(button.textContent).toBe('Download update 0.2.0');
   button.click(); await flush();
   expect(game.ota.download).toHaveBeenCalledWith({ downloadOnly: true });
-  Object.assign(game.state, { available: null, webDownloadVersion: '0.2.0', busy: true, webTransfer: { done: 42, total: 100 } });
+  Object.assign(game.state, { available: null, webDownloadVersion: '0.2.0', busy: true, webTransfer: { done: 42, total: 100, speed: 2_400_000 } });
   await game.redraw();
   const progress = game.get('.lb149-settings progress');
   expect(progress.value).toBe(42);
   expect(game.get('.lb149-settings [data-percent]').textContent).toBe('42%');
   expect(game.get('.lb184-banner [data-title]').textContent).toBe('Downloading update');
+  expect(game.get('.lb184-banner [data-speed]').textContent).toBe('2.4 MB/s');
   Object.assign(game.state, { busy: false, staged: { version: '0.2.0' } });
   await game.redraw();
   expect(progress.hidden).toBe(true);
@@ -375,9 +377,9 @@ it.each(['bundle', 'apk'])('runs 1.4.0 → 1.4.1 for a %s without hiding or repl
   await next.restoreSave(); await next.ready();
   next.emit('updated', { to: version });
   await next.redraw();
-  expect(next.get('.lb184-banner [data-title]').textContent).toBe(`Updated to ${version}`);
-  expect(briefTimers).toHaveLength(1);
-  briefTimers[0]();
+  expect(next.get('[data-release-notes][open] h2').textContent).toContain(version);
+  expect(briefTimers).toHaveLength(0);
+  next.get('[data-release-notes] [data-close]').click();
   expect(next.get('.lb184-banner').hidden).toBe(true);
 });
 
@@ -452,7 +454,7 @@ it('reads a new snapshot if the install event arrives during an older state read
 });
 
 it('expires the completion notice and does not reopen it or offer the installed version after restart', async () => {
-  const briefTimers = [], version = '1.4.0';
+  const briefTimers = [], version = '1.4.2';
   const native = { updated: { to: version }, available: { version }, staged: { version } };
   const game = await boot({ version, native, briefTimers });
   await game.restoreSave(); await game.ready();

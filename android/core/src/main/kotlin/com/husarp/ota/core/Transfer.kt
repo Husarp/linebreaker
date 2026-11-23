@@ -9,6 +9,7 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.util.concurrent.Executors
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 class Response(val status: Int, val body: InputStream, val url: String, val rangeStart: Long? = null,
@@ -80,7 +81,7 @@ fun InputStream.readBytesLimited(limit: Int): ByteArray {
 
 class Installer(private val root: File, private val embedded: Manifest, private val transport: Transport,
                 private val log: EventLog, private val available: () -> Long = { root.usableSpace },
-                private val progress: (String) -> Unit = {}, private val transferProgress: (Long, Long) -> Unit = { _, _ -> }, private val beforeDownload: () -> Unit = {}) {
+                private val progress: (String) -> Unit = {}, private val transferProgress: (Long, Long, Long) -> Unit = { _, _, _ -> }, private val beforeDownload: () -> Unit = {}) {
     fun stage(m: Manifest, current: Manifest, currentOverlay: (String) -> File?, manifestUrl: String): File? {
         val totalSize = m.files.sumOf { it.size }
         if (available() < 2 * totalSize) { log.add("Decision: storage low; need ${2 * totalSize} bytes, skip and retry later"); return null }
@@ -93,6 +94,7 @@ class Installer(private val root: File, private val embedded: Manifest, private 
         val currentByPath = current.files.associateBy { it.path }
         val pool = Executors.newFixedThreadPool(4)
         val failure = AtomicReference<Exception?>()
+        val networkBytes = AtomicLong()
         try {
             val tasks = m.files.mapIndexed { index, f -> pool.submit {
                 try {
@@ -114,7 +116,7 @@ class Installer(private val root: File, private val embedded: Manifest, private 
                                 log.add("Overlay ${f.path}: reuse current overlay, 0 network bytes")
                             } else {
                                 val url = URI(manifestUrl).resolve(f.asset).toString()
-                                download(url, destination, f, index + 1, m.files.size) { failure.get()?.let { throw it } }
+                                download(url, destination, f, index + 1, m.files.size, networkBytes) { failure.get()?.let { throw it } }
                             }
                             val started = System.nanoTime()
                             if (!valid(destination, f)) throw IntegrityException("Hash/size mismatch: ${f.path}")
@@ -155,7 +157,7 @@ class Installer(private val root: File, private val embedded: Manifest, private 
         }
     }
     private fun valid(file: File, f: BundleFile) = file.length() == f.size && hash(file) == f.sha256
-    private fun download(url: String, target: File, f: BundleFile, index: Int, count: Int, checkFailure: () -> Unit) {
+    private fun download(url: String, target: File, f: BundleFile, index: Int, count: Int, networkBytes: AtomicLong, checkFailure: () -> Unit) {
         val part = File(target.parentFile, target.name + ".part")
         if (part.length() > f.size) part.delete()
         var offset = if (part.isFile) part.length() else 0L
@@ -177,10 +179,11 @@ class Installer(private val root: File, private val embedded: Manifest, private 
                         val n = r.body.read(buffer); if (n < 0) break
                         if (offset + received + n > f.size) throw IntegrityException("Oversized file: ${f.path}")
                         out.write(buffer, 0, n); received += n
+                        networkBytes.addAndGet(n.toLong())
                         val elapsed = (System.nanoTime() - started) / 1_000_000
                         if (elapsed - lastProgress >= 250) {
                             synchronized(this) {
-                                transferProgress(offset + received, f.size)
+                                transferProgress(offset + received, f.size, networkBytes.get())
                                 progress("File $index/$count ${f.path}: ${offset + received}/${f.size} bytes · ${"%.1f".format(received * 1000.0 / elapsed.coerceAtLeast(1) / 1024)} KB/s")
                             }
                             lastProgress = elapsed
@@ -194,6 +197,6 @@ class Installer(private val root: File, private val embedded: Manifest, private 
         check(part.renameTo(target)) { "File rename failed" }
         val ms = (System.nanoTime() - started) / 1_000_000
         val detail = "File downloaded ${f.path}: $received bytes (file ${f.size}), ${"%.1f".format(received * 1000.0 / ms.coerceAtLeast(1) / 1024)} KB/s · $index/$count"
-        log.add(detail, ms); synchronized(this) { transferProgress(f.size, f.size); progress(detail) }
+        log.add(detail, ms); synchronized(this) { transferProgress(f.size, f.size, networkBytes.get()); progress(detail) }
     }
 }
