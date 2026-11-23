@@ -225,7 +225,7 @@ it('persists the high-water timestamp even if the clock rolls back before the fi
   expect(gift.dataset.status).toBe('claimed');
 });
 
-it('merges pending level-ups across reload, collects once, and opens rank crates one at a time or all at once', async () => {
+it('merges pending level-ups across reload and opens stored rank crates only through their Open buttons', async () => {
   game = await loadGame();
   const { w: window, api, advance } = game;
   const { document } = window;
@@ -254,19 +254,30 @@ it('merges pending level-ups across reload, collects once, and opens rank crates
   expect(document.querySelector('#level-up-popup-overlay')).toBeNull();
   await window.openInventory('crates');
   const common = document.querySelector('[data-crate-rarity="common"]');
-  expect(common.parentElement.textContent).toContain('×8');
+  const card = common.closest('.lb43-locker-card');
+  expect(card.textContent).toContain('×8');
+  expect(card.dataset.rarity).toBe('common');
+  expect(document.querySelector('.lb43-locker-total').textContent).toBe('12 stored');
+  card.click();
+  card.querySelector('img').click();
+  expect(api.save.storedCrates).toHaveLength(12);
+  expect(document.querySelector('#inventory-crate-overlay')).toBeNull();
   common.click();
   expect(api.save.storedCrates).toHaveLength(11);
   expect(api.save.universalParts).toMatchObject({ common: 1, rare: 3 });
   document.querySelector('#inventory-crate-overlay button').click();
-  const openAll = document.querySelector('.lb43-open-all');
-  expect(openAll.hidden).toBe(false);
-  openAll.click();
+  expect(document.querySelector('.lb43-open-all')).toBeNull();
+  for (let remaining = 11; remaining > 0; remaining--) {
+    document.querySelector('[data-crate-rarity]').click();
+    expect(api.save.storedCrates).toHaveLength(remaining - 1);
+    expect(document.querySelector('#inventory-crate-overlay h2').textContent).toMatch(/^(Common|Rare|Epic) crate$/);
+    document.querySelector('#inventory-crate-overlay button').click();
+  }
   expect(api.save.storedCrates).toEqual([]);
   expect(totalUniversal(api.save)).toBeGreaterThanOrEqual(16);
   expect(api.save.stats.rareItemsFromDailyBox).toBe(0);
-  expect(document.querySelector('#inventory-crate-overlay h2').textContent).toBe('11 crates opened');
-  expect(openAll.hidden).toBe(true);
+  expect(document.querySelector('.lb43-locker-total').textContent).toBe('0 stored');
+  expect(document.querySelector('.lb43-locker-list').textContent).toBe('No crates in storage.');
 });
 
 it('opens daily and weekly milestones on the spot with three tiers each and never creates a stored crate', async () => {

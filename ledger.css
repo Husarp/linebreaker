@@ -1276,28 +1276,83 @@ svg.lb-ledger-chevron {
 #achievements-overlay .ach-card-icon { color: var(--lb-muted); }
 #achievements-overlay .ach-card[data-state='unlocked'] .ach-card-icon { color: var(--lb-label); }
 
+#stats-overlay {
+    --lb-stat-activity: #45e4be;
+    --lb-stat-collection: #ce9cff;
+    --lb-stat-score: #ffca68;
+    --lb-stat-base: #242a38;
+    --lb-stat-activity-ink: var(--lb-stat-activity);
+    --lb-stat-collection-ink: var(--lb-stat-collection);
+    --lb-stat-score-ink: var(--lb-stat-score);
+}
+[data-lb-ui-theme='light'] #stats-overlay {
+    --lb-stat-base: #fff6e0;
+    --lb-stat-activity-ink: #136655;
+    --lb-stat-collection-ink: #6f3b99;
+    --lb-stat-score-ink: #81490b;
+}
 #stats-overlay .lb-stats-tabs { margin-block: var(--lb-space-md); }
-#stats-overlay .lb-score { font-family: var(--lb-font-body); }
-#stats-overlay .lb-metric-field .lb-metric-icon { color: var(--lb-label); }
-#stats-overlay :is(.lb-stats-metrics > div, .lb-stats-chart) {
-    background: var(--lb-track);
+#stats-overlay :is(#lb-list, #fun-list, #pinned-list):not([hidden]) { display: grid; gap: var(--lb-space-md); }
+#stats-overlay .lb-stats-section {
+    --lb-stat-color: var(--lb-stat-activity);
+    --lb-stat-ink: var(--lb-stat-activity-ink);
+    --lb-card-face: color-mix(in srgb, var(--lb-stat-color) 11%, var(--lb-stat-base));
+    padding: 0 var(--lb-space-sm) var(--lb-space-sm);
+}
+#stats-overlay [data-stat-tone='score'] { --lb-stat-color: var(--lb-stat-score); --lb-stat-ink: var(--lb-stat-score-ink); }
+#stats-overlay [data-stat-tone='collection'] { --lb-stat-color: var(--lb-stat-collection); --lb-stat-ink: var(--lb-stat-collection-ink); }
+#stats-overlay .lb-stats-section > .lb-block-panel-head {
+    justify-content: space-between;
+    margin: 0 calc(-1 * var(--lb-space-sm)) var(--lb-space-xs);
+    padding: var(--lb-space-sm) var(--lb-space-md);
+    background: color-mix(in srgb, var(--lb-stat-color) 17%, var(--lb-stat-base));
+    border: 0;
+}
+#stats-overlay .lb-block-panel-head h2 {
+    display: flex;
+    align-items: center;
+    gap: var(--lb-space-xs);
+    margin: 0;
+    color: var(--lb-stat-ink);
+    font: 400 var(--lb-type-small)/1.4 var(--lb-font-pixel);
+}
+#stats-overlay .lb-block-panel-head > span { color: var(--lb-muted); font-size: var(--lb-type-small); text-align: end; }
+#stats-overlay .lb-stats-section .lb-metric-icon { color: var(--lb-stat-ink); }
+#stats-overlay .lb-stats-section .lb-stats-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--lb-space-xs); padding: var(--lb-space-xs); }
+#stats-overlay .lb-stats-section .lb-stats-metrics > div {
+    background: color-mix(in srgb, var(--lb-stat-color) 17%, var(--lb-stat-base));
+    border: 0;
+    border-radius: var(--lb-radius);
     box-shadow: none;
 }
-#stats-overlay :is(.lb-stats-metrics dt, .lb-stats-chart-key) { color: var(--lb-muted); }
-#stats-overlay .lb-stats-metrics dd:not(.lb-stats-comparison) { font-family: var(--lb-font-body); }
-#stats-overlay .lb-stats-podium-original {
-    background: var(--lb-panel);
-    border: var(--lb-border) solid var(--lb-rule);
-    border-radius: var(--lb-radius);
-    box-shadow: var(--lb-card-shadow);
-}
+#stats-overlay .lb-stats-section :is(.lb-stats-metrics dt, .lb-stats-chart-key, .lb-stats-feature dt) { color: var(--lb-muted); }
+#stats-overlay :is(.lb-score, .lb-stats-metrics dd:not(.lb-stats-comparison)) { font-family: var(--lb-font-body); }
+#stats-overlay .lb-stats-feature { margin: 0; padding: var(--lb-space-xs) var(--lb-space-sm); }
+#stats-overlay .lb-stats-feature dd { margin: 0; }
+#stats-overlay :is(#stat-best-score, #stat-week-total) { color: var(--lb-stat-ink); font: 400 clamp(1.4rem, 6vw, 2rem)/1.2 var(--lb-font-pixel); }
+#stats-overlay .lb-stats-feature .lb-stats-comparison { color: var(--lb-muted); font-size: var(--lb-type-small); }
+#stats-overlay .lb-week-bar { background: linear-gradient(var(--lb-stat-activity), #087d75); }
+#stats-overlay .lb-stats-chart { background: var(--lb-stat-base); border: 0; }
+#stats-overlay .lb-stats-day[data-level='0'], #stats-overlay .lb-stats-chart-key [data-level='0'] { background: var(--lb-track); }
+#stats-overlay :is(.lb-stats-day, .lb-stats-chart-key i)[data-level='1'] { background: color-mix(in srgb, var(--lb-stat-collection) 38%, var(--lb-stat-base)); }
+#stats-overlay :is(.lb-stats-day, .lb-stats-chart-key i)[data-level='2'] { background: color-mix(in srgb, var(--lb-stat-collection) 62%, var(--lb-stat-base)); }
+#stats-overlay :is(.lb-stats-day, .lb-stats-chart-key i)[data-level='3'] { background: color-mix(in srgb, var(--lb-stat-collection) 82%, var(--lb-stat-base)); }
+#stats-overlay :is(.lb-stats-day, .lb-stats-chart-key i)[data-level='4'] { background: var(--lb-stat-collection-ink); }
+#stats-overlay .lb-stats-section .lb-stats-month-edges { stroke: var(--lb-stat-ink); }
+#stats-overlay .lb-stats-section .lb-stats-panel-body { padding: 0; }
+#stats-overlay .lb-stats-section .lb-row { background: transparent; border: 0; margin: 0; }
+#stats-overlay .lb-stats-section .lb-row:nth-of-type(even) { background: color-mix(in srgb, var(--lb-stat-color) 15%, var(--lb-stat-base)); }
+#stats-overlay .lb-stats-section .lb-stats-current { background: color-mix(in srgb, var(--lb-stat-color) 25%, var(--lb-stat-base)); }
+#stats-overlay .lb-stats-section :is(.lb-rank, .lb-pin-icon, .lb-stats-current .lb-date) { color: var(--lb-stat-ink); }
+#stats-overlay .lb-stats-podium-original { border: var(--lb-border) solid var(--lb-rule); border-radius: var(--lb-radius); }
+#stats-overlay .lb-stats-podium-original .lb-stats-podium { gap: var(--lb-space-xs); padding-block: var(--lb-space-sm); }
 #stats-overlay .lb-stats-podium-original .lb-stats-podium-step {
-    background: var(--lb-track);
-    border-color: var(--lb-rule);
-    border-radius: var(--lb-radius) var(--lb-radius) 0 0;
+    background: color-mix(in srgb, var(--tone) 27%, var(--lb-stat-base));
+    border: var(--lb-border) solid var(--tone);
+    border-radius: var(--lb-radius);
 }
-#stats-overlay .lb-stats-podium-original::after { background: var(--lb-rule); height: var(--lb-border); }
-#stats-overlay .lb-stats-podium-original .lb-stats-podium-score { color: var(--lb-ink); font: 750 var(--lb-type-body)/1.3 var(--lb-font-body); }
+#stats-overlay .lb-stats-podium-original::after { content: none; }
+#stats-overlay .lb-stats-podium-original .lb-stats-podium-score { color: var(--lb-ink); font: 400 var(--lb-type-small)/1.3 var(--lb-font-pixel); }
 #stats-overlay .lb-stats-podium-original .lb-pts { color: var(--lb-muted); font: var(--lb-type-small)/1.3 var(--lb-font-body); opacity: 1; }
 #stats-overlay .lb-stats-calendar-scroll { scrollbar-color: var(--lb-label) transparent; }
 
@@ -1628,6 +1683,13 @@ svg.lb-ledger-chevron {
     display: grid;
     gap: var(--lb-space-lg);
 }
+#inventory-crates .lb-collection-label { margin: 0; }
+#inventory-crates .lb43-locker-total { color: var(--lb-muted); font-size: var(--lb-type-small); }
+#inventory-crates .lb43-locker-card {
+    --lb-card-face: color-mix(in srgb, var(--lb-reward-rarity) 17%, var(--lb-panel-face));
+    border-block-start: 2px solid var(--lb-reward-rarity) !important;
+}
+#inventory-crates .lb43-locker-name { color: var(--lb-reward-rarity); font: 400 var(--lb-type-small)/1.4 var(--lb-font-pixel); }
 #inventory-overlay #inventory-boosters .lb-inventory-boosters {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -1696,7 +1758,6 @@ svg.lb-ledger-chevron {
 .ach-card-state > .lb-ledger-tag { min-width: 24px; padding: 3px; }
 
 #stats-overlay .lb-stats-shell { padding-inline: max(var(--lb-folio-gutter), var(--lb-safe-left)) max(var(--lb-folio-gutter), var(--lb-safe-right)); }
-#stats-overlay .lb-stats-metrics > div { background: var(--lb-panel-face); border-radius: var(--lb-radius); }
 #stats-overlay .lb-stats-calendar-scroll { margin-inline: var(--lb-space-sm); }
 #stats-overlay .lb-stats-table thead th { background: var(--lb-track); color: var(--lb-muted); }
 #playlist-overlay > .lb148-playlist { gap: var(--lb-space-lg); padding-inline: max(var(--lb-folio-gutter), var(--lb-safe-left)) max(var(--lb-folio-gutter), var(--lb-safe-right)); }

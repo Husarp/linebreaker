@@ -314,27 +314,44 @@
             <button class="lb-block-btn" type="button" role="tab" id="stats-tab-hs" aria-controls="highscores-container" aria-selected="false" tabindex="-1" data-stats-tab="highscores">Highscores</button>
         </div>
         <section id="general-stats-container" class="lb-scroll-fade" role="tabpanel" aria-labelledby="stats-tab-general" tabindex="0">
-            <dl class="lb-block-card lb-stats-metrics lb-metric-grid">
-                <div class="lb-metric-score"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Best score</span></dt><dd id="stat-best-score">—</dd><dd class="lb-stats-comparison" id="stat-best-score-pct" hidden></dd></div>
+            <section class="lb-block-panel lb-stats-section lb-stats-week" aria-labelledby="stat-week-title">
+                <div class="lb-block-panel-head"><h2 id="stat-week-title"><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-calendar"/></svg>This week</h2><span id="stat-week-dates"></span></div>
+                <div class="lb-week-summary"><strong id="stat-week-total">0</strong><span>Games played</span></div>
+                <ol id="stat-week-bars" role="list" aria-label="Daily games played"></ol>
+            </section>
+            <section class="lb-block-panel lb-stats-section lb-stats-spotlight" data-stat-tone="score">
+                <div class="lb-block-panel-head"><h2><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg>Personal best</h2></div>
+                <dl class="lb-stats-feature"><div><dt>Best score</dt><dd id="stat-best-score">—</dd><dd class="lb-stats-comparison" id="stat-best-score-pct" hidden></dd></div></dl>
+                <dl class="lb-stats-metrics lb-metric-grid">
                 <div class="lb-metric-score"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-average"/></svg><span>Average score</span></dt><dd id="stat-average-score">—</dd></div>
-                <div class="lb-metric-progress"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-best-xp"/></svg><span>Best earned XP</span></dt><dd id="stat-best-xp">—</dd><dd class="lb-stats-comparison" id="stat-best-xp-pct" hidden></dd></div>
                 <div class="lb-metric-score"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-combo"/></svg><span>Best combo</span></dt><dd id="stat-max-combo">—</dd></div>
-                <div class="lb-metric-progress"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-total-xp"/></svg><span>Total XP</span></dt><dd id="stat-total-xp">—</dd></div>
+                </dl>
+            </section>
+            <section class="lb-block-panel lb-stats-section" data-stat-tone="collection">
+                <div class="lb-block-panel-head"><h2><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-gamepad"/></svg>Lifetime</h2></div>
+                <dl class="lb-stats-metrics lb-metric-grid">
                 <div class="lb-metric-activity"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-gamepad"/></svg><span>Games played</span></dt><dd id="stat-games">—</dd></div>
                 <div class="lb-metric-activity"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-clock"/></svg><span>Total time</span></dt><dd id="stat-time">—</dd></div>
                 <div class="lb-metric-activity"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-calendar"/></svg><span>Days played</span></dt><dd id="stat-days-played">—</dd></div>
                 <div class="lb-metric-field"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-lines"/></svg><span>Lines cleared</span></dt><dd id="stat-lines">—</dd></div>
                 <div class="lb-metric-field"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-blocks"/></svg><span>Blocks placed</span></dt><dd id="stat-blocks">—</dd></div>
                 <div class="lb-metric-progress"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-box"/></svg><span>Items collected</span></dt><dd id="stat-items-collected">—</dd></div>
-            </dl>
-            <section class="lb-block-panel lb-stats-week" aria-labelledby="stat-week-title">
-                <div class="lb-block-panel-head"><h2 id="stat-week-title">This week</h2><span id="stat-week-dates"></span></div>
-                <div class="lb-week-summary"><strong id="stat-week-total">0</strong><span>Games played</span></div>
-                <ol id="stat-week-bars" role="list" aria-label="Daily games played"></ol>
+                </dl>
             </section>
-            <section class="lb-block-panel">
-                <div class="lb-block-panel-head"><h2>Activity</h2></div>
+            <section class="lb-block-panel lb-stats-section" data-stat-tone="score">
+                <div class="lb-block-panel-head"><h2><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-total-xp"/></svg>Experience</h2></div>
+                <dl class="lb-stats-metrics lb-metric-grid">
+                <div class="lb-metric-progress"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-best-xp"/></svg><span>Best earned XP</span></dt><dd id="stat-best-xp">—</dd><dd class="lb-stats-comparison" id="stat-best-xp-pct" hidden></dd></div>
+                <div class="lb-metric-progress"><dt><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-total-xp"/></svg><span>Total XP</span></dt><dd id="stat-total-xp">—</dd></div>
+                </dl>
+            </section>
+            <section class="lb-block-panel lb-stats-section" data-stat-tone="collection">
+                <div class="lb-block-panel-head"><h2><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-calendar"/></svg>Activity</h2></div>
                 <div id="stat-activity-calendar"></div>
+            </section>
+            <section class="lb-block-panel lb-stats-section">
+                <div class="lb-block-panel-head"><h2><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-clock"/></svg>Today</h2><span id="stat-today-date"></span></div>
+                <dl class="lb-stats-metrics lb-stats-today"></dl>
             </section>
         </section>
         <section id="leaderboard-container" class="lb-scroll-fade" role="tabpanel" aria-labelledby="stats-tab-lb" tabindex="0" hidden>
@@ -349,8 +366,8 @@
             <div id="pinned-list"></div>
         </section>
         <section id="highscores-container" class="lb-scroll-fade" role="tabpanel" aria-labelledby="stats-tab-hs" tabindex="0" hidden>
-            <section class="lb-block-panel">
-                <div class="lb-block-panel-head"><h2>Highscore history</h2></div>
+            <section class="lb-block-panel lb-stats-section" data-stat-tone="score">
+                <div class="lb-block-panel-head"><h2><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg>Personal bests</h2><span id="stat-record-count"></span></div>
                 <div id="highscores-list" class="lb-stats-panel-body"></div>
             </section>
         </section>
@@ -385,8 +402,8 @@
                 <div><span class="lb-collection-label">Locker</span><h2>Stored crates</h2><p>Open your earned crates here.</p></div>
                 <img src="assets/ui/crates/rare.png" alt="">
             </section>
-            <div class="lb-collection-rule"><span class="lb-collection-label">Crates</span><button type="button" class="lb-block-btn lb43-open-all" hidden>Open all</button></div>
-            <div class="lb43-locker-list"></div>
+            <div class="lb-collection-rule"><h3 class="lb-collection-label" id="locker-crates-title">Crates</h3><span class="lb43-locker-total" aria-live="polite"></span></div>
+            <div class="lb43-locker-list" aria-labelledby="locker-crates-title"></div>
         </div>
         <div id="inventory-boosters" role="tabpanel" aria-labelledby="inventory-tab-boosters" data-invtab-content="boosters" class="hidden"></div>
         <div id="inventory-parts" role="tabpanel" aria-labelledby="inventory-tab-parts" data-invtab-content="parts" class="hidden"></div>

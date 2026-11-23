@@ -3709,13 +3709,16 @@
         const todayBestPercent = statsPercentOfAverage(todayBestScore, todayAvgScore);
         const todayTotalTime = todayEntries.reduce((sum, entry) => sum + (entry.time || 0), 0);
         const todayXP = todayEntries.reduce((sum, entry) => sum + (entry.xp || 0), 0);
-        container.insertAdjacentHTML('beforeend', `<h3>Today</h3><dl class="lb-stats-metrics lb-stats-today">
-            <div><dt>Games</dt><dd>${todayGames.toLocaleString()}</dd></div>
+        const todayLines = todayEntries.reduce((sum, entry) => sum + (entry.lines || 0), 0);
+        document.getElementById('stat-today-date').textContent = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(today);
+        document.querySelector('.lb-stats-today').innerHTML = `
+            <div><dt>Games played</dt><dd>${todayGames.toLocaleString()}</dd></div>
             <div><dt>Best score</dt><dd>${todayBestScore > 0 ? todayBestScore.toLocaleString() : '—'}</dd>${todayBestPercent === null ? '' : `<dd class="lb-stats-comparison">${todayBestPercent}% of today's average</dd>`}</div>
             <div><dt>Average score</dt><dd>${Math.round(todayAvgScore) > 0 ? Math.round(todayAvgScore).toLocaleString() : '—'}</dd></div>
+            <div><dt>Lines cleared</dt><dd>${todayEntries.some(entry => entry.lines != null) ? todayLines.toLocaleString() : '—'}</dd></div>
             <div><dt>Time played</dt><dd>${todayTotalTime > 0 ? formatTime(todayTotalTime) : '—'}</dd></div>
             <div><dt>XP earned</dt><dd>${todayXP > 0 ? todayXP.toLocaleString() : '—'}</dd></div>
-        </dl>`);
+        `;
 
         for (const button of container.querySelectorAll('button[data-cal-year]')) {
             button.addEventListener('click', () => {
@@ -3798,8 +3801,7 @@
             button.setAttribute('aria-pressed', active);
             document.getElementById(button.getAttribute('aria-controls')).hidden = !active;
         }
-        if (mode === 'fun') _drawFunLeaderboard();
-        else drawLeaderboard();
+        drawLeaderboard(mode === 'fun');
     }
 
     const statsTabs = Array.from(document.querySelectorAll('#stats-overlay [data-stats-tab]'));
@@ -3817,41 +3819,6 @@
     document.querySelectorAll('#leaderboard-container [data-stats-board]').forEach(button => {
         button.addEventListener('click', () => statsLeaderboardMode(button.dataset.statsBoard));
     });
-
-    function _drawFunLeaderboard() {
-        const container = document.getElementById('fun-list');
-        if (!container) return;
-        container.innerHTML = '';
-        const fl = saveData.funLeaderboard || [];
-        if (!fl.length) {
-            container.innerHTML = '<p class="lb-block-card lb-empty">No Fun mode games yet.</p>';
-            return;
-        }
-        const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
-        let _shown = 50;
-        function _renderRows(upTo) {
-            container.querySelectorAll('.lb-row, .lb-load-more').forEach(el => el.remove());
-            const max = Math.min(upTo, fl.length);
-            for (let i = 0; i < max; i++) {
-                const e = fl[i];
-                const div = document.createElement('button'); div.className = 'lb-row';
-                const rankColor = i === 0 ? '#ffd700' : i < 3 ? '#c0c0c0' : i < 10 ? '#9b59b6' : '#666';
-                const configStr = `${e.cols||10}×${e.rows||20}` + (e.startSpeed && e.startSpeed > 1 ? ` · spd ${e.startSpeed}` : '');
-                const details = `<span class="lb-detail">${escapeHtml(configStr)}</span><span class="lb-detail">${lbFmt(e.time||0)}</span><span class="lb-detail">${escapeHtml(e.lines||0)} lines</span>`;
-                div.innerHTML = `<span class="lb-rank" style="font-size:0.85rem;font-weight:bold;color:${rankColor};min-width:52px;text-align:center;">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock))}</span>`;
-                _bindScoreInfo(div, e, `#${i + 1} Fun`, { board: configStr });
-                container.appendChild(div);
-            }
-            if (max < fl.length) {
-                const moreBtn = document.createElement('button');
-                moreBtn.className = 'lb-block-btn lb-load-more';
-                moreBtn.textContent = `LOAD MORE (${fl.length - max} remaining)`;
-                moreBtn.addEventListener('click', () => { _shown += 50; _renderRows(_shown); });
-                container.appendChild(moreBtn);
-            }
-        }
-        _renderRows(_shown);
-    }
 
     function closeStats() {
         const _mEl = document.getElementById('menu-overlay');
@@ -4545,21 +4512,19 @@
         const inventory = document.getElementById('inventory-overlay');
         if (inventory.classList.contains('hidden') || inventory._invTab !== 'crates' || document.querySelector('.lb-reward-overlay')) return;
         const stock = saveData.storedCrates || [];
-        const index = rarity ? stock.findIndex(crate => crate.rarity === rarity) : 0;
-        if (!stock.length || index < 0) return;
-        const crates = stock.splice(index, rarity ? 1 : stock.length);
-        const cards = crates.flatMap(crate => {
-            if (crate.source === 'legacy') return crate.rewards;
-            if (crate.source === 'level') return _generateLevelBoxRewards(crate.rarity);
-            if (crate.source === 'mission') return _grantMissionCrateParts(crate.amount);
-            return _grantRarityCrate(crate.rarity, crate.source === 'daily');
-        });
+        const index = stock.findIndex(crate => crate.rarity === rarity);
+        if (index < 0) return;
+        const [crate] = stock.splice(index, 1);
+        const cards = crate.source === 'legacy' ? crate.rewards
+            : crate.source === 'level' ? _generateLevelBoxRewards(rarity)
+            : crate.source === 'mission' ? _grantMissionCrateParts(crate.amount)
+            : _grantRarityCrate(rarity, crate.source === 'daily');
         saveDataToFile();
         _populateInventoryOther();
         _checkGlowNotifications();
         playSFX('gift');
-        LBCrates.showCrateReveal(crates[0].rarity, crates.length, _crateRewardGrid(cards), () => {
-            const next = inventory.querySelector(rarity ? `[data-crate-rarity="${rarity}"]` : '.lb43-open-all:not([hidden])');
+        LBCrates.showCrateReveal(rarity, 1, _crateRewardGrid(cards), () => {
+            const next = inventory.querySelector(`[data-crate-rarity="${rarity}"]`);
             (next || inventory.querySelector('[data-crate-rarity]') || document.getElementById('inventory-tab-crates')).focus({ preventScroll: true });
         });
         checkProgressAchievements();
@@ -5085,13 +5050,14 @@
 
     let _lastGameStats = null; // stores stats from most recent game for pinning
 
-    function pinScore(score, lines, blocks, time, maxSpeed, xp, note, playedAt = _scoreDate()) {
+    function pinScore(score, lines, blocks, time, maxSpeed, xp, note, playedAt = _scoreDate(), isFun = false) {
         if (!saveData.pinnedScores) saveData.pinnedScores = [];
-        saveData.pinnedScores.push({ score, date: playedAt.date, clock: playedAt.clock, lines, blocks, time, maxSpeed, xp, note: note || '' });
+        const board = isFun ? { cols: playedAt.cols || 10, rows: playedAt.rows || 20, startSpeed: playedAt.startSpeed || 1 } : {};
+        saveData.pinnedScores.push({ score, date: playedAt.date, clock: playedAt.clock, lines, blocks, time, maxSpeed, xp, note: note || '', ...board });
         if (saveData.pinnedScores.length > 50) saveData.pinnedScores = saveData.pinnedScores.slice(-50);
         // pin_record achievement — pinned score equals the top leaderboard score (works with dev-added scores too)
         const _effectiveHS = _bestScore();
-        if (score === _effectiveHS && _effectiveHS > 0 && !saveData.achievements?.['pin_record']?.unlocked) unlockAchievement('pin_record');
+        if (!isFun && score === _effectiveHS && _effectiveHS > 0 && !saveData.achievements?.['pin_record']?.unlocked) unlockAchievement('pin_record');
         // pin_collector tracking
         saveData.stats.pinnedCount = (saveData.stats.pinnedCount || 0) + 1;
         if ((saveData.stats.pinnedCount || 0) >= 15 && !saveData.achievements?.['pin_collector']?.unlocked) unlockAchievement('pin_collector');
@@ -5112,11 +5078,15 @@
     const _scorePinIcon = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#lb-run-icon-pin"/></svg>';
     const _sameRunStats = (left, right) => ['score', 'lines', 'blocks', 'time', 'maxSpeed', 'xp'].every(key => (left[key] ?? null) === (right[key] ?? null));
 
-    function _findScorePin(entry) {
+    const _funBoardLabel = entry => `${entry.cols || 10}×${entry.rows || 20}${entry.startSpeed > 1 ? ` · spd ${entry.startSpeed}` : ''}`;
+
+    function _findScorePin(entry, isFun = false) {
         const pins = saveData.pinnedScores || [];
-        const exact = pins.findLastIndex(pin => _sameRunStats(pin, entry) && pin.date === entry.date && pin.clock === entry.clock);
+        const exact = pins.findLastIndex(pin => Boolean(pin.cols) === isFun && (!isFun || _funBoardLabel(pin) === _funBoardLabel(entry))
+            && _sameRunStats(pin, entry) && pin.date === entry.date && pin.clock === entry.clock);
         if (exact !== -1) return exact;
-        const legacy = pins.findLastIndex(pin => _sameRunStats(pin, entry) && pin.note === 'from leaderboard');
+        if (isFun) return -1;
+        const legacy = pins.findLastIndex(pin => !pin.cols && _sameRunStats(pin, entry) && pin.note === 'from leaderboard');
         const matches = saveData.leaderboard.filter(score => _sameRunStats(score, entry));
         return matches.length === 1 && matches[0] === entry ? legacy : -1;
     }
@@ -5135,7 +5105,7 @@
             panel.setAttribute('aria-labelledby', 'lb-score-info-title');
             const icons = _lbIcons();
             const time = Number(entry.time) || 0;
-            const pinControl = board ? '' : `<button type="button" class="lb-block-btn lb-block-btn--icon" id="score-pin-popup">${_scorePinIcon}</button>`;
+            const pinControl = `<button type="button" class="lb-block-btn lb-block-btn--icon" id="score-pin-popup">${_scorePinIcon}</button>`;
             panel.tabIndex = -1;
             panel.innerHTML = `<header class="lb-score-info-head"><strong id="lb-score-info-title">${escapeHtml(title)} · ${escapeHtml(entry.score.toLocaleString())} pts</strong>${pinControl}</header>
                 <div class="lb-score-info-details">
@@ -5147,7 +5117,7 @@
                 </div>`;
             const pinButton = panel.querySelector('#score-pin-popup');
             const updatePin = () => {
-                const pinned = (pinIndex ?? _findScorePin(entry)) !== -1;
+                const pinned = (pinIndex ?? _findScorePin(entry, Boolean(board))) !== -1;
                 pinButton.setAttribute('aria-pressed', pinned);
                 pinButton.setAttribute('aria-label', pinned ? 'Unpin score' : 'Pin score');
             };
@@ -5158,8 +5128,8 @@
             } });
             trigger.setAttribute('aria-expanded', 'true');
             pinButton?.addEventListener('click', () => {
-                const index = pinIndex ?? _findScorePin(entry);
-                if (index === -1) pinScore(entry.score, entry.lines, entry.blocks, entry.time, entry.maxSpeed, entry.xp, 'from leaderboard', entry);
+                const index = pinIndex ?? _findScorePin(entry, Boolean(board));
+                if (index === -1) pinScore(entry.score, entry.lines, entry.blocks, entry.time, entry.maxSpeed, entry.xp, 'from leaderboard', entry, Boolean(board));
                 else unpinScore(index);
                 if (pinIndex == null) updatePin();
                 else {
@@ -5189,6 +5159,14 @@
         return `<img class="lb-place-crown" src="assets/ui/crowns/${rank}.png" alt="${describePlace ? `#${rank}` : ''}">`;
     }
 
+    function _statsPanel(title, icon, tone, summary = '') {
+        const panel = document.createElement('section');
+        panel.className = 'lb-block-panel lb-stats-section';
+        panel.dataset.statTone = tone;
+        panel.innerHTML = `<div class="lb-block-panel-head"><h2><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#${icon}"/></svg>${title}</h2>${summary ? `<span>${summary}</span>` : ''}</div>`;
+        return panel;
+    }
+
     function drawPinnedScores() {
         const container = document.getElementById('pinned-list');
         if (!container) return;
@@ -5197,19 +5175,26 @@
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
         container.innerHTML = '';
+        const funCount = pins.filter(entry => entry.cols).length;
+        const pinPanel = (title, tone, count) => _statsPanel(title, 'lb-run-icon-pin', tone, `${count} ${count === 1 ? 'pin' : 'pins'}`);
+        const standard = pinPanel('Standard runs', 'collection', pins.length - funCount);
+        const fun = pinPanel('Fun mode', 'activity', funCount);
+        if (funCount < pins.length) container.append(standard);
+        if (funCount) container.append(fun);
         [...pins].reverse().forEach((e, ri) => {
             const realIdx = pins.length - 1 - ri;
             const div = document.createElement('button'); div.className = 'lb-row lb-stats-pin';
             const details = e.lines != null
                 ? `<span class="lb-detail">${ico.time}${lbFmt(e.time||0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines||0)} lines</span><span class="lb-detail">${ico.speed}Level ${escapeHtml(e.maxSpeed||1)}</span>`
                 : '';
-            const noteHtml = e.note ? `<span class="lb-stats-meta">${escapeHtml(e.note)}</span>` : '';
+            const board = e.cols ? _funBoardLabel(e) : '';
+            const noteHtml = [board, e.note].filter(Boolean).map(label => `<span class="lb-stats-meta">${escapeHtml(label)}</span>`).join('');
             const matchesPin = entry => _sameRunStats(entry, e);
-            const rankIndex = saveData.leaderboard.slice(0, 3).findIndex(matchesPin);
+            const rankIndex = board ? -1 : saveData.leaderboard.slice(0, 3).findIndex(matchesPin);
             const crown = rankIndex !== -1 && saveData.leaderboard.findLastIndex(matchesPin) === rankIndex ? _statsCrown(rankIndex + 1, true) : '';
             div.innerHTML = `<span class="lb-pin-icon">${crown || _scorePinIcon}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${noteHtml}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock, true))}</span>`;
-            _bindScoreInfo(div, e, 'Pinned score', { pinIndex: realIdx });
-            container.appendChild(div);
+            _bindScoreInfo(div, e, 'Pinned score', { pinIndex: realIdx, board });
+            (board ? fun : standard).append(div);
         });
     }
     function _statsPodium(entries, onPlace) {
@@ -5243,6 +5228,7 @@
         // Build full list: history + current highscore
         const all = [...history];
         if (_bestScore() > 0) all.push({ ...saveData.leaderboard[0], isCurrent: true });
+        document.getElementById('stat-record-count').textContent = `${all.length} ${all.length === 1 ? 'record' : 'records'}`;
         if (all.length === 0) { container.innerHTML = '<p class="lb-block-card lb-empty">No highscores yet. Play to set your first record!</p>'; return; }
         container.innerHTML = '';
         // Sort descending by score
@@ -5261,35 +5247,45 @@
             container.appendChild(div);
         });
     }
-    function drawLeaderboard() {
-        const container = document.getElementById('lb-list'); container.innerHTML = "";
-        if (saveData.leaderboard.length === 0) { container.innerHTML = '<p class="lb-block-card lb-empty">Play your first game to enter the leaderboard.</p>'; return; }
-        const lb = saveData.leaderboard;
+    function drawLeaderboard(isFun = false) {
+        const container = document.getElementById(isFun ? 'fun-list' : 'lb-list');
+        container.replaceChildren();
+        const lb = (isFun ? saveData.funLeaderboard : saveData.leaderboard) || [];
+        if (!lb.length) {
+            container.innerHTML = `<p class="lb-block-card lb-empty">${isFun ? 'No Fun mode games yet.' : 'Play your first game to enter the leaderboard.'}</p>`;
+            return;
+        }
         const lbFmt = (t) => { const m = Math.floor(t/60); const s = t%60; return `${m}m ${String(s).padStart(2,'0')}s`; };
         const ico = _lbIcons();
 
-        const podiumPanel = document.createElement('section');
-        podiumPanel.className = 'lb-stats-podium-panel lb-stats-podium-original';
-        podiumPanel.setAttribute('aria-label', 'Best scores');
-        const podium = _statsPodium(lb, (block, e, rank, medal) => _bindScoreInfo(block, e, `#${rank} ${medal}`));
+        const podiumPanel = _statsPanel('Top three', 'lb-metric-trophy', 'score');
+        podiumPanel.classList.add('lb-stats-podium-original');
+        const podium = _statsPodium(lb, (block, entry, rank, medal) => {
+            const board = isFun ? _funBoardLabel(entry) : '';
+            _bindScoreInfo(block, entry, `#${rank} ${medal}`, { board });
+        });
         podiumPanel.appendChild(podium);
         container.appendChild(podiumPanel);
+        if (lb.length <= 3) return;
+        const ranked = _statsPanel('Ranked runs', 'lb-metric-gamepad', 'collection', `${lb.length} entries`);
+        container.appendChild(ranked);
 
         // --- Regular rows (4th+) with Load More ---
         let _lbShown = 50;
         function _renderLbRows(upTo) {
             // Remove existing rows and load-more button
-            container.querySelectorAll('.lb-row, .lb-load-more').forEach(el => el.remove());
+            ranked.querySelectorAll('.lb-row, .lb-load-more').forEach(el => el.remove());
             const max = Math.min(upTo, lb.length);
             for (let i = 3; i < max; i++) {
                 const e = lb[i];
                 const div = document.createElement('button'); div.className = 'lb-row';
+                const board = isFun ? _funBoardLabel(e) : '';
                 const details = e.lines != null
-                    ? `<span class="lb-detail">${ico.time}${lbFmt(e.time)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines)} lines</span><span class="lb-detail">${ico.speed}Level ${escapeHtml(e.maxSpeed)}</span>`
+                    ? `<span class="lb-detail">${ico.time}${lbFmt(e.time || 0)}</span><span class="lb-detail">${ico.lines}${escapeHtml(e.lines)} lines</span><span class="lb-detail">${ico.speed}Level ${escapeHtml(e.maxSpeed || 1)}</span>`
                     : '';
-                div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock))}</span>`;
-                _bindScoreInfo(div, e, `#${i + 1}`);
-                container.appendChild(div);
+                div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${board ? `<span class="lb-detail">${escapeHtml(board)}</span>` : ''}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock))}</span>`;
+                _bindScoreInfo(div, e, `#${i + 1}`, { board });
+                ranked.appendChild(div);
             }
             // Load More button
             if (max < lb.length) {
@@ -5300,7 +5296,7 @@
                     _lbShown += 50;
                     _renderLbRows(_lbShown);
                 });
-                container.appendChild(moreBtn);
+                ranked.appendChild(moreBtn);
             }
         }
         _renderLbRows(_lbShown);
@@ -9842,7 +9838,7 @@
     }
 
     function _missionCrateMarker(rarity, locked = false) {
-        return `<img class="mq-ms-crate${locked ? ' mq-ms-crate--locked' : ''}" src="assets/ui/crates/${rarity}.png" alt="" draggable="false">`;
+        return `<img class="lb-crate-art mq-ms-crate${locked ? ' mq-ms-crate--locked' : ''}" src="assets/ui/crates/${rarity}.png" alt="" draggable="false">`;
     }
 
     function _missionProgressBar(points, milestones, claimed, isWeekly) {

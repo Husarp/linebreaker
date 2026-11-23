@@ -8,7 +8,7 @@
     const minute = hour / 60;
     const stageNumber = value => String(value).padStart(2, '0');
     const icon = name => `<svg class="sp-state-icon" aria-hidden="true"><use href="#${name}"/></svg>`;
-    const crateIcon = tier => `<img class="sp-reward-icon" src="assets/ui/crates/${tier}.png" alt="" width="39" height="39" decoding="async">`;
+    const crateIcon = tier => `<img class="lb-crate-art sp-reward-icon" src="assets/ui/crates/${tier}.png" alt="" width="39" height="39" decoding="async">`;
     const prismIcon = `<span class="sp-reward-icon sp-prism" aria-hidden="true"><span></span><span></span><span></span><span></span></span>`;
 
     function timeLeft(period, now) {

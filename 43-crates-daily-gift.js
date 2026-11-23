@@ -170,6 +170,7 @@
             image.src = reward.type === 'crate' ? `assets/ui/crates/${reward.rarity}.png`
                 : isPart ? (reward.type === 'parts' ? window.LBArtPack.itemPart(reward.rarity) : window.LBArtPack.universalPart(reward.rarity))
                 : (reward.type === 'booster' && window.LBArtPack.boosterToken(reward.rarity)) || 'assets/ui/64-item-part.svg';
+            if (reward.type === 'crate') image.className = 'lb-crate-art';
             if (reward.type === 'booster') image.className = 'lb-booster-token';
             let art = image;
             if (reward.type === 'parts') {
@@ -255,25 +256,25 @@
     function renderLocker(container, crates, onOpen) {
         const list = container.querySelector('.lb43-locker-list');
         list.replaceChildren();
-        const openAll = container.querySelector('.lb43-open-all');
-        openAll.hidden = crates.length < 2;
-        openAll.onclick = () => onOpen();
+        container.querySelector('.lb43-locker-total').textContent = `${crates.length.toLocaleString()} stored`;
+        const counts = new Map();
+        for (const { rarity } of crates) counts.set(rarity, (counts.get(rarity) || 0) + 1);
         for (const rarity of rarities) {
-            const count = crates.filter(crate => crate.rarity === rarity).length;
+            const count = counts.get(rarity);
             if (!count) continue;
-            const row = element('div', 'lb-block-card lb-exchange-row lb43-locker-row');
-            const art = element('img', 'lb43-locker-art');
+            const card = element('article', 'lb-block-card lb43-locker-card');
+            card.dataset.rarity = rarity;
+            const quantity = element('span', 'lb43-locker-count', `×${count.toLocaleString()}`);
+            const art = element('img', 'lb-crate-art lb43-locker-art');
             art.src = `assets/ui/crates/${rarity}.png`;
             art.alt = '';
-            const detail = element('div', 'lb-exchange-row-detail');
-            detail.append(element('strong', '', `${crateLabel(rarity)}s`));
             const open = element('button', 'lb-block-btn', 'Open');
             open.type = 'button';
             open.dataset.crateRarity = rarity;
             open.setAttribute('aria-label', `Open ${crateLabel(rarity).toLowerCase()}`);
             open.onclick = () => onOpen(rarity);
-            row.append(art, detail, element('span', '', `×${count}`), open);
-            list.append(row);
+            card.append(quantity, art, element('h4', 'lb43-locker-name', crateLabel(rarity)), open);
+            list.append(card);
         }
         if (!crates.length) list.append(element('div', 'lb-block-card lb-collection-empty', 'No crates in storage.'));
     }

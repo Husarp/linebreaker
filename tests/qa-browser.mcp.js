@@ -195,6 +195,43 @@
                 const locker = await page.locator('#inventory-crates .lb-r17-feature').evaluate(card =>
                     /locker-(quartermaster|vault-corridor)\.webp/.test(getComputedStyle(card).backgroundImage));
                 if (!locker) fail('Locker is missing its selected artwork');
+                const cards = page.locator('.lb43-locker-card');
+                const gallery = await cards.evaluateAll(async items => {
+                    const [first, second, third] = items.map(card => card.getBoundingClientRect());
+                    if (!third || first.top !== second.top || second.left <= first.left || third.top <= second.top
+                        || third.left !== first.left) return false;
+                    const rareArt = items.filter(card => ['legendary', 'mythic'].includes(card.dataset.rarity));
+                    await Promise.all(rareArt.map(card => card.querySelector('img').decode()));
+                    return rareArt.length === 2 && rareArt.every(card => {
+                        const image = card.querySelector('img');
+                        const style = getComputedStyle(image);
+                        const art = image.getBoundingClientRect();
+                        const bounds = card.getBoundingClientRect();
+                        return style.objectFit === 'contain' && style.maskImage === 'none' && style.clipPath === 'none'
+                            && getComputedStyle(card).overflow === 'visible' && art.top > bounds.top
+                            && art.left > bounds.left && art.right < bounds.right;
+                    });
+                });
+                if (!gallery) fail('Stored crate cards must be two across with space for the full aura');
+                const mythic = cards.filter({ has: page.getByRole('button', { name: 'Open mythic crate' }) });
+                await mythic.locator('img').click();
+                const reveal = page.locator('#inventory-crate-overlay');
+                const total = page.locator('.lb43-locker-total');
+                const before = Number.parseInt(await total.textContent(), 10);
+                if (await reveal.count()) fail('Clicking crate art must not open a crate');
+                await mythic.getByRole('button', { name: 'Open mythic crate' }).click();
+                if (Number.parseInt(await total.textContent(), 10) !== before - 1) fail('Open must consume exactly one crate');
+                const auraFits = await reveal.locator('.lb43-crate-sprite').evaluate(sprite => {
+                    const title = sprite.closest('.lb64-crate-panel').querySelector('h2').getBoundingClientRect();
+                    const art = sprite.getBoundingClientRect();
+                    const shine = sprite.querySelector('.lb43-crate-shine');
+                    const sideAllowance = shine.offsetWidth * .62;
+                    return getComputedStyle(sprite).overflow === 'visible' && art.top >= title.bottom
+                        && art.left + art.width / 2 - sideAllowance >= 0
+                        && art.left + art.width / 2 + sideAllowance <= innerWidth;
+                });
+                if (!auraFits) fail('Mythic reveal must leave room around the sprite and shine');
+                await reveal.getByRole('button', { name: 'Done' }).click();
             }
             if (name === 'inventory-boosters' || name === 'booster-exchange' || name === 'game-over') {
                 const container = { 'inventory-boosters': '#inventory-boosters', 'booster-exchange': '#exc-modal-overlay', 'game-over': '#go-boost-row' }[name];
@@ -221,6 +258,17 @@
                         && days.every(day => !day.querySelector('.lb-week-marker') || Number(day.querySelector('.lb-week-marker span')?.textContent) > 0);
                 });
                 if (!chart) fail('This week must show seven day labels and leave zero-game days empty');
+            }
+            const statsSections = {
+                stats: ['This week', 'Personal best', 'Lifetime', 'Experience', 'Activity', 'Today'],
+                leaderboard: ['Top three', 'Ranked runs'], pinned: ['Standard runs', 'Fun mode'], highscores: ['Personal bests'],
+            }[name];
+            if (statsSections) {
+                const headers = await page.locator('#stats-overlay [role="tabpanel"]:not([hidden]) .lb-stats-section > .lb-block-panel-head')
+                    .evaluateAll(elements => elements.map(header => [header.querySelector('h2').textContent, getComputedStyle(header).borderBottomWidth]));
+                if (headers.map(([heading]) => heading).join() !== statsSections.join() || headers.some(([, line]) => line !== '0px')) {
+                    fail('Week First sections are missing, out of order, or divided by a line');
+                }
             }
             if (name === 'settings-home') {
                 const fits = await page.evaluate(() => {

@@ -21,6 +21,8 @@ it('opens on general stats and switches exactly four panels by click or keyboard
   expect(tabs.map(tab => tab.textContent)).toEqual(['General stats', 'Leaderboard', 'Pinned', 'Highscores']);
   expect(byId('stat-block-usage')).toBeNull();
   expect(byId('stat-activity-calendar').querySelector('#cal-grid')).not.toBeNull();
+  expect(all('#general-stats-container > section h2').map(heading => heading.textContent))
+    .toEqual(['This week', 'Personal best', 'Lifetime', 'Experience', 'Activity', 'Today']);
   const checkSelection = active => {
     expect(all('#stats-overlay [role="tabpanel"]:not([hidden])').map(panel => panel.id)).toEqual([active.getAttribute('aria-controls')]);
     expect(tabs.filter(tab => tab.getAttribute('aria-selected') === 'true')).toEqual([active]);
@@ -36,16 +38,17 @@ it('opens on general stats and switches exactly four panels by click or keyboard
   expect(byId('cal-instructions')).toBeNull();
 });
 
-it('uses decorative raw-stat icons and omits the legacy daily streak and mission calendar', () => {
+it('uses decorative stat icons and omits the legacy daily streak and mission calendar', () => {
+  expect(query('#stat-best-score').closest('section').querySelector('svg use').getAttribute('href')).toBe('#lb-metric-trophy');
   const icons = all('.lb-metric-grid dt svg');
-  expect(icons).toHaveLength(11);
+  expect(icons).toHaveLength(10);
   const symbols = icons.map(icon => {
     expect(icon.getAttribute('aria-hidden')).toBe('true');
     const reference = icon.querySelector('use').getAttribute('href');
     expect(byId(reference.slice(1))).not.toBeNull();
     return reference;
   });
-  expect(new Set(symbols).size).toBe(11);
+  expect(new Set(symbols).size).toBe(10);
   expect(query('#stat-lines').previousElementSibling.querySelector('use').getAttribute('href'))
     .toBe('#lb-run-icon-lines');
   game.w.openMissions();
@@ -79,6 +82,7 @@ it('shows best counts alongside percentages of unrounded, comparable averages', 
   expect(byId('stat-best-xp-pct').textContent).toBe('150% of recorded average XP');
   expect(byId('stat-max-combo').textContent).toBe('×6');
   expect(query('.lb-stats-today .lb-stats-comparison').textContent).toBe("300% of today's average");
+  expect(query('.lb-stats-today').textContent).toContain('Lines cleared12');
 
   save.stats.totalScore = 12006;
   game.api.setSave(save);
@@ -202,10 +206,21 @@ it('preserves leaderboard pagination, pin and unpin actions, and the Fun mode bo
   expect(game.api.save.pinnedScores.map(entry => entry.score)).toEqual([100, 50]);
   query('[data-stats-board="fun"]').click();
   expect(byId('lb-list').hidden).toBe(true);
-  expect(byId('fun-list').textContent).toContain('12×22');
-  query('#fun-list .lb-row').click();
+  expect(query('#fun-list h2').textContent).toBe('Top three');
+  query('#fun-list button[data-place="1"]').click();
   expect(byId('lb-tooltip-global').textContent).toContain('Board: 12×22');
+  byId('score-pin-popup').click();
+  expect(game.api.save.pinnedScores.at(-1)).toMatchObject({ score: 200, cols: 12, rows: 22 });
+  const restored = game.w.sanitizeSave(game.w.LBSave.serializeSave(game.api.save), game.api.save);
+  game.api.setSave(restored);
   byId('stats-tab-pin').click();
+  expect(all('#pinned-list h2').map(heading => heading.textContent)).toEqual(['Standard runs', 'Fun mode']);
+  const funPin = query('#pinned-list [data-stat-tone="activity"] .lb-row');
+  expect(funPin.textContent).toContain('12×22');
+  funPin.click();
+  expect(byId('score-pin-popup').getAttribute('aria-label')).toBe('Unpin score');
+  byId('score-pin-popup').click();
+  expect(all('#pinned-list h2').map(heading => heading.textContent)).toEqual(['Standard runs']);
   expect(query('#pinned-list .lb-pin-icon svg').getAttribute('width')).toBe('20');
   expect(query('#pinned-list .lb-pin-icon img').alt).toBe('#1');
   for (const icon of ['lines', 'speed']) {

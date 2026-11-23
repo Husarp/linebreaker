@@ -15,7 +15,9 @@
             { score: 18420, date: previousDate(), lines: 42, blocks: 151, time: 318, maxSpeed: 5, xp: 840, maxCombo: 4 },
             { score: 12360, date: previousDate(2), lines: 31, blocks: 126, time: 267, maxSpeed: 4, xp: 610, maxCombo: 3 },
             { score: 7800, date: previousDate(4), lines: 21, blocks: 98, time: 192, maxSpeed: 3, xp: 390, maxCombo: 2 },
+            { score: 4200, date: previousDate(0), lines: 12, blocks: 62, time: 117, maxSpeed: 2, xp: 160, maxCombo: 2 },
         ];
+        const funRun = { ...leaderboard[2], score: 6400, cols: 12, rows: 20, startSpeed: 3 };
         return {
             ...defaults,
             totalXP: 64000,
@@ -42,8 +44,8 @@
                 songPlayCounts: { 'Glass Harbor': 12, Fernlight: 8, 'Copper Relay': 5 },
             },
             leaderboard,
-            pinnedScores: [leaderboard[0]],
-            funLeaderboard: [{ ...leaderboard[2], score: 6400, cols: 12, rows: 20, startSpeed: 3 }],
+            pinnedScores: [leaderboard[0], funRun],
+            funLeaderboard: [funRun],
             achievements: {
                 score: { tier: 3, tierDates: { 3: previousDate() } },
                 games: { unlocked: true, tier: 1, unlockedAt: previousDate(4) },

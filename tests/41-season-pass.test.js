@@ -437,7 +437,13 @@ it('claims the rare overflow row repeatedly and retains count and remainder on r
   expect(clean.storedCrates).toEqual(api.save.storedCrates);
   w.closeMissions();
   await w.openInventory('crates');
-  w.document.querySelector('.lb43-open-all').click();
+  for (let remaining = storedCrates.length + 2; remaining > 0; remaining--) {
+    w.document.querySelector('[data-crate-rarity]').click();
+    expect(api.save.storedCrates).toHaveLength(remaining - 1);
+    const reveal = w.document.querySelector('#inventory-crate-overlay');
+    if (reveal.dataset.reveal === 'opening') reveal.click();
+    reveal.querySelector('button').click();
+  }
   expect(api.save.storedCrates).toEqual([]);
   expect(api.save.universalParts.rare).toBeGreaterThanOrEqual((universalParts.rare || 0) + 2);
   expect(api.save.stats.rareItemsFromDailyBox).toBe(giftStat);
