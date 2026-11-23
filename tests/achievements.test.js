@@ -229,6 +229,7 @@ describe('achievement screen', () => {
     const tip = query('#ach-tip');
     expect(tip.textContent).toContain('Bronze — On the Board');
     expect(tip.textContent).toContain('Reach a score of 500');
+    expect(tip.querySelector('.ach-tip-reward').textContent).toBe('Reward: +200 XP');
     expect(tip.textContent).not.toMatch(/2,000|10,000|Silver|Gold/);
     expect([...tip.querySelectorAll('svg[data-locked="true"]')].map(shape => shape.getAttribute('aria-label')))
       .toEqual(['Silver locked', 'Gold locked']);
@@ -265,7 +266,7 @@ describe('achievement screen', () => {
     expect(datedMirror).toContain('01.02.2026');
   });
 
-  it('displays pending rewards in any filter and grants XP only on individual or bulk claim', () => {
+  it('displays pending rewards in any filter and grants legacy XP only on individual claims', () => {
     const claims = [
       { id: 'score', name: 'On the Board', rarity: 'common', xp: 500 },
       { id: 'games', name: 'Newbie', rarity: 'common', xp: 500 },
@@ -293,11 +294,52 @@ describe('achievement screen', () => {
     expect(game.api.save.totalXP).toBe(500);
     expect(game.api.save.pendingAchievementClaims.map(claim => claim.id)).toEqual(['games', 'sec_symmetric_board']);
     filter('locked');
-    query('.ach-pending-head .lb-ledger-claim').click();
+    expect(query('.ach-pending-head button')).toBeNull();
+    query('.ach-pending-row .lb-ledger-claim').click();
+    game.advance(100);
+    expect(game.api.save.totalXP).toBe(1000);
+    query('.ach-pending-row .lb-ledger-claim').click();
     game.advance(100);
     expect(game.api.save.totalXP).toBe(2000);
     expect(game.api.save.pendingAchievementClaims).toEqual([]);
     expect(query('#ach-list').textContent).not.toContain('PENDING REWARDS');
     expect(query('[data-achtab][aria-pressed="true"]').dataset.achtab).toBe('locked');
+  });
+
+  it('queues escalating tier rewards, restores pending crates, and pays each tier once across reloads', () => {
+    const { api, w } = game;
+    api.setup({ save: { stats: { gamesPlayed: 1000, bestDailyXP: 10000 }, seenArt: [...w.LBArtPack.seenArtIds] } });
+    api.checkAchievementsOnLoad();
+    const claimsFor = id => api.save.pendingAchievementClaims.filter(claim => claim.id === id);
+    const rewardValues = id => claimsFor(id).map(claim => claim.crateRarity || claim.xp);
+    expect(rewardValues('games')).toEqual([200, 'rare', 'legendary']);
+    expect(rewardValues('daily_xp')).toEqual([200, 'rare', 'epic']);
+    expect(rewardValues('art_collector')).toEqual([200, 'common', 'rare']);
+    const save = w.LBSave.serializeSave(api.save);
+    save.pendingAchievementClaims.push({ ...claimsFor('games')[1] });
+    api.applyLoadedData(save, false);
+    api.checkAchievementsOnLoad();
+    expect(rewardValues('games')).toEqual([200, 'rare', 'legendary']);
+    expect(api.save.totalXP).toBe(0);
+    expect(api.save.storedCrates).toEqual([]);
+
+    w.openAchievements('unlocked');
+    query('[data-ach-id="games"]').click();
+    expect([...query('#ach-tip').querySelectorAll('.ach-tip-reward')].map(line => line.textContent))
+      .toEqual(['Reward: +200 XP', 'Reward: Rare crate', 'Reward: Legendary crate']);
+    expect(query('.ach-pending-row[data-rarity="rare"] small').textContent).toBe('Rare crate');
+    for (const [name, rarity] of [['Newbie', 'common'], ['Committed', 'rare'], ['No Life', 'legendary']]) {
+      const button = query(`.ach-pending-row[data-rarity="${rarity}"] button[aria-label="Claim ${name}"]`);
+      button.click();
+      button.click();
+      game.advance(100);
+    }
+    api.applyLoadedData(w.LBSave.serializeSave(api.save), false);
+    api.checkAchievementsOnLoad();
+    expect(rewardValues('games')).toEqual([]);
+    expect(api.save.totalXP).toBe(200);
+    expect(api.save.storedCrates).toEqual([
+      { rarity: 'rare', source: 'achievement' }, { rarity: 'legendary', source: 'achievement' },
+    ]);
   });
 });

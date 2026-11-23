@@ -2510,6 +2510,9 @@
         if (_qaDemo) {
             applyLoadedData(_qaDemo.createSave(defaultSaveData, _defaultMissions()), false);
             _qaDemo.seedMissions(saveData.missions);
+            const score = ACHIEVEMENTS_DEF.find(achievement => achievement.id === 'score');
+            score.tiers.forEach((tier, index) => queueAchievementTier(score, index));
+            _checkAchGlow();
             const previewCrate = async (rarity, details) => {
                 saveData.storedCrates.unshift({ rarity, ...details });
                 await openInventory('crates');
@@ -3508,9 +3511,7 @@
             if (a.type === 'tiered') {
                 const cur = saveData.achievements[a.id]?.tier || 0;
                 for (let i = cur; i < a.tiers.length; i++) {
-                    const tier = a.tiers[i];
-                    const xp = _ACH_XP[tier.rarity] || 500;
-                    saveData.pendingAchievementClaims.push({ id: a.id, tierNum: i + 1, rarity: tier.rarity, xp, name: tier.name });
+                    queueAchievementTier(a, i);
                 }
                 saveData.achievements[a.id] = { tier: a.tiers.length };
             } else {
@@ -5382,6 +5383,31 @@
         mythic:   { color: '#cc1111', label: 'MYTHIC',    glow: 'rgba(204,17,17,0.6)'    },
     };
     const _ACH_XP = { common: 500, rare: 1000, epic: 2500, legendary: 5000, mythic: 10000 };
+    const ACHIEVEMENT_TIER_REWARDS = {
+        bronze: { xp: 200 },
+        standard: [{ crateRarity: 'common' }, { crateRarity: 'rare' }],
+        legendary: [{ crateRarity: 'rare' }, { crateRarity: 'epic' }],
+        mythic: [{ crateRarity: 'rare' }, { crateRarity: 'legendary' }],
+    };
+
+    function achievementTierReward(achievement, index) {
+        const difficulty = achievement.tiers.at(-1).rarity;
+        return index === 0 ? ACHIEVEMENT_TIER_REWARDS.bronze
+            : (ACHIEVEMENT_TIER_REWARDS[difficulty] || ACHIEVEMENT_TIER_REWARDS.standard)[index - 1];
+    }
+
+    function achievementRewardLabel({ xp, crateRarity }) {
+        return crateRarity ? LBCrates.crateLabel(crateRarity) : `+${(xp ?? 0).toLocaleString('en-US')} XP`;
+    }
+
+    function queueAchievementTier(achievement, index) {
+        const { name, rarity } = achievement.tiers[index];
+        const claims = saveData.pendingAchievementClaims;
+        const tierNum = index + 1;
+        if (!claims.some(claim => claim.id === achievement.id && claim.tierNum === tierNum)) {
+            claims.push({ id: achievement.id, tierNum, rarity, name, ...achievementTierReward(achievement, index) });
+        }
+    }
 
     const ACH_QUEST_PAGE = 'M4 2h16v2h2v18H2V4h2zM4 6v14h16V6z';
     const ACH_QUEST_CHECK = 'M6 11h2v2h2v2h2v-2h2v-2h2V9h2v4h-2v2h-2v2h-4v-2H8v-2H6z';
@@ -6208,9 +6234,7 @@
             if (cur >= ach.tiers.length) return false;
             // Add pending claim for each newly unlocked tier
             for (let i = cur; i < ach.tiers.length; i++) {
-                const tier = ach.tiers[i];
-                const xp = _ACH_XP[tier.rarity] || 500;
-                saveData.pendingAchievementClaims.push({ id, tierNum: i + 1, rarity: tier.rarity, xp, name: tier.name });
+                queueAchievementTier(ach, i);
             }
             saveData.achievements[id] = { tier: ach.tiers.length };
             playSFX('achievement');
@@ -6271,8 +6295,7 @@
                             saveData.achievements[ach.id].tierDates[i+1] = LBSave.localDate(new Date());
                         }
                         // Add pending claim for this tier
-                        const xp = _ACH_XP[tier.rarity] || 500;
-                        saveData.pendingAchievementClaims.push({ id: ach.id, tierNum: i + 1, rarity: tier.rarity, xp, name: tier.name });
+                        queueAchievementTier(ach, i);
                         current = i + 1;
                         newlyUnlocked.push({ ...ach, _newTier: tier, _newTierNum: i + 1 });
                     } else { break; }
@@ -6306,8 +6329,7 @@
                         if (!saveData.achievements[ach.id]) saveData.achievements[ach.id] = {};
                         saveData.achievements[ach.id].tier = i + 1;
                         (saveData.achievements[ach.id].tierDates ||= {})[i + 1] = LBSave.localDate(new Date());
-                        const xp = _ACH_XP[tier.rarity] || 500;
-                        saveData.pendingAchievementClaims.push({ id: ach.id, tierNum: i + 1, rarity: tier.rarity, xp, name: tier.name });
+                        queueAchievementTier(ach, i);
                         current = i + 1;
                         changed = true;
                     } else break;
@@ -6322,8 +6344,7 @@
                     if (tier.check({ ..._lbBest, mode: 'normal', blocks: 0, quadraKill: false, boardCleared: false, maxLineStreak: 0, maxBlocksIn60s: 0, iPieceLines: 0, clearedTopLine: false, highPlacer: 0, noRotate: false, equalPieces: false, luckySevenCount: 0, waitedFourLineClear: false, noHardDrop: false, allHardDrop: false, bigFont: false, exactBlocks100: false, speedrunner: 9999, earlyBird: false })) {
                         if (!saveData.achievements[ach.id]) saveData.achievements[ach.id] = {};
                         saveData.achievements[ach.id].tier = i + 1;
-                        const xp = _ACH_XP[tier.rarity] || 500;
-                        saveData.pendingAchievementClaims.push({ id: ach.id, tierNum: i + 1, rarity: tier.rarity, xp, name: tier.name });
+                        queueAchievementTier(ach, i);
                         current = i + 1;
                         changed = true;
                     } else break;
@@ -6366,8 +6387,7 @@
                         saveData.achievements[ach.id].tierDates[i+1] = LBSave.localDate(new Date());
                     }
                     // Add pending claim for this tier
-                    const xp = _ACH_XP[tier.rarity] || 500;
-                    saveData.pendingAchievementClaims.push({ id: ach.id, tierNum: i + 1, rarity: tier.rarity, xp, name: tier.name });
+                    queueAchievementTier(ach, i);
                     current = i + 1;
                     newlyUnlocked.push({ ...ach, _newTier: tier, _newTierNum: i + 1 });
                 } else break;
@@ -6387,10 +6407,10 @@
             default:          return { outer: 'border-radius:50%;', inner: 'border-radius:50%;' };
         }
     }
-    function _spawnAchClaimFloat(x, y, xp, color) {
+    function _spawnAchClaimFloat(x, y, label, color) {
         const el = document.createElement('div');
         el.style.cssText = `position:fixed;z-index:9999;pointer-events:none;left:${x}px;top:${y}px;transform:translate(-50%,0);font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:900;color:${color};text-shadow:0 0 12px ${color},0 0 24px ${color}60,0 2px 6px rgba(0,0,0,0.7);white-space:nowrap;opacity:1;transition:transform 0.8s cubic-bezier(.22,.68,0,1.1),opacity 0.8s ease;`;
-        el.textContent = `+${xp.toLocaleString()} XP`;
+        el.textContent = label;
         document.body.appendChild(el);
         requestAnimationFrame(() => {
             el.style.transform = 'translate(-50%,-60px)';
@@ -6560,37 +6580,19 @@
             const pendingHeader = document.createElement('div');
             pendingHeader.className = 'ach-pending-head lb-block-panel-head';
             pendingHeader.innerHTML = '<h2 class="lb-block-section-title">PENDING REWARDS</h2>';
-            if (saveData.pendingAchievementClaims.length > 1) {
-                const claimAllBtn = document.createElement('button');
-                claimAllBtn.className = 'lb-block-btn lb-block-btn--primary';
-                claimAllBtn.classList.add('lb-ledger-claim');
-                claimAllBtn.textContent = 'Claim all';
-                claimAllBtn.addEventListener('click', () => _claimAfterPaint(claimAllBtn, () => {
-                    let totalXpGained = 0;
-                    const claims = [...saveData.pendingAchievementClaims];
-                    saveData.pendingAchievementClaims = [];
-                    claims.forEach(c => { _grantXP(c.xp); totalXpGained += c.xp; });
-                    playSFX('unlock');
-                    const rect = claimAllBtn.getBoundingClientRect();
-                    _spawnAchClaimFloat(rect.left + rect.width / 2, rect.top, totalXpGained, '#00ffff');
-                    _checkAchGlow();
-                    saveDataToFile();
-                    drawRankBadge();
-                    renderAchievementsOverlay(tab);
-                }));
-                pendingHeader.appendChild(claimAllBtn);
-            }
             pendingSection.appendChild(pendingHeader);
             const pendingGrid = document.createElement('div');
             pendingGrid.className = 'ach-pending-list';
             saveData.pendingAchievementClaims.forEach(claim => {
-                const rarity = Object.hasOwn(RARITY_ACH, claim.rarity) ? claim.rarity : 'common';
+                const rewardRarity = claim.crateRarity || claim.rarity;
+                const rarity = Object.hasOwn(RARITY_ACH, rewardRarity) ? rewardRarity : 'common';
                 const rc = RARITY_ACH[rarity];
                 const card = document.createElement('div');
                 card.className = 'ach-pending-row';
                 card.dataset.rarity = rarity;
                 const name = retiredStreakAchievements.has(claim.id) ? 'Legacy achievement' : claim.name;
-                const nameHtml = `<div class="ach-row-copy"><strong>${escapeHtml(name)}</strong><small class="lb-ledger-rarity-label">${rc.label}</small></div>`;
+                const rewardLabel = achievementRewardLabel(claim);
+                const nameHtml = `<div class="ach-row-copy"><strong>${escapeHtml(name)}</strong><small class="lb-ledger-rarity-label">${claim.tierNum ? rewardLabel : rc.label}</small></div>`;
                 const claimBtn = document.createElement('button');
                 claimBtn.className = 'lb-block-btn lb-block-btn--primary lb-ledger-claim';
                 claimBtn.textContent = 'Claim';
@@ -6598,11 +6600,14 @@
                 claimBtn.addEventListener('click', () => _claimAfterPaint(claimBtn, () => {
                     const idx = saveData.pendingAchievementClaims.indexOf(claim);
                     if (idx < 0) return;
-                    _grantXP(claim.xp);
                     saveData.pendingAchievementClaims.splice(idx, 1);
+                    if (claim.crateRarity) {
+                        (saveData.storedCrates ??= []).push({ rarity: claim.crateRarity, source: 'achievement' });
+                        _checkGlowNotifications();
+                    } else _grantXP(claim.xp);
                     playSFX('unlock');
                     const rect = claimBtn.getBoundingClientRect();
-                    _spawnAchClaimFloat(rect.left + rect.width / 2, rect.top, claim.xp, rc.color);
+                    _spawnAchClaimFloat(rect.left + rect.width / 2, rect.top, rewardLabel, rc.color);
                     _checkAchGlow();
                     saveDataToFile();
                     drawRankBadge();
@@ -6741,8 +6746,10 @@
                     const tierDates = saveData.achievements?.[ach.id]?.tierDates || {};
                     for (const [index, tier] of ach.tiers.entries()) {
                         const locked = index >= curTier;
+                        const reward = pending.find(claim => claim.id === ach.id && claim.tierNum === index + 1)
+                            || achievementTierReward(ach, index);
                         html += `<div class="ach-tip-milestone">${achievementTierShape(index, locked)}${locked ? ''
-                            : `<div><strong>${achievementTiers[index][0]} — ${escapeHtml(tier.name)}</strong><div>${escapeHtml(tier.desc)}</div>${dateLine(tierDates[index + 1])}</div>`}</div>`;
+                            : `<div><strong>${achievementTiers[index][0]} — ${escapeHtml(tier.name)}</strong><div>${escapeHtml(tier.desc)}</div><div class="ach-tip-reward">Reward: ${achievementRewardLabel(reward)}</div>${dateLine(tierDates[index + 1])}</div>`}</div>`;
                     }
                 } else {
                     if (!isSecretLocked) {
@@ -11068,8 +11075,8 @@
                 ${block('Find & use parts', '<p>Earn parts from <strong>level boxes, milestones and missions</strong>. Each cosmetic has its own parts. Collect enough to unlock and equip it in Inventory.</p>')}
                 ${block('Universal parts', '<p>Fill in missing item parts in <strong>Inventory → Parts</strong>. Once no part unlocks remain, trade universal parts for XP.</p>')}`],
             ['achievements', 'Achievements & rarities', `
-                ${block('Track & claim', '<p>Track goals and <strong>claim XP</strong> in Achievements. Secret goals stay hidden until you find them.</p>')}
-                ${block('Rarity rewards', `<p>Check each card for its exact reward.</p>${table('Standard XP by rarity', ['Rarity', 'XP'], Object.entries(RARITY_ACH).map(([id, { label }]) => [label, number(_ACH_XP[id])]))}`)}`],
+                ${block('Track & claim', '<p>Claim each reward in Achievements. Bronze gives XP; Silver and Gold add crates to Inventory. Secret goals stay hidden until you find them.</p>')}
+                ${block('Rarity rewards', `<p>Check the info box for earned tier rewards.</p>${table('Single-goal XP by rarity', ['Rarity', 'XP'], Object.entries(RARITY_ACH).map(([id, { label }]) => [label, number(_ACH_XP[id])]))}`)}`],
             ['boosters', 'Boosters', `
                 ${block('Use a booster', '<p>Find boosters in <strong>Inventory → Boosters</strong>. Use one on the results screen after earning XP in <strong>Normal</strong>. It multiplies XP, not score.</p>')}
                 ${block('XP multipliers', definitions(BOOSTER_KEYS.map(key => [BOOSTER_META[key].label, `×${BOOSTER_INFO[key].mult} run XP`])))}`],

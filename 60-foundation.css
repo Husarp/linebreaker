@@ -395,7 +395,6 @@ body[data-pack="pixel"] #custom-confirm .modal-text { font-family: var(--bb-font
 
 #playlist-overlay :is(#pl-mw-title, #pl-mw-elapsed, #pl-mw-total) { color: var(--bb-muted) !important; }
 .lb-playlist-tools { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); position: relative; margin-bottom: var(--space-3); }
-#playlist-overlay .lb-playlist-tools .lb-block-section-title { font: 650 var(--text-body)/1.4 var(--font-body) !important; }
 .lb-playlist-tools .lb-block-info { position: static; }
 .lb-playlist-grid { display: grid; align-items: center; gap: var(--space-2); padding-inline: var(--space-2); }
 .lb-playlist-columns { padding-block: var(--space-2); border-radius: 4px 14px 0 0; background: var(--bb-heading); font: 650 var(--text-xs)/1.4 var(--font-body); text-transform: uppercase; }

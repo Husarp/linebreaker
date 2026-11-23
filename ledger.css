@@ -27,9 +27,14 @@
     --lb-reward-face: #3c3221;
     --lb-collection-face: #263744;
     --lb-achievement-face: #382e42;
-    --lb-mission-easy: #294833;
-    --lb-mission-medium: #51391f;
-    --lb-mission-hard: #542f2b;
+    --lb-mission-easy: #60f86d;
+    --lb-mission-medium: #ffa63e;
+    --lb-mission-hard: #ff618a;
+    --lb-playlist-menu-tick: #a2e886;
+    --lb-playlist-game-tick: #92ccff;
+    --lb-playlist-stripe: #283e30;
+    --lb-player-face: #bfdfff;
+    --lb-player-ink: #18354d;
     --lb-thread: #b6c7a006;
     --lb-band: #101b17;
     --lb-band-edge: #4d6756;
@@ -130,9 +135,13 @@
     --lb-reward-face: #f3e4bf;
     --lb-collection-face: #dce7e8;
     --lb-achievement-face: #ece0ed;
-    --lb-mission-easy: #dae8cb;
-    --lb-mission-medium: #f5d8ae;
-    --lb-mission-hard: #f1ccc2;
+    --lb-mission-easy: #73ed69;
+    --lb-mission-medium: #ffb54c;
+    --lb-mission-hard: #ff7293;
+    --lb-playlist-menu-tick: #245e2f;
+    --lb-playlist-game-tick: #164d86;
+    --lb-playlist-stripe: #e0ebd6;
+    --lb-player-face: #d4eaff;
     --lb-rule: #aa9d77;
     --lb-control-line: #746743;
     --lb-track: #dfd3b2;
@@ -333,9 +342,28 @@
 [data-ledger-tone='reward'], .mq-card[data-tier='secret'] { --lb-tone-face: var(--lb-reward-face); --lb-tone-art: #42331e; }
 [data-ledger-tone='collection'] { --lb-tone-face: var(--lb-collection-face); --lb-tone-art: #243e51; }
 [data-ledger-tone='achievement'] { --lb-tone-face: var(--lb-achievement-face); --lb-tone-art: #46354e; }
-.mq-card[data-tier='easy'] { --lb-tone-face: var(--lb-mission-easy); --lb-tone-ink: var(--lb-label); }
-.mq-card[data-tier='normal'] { --lb-tone-face: var(--lb-mission-medium); --lb-tone-ink: var(--lb-utility); }
-.mq-card[data-tier='hard'] { --lb-tone-face: var(--lb-mission-hard); --lb-tone-ink: var(--lb-danger); }
+.mq-card[data-tier='easy'] { --lb-mission-neon: var(--lb-mission-easy); }
+.mq-card[data-tier='normal'] { --lb-mission-neon: var(--lb-mission-medium); }
+.mq-card[data-tier='hard'] { --lb-mission-neon: var(--lb-mission-hard); }
+.mq-card:is([data-tier='easy'], [data-tier='normal'], [data-tier='hard']) {
+    --lb-tone-ink: #212b24;
+    --lb-tone-face: linear-gradient(120deg, color-mix(in srgb, var(--lb-mission-neon) 74%, white), transparent), var(--lb-mission-neon);
+    --lb-mission-edge: color-mix(in srgb, var(--lb-mission-neon) 55%, #202a23);
+    --mq-rail: var(--lb-mission-edge);
+    --mq-patch-outline: var(--lb-tone-ink);
+}
+.lb-game-root .mq-card:is([data-tier='easy'], [data-tier='normal'], [data-tier='hard']) {
+    border-color: var(--lb-mission-edge) !important;
+    box-shadow: inset 0 0 0 1px #ffffff80, 0 0 8px color-mix(in srgb, var(--lb-mission-neon) 48%, transparent) !important;
+}
+.mq-card:is([data-tier='easy'], [data-tier='normal'], [data-tier='hard']) :is(.mq-card-title, .mq-card-desc, .mq-pts, .mq-card-progress-value, .mq-claimed) {
+    color: var(--lb-tone-ink);
+}
+.mq-card:is([data-tier='easy'], [data-tier='normal'], [data-tier='hard']) .lb-block-progress {
+    --lb-track: #fff5df;
+    --lb-meter: var(--lb-tone-ink);
+    border: 1px solid var(--lb-tone-ink);
+}
 .lb-game-root :is(.lb-block-card, .lb-block-panel):is([data-ledger-tone], .mq-card[data-tier]) {
     --lb-card-face: var(--lb-tone-face, var(--lb-panel-face));
 }
@@ -1273,6 +1301,7 @@ svg.lb-ledger-chevron {
 #stats-overlay .lb-stats-podium-original .lb-pts { color: var(--lb-muted); font: var(--lb-type-small)/1.3 var(--lb-font-body); opacity: 1; }
 #stats-overlay .lb-stats-calendar-scroll { scrollbar-color: var(--lb-label) transparent; }
 
+#playlist-overlay { --lb-playlist-key: 44px; }
 #playlist-overlay > .lb148-playlist {
     box-sizing: border-box;
     width: min(100%, 640px);
@@ -1281,52 +1310,84 @@ svg.lb-ledger-chevron {
     padding: var(--lb-space-md) max(var(--lb-space-md), var(--lb-safe-right)) max(var(--lb-space-md), var(--lb-safe-bottom)) max(var(--lb-space-md), var(--lb-safe-left));
 }
 #playlist-overlay #pl-mini-widget {
+    --lb-card-face: var(--lb-player-face);
+    --lb-track: #799bb7;
+    --lb-meter: var(--lb-player-ink);
+    --lb-focus: var(--lb-player-ink);
     box-sizing: border-box;
     display: grid;
-    gap: var(--lb-space-sm);
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--lb-space-xs) var(--lb-space-sm);
     flex: none;
-    padding: var(--lb-space-md);
+    padding: var(--lb-space-sm) var(--lb-space-md);
+    color: var(--lb-player-ink);
 }
-#playlist-overlay .lb90-playlist-controls { justify-content: center; }
-#playlist-overlay #pl-mini-widget .lb-block-btn { min-height: var(--target); }
+#playlist-overlay .lb90-playlist-controls { justify-content: center; gap: var(--lb-space-xs); }
+#playlist-overlay #pl-mini-widget .lb-block-btn {
+    --lb-control-ink: var(--lb-player-ink);
+    --lb-control-edge: var(--lb-player-ink);
+    width: var(--lb-playlist-key);
+    min-width: var(--lb-playlist-key);
+    min-height: var(--lb-playlist-key);
+}
+#playlist-overlay #pl-mini-widget :is(#pl-mw-status, #pl-mw-title, #pl-mw-elapsed, #pl-mw-total) { color: var(--lb-player-ink) !important; }
 #playlist-overlay #pl-mw-title {
-    overflow: hidden;
-    color: var(--lb-ink) !important;
     font-size: var(--lb-type-body);
     font-weight: 650;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
 }
 .lb-playlist-timing {
     display: grid;
+    grid-column: 1 / -1;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--lb-space-sm);
     font: var(--lb-type-small)/1.5 var(--lb-font-body);
     font-variant-numeric: tabular-nums;
 }
+@media (max-width: 360px) {
+    #playlist-overlay #pl-mini-widget { grid-template-columns: minmax(0, 1fr); }
+    #playlist-overlay .lb90-playlist-controls { grid-row: 3; }
+}
 #pl-mw-progress-wrap {
     height: var(--lb-space-sm);
     overflow: hidden;
+    border: var(--lb-border) solid var(--lb-player-ink);
     border-radius: var(--lb-radius);
     background: var(--lb-track);
     cursor: pointer;
 }
 #pl-mw-progress-fill { width: 0; height: 100%; background: var(--lb-meter); transition: width .5s linear; }
 .lb-playlist-library { display: flex; flex-direction: column; min-height: 0; }
-.lb-playlist-library .lb-playlist-tools { margin: 0; }
+.lb-playlist-library .lb-playlist-tools { margin: 0; border-block-end: 0; }
 #playlist-panel-content { padding-inline-end: var(--lb-space-xs); }
-#playlist-panel-content .lb-playlist-grid { padding-inline: var(--lb-space-sm); }
-#playlist-panel-content .lb-playlist-columns {
-    background: var(--lb-track);
-    border-radius: 0;
-    color: var(--lb-muted);
+#playlist-panel-content .lb-playlist-grid {
+    grid-template-columns: minmax(0, 1fr) repeat(2, var(--lb-playlist-key));
+    padding-inline: var(--lb-space-sm);
 }
+#playlist-panel-content .lb-playlist-columns {
+    background: var(--lb-panel);
+    border-radius: 0;
+    border-block-end: var(--lb-border) solid var(--lb-rule);
+    color: var(--lb-muted);
+    font: var(--lb-type-micro)/1.2 var(--lb-font-pixel);
+}
+#playlist-panel-content .lb-playlist-row { min-height: 47px; padding-block: 0; border-bottom: 0; background: var(--lb-panel); }
+#playlist-panel-content .lb-playlist-row:nth-child(2n+3) { background: var(--lb-playlist-stripe); }
 .lb-playlist-track-title { font-weight: 650; }
+#playlist-overlay .lb-playlist-check {
+    --lb-control-edge: var(--lb-control-line);
+    width: var(--lb-playlist-key);
+    min-height: var(--lb-playlist-key);
+    padding: 0;
+}
+#playlist-overlay .lb-playlist-check[data-playlist='menu'] { --lb-playlist-tick: var(--lb-playlist-menu-tick); }
+#playlist-overlay .lb-playlist-check[data-playlist='game'] { --lb-playlist-tick: var(--lb-playlist-game-tick); }
 #playlist-overlay .lb-playlist-check[aria-pressed='true'][data-playlist] {
-    --lb-control-face: var(--lb-track);
-    --lb-control-ink: var(--lb-label);
-    --lb-control-edge: var(--lb-label);
+    --lb-control-face: color-mix(in srgb, var(--lb-playlist-tick) 10%, var(--lb-panel));
+    --lb-control-ink: var(--lb-playlist-tick);
+    --lb-control-edge: var(--lb-playlist-tick);
 }
 
 #rules-overlay .lb-help-layout { gap: 0; }
@@ -1624,6 +1685,7 @@ svg.lb-ledger-chevron {
 [data-lb-ui-theme='light'] .ach-tier-shape[data-tier='silver'] { --lb-tier-ink: #3d5974; }
 [data-lb-ui-theme='light'] .ach-tier-shape[data-tier='gold'] { --lb-tier-ink: #785500; }
 .ach-tip-milestone .ach-tier-shape { color: var(--lb-tier-ink); }
+.ach-tip-reward { color: var(--lb-label); }
 .ach-tier-shape[data-locked='true'] { fill: none; stroke: currentColor; stroke-width: 1; }
 .ach-tip-milestone { display: flex; align-items: flex-start; gap: var(--lb-space-sm); margin-block-start: var(--lb-space-sm); }
 #achievements-overlay .ach-row-copy { gap: 2px; }
@@ -1636,10 +1698,8 @@ svg.lb-ledger-chevron {
 #stats-overlay .lb-stats-shell { padding-inline: max(var(--lb-folio-gutter), var(--lb-safe-left)) max(var(--lb-folio-gutter), var(--lb-safe-right)); }
 #stats-overlay .lb-stats-metrics > div { background: var(--lb-panel-face); border-radius: var(--lb-radius); }
 #stats-overlay .lb-stats-calendar-scroll { margin-inline: var(--lb-space-sm); }
-#stats-overlay .lb-stats-table thead th,
-#playlist-panel-content .lb-playlist-columns { background: var(--lb-track); color: var(--lb-muted); }
+#stats-overlay .lb-stats-table thead th { background: var(--lb-track); color: var(--lb-muted); }
 #playlist-overlay > .lb148-playlist { gap: var(--lb-space-lg); padding-inline: max(var(--lb-folio-gutter), var(--lb-safe-left)) max(var(--lb-folio-gutter), var(--lb-safe-right)); }
-#playlist-overlay .lb-playlist-tools { border-block-end: var(--lb-border) dashed var(--lb-rule); }
 #rules-overlay .lb-help-layout { width: min(100%, 960px); margin-inline: auto; gap: var(--lb-space-sm); }
 #rules-overlay .lb-help-content { padding-inline: max(var(--lb-folio-gutter), var(--lb-safe-left)) max(var(--lb-folio-gutter), var(--lb-safe-right)); }
 #rules-overlay .lb-help-topic > .lb-block-panel-head { border-block-end: var(--lb-border) dashed var(--lb-rule); }

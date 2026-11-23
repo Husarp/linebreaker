@@ -267,6 +267,11 @@
                             (Math.abs(row.left - rows[0].left) <= 1 && row.top >= rows[index - 1].bottom - 1)));
                     }));
                 if (!singleColumn) fail('Achievements must have one record per line');
+                const claims = await page.locator('.ach-pending').evaluate(section =>
+                    !section.querySelector('.ach-pending-head button')
+                    && [...section.querySelectorAll('.ach-pending-row')].every(row => row.querySelector('button')?.textContent === 'Claim')
+                    && section.textContent.includes('Legendary crate'));
+                if (!claims) fail('Pending tier rewards must have individual claims and no bulk claim');
                 const tierRows = await page.locator('#ach-list [data-ach-id]').evaluateAll(rows => {
                     const games = rows.find(row => row.dataset.achId === 'games');
                     return new Set(rows.map(row => row.dataset.achId)).size === rows.length
@@ -280,10 +285,45 @@
                 await page.locator('[data-ach-id="games"]').click();
                 const earnsOnly = await page.locator('#ach-tip').evaluate(tip => !tip.hidden
                     && tip.textContent.includes('Play 10 games') && !/100|1,000/.test(tip.textContent)
+                    && [...tip.querySelectorAll('.ach-tip-reward')].map(line => line.textContent).join() === 'Reward: +200 XP'
                     && tip.querySelectorAll('svg[data-locked="true"]').length === 2);
                 if (!earnsOnly) fail('Achievement details must hide locked tier requirements');
                 await page.locator('[data-ach-id="games"]').click();
                 await page.locator('#achievements-overlay .ach-content').evaluate(content => { content.scrollTop = 0; });
+            }
+            if (name === 'playlist') {
+                const deck = await page.locator('#playlist-overlay').evaluate(overlay => {
+                    const channels = color => color.match(/[\d.]+/g).map(Number);
+                    const [red, green, blue] = channels(getComputedStyle(overlay.querySelector('#pl-mini-widget')).backgroundColor);
+                    const title = getComputedStyle(overlay.querySelector('#pl-mw-title')).color;
+                    const rows = [...overlay.querySelectorAll('.lb-playlist-row')].slice(0, 3);
+                    const rowColors = rows.map(row => getComputedStyle(row).backgroundColor);
+                    const tools = getComputedStyle(overlay.querySelector('.lb-playlist-tools'));
+                    const columns = getComputedStyle(overlay.querySelector('.lb-playlist-columns'));
+                    return red > 170 && red < green && green < blue && channels(title).every(channel => channel < 100)
+                        && tools.borderBottomWidth === '0px' && columns.borderTopWidth === '0px'
+                        && rows.length === 3 && rowColors[0] !== rowColors[1] && rowColors[0] === rowColors[2]
+                        && rows.every(row => row.getBoundingClientRect().height >= 47);
+                });
+                if (!deck) fail('Track Ledger must have a blue deck, no header separator, and alternating rows');
+                const firstRow = page.locator('.lb-playlist-row').first();
+                for (const column of ['menu', 'game']) {
+                    const toggle = firstRow.locator(`[data-playlist="${column}"]`);
+                    const initial = await toggle.getAttribute('aria-pressed');
+                    if (initial !== 'true') await toggle.click();
+                    const checked = await toggle.evaluate((button, column) => {
+                        const tick = getComputedStyle(button.querySelector('svg'));
+                        const [red, green, blue] = tick.color.match(/[\d.]+/g).map(Number);
+                        return button.getAttribute('aria-pressed') === 'true' && tick.visibility === 'visible'
+                            && (column === 'menu' ? green > red && green > blue : blue > red && blue > green);
+                    }, column);
+                    if (!checked) fail(`Wrong checked mark for the ${column} column`);
+                    await toggle.click();
+                    if (await toggle.locator('svg').evaluate(tick => getComputedStyle(tick).visibility) !== 'hidden') {
+                        fail(`Unchecked ${column} mark is visible`);
+                    }
+                    if (initial === 'true') await toggle.click();
+                }
             }
             if (name === 'menu') {
                 if ((await page.locator('#mw-info .lb-block-kicker').textContent()).trim() !== 'Music') {
@@ -457,6 +497,16 @@
                     const regular = cards.filter(card => card.dataset.tier !== 'secret');
                     const colors = new Set(regular.map(card => getComputedStyle(card).backgroundColor));
                     return colors.size === new Set(regular.map(card => card.dataset.tier)).size
+                        && regular.every(card => {
+                            const face = getComputedStyle(card);
+                            const [red, green, blue] = face.backgroundColor.match(/[\d.]+/g).map(Number);
+                            const neon = card.dataset.tier === 'easy' ? green >= 230 && red < 130 && blue < 130
+                                : card.dataset.tier === 'normal' ? red >= 250 && green >= 150 && blue < 100
+                                : red >= 250 && green < 130 && blue > green;
+                            const ink = getComputedStyle(card.querySelector('.mq-card-title')).color.match(/[\d.]+/g).map(Number);
+                            return neon && face.backgroundImage.startsWith('linear-gradient(') && face.boxShadow !== 'none'
+                                && ink.every(channel => channel < 65);
+                        })
                         && cards.every(card => {
                             const art = card.querySelector('.mq-card-icon .mq-patch[viewBox="0 0 16 16"]')?.getBoundingClientRect();
                             const points = card.querySelector('.mq-card-icon .mq-pts');
@@ -464,7 +514,7 @@
                                 points.getBoundingClientRect().top >= art.bottom && /\+\d+ SP/.test(points.textContent);
                         });
                 });
-                if (!cardDesign) fail('Mission cards must tint their faces by difficulty and put SP below the icon');
+                if (!cardDesign) fail('Mission cards must use readable neon difficulty faces and put SP below the icon');
             }
             if (name === 'season-pass') {
                 const track = await page.evaluate(() => {

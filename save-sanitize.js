@@ -269,10 +269,20 @@
         out.seenArt = window.LBArtPack.cleanSeenArt(data.seenArt);
         out.achievements = cleanAchievements(data.achievements);
         out.pendingAchievementClaims = list(data.pendingAchievementClaims).filter(claim => object(claim) && typeof claim.id === 'string' && safeKey(claim.id) && claim.id !== 'parachute_catcher').map(claim => ({
-            id: achievementId(claim.id), name: string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common', xp: number(claim.xp, 0, 100000),
+            id: achievementId(claim.id), name: string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common',
             ...(claim.tierNum ? { tierNum: Math.floor(number(claim.tierNum, 0, 100)) } : {}),
+            ...(sourceVersion >= 2 && [2, 3].includes(claim.tierNum) && ['common', 'rare', 'epic', 'legendary'].includes(claim.crateRarity)
+                ? { crateRarity: claim.crateRarity } : { xp: number(claim.xp, 0, 100000) }),
         }));
         if (sourceVersion < 2) migrateAchievementTiers(out);
+        const pendingTiers = new Set();
+        out.pendingAchievementClaims = out.pendingAchievementClaims.filter(({ id, tierNum }) => {
+            if (!tierNum) return true;
+            const key = `${id}:${tierNum}`;
+            if (pendingTiers.has(key)) return false;
+            pendingTiers.add(key);
+            return true;
+        });
         out.season = (window.LBSeason || globalThis.LBSeason).sanitizeSeason(data.season);
         out.lastSeenTime = (window.LBSeason || globalThis.LBSeason).timestamp(data.lastSeenTime);
         out.seasonBlockedUntil = (window.LBSeason || globalThis.LBSeason).timestamp(data.seasonBlockedUntil);
@@ -374,7 +384,7 @@
             const { rarity, source } = crate;
             if (source === 'legacy') return [{ rarity, source, rewards: list(crate.rewards).slice(0, 50).map(reward).filter(Boolean) }];
             if (source === 'mission') return [{ rarity, source, amount: Math.floor(number(crate.amount, 0, 1000)) }];
-            return [{ rarity, ...(['daily', 'level', 'rank'].includes(source) ? { source } : {}) }];
+            return [{ rarity, ...(['daily', 'level', 'rank', 'achievement'].includes(source) ? { source } : {}) }];
         });
         return out;
     }

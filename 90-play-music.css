@@ -57,15 +57,6 @@
     text-align: start;
 }
 
-#playlist-overlay .lb-playlist-check[aria-pressed="true"][data-playlist] {
-    --bb-button-edge: var(--playlist-tick);
-    --bb-button-ink: var(--playlist-tick);
-    --bb-button-face: color-mix(in srgb, var(--playlist-tick) 12%, var(--bb-face));
-}
-
-.lb-playlist-check[data-playlist="menu"] { --playlist-tick: var(--rarity-rare); }
-.lb-playlist-check[data-playlist="game"] { --playlist-tick: var(--success); }
-
 .lb-playlist-track-title {
     display: flex;
     align-items: center;
