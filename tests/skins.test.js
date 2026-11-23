@@ -74,26 +74,26 @@ it('refunds each retired owned skin once and persists Retro and square through a
   game = await loadGame(true, invoke);
   await game.w.flushLinebreakerSave();
   expect(JSON.parse(persisted)).toMatchObject({
-    schemaVersion: 2, skinCatalogVersion: 1,
-    ownedSkins: ['retro', 'bubble', 'glass'], universalParts: 6.4,
+    schemaVersion: 3, skinCatalogVersion: 1,
+    ownedSkins: ['retro', 'bubble', 'glass'], universalParts: { common: 6.4 },
     _settings: { skin: 'retro', blockShape: 'square' },
   });
-  expect(game.w.document.getElementById('alert-text').textContent).toContain('4 universal parts');
+  expect(game.w.document.getElementById('alert-text').textContent).toContain('4 Common Universal Parts');
 
   game.close();
   game = await loadGame(true, invoke);
-  expect(game.api.save.universalParts).toBe(6.4);
+  expect(game.api.save.universalParts).toEqual({ common: 6.4 });
   expect(game.w.document.getElementById('alert-title').textContent).not.toBe('BLOCK SKINS UPDATED');
 });
 
 it('resets equipped Lava and refunds it only if owned, even in a current save', async () => {
   game = await loadGame(true, null, null, { skin: 'lava', blockShape: 'round' });
-  expect(game.api.save.universalParts).toBe(0);
+  expect(game.api.save.universalParts).toEqual({});
   expect(JSON.parse(game.w.localStorage.getItem('linebreaker_settings'))).toMatchObject({ skin: 'retro', blockShape: 'square' });
   expect(game.w.applyBlockShape).toBeUndefined();
   game.api.applyLoadedData({ totalXP: 123, ownedSkins: ['lava'], skinCatalogVersion: 1 });
   expect(game.api.save.ownedSkins).toEqual(['retro']);
-  expect(game.api.save.universalParts).toBe(1);
+  expect(game.api.save.universalParts).toEqual({ common: 1 });
 });
 
 it('maps piece indices to the atlas order, with grey garbage and white for tinting', async () => {
@@ -153,7 +153,7 @@ it('offers Bubble and every packaged image skin as rewards at the price of their
   const rewardKeys = game.api.partsItems().filter(item => item.cat === 'skin').map(item => item.key);
   expect(manifest.length).toBeGreaterThan(0);
   expect(rewardKeys).toEqual(['glass', 'shadow', 'outline', 'holo', 'journey', 'bubble', ...manifest.map(skin => skin.key)]);
-  const prices = { rare: 50, epic: 120, legendary: 250 };
+  const prices = { rare: 15, epic: 12, legendary: 10 };
   expect(new Set(manifest.map(skin => skin.rarity))).toEqual(new Set(Object.keys(prices)));
   for (const { key, file, rarity, cell } of manifest) {
     expect(game.api.partCost(key)).toBe(prices[rarity]);
@@ -166,9 +166,9 @@ it('prices every available part unlock and keeps the Mythic season skin out of t
   game = await loadGame();
   const { w, api } = game;
   for (const { cat, key } of api.partsItems()) {
-    expect([20, 50, 120, 250, 500]).toContain(api.partCost(key));
+    expect(api.partCost(key)).toBe({ common: 20, rare: 15, epic: 12, legendary: 10, mythic: 8 }[api.partRarity(key)]);
     if (cat === 'palette' || cat === 'gridStyle') expect(api.partCost(key)).toBe(20);
-    if (cat === 'sfxPack') expect(api.partCost(key)).toBe(50);
+    if (cat === 'sfxPack') expect(api.partCost(key)).toBe(15);
   }
   expect(api.partCost('season-prism')).toBe(0);
   expect(api.partsItems().some(item => item.key === 'season-prism')).toBe(false);
@@ -187,12 +187,12 @@ it('retains owned items and applies already collected parts toward the new price
   const glass = () => w.document.querySelector('[data-item-key="glass"]');
   expect(glass().querySelector('.lb-inventory-rarity').dataset.rarity).toBe('rare');
   expect(glass().querySelector('progress').value).toBe(10);
-  expect(glass().querySelector('progress').max).toBe(50);
+  expect(glass().querySelector('progress').max).toBe(15);
   expect(w.document.querySelector('[data-item-key="aztec"]').dataset.owned).toBe('true');
   w.playerUnlockItem('skin', 'glass');
   expect(api.save.ownedSkins).not.toContain('glass');
   const save = api.save;
-  save.parts.glass += 40;
+  save.parts.glass += 5;
   api.setSave(save);
   w.playerUnlockItem('skin', 'glass');
   expect(api.save.ownedSkins).toContain('glass');

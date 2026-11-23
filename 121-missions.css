@@ -127,7 +127,7 @@
 .mq-ms-crate--locked { filter: grayscale(1); opacity: .58; }
 .mq-ms-claimed { position: absolute; top: 0; inset-inline-end: 0; color: var(--lb-label); }
 
-.mq-board-actions, .mq-list-head, .mq-streak-xp {
+.mq-board-actions, .mq-list-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -219,10 +219,7 @@
 .mq-claimed { color: var(--lb-label); font: 650 var(--lb-type-small)/1.25 var(--lb-font-body); }
 #missions-body .mq-completed { margin-block: var(--lb-space-md) var(--lb-space-sm); }
 .mq-board-details { display: grid; gap: var(--lb-space-md); }
-.mq-streak-summary, .mq-calendar { display: grid; gap: var(--lb-space-sm); }
-#missions-overlay .mq-streak-half { display: flex; justify-content: start; gap: var(--lb-space-sm); padding-inline: var(--lb-space-sm); }
-.mq-streak-half > :last-child { margin-inline-start: auto; color: var(--lb-muted); }
-.mq-streak-xp { color: var(--lb-muted); font-size: var(--lb-type-small); }
+.mq-calendar { display: grid; gap: var(--lb-space-sm); }
 .mq-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--lb-space-xs); }
 .mq-day { display: grid; justify-items: center; gap: var(--lb-space-xs); color: var(--lb-muted); font-size: var(--lb-type-micro); }
 .mq-day > :last-child { width: 100%; padding: var(--lb-space-xs); text-align: center; background: var(--lb-track); border: var(--lb-border) solid transparent; border-radius: var(--lb-radius); }

@@ -112,7 +112,7 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
   expect(current()[list][index].id).not.toBe(before[index]);
   expect(current()[list].filter((mission, slot) => slot !== index).map(mission => mission.id)).toEqual(before.filter((_, slot) => slot !== index));
   expect(current()[points]).toBe(total);
-  expect(api.save.universalParts).toBe(parts);
+  expect(api.save.universalParts).toEqual(parts);
   expect(api.save.missions[tab === 'daily' ? 'weekly' : 'daily'].swapDate).toBe('');
   const after = current()[list][index];
   game.w._changeMission(index, tab === 'weekly');
@@ -162,13 +162,13 @@ it('shows the golden-zone Universal Part, not a crate, and keeps the claim above
   game.w.renderMissionsOverlay('weekly');
   const locked = document.querySelector('[data-mqctip]');
   expect(locked.getAttribute('aria-label')).toContain('180+ points');
-  expect(locked.querySelector('.mq-ms-crate--locked').src).toContain('/parts/universal-part-128.png');
+  expect(locked.querySelector('.mq-ms-crate--locked').src).toContain('/parts/universal-common.webp');
   weekly.points++;
   weekly.pendingUniversalParts = 1;
   api.setSave(save);
   game.w.renderMissionsOverlay('weekly');
-  const claim = [...document.querySelectorAll('.mq-ms-claim-btn')].find(button => button.getAttribute('aria-label').startsWith('Collect +1 Universal Part'));
-  expect(claim.querySelector('img').src).toContain('/parts/universal-part-128.png');
+  const claim = [...document.querySelectorAll('.mq-ms-claim-btn')].find(button => button.getAttribute('aria-label').startsWith('Collect +1 Common Universal Part'));
+  expect(claim.querySelector('img').src).toContain('/parts/universal-common.webp');
 });
 
 it('rolls full daily and weekly sets without repeated objectives', () => {
@@ -328,7 +328,6 @@ it('credits raw and multiplied game XP separately and adds booster XP only once'
   missions.weekly.weekKey = api.missionWeekKey();
   missions.weekly.isoWeekKey = true;
   missions.weekly.missions = xpQuests('weekly', 100);
-  missions.streaks.daily = 6;
   save.missions = missions;
   save.boosters = {'2xp_game': 2};
 

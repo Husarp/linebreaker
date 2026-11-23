@@ -217,7 +217,7 @@ it('migrates old saves without resetting points or already-claimed stage receipt
   } };
   const clock = { lastSeenTime: EPOCH + DAY, seasonBlockedUntil: EPOCH + 2 * DAY };
   const clean = sanitizeSave({ ...defaults, season, ...clock }, defaults);
-  expect(clean).toMatchObject({ schemaVersion: 2, ...clock });
+  expect(clean).toMatchObject({ schemaVersion: 3, ...clock });
   expect(clean.season).toEqual({ id: 1, points: 45, bonusClaimed: 0, claimed: {
     1: { type: 'crate', tier: 'common', contents: [{ type: 'parts', key: 'shadow', amount: 1 }] },
     30: { type: 'skin', key: 'season-prism' },
@@ -428,7 +428,7 @@ it('claims the rare overflow row repeatedly and retains count and remainder on r
     advance(16);
     expect(api.save.season.bonusClaimed).toBe(count);
   }
-  expect(api.save.universalParts).toBe(universalParts);
+  expect(api.save.universalParts).toEqual(universalParts);
   expect(api.save.storedCrates).toEqual([...storedCrates, { rarity: 'rare' }, { rarity: 'rare' }]);
   expect(bonus().querySelector('button')).toBeNull();
   expect(bonus().querySelector('progress').value).toBe(2);
@@ -439,6 +439,6 @@ it('claims the rare overflow row repeatedly and retains count and remainder on r
   await w.openInventory('crates');
   w.document.querySelector('.lb43-open-all').click();
   expect(api.save.storedCrates).toEqual([]);
-  expect(api.save.universalParts).toBeGreaterThan(universalParts);
+  expect(api.save.universalParts.rare).toBeGreaterThanOrEqual((universalParts.rare || 0) + 2);
   expect(api.save.stats.rareItemsFromDailyBox).toBe(giftStat);
 });

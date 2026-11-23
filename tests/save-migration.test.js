@@ -142,7 +142,7 @@ it('does not award a time trial tier without a qualifying saved time', async () 
 it('migrates legacy scores, listening counts, and dates without retaining duplicates', async () => {
   game = await loadGame();
   const clean = game.w.sanitizeSave(legacy, { ...game.api.save, lastSeenTime: 0 });
-  expect(clean.schemaVersion).toBe(2);
+  expect(clean.schemaVersion).toBe(3);
   expect(clean.leaderboard.map(entry => entry.score)).toEqual([1500, 1000, 800]);
   expect(clean.leaderboard[0]).toMatchObject({ date: '2026-02-07', lines: 20, maxSpeed: 5 });
   expect(clean.pinnedScores[0]).toMatchObject({ date: '2026-11-18', clock: '12:30', note: 'Keep this' });
@@ -152,11 +152,12 @@ it('migrates legacy scores, listening counts, and dates without retaining duplic
   expect(clean.missions.weekly.dailyPtsLog).toEqual({ '2026-11-17': 2 });
   expect(clean.missions.weekly.dailyAllCompleteDate).toBe('2026-11-07');
   expect(clean.missions.stats.completionHistory).toEqual({ '2026-11-07': 2 });
-  expect(clean.missions.streaks).toEqual({ daily: 3, bestDaily: 3 });
+  expect(clean.missions).not.toHaveProperty('streaks');
   expect(clean.achievements.music_listener).toMatchObject({ tier: 1, tierDates: { '1': '2026-02-07' } });
   expect(clean.achievements.legacy_badge.unlockedAt).toBe('2026-11-18');
   expect(clean.pendingAchievementClaims).toEqual(legacy.pendingAchievementClaims);
-  expect(clean).toMatchObject({ lastDailyGift: '2026-02-07', dailyGiftStreak: 3, lastSeenTime: 0, ownedBtnStyles: ['legacy'] });
+  expect(clean).toMatchObject({ lastDailyGift: '2026-02-07', lastSeenTime: 0, ownedBtnStyles: ['legacy'] });
+  expect(clean).not.toHaveProperty('dailyGiftStreak');
   for (const key of ['highscore', 'highscoreData', 'ownedFonts', 'ownedBgStyles', 'seenMasterRules', 'dailyGiftUnlockReq', 'xpEarnedSinceLastGift', 'stats.bestNormalScore', 'stats.musicTracksListened', 'stats.mostPlayedSongCount', 'missions.weekly.daysPlayedThisWeek']) {
     expect(clean).not.toHaveProperty(key);
   }
@@ -171,9 +172,9 @@ it('loads the fetched catalog before the save and round-trips a compact save', a
   const input = structuredClone(legacy);
   const track = "World's End Valentine";
   const pickerColors = ['#123456', '#234567', '#345678', '#456789', '#56789a', '#6789ab', '#789abc'];
-  const reminders = { enabled: true, daily: false, streak: true, weekly: false };
+  const reminders = { enabled: true, daily: false, weekly: false };
   Object.assign(input, { customPickerColors: pickerColors, menuPlaylist: [track], gamePlaylist: [track], actionPlaylist: [], ghostColorUnlocked: true });
-  Object.assign(input._settings, { colorPalette: '_custom_picker', colorHistory: ['#ABCDEF'], ghostColor: 'colored', keyBindings: { right: ['KeyL', null] }, reminders: { ...reminders, unknown: true } });
+  Object.assign(input._settings, { colorPalette: '_custom_picker', colorHistory: ['#ABCDEF'], ghostColor: 'colored', keyBindings: { right: ['KeyL', null] }, reminders: { ...reminders, streak: true, unknown: true } });
   input.stats.songPlayCounts[track] = 2;
   const writes = [];
   game = await loadGame(true, async (command, payload) => {
@@ -198,7 +199,7 @@ it('loads the fetched catalog before the save and round-trips a compact save', a
   expect(saved.missions.weekly.missions[0].tier).toBe('normal');
   expect(saved.missions.weekly.missions[1]).not.toHaveProperty('tier');
   expect(Object.keys(saved).slice(-5)).toEqual(['stats', 'highscoreHistory', 'pinnedScores', 'funLeaderboard', 'leaderboard']);
-  expect(Object.keys(saved.parts)).toEqual(['classic', 'shadow']);
+  expect(Object.keys(saved.parts)).toEqual(['shadow']);
   api.applyLoadedData(saved);
   await api.writeSaveFile(api.save);
   expect(writes.at(-1)).toBe(savedJson);

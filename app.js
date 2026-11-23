@@ -540,9 +540,9 @@
 
     let saveData = {}; let gainedXPThisRound = 0; let _boosterUsedThisRound = false; let _leveledUpThisGame = false;
     let _gameInProgress = false; // true between startGame and gameOver — blocks mid-game file saves
-    const defaultSaveData = { schemaVersion: LBSave.version, totalXP: 0, parts: {}, universalParts: 0, ownedSkins: [DEFAULT_BLOCK_SKIN], skinCatalogVersion: SKIN_CATALOG_VERSION, ownedThemes: [], ownedBtnStyles: [], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, pendingLevelBox: null, missions: null, season: seasonPass.emptySeason(), lastSeenTime: 0, seasonBlockedUntil: 0, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, dailyStreak: 0, highestDailyStreak: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
+    const defaultSaveData = { schemaVersion: LBSave.version, totalXP: 0, parts: {}, universalParts: {}, ownedSkins: [DEFAULT_BLOCK_SKIN], skinCatalogVersion: SKIN_CATALOG_VERSION, ownedThemes: [], ownedBtnStyles: [], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, pendingLevelBox: null, missions: null, season: seasonPass.emptySeason(), lastSeenTime: 0, seasonBlockedUntil: 0, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
 
-    Object.assign(defaultSaveData, { dailyGiftStreak: 0, lastSeenTime: 0, seenArt: [] });
+    Object.assign(defaultSaveData, { lastSeenTime: 0, seenArt: [] });
 
     // --- FILE SYSTEM ACCESS API ---
     const _nativeAdapter = _qaDemo ? null : window.Capacitor?.isNativePlatform()
@@ -2575,7 +2575,7 @@
         const originalFileSkin = data?._settings?.skin;
         const originalFileShape = data?._settings?.blockShape;
         const legacyLavaParts = legacySkins && Object.hasOwn(data?.parts || {}, 'lava');
-        data = sanitizeSave(data, { ...defaultSaveData, _settings: defaultSettings }, { palettes: BLOCK_PALETTES, boosters: BOOSTER_INFO, ranks: [...RANKS, CELESTITE_RANK], missionDefaults: _defaultMissions(), items: _getAllPartsItems(), skins: SKIN_NAMES, partCost: _getItemCost, partLabel: _partItemName });
+        data = sanitizeSave(data, { ...defaultSaveData, _settings: defaultSettings }, { palettes: BLOCK_PALETTES, boosters: BOOSTER_INFO, ranks: [...RANKS, CELESTITE_RANK], missionDefaults: _defaultMissions(), items: _getAllPartsItems(), skins: SKIN_NAMES, partCost: _getItemCost, partRarity: _getItemRarity, partLabel: _partItemName });
         const previousSeason = data.season;
         if (data.missions) _restoreMissionDefinitions(data.missions);
         let skinNotice = '', skinSettingsChanged = false;
@@ -2593,7 +2593,6 @@
             if (!saveData.ownedThemes) saveData.ownedThemes = [];
             if (!saveData.boosters) saveData.boosters = {};
             if (!saveData.parts) saveData.parts = {};
-            if (saveData.universalParts == null) saveData.universalParts = 0;
             if (!saveData.ownedBtnStyles) saveData.ownedBtnStyles = [];
             if (saveData.ghostColorUnlocked == null) saveData.ghostColorUnlocked = false;
             if (!saveData.ownedSfxPacks) saveData.ownedSfxPacks = ['default'];
@@ -2618,7 +2617,7 @@
             saveData.skinCatalogVersion = SKIN_CATALOG_VERSION;
             if (resetSkin) {
                 skinNotice = 'Retired block skins have been removed. Retro is now equipped.';
-                if (refund) skinNotice += ` You received ${refund} universal ${refund === 1 ? 'part' : 'parts'} for retired skins you owned.`;
+                if (refund) skinNotice += ` You received ${refund} ${LBCrates.universalPartName('common', refund)} for retired skins you owned.`;
             }
             const _validThemes = ['default','ocean','forest','fire','dragon','void','sunset','arctic','midnight','sakura'];
             const _activeTheme = settings.theme || 'default';
@@ -2884,7 +2883,8 @@
         saveData.boosters[type] = (saveData.boosters[type] || 0) + amount;
     }
 
-    const PART_COST_BY_RARITY = { common: 20, rare: 50, epic: 120, legendary: 250, mythic: 500 };
+    const PART_COST_BY_RARITY = { common: 20, rare: 15, epic: 12, legendary: 10, mythic: 8 };
+    const PART_EXCHANGE_RATE = 4;
     const ITEM_RARITIES = {
         glass: 'rare', shadow: 'rare', outline: 'common', holo: 'epic', journey: 'rare', bubble: 'rare',
         ocean: 'common', forest: 'common', fire: 'rare', dragon: 'epic', void: 'epic', sunset: 'rare',
@@ -2918,53 +2918,26 @@
     function _getPartsEligibleItems() {
         return _getAllPartsItems().filter(item => (saveData.parts?.[item.key] || 0) < _getItemCost(item.key));
     }
-    function _weightedPickParts(items, count) {
-        const picks = [];
-        const pool = items.slice();
-        for (let i = 0; i < count && pool.length > 0; i++) {
-            const weights = pool.map(item => item.cat === 'ghostColor' ? 1 : item.cat === 'palette' ? 4 : 5);
-            const total = weights.reduce((a, b) => a + b, 0);
-            let r = Math.random() * total;
-            let idx = 0;
-            for (; idx < pool.length - 1; idx++) { r -= weights[idx]; if (r <= 0) break; }
-            picks.push(pool[idx]);
-            pool.splice(idx, 1);
-        }
-        return picks;
-    }
     function addPartsToItem(key, count) {
         if (!saveData.parts) saveData.parts = {};
         saveData.parts[key] = Math.min(_getItemCost(key), (saveData.parts[key] || 0) + count);
+        return saveData.parts[key];
     }
-    function addUniversalParts(count) {
-        saveData.universalParts = Math.round(((saveData.universalParts || 0) + count) * 10) / 10;
+    function _universalBalance(rarity) { return saveData.universalParts?.[rarity] || 0; }
+    function addUniversalParts(count, rarity = 'common') {
+        const balance = Number((_universalBalance(rarity) + count).toFixed(6));
+        if (balance > 0) (saveData.universalParts ??= {})[rarity] = balance;
+        else if (saveData.universalParts) delete saveData.universalParts[rarity];
+    }
+    function _partDropHooks() {
+        return { eligibleParts: _getPartsEligibleItems, addPart: addPartsToItem, partName: _partItemName,
+            partCost: _getItemCost, partRarity: _getItemRarity, addUniversal: addUniversalParts };
     }
     function _partItemName(key) {
         if (key === 'ghostColor') return 'Colored Ghost';
         return _skinAvailable(key) ? SKIN_NAMES[key] : key.charAt(0).toUpperCase() + key.slice(1);
     }
     const PARTS_PER_UNIVERSAL = 5;
-    function _partConversion(key, amount) {
-        return { type: 'converted_parts', key, amount, icon: '⭐', desc: 'Duplicate converted', rarity: 'rare' };
-    }
-    function _rewardLabel(reward) {
-        if (reward.type !== 'converted_parts') return escapeHtml(reward.label);
-        const { key, amount } = reward;
-        const universal = amount / PARTS_PER_UNIVERSAL;
-        const item = key === 'dragon' ? 'Golden' : key.startsWith('sfx') ? `${key.slice(3)} SFX`
-            : GRID_STYLES[key]?.name || BLOCK_PALETTES[key]?.name || _partItemName(key);
-        const original = `+${amount} part${amount === 1 ? '' : 's'} (${item})`;
-        const converted = `+${universal} universal part${universal === 1 ? '' : 's'}`;
-        return `<s>${escapeHtml(original)}</s> → ${escapeHtml(converted)}`;
-    }
-    function _grantRewardPart(key) {
-        if ((saveData.parts?.[key] || 0) < _getItemCost(key) && _getAllPartsItems().some(item => item.key === key)) {
-            addPartsToItem(key, 1);
-            return false;
-        }
-        addUniversalParts(1 / PARTS_PER_UNIVERSAL);
-        return true;
-    }
     function giveItemDirectly(cat, key) {
         if (cat === 'skin' && !_skinAvailable(key)) return;
         if (cat === 'skin') { if (!saveData.ownedSkins) saveData.ownedSkins = [DEFAULT_BLOCK_SKIN]; if (!saveData.ownedSkins.includes(key)) saveData.ownedSkins.push(key); }
@@ -2989,11 +2962,13 @@
         _populateInventoryOther();
         _checkGlowNotifications();
     }
-    function _exchangePartsIcon() {
-        return `<img class="lb-exchange-parts-icon" src="${window.LBArtPack.universalPart}" width="28" height="28" alt="">`;
+    function _exchangePartsIcon(rarity, item = false) {
+        return `<img class="lb-exchange-parts-icon" src="${item ? LBArtPack.itemPart(rarity) : LBArtPack.universalPart(rarity)}" width="28" height="28" alt="">`;
     }
-    function openUseUniversalPart() {
-        if ((saveData.universalParts || 0) < 1) return;
+    function openUseUniversalPart(rarity = 'common') {
+        if (!LBCrates.rarities.includes(rarity) || _universalBalance(rarity) < 1) return;
+        const matches = item => _getItemRarity(item.key) === rarity;
+        const canUse = key => _getPartsEligibleItems().some(item => item.key === key && matches(item));
         document.getElementById('uni-modal-overlay')?.remove();
         const THEME_NAMES = {ocean:'Ocean',forest:'Forest',fire:'Fire',dragon:'Golden',void:'Void',sunset:'Sunset',arctic:'Arctic',midnight:'Midnight',sakura:'Sakura'};
         const _inputVals = {};
@@ -3004,7 +2979,7 @@
         const MUSIC_NAMES = {};
         const PALETTE_NAMES = {}; Object.keys(BLOCK_PALETTES).forEach(k => { PALETTE_NAMES[k] = BLOCK_PALETTES[k].name + ' Palette'; });
         function _getLabel(item) { return item.key === 'ghostColor' ? 'Colored Ghost' : (SKIN_NAMES[item.key] || THEME_NAMES[item.key] || BTN_STYLE_NAMES[item.key] || GRID_STYLE_NAMES[item.key] || SFX_PACK_NAMES[item.key] || MUSIC_NAMES[item.key] || PALETTE_NAMES[item.key] || item.key); }
-        function _avail() { return saveData.universalParts || 0; }
+        function _avail() { return _universalBalance(rarity); }
         function _totalQueued() { return Object.values(_inputVals).reduce((s,v)=>s+(v||0),0); }
         function _updateBar(key) {
             const bar = document.getElementById(`uni-bar-${key}`);
@@ -3059,7 +3034,7 @@
                     const cur = _inputVals[item.key] || 0;
                     const name = escapeHtml(_getLabel(item));
                     return `<div class="lb-block-card lb-exchange-row">
-                        <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
+                        <div class="lb-exchange-row-art">${_exchangePartsIcon(rarity, true)}</div>
                         <div class="lb-exchange-row-detail">
                             <strong>${name}</strong>
                             <div class="lb-exchange-row-meta lb-inventory-parts-allocation">
@@ -3079,14 +3054,14 @@
         function _rebuildContent() {
             const c = document.getElementById('uni-modal-body');
             if (!c) return;
-            const all = _getAllPartsItems();
+            const all = _getAllPartsItems().filter(matches);
             const avail = _avail();
             c.innerHTML = `<header class="lb-exchange-parts-head">
                 <div class="lb-exchange-title-row">
-                    <h2 id="uni-title" class="lb-block-dialog-title">Universal Parts</h2>
+                    <h2 id="uni-title" class="lb-block-dialog-title">${LBCrates.universalPartName(rarity, 2)}</h2>
                     <button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Close" onclick="window._closeModal('uni-modal-overlay')">×</button>
                 </div>
-                <div class="lb-exchange-balance">${_exchangePartsIcon()}<span id="uni-avail-lbl" class="lb-exchange-badge" aria-live="polite">${Number(avail.toFixed(1))} available</span></div>
+                <div class="lb-exchange-balance">${_exchangePartsIcon(rarity)}<span id="uni-avail-lbl" class="lb-exchange-badge" aria-live="polite">${Number(avail.toFixed(1))} available</span></div>
                 <button type="button" class="lb-block-btn lb-block-btn--primary" id="uni-apply-btn" disabled>
                     <span id="uni-apply-progress" aria-hidden="true"></span>
                     <span id="uni-apply-label">Hold to Apply</span>
@@ -3099,7 +3074,7 @@
             + _buildSection('PALETTES', all.filter(i => i.cat === 'palette'))
             + _buildSection('SFX PACKS', all.filter(i => i.cat === 'sfxPack'))
             + _buildSection('MUSIC', all.filter(i => i.cat === 'music'))
-            + (all.length === 0 ? '<p>You already own everything. Universal parts will carry forward.</p>' : avail === 0 ? '<p>No universal parts remaining.</p>' : '')
+            + (all.length === 0 ? '<p>No matching items need parts.</p>' : avail < 1 ? '<p>No whole universal parts remaining.</p>' : '')
             + '</div>';
             c.querySelectorAll('[data-part-add]').forEach(button => button.addEventListener('click', () => window._uniInc(button.dataset.partAdd)));
             c.querySelectorAll('[data-part-remove]').forEach(button => button.addEventListener('click', () => window._uniDec(button.dataset.partRemove)));
@@ -3121,6 +3096,7 @@
             Object.keys(_inputVals).forEach(key => { if (_inputVals[key] > 0) _updateBar(key); });
         }
         window._uniInc = key => {
+            if (!canUse(key)) return;
             const parts = saveData.parts?.[key] || 0;
             const queued = _totalQueued();
             const cur = _inputVals[key] || 0;
@@ -3169,10 +3145,10 @@
             if (!changes.length) return;
             changes.forEach(([key, count]) => {
                 const parts = saveData.parts?.[key] || 0;
-                const actual = Math.min(count, _avail(), _getItemCost(key) - parts);
+                const actual = canUse(key) ? Math.min(count, Math.floor(_avail()), _getItemCost(key) - parts) : 0;
                 if (actual > 0) {
                     addPartsToItem(key, actual);
-                    saveData.universalParts = Math.max(0, (saveData.universalParts||0) - actual);
+                    addUniversalParts(-actual, rarity);
                 }
             });
             Object.keys(_inputVals).forEach(k => { _inputVals[k] = 0; });
@@ -3242,44 +3218,52 @@
         setQuantity(input.valueAsNumber);
         return () => setQuantity(input.valueAsNumber);
     }
-    function openExchangeUniversalParts() {
-        const avail = Math.floor(saveData.universalParts || 0);
-        if (avail < 1) return;
-        const XP_PER_PART = 5000;
+    function _nextPartRarity(rarity) {
+        const index = LBCrates.rarities.indexOf(rarity);
+        return index < 0 ? undefined : LBCrates.rarities[index + 1];
+    }
+    function exchangeUniversalParts(rarity, sets) {
+        const nextRarity = _nextPartRarity(rarity);
+        const spent = sets * PART_EXCHANGE_RATE;
+        if (!nextRarity || !Number.isSafeInteger(sets) || sets < 1 || spent > _universalBalance(rarity)) return false;
+        addUniversalParts(-spent, rarity);
+        addUniversalParts(sets, nextRarity);
+        return true;
+    }
+    function openExchangeUniversalParts(rarity = 'common') {
+        const nextRarity = _nextPartRarity(rarity);
+        if (!nextRarity) return;
+        const avail = _universalBalance(rarity);
+        const maxSets = Math.floor(avail / PART_EXCHANGE_RATE);
+        if (maxSets < 1) return;
         document.getElementById('uni-xch-overlay')?.remove();
         const ov = document.createElement('div');
         ov.id = 'uni-xch-overlay';
         ov.className = 'lb-exchange-overlay';
         ov.innerHTML = `
             <div class="lb-block-dialog lb-exchange-dialog" role="dialog" aria-modal="true" aria-labelledby="uni-xch-title">
-                <h2 id="uni-xch-title" class="lb-block-dialog-title">Exchange Parts</h2>
-                <p>All items unlocked · ${XP_PER_PART.toLocaleString()} XP per part</p>
+                <h2 id="uni-xch-title" class="lb-block-dialog-title">Exchange Up</h2>
+                <p>Trade ${PART_EXCHANGE_RATE} ${rarity} universal parts for 1 ${nextRarity} universal part.</p>
                 <div class="lb-exchange-pair">
-                    ${_exchangeItemCard({ name: 'Universal Parts', art: _exchangePartsIcon(), rarity: 'common', count: avail, detail: 'You spend', amountId: 'uni-xch-count', amount: `${avail} ${avail === 1 ? 'part' : 'parts'}` })}
+                    ${_exchangeItemCard({ name: LBCrates.universalPartName(rarity, 2), art: _exchangePartsIcon(rarity), rarity, count: avail, detail: 'You spend', amountId: 'uni-xch-count', amount: PART_EXCHANGE_RATE })}
                     <span class="lb-exchange-arrow" aria-hidden="true">→</span>
-                    ${_exchangeItemCard({ name: 'Experience', art: '<img src="assets/ui/boosters/common-xp.png" alt="">', rarity: 'common', detail: 'You receive', amountId: 'uni-xch-xp', amount: `+${(avail * XP_PER_PART).toLocaleString()} XP` })}
+                    ${_exchangeItemCard({ name: LBCrates.universalPartName(nextRarity), art: _exchangePartsIcon(nextRarity), rarity: nextRarity, detail: 'You receive', amountId: 'uni-xch-receive', amount: '+1' })}
                 </div>
-                ${_exchangeQuantity('uni-xch-quantity', 'Parts to exchange', avail, avail)}
+                ${_exchangeQuantity('uni-xch-quantity', 'Sets to exchange', maxSets, 1)}
                 <div class="lb-block-dialog-actions">
                     <button type="button" class="lb-block-btn" onclick="document.getElementById('uni-xch-overlay').remove()">Cancel</button>
                     <button type="button" class="lb-block-btn lb-block-btn--primary" id="uni-xch-confirm">Exchange</button>
                 </div>
             </div>`;
-        const getQuantity = _bindExchangeQuantity(ov, quantity => {
-            ov.querySelector('#uni-xch-count').textContent = `${quantity} ${quantity === 1 ? 'part' : 'parts'}`;
-            ov.querySelector('#uni-xch-xp').textContent = `+${(quantity * XP_PER_PART).toLocaleString()} XP`;
+        const getQuantity = _bindExchangeQuantity(ov, sets => {
+            ov.querySelector('#uni-xch-count').textContent = sets * PART_EXCHANGE_RATE;
+            ov.querySelector('#uni-xch-receive').textContent = `+${sets}`;
         });
         ov.querySelector('#uni-xch-confirm').addEventListener('click', () => {
-            const v = getQuantity();
-            if (v > Math.floor(saveData.universalParts || 0)) return;
-            const xpGain = v * XP_PER_PART;
-            saveData.universalParts = Math.max(0, (saveData.universalParts || 0) - v);
-            _grantXP(xpGain);
-            document.getElementById('uni-xch-overlay')?.remove();
-            drawRankBadge();
+            if (!exchangeUniversalParts(rarity, getQuantity())) return;
+            ov.remove();
             _populateInventoryOther();
             saveDataToFile();
-            customAlert(`+${xpGain.toLocaleString()} XP`, `Exchanged ${v} Universal Part${v !== 1 ? 's' : ''}!`);
         });
         ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
         document.body.appendChild(ov);
@@ -3290,14 +3274,14 @@
             if (reward.type === 'converted_parts') {
                 const item = reward.key === 'dragon' ? 'Golden' : reward.key.startsWith('sfx') ? `${reward.key.slice(3)} SFX`
                     : GRID_STYLES[reward.key]?.name || BLOCK_PALETTES[reward.key]?.name || _partItemName(reward.key);
-                return { type: 'universal_parts', label: 'Universal Part', amount: reward.amount / PARTS_PER_UNIVERSAL,
+                return { type: 'universal_parts', label: LBCrates.universalPartName(reward.rarity), amount: reward.amount / PARTS_PER_UNIVERSAL,
                     desc: `From duplicate ${item} parts`, rarity: reward.rarity };
             }
             const item = /^\+(\d+) Part: (.+)$/.exec(reward.label);
             if (item) return { ...reward, type: 'parts', label: `${item[2]} Part`, amount: reward.amount ?? Number(item[1]), desc: showPartProgress ? reward.desc : undefined };
             const universal = /^\+(\d+) Universal Parts?$/.exec(reward.label);
-            if (universal) return { ...reward, type: 'universal_parts', label: 'Universal Part', amount: reward.amount ?? Number(universal[1]), desc: undefined };
-            return { ...reward, amount: reward.amount ?? 1 };
+            if (universal || reward.type === 'universal_parts') return { ...reward, type: 'universal_parts', label: LBCrates.universalPartName(reward.rarity || 'common'), amount: reward.amount ?? Number(universal?.[1] || 1), desc: undefined };
+            return { ...reward, amount: reward.amount ?? 1, desc: reward.type === 'parts' && !showPartProgress ? undefined : reward.desc };
         }), rankUnlockText);
     }
     function _rewardRankIdentity(level) {
@@ -3306,31 +3290,8 @@
         const name = rank.name[0] + rank.name.slice(1).toLowerCase();
         return { rank, name: division ? `${name} ${_toRoman(division)}` : name };
     }
-    function _generateLevelBoxRewards() {
-        const rewards = [];
-        const allItems = _getAllPartsItems();
-        const picks = _weightedPickParts(allItems, Math.min(10, allItems.length));
-        picks.forEach(item => {
-            if (_grantRewardPart(item.key)) {
-                rewards.push(_partConversion(item.key, 1));
-                return;
-            }
-            const partCount = saveData.parts[item.key] || 0;
-            rewards.push({ type: 'parts', key: item.key, icon: '🧩', label: `+1 Part: ${_partItemName(item.key)}`,
-                desc: `${partCount}/${_getItemCost(item.key)} parts`, rarity: item.cat === 'ghostColor' ? 'epic' : 'common' });
-        });
-        // Pad with universal parts if fewer than 10 unique items available
-        const partsGiven = picks.length;
-        for (let i = partsGiven; i < 10; i++) {
-            addUniversalParts(1);
-            rewards.push({ icon: '⭐', label: '+1 Universal Part', desc: 'Added to your inventory', rarity: 'rare' });
-        }
-        // Always give 2 universal parts
-        addUniversalParts(1);
-        rewards.push({ icon: '⭐', label: '+1 Universal Part', desc: 'Added to your inventory', rarity: 'rare' });
-        addUniversalParts(1);
-        rewards.push({ icon: '⭐', label: '+1 Universal Part', desc: 'Added to your inventory', rarity: 'rare' });
-        return rewards;
+    function _generateLevelBoxRewards(rarity = 'common') {
+        return LBCrates.grantPartDrops(10, _partDropHooks(), { rarity, amount: 2 });
     }
 
     function _grantXP(amount) {
@@ -3346,7 +3307,7 @@
         return [
             ...Object.entries({ common: through - from + 1 - fifths + 2 * rankChanges, rare: fifths + rankChanges, epic: rankChanges })
                 .map(([rarity, amount]) => ({ type: 'crate', label: LBCrates.crateLabel(rarity), rarity, amount })),
-            { type: 'universal_parts', label: 'Universal Part', rarity: 'rare', amount: 3 * rankChanges },
+            { type: 'universal_parts', label: LBCrates.universalPartName('rare'), rarity: 'rare', amount: 3 * rankChanges },
             { type: 'booster', key: RANK_REWARD_BOOSTER, ...BOOSTER_INFO[RANK_REWARD_BOOSTER], amount: rankChanges },
         ].filter(reward => reward.amount > 0);
     }
@@ -3378,7 +3339,7 @@
                     if (type === 'crate') {
                         const stock = profile.storedCrates ??= [];
                         for (let index = 0; index < amount; index++) stock.push({ rarity, source: 'rank' });
-                    } else if (type === 'universal_parts') addUniversalParts(amount);
+                    } else if (type === 'universal_parts') addUniversalParts(amount, rarity);
                     else addBoosterToSave(key, amount);
                 }
                 saveDataToFile();
@@ -3437,7 +3398,7 @@
         saveData.ghostColorUnlocked = false;
         saveData.boosters = {};
         saveData.parts = {};
-        saveData.universalParts = 0;
+        saveData.universalParts = {};
         saveSettings();
         customAlert('Items reset! All unlocked items removed.', 'DEV');
     }
@@ -3923,7 +3884,7 @@
         ['controls', 'Controls', 'Touch, gestures, vibration', 'game', '<path d="M2 7h20v10H2zm4 5h6m-3-3v6m7-2v.1m3-2v.1"/>', 'key bindings gameplay assistance timing'],
         ['display', 'Display', 'Background, effects, contrast', 'game', '<path d="M3 4h18v13H3zm5 16h8m-4-3v3"/>', 'wallpaper theme palette accent cyan green motion screen'],
         ['audio', 'Audio', 'Music, effects, tempo', 'game', '<path d="M3 9h4l5-4v14l-5-4H3zm13-1a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>', 'sound volume mute sfx'],
-        ['notifications', 'Notifications', 'Reminders, updates', 'app', '<path d="M7 10a5 5 0 0 1 10 0v3l2 3H5l2-3zm3 9h4"/>', 'daily weekly streak missions'],
+        ['notifications', 'Notifications', 'Reminders, updates', 'app', '<path d="M7 10a5 5 0 0 1 10 0v3l2 3H5l2-3zm3 9h4"/>', 'daily weekly missions'],
         ['updates', 'Data & updates', 'Save data and app version', 'app', '<path d="M4 5l8-3 8 3v7c0 5-8 10-8 10s-8-5-8-10z"/>', 'install release notes help credits transfer reset'],
         ['game', 'Gameplay', '', '', '', '', 'controls'],
         ['about', 'Save data and help', '', '', '', '', 'updates'],
@@ -4158,7 +4119,7 @@
         const safeLabel = escapeHtml(label);
         const progress = cost > 0 ? `<div class="lb-inventory-progress">
             <progress class="lb-block-progress" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
-            <span>${Math.min(parts, cost)}/${cost} parts</span>
+            <span class="lb-item-part-count">${_exchangePartsIcon(_getItemRarity(itemKey), true)}${Math.min(parts, cost)}/${cost} parts</span>
         </div>` : '';
         const unlock = cost > 0 && parts >= cost ? `<div class="lb-inventory-controls"><button type="button" class="lb-inventory-action lb-block-btn lb-block-btn--primary" onclick="${onUnlockJs}">Unlock</button></div>` : '';
         return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" class="inv-row lb-inventory-card lb-inventory-item lb-block-card"${equipped ? ' tabindex="-1"' : ''}>
@@ -4180,7 +4141,7 @@
             ${owned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
             <header><div><h3>${label}</h3>${_itemRarityLabel(key)}</div>${!owned ? `<span class="lb-colors-state">${_inventoryState(false)}</span>` : ''}</header>
             ${preview}${detail ? `<p>${detail}</p>` : ''}
-            ${cost ? `<div class="lb-colors-parts"><progress class="lb-block-progress" aria-label="${label} parts" value="${parts}" max="${cost}"></progress><span>${parts}/${cost} parts</span></div>` : ''}
+            ${cost ? `<div class="lb-colors-parts"><progress class="lb-block-progress" aria-label="${label} parts" value="${parts}" max="${cost}"></progress><span class="lb-item-part-count">${_exchangePartsIcon(_getItemRarity(key), true)}${parts}/${cost} parts</span></div>` : ''}
             ${equipped ? `<div class="lb-colors-state lb-inventory-equipped-label">${_inventoryState(true, true)} Equipped</div>` : ''}
             ${cost && parts === cost ? `<div class="lb-colors-actions"><button type="button" class="lb-block-btn lb-block-btn--primary" onclick="${unlock}">Unlock</button></div>` : ''}
         </article>`;
@@ -4447,27 +4408,31 @@
                 <span class="lb-collection-label">${category}</span>${help}<span class="lb-collection-label">Quantity</span>
             </div>`;
 
-        // Universal parts section
-        const _uniVal = saveData.universalParts || 0;
         const activeTab = document.getElementById('inventory-overlay')._invTab;
         const crates = saveData.storedCrates || [];
-        const stockTotals = { crates: crates.length, boosters: ownedBoosters, parts: Number(_uniVal.toFixed(1)) };
+        const partTotal = LBCrates.rarities.reduce((total, rarity) => total + _universalBalance(rarity), 0);
+        const stockTotals = { crates: crates.length, boosters: ownedBoosters, parts: Number(partTotal.toFixed(1)) };
         if (activeTab === 'crates') LBCrates.renderLocker(document.getElementById('inventory-crates'), crates, _openStoredCrates);
         if (Object.hasOwn(stockTotals, activeTab)) {
             document.getElementById('inventory-quantity').textContent = `${stockTotals[activeTab].toLocaleString('en-US')} owned`;
         }
-        const exchangeForXP = _getAllPartsItems().length === 0;
-        const uniRow = `<div class="lb-block-card lb-exchange-row lb-inventory-parts">
-            <div class="lb-exchange-row-art">${_exchangePartsIcon()}</div>
+        const eligibleRarities = new Set(_getPartsEligibleItems().map(({ key }) => _getItemRarity(key)));
+        const uniRows = LBCrates.rarities.map(rarity => {
+            const count = _universalBalance(rarity);
+            const nextRarity = _nextPartRarity(rarity);
+            const name = LBCrates.universalPartName(rarity, 2);
+            return `<div class="lb-block-card lb-exchange-row lb-inventory-parts" data-rarity="${rarity}">
+            <div class="lb-exchange-row-art">${_exchangePartsIcon(rarity)}</div>
             <div class="lb-exchange-row-detail">
-                <strong class="lb-help-label">Universal Parts <button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" data-control-tip="About universal parts"></button></strong>
-                <div class="lb-inventory-progress lb-inventory-universal-progress">
-                    <progress class="lb-block-progress" aria-label="Progress toward one usable universal part" max="1" value="${Math.min(1, _uniVal)}"></progress>
-                    <span>${Number(_uniVal.toFixed(1))} owned</span>
-                </div>
+                <strong>${name}</strong>
+                <span class="lb-collection-quantity">${count.toLocaleString('en-US')} owned</span>
             </div>
-            <button type="button" class="lb-block-btn lb-block-btn--primary" data-use-parts ${_uniVal < 1 ? 'disabled' : ''}>${exchangeForXP ? 'Exchange' : 'Use'}</button>
+            <div class="lb-parts-actions">
+                <button type="button" class="lb-block-btn" data-use-parts="${rarity}" aria-label="Use ${name}" ${count < 1 || !eligibleRarities.has(rarity) ? 'disabled' : ''}>Use</button>
+                ${nextRarity ? `<button type="button" class="lb-block-btn" data-exchange-parts="${rarity}" aria-label="Exchange ${name} up to ${nextRarity}" ${count < PART_EXCHANGE_RATE ? 'disabled' : ''}>Exchange Up</button>` : ''}
+            </div>
         </div>`;
+        }).join('');
 
         // Boosters section
         const boosterHtml = BOOSTER_KEYS.map((key, i) => {
@@ -4502,7 +4467,8 @@
                 '', p.key, p.packId);
         }).join('');
 
-        partsPanel.innerHTML = locker('Parts', 'Universal parts unlock items or exchange for XP.', _exchangePartsIcon()) + uniRow;
+        partsPanel.innerHTML = locker('Parts', 'Use parts on matching rarities, or trade 4 for 1 of the next rarity.', _exchangePartsIcon('common'),
+            '<button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" data-control-tip="About universal parts"></button>') + uniRows;
         boosterPanel.innerHTML = locker('Boosters', `${boosterTypes} ${boosterTypes === 1 ? 'type' : 'types'} in your collection`,
             LBArtPack.boosterIcon(BOOSTER_KEYS.find(key => boosters[key] > 0) || BOOSTER_KEYS[0]),
             '<button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" data-control-tip="About boosters"></button>') +
@@ -4512,7 +4478,8 @@
                 <h2 class="lb-block-section-title">SFX Packs</h2>
                 ${sfxPacksHtml}
             </section>`;
-        partsPanel.querySelector('[data-use-parts]').addEventListener('click', exchangeForXP ? openExchangeUniversalParts : openUseUniversalPart);
+        partsPanel.querySelectorAll('[data-use-parts]').forEach(button => button.addEventListener('click', () => openUseUniversalPart(button.dataset.useParts)));
+        partsPanel.querySelectorAll('[data-exchange-parts]').forEach(button => button.addEventListener('click', () => openExchangeUniversalParts(button.dataset.exchangeParts)));
         boosterPanel.querySelectorAll('[data-exchange-booster]').forEach(button => button.addEventListener('click', () => {
             const index = Number(button.dataset.exchangeBooster);
             exchangeBoosters(BOOSTER_KEYS[index], BOOSTER_KEYS[index + 1]);
@@ -4570,9 +4537,8 @@
     }
     function _grantRarityCrate(rarity, daily) {
         return LBCrates.grantDailyGift(saveData, LBCrates.giftContents(rarity), {
-            pickParts: count => _weightedPickParts(_getPartsEligibleItems(), count), addPart: addPartsToItem,
-            partName: _partItemName, addUniversal: addUniversalParts, addBooster: addBoosterToSave, boosterInfo: BOOSTER_INFO,
-        }, daily);
+            ..._partDropHooks(), addBooster: addBoosterToSave, boosterInfo: BOOSTER_INFO,
+        }, daily, rarity);
     }
 
     function _openStoredCrates(rarity) {
@@ -4584,7 +4550,7 @@
         const crates = stock.splice(index, rarity ? 1 : stock.length);
         const cards = crates.flatMap(crate => {
             if (crate.source === 'legacy') return crate.rewards;
-            if (crate.source === 'level') return _generateLevelBoxRewards();
+            if (crate.source === 'level') return _generateLevelBoxRewards(crate.rarity);
             if (crate.source === 'mission') return _grantMissionCrateParts(crate.amount);
             return _grantRarityCrate(crate.rarity, crate.source === 'daily');
         });
@@ -5436,7 +5402,6 @@
         booster_user: 'M8 2h8v3h-1v4h3v3h2v8h-2v2H6v-2H4v-8h2V9h3V5H8zm5 8h-2v4H8v2h3v4h2v-4h3v-2h-3z',
         fun_score: 'M6 2h12v2h3v3h2v10h-2v3h-3v2H6v-2H3v-3H1V7h2V4h3zM6 8v3h3V8zm9 0v3h3V8zM6 14v2h2v2h8v-2h2v-2h-3v2H9v-2z',
         i_piece_lines: 'M9 2h6v4H9zm0 5h6v4H9zm0 5h6v4H9zm0 5h6v4H9zM2 18h5v2H2zm15 0h5v2h-5z',
-        daily_streak: '#lb-metric-flame',
         board_clear: 'M2 2h20v20H2zm2 2v16h16V4zm7 3h2v3h3v2h-3v3h-2v-3H8v-2h3zm-4 8h2v2H7zm9-1h2v2h-2z',
         top_line: 'M2 3h20v19H2zm2 5v12h16V8zM4 5v1h2V5zm4 0v1h2V5zm4 0v1h2V5zm4 0v1h2V5zm-5 5h2v2h2v2h2v2h-4v3h-2v-3H7v-2h2v-2h2z',
         level_101: 'M2 4h3v3h2v3h3V7h1V3h2v4h1v3h3V7h2V4h3v6h-2v9H4v-9H2zm4 13h12v-2H6zm5-5v2h2v-2z',
@@ -6081,7 +6046,7 @@
         counter: { path: 'missions.stats.byTier.easy', label: 'Easy Quests Done' },
         tiers: [
             { rarity: 'common',    name: 'First Steps',   desc: 'Complete an Easy quest (daily or weekly)',     progress: { path: 'missions.stats.byTier.easy', target: 1   } },
-            { rarity: 'rare',      name: 'Easy Streak',    desc: 'Complete 30 Easy quests (daily or weekly)',    progress: { path: 'missions.stats.byTier.easy', target: 30  } },
+            { rarity: 'rare',      name: 'Easy Regular',   desc: 'Complete 30 Easy quests (daily or weekly)',    progress: { path: 'missions.stats.byTier.easy', target: 30  } },
             { rarity: 'epic',      name: 'Green Thumb',    desc: 'Complete 50 Easy quests (daily or weekly)',    progress: { path: 'missions.stats.byTier.easy', target: 50  } },
         ],
     },
@@ -9391,7 +9356,6 @@
         return {
             daily:   { quests: [], secret: null, lastRefreshDate: '', swapDate: '', pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: false },
             weekly:  { missions: [], weekKey: '', swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: false, pendingUniversalParts: 0, universalPtsTracked: 0 },
-            streaks: { daily: 0 },
             stats:   { totalCompleted: 0, byTier: { easy: 0, normal: 0, hard: 0, secret: 0 }, weeklyCompleted: 0, totalPts: 0, completionHistory: {} },
             specialBox: { pts: 0 },
         };
@@ -9543,7 +9507,6 @@
         const m = saveData.missions;
         if (!m.daily)   m.daily   = _defaultMissions().daily;
         if (!m.weekly)  m.weekly  = _defaultMissions().weekly;
-        if (!m.streaks) m.streaks = _defaultMissions().streaks;
         if (!m.stats)   m.stats   = _defaultMissions().stats;
         // Migration: ensure new fields exist
         if (m.daily.completedToday === undefined) m.daily.completedToday = false;
@@ -9815,8 +9778,8 @@
               m.specialBox.pts = (m.specialBox.pts || 0) + _excessDelta;
               if (m.specialBox.pts >= MQ_SPECIAL_BOX_CAP) {
                   m.specialBox.pts -= MQ_SPECIAL_BOX_CAP;
-                  saveData.universalParts = (saveData.universalParts || 0) + MQ_SPECIAL_BOX_PARTS;
-                  _showMissionReward(`+${MQ_SPECIAL_BOX_PARTS} Universal Parts — Bonus Box!`);
+                  addUniversalParts(MQ_SPECIAL_BOX_PARTS);
+                  _showMissionReward(`+${MQ_SPECIAL_BOX_PARTS} ${LBCrates.universalPartName('common', MQ_SPECIAL_BOX_PARTS)} — Bonus Box!`);
               }
           } }
         // Track completions per day and total pts for stats
@@ -9899,10 +9862,10 @@
         });
         if (isWeekly) {
             const pending = saveData.missions?.weekly?.pendingUniversalParts || 0;
-            const content = `<img class="mq-ms-crate${points <= goal && !pending ? ' mq-ms-crate--locked' : ''}" src="${LBArtPack.universalPart}" alt=""><span aria-hidden="true">${goal}+</span>`;
-            const label = `${goal}+ points: earn +1 Universal Part per extra point`;
+            const content = `<img class="mq-ms-crate${points <= goal && !pending ? ' mq-ms-crate--locked' : ''}" src="${LBArtPack.universalPart('common')}" alt=""><span aria-hidden="true">${goal}+</span>`;
+            const label = `${goal}+ points: earn +1 Common Universal Part per extra point`;
             markers.push(pending > 0
-                ? `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} Universal Part${pending !== 1 ? 's' : ''}">${content}<span class="mq-ms-claimed" aria-hidden="true">+${escapeHtml(pending)}</span></button>`
+                ? `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} ${LBCrates.universalPartName('common', pending)}">${content}<span class="mq-ms-claimed" aria-hidden="true">+${escapeHtml(pending)}</span></button>`
                 : `<span class="mq-ms-marker" role="img" aria-label="${label}" data-mqctip="${label}">${content}</span>`);
         }
         return `<div class="mq-milestone-meter">
@@ -10223,22 +10186,7 @@
     }
 
     function _grantMissionCrateParts(amount) {
-        const rewards = [];
-        for (let count = 0; count < amount; count++) {
-            const items = _getAllPartsItems();
-            if (!items.length) {
-                addUniversalParts(1);
-                rewards.push({ icon:'⭐', label:'+1 Universal Part', desc:'All items collected', rarity:'rare' });
-                continue;
-            }
-            const item = items[Math.floor(Math.random() * items.length)];
-            if (_grantRewardPart(item.key)) {
-                rewards.push(_partConversion(item.key, 1));
-            } else {
-                rewards.push({ type: 'parts', key: item.key, label:`+1 Part: ${_partItemName(item.key)}`, desc:`${saveData.parts[item.key]}/${_getItemCost(item.key)} parts`, rarity:'common' });
-            }
-        }
-        return rewards;
+        return LBCrates.grantPartDrops(amount, _partDropHooks());
     }
 
     window._claimWeeklyUniversalParts = function(silent = false, button) {
@@ -10247,10 +10195,10 @@
         const pending = saveData.missions.weekly.pendingUniversalParts || 0;
         if (pending <= 0) return;
         saveData.missions.weekly.pendingUniversalParts = 0;
-        saveData.universalParts = (saveData.universalParts || 0) + pending;
+        addUniversalParts(pending);
         saveDataToFile();
         if (silent) return;
-        _showMissionReward(`+${pending} Universal Part${pending !== 1 ? 's' : ''}!`);
+        _showMissionReward(`+${pending} ${LBCrates.universalPartName('common', pending)}!`);
         renderMissionsOverlay('weekly');
         _checkGlowNotifications();
     };
@@ -10310,8 +10258,8 @@
                 m.specialBox.pts = (m.specialBox.pts || 0) + _bonusBoxDelta;
                 if (m.specialBox.pts >= MQ_SPECIAL_BOX_CAP) {
                     m.specialBox.pts -= MQ_SPECIAL_BOX_CAP;
-                    saveData.universalParts = (saveData.universalParts || 0) + MQ_SPECIAL_BOX_PARTS;
-                    if (!silent) _showMissionReward(`+${MQ_SPECIAL_BOX_PARTS} Universal Parts — Bonus Box!`);
+                    addUniversalParts(MQ_SPECIAL_BOX_PARTS);
+                    if (!silent) _showMissionReward(`+${MQ_SPECIAL_BOX_PARTS} ${LBCrates.universalPartName('common', MQ_SPECIAL_BOX_PARTS)} — Bonus Box!`);
                 }
             }
         }
@@ -10984,7 +10932,7 @@
                 _dm.specialBox.pts = (_dm.specialBox.pts || 0) + _excessDelta2;
                 if (_dm.specialBox.pts >= MQ_SPECIAL_BOX_CAP) {
                     _dm.specialBox.pts -= MQ_SPECIAL_BOX_CAP;
-                    saveData.universalParts = (saveData.universalParts || 0) + MQ_SPECIAL_BOX_PARTS;
+                    addUniversalParts(MQ_SPECIAL_BOX_PARTS);
                 }
             }
         }
@@ -11070,10 +11018,10 @@
                 ${block('Play & claim', '<p>Play <strong>Normal</strong> to progress most missions, or <strong>Fun</strong> for objectives that ask for it. Daily points count toward weekly milestones. Daily quests refresh each day and weekly missions reset on Monday.</p><p>Claim rewards in <strong>Missions</strong>. Each day you can swap one eligible daily mission and one eligible weekly mission. Secret quests cannot be swapped.</p>')}
                 ${block('Daily milestones', milestones(MQ_DAILY_MILESTONES))}
                 ${block('Weekly milestones', milestones(MQ_WEEKLY_MILESTONES))}
-                ${block('Extra rewards', `<p><strong>Bonus Box:</strong> Earn ${MQ_SPECIAL_BOX_PARTS} universal parts for every ${MQ_SPECIAL_BOX_CAP} points past the last daily milestone.</p><p><strong>Golden Zone:</strong> Claim one universal part per weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD}.</p>`)}`],
+                ${block('Extra rewards', `<p><strong>Bonus Box:</strong> Earn ${MQ_SPECIAL_BOX_PARTS} common universal parts for every ${MQ_SPECIAL_BOX_CAP} points past the last daily milestone.</p><p><strong>Golden Zone:</strong> Claim one common universal part per weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD}.</p>`)}`],
             ['boxes', 'Boxes & parts', `
                 ${block('Find & use parts', '<p>Earn parts from <strong>level boxes, milestones and missions</strong>. Each cosmetic has its own parts. Collect enough to unlock and equip it in Inventory.</p>')}
-                ${block('Universal parts', '<p>Fill in missing item parts in <strong>Inventory → Parts</strong>. Once no part unlocks remain, trade universal parts for XP.</p>')}`],
+                ${block('Universal parts', '<p>In <strong>Inventory → Parts</strong>, use one universal part in place of one item part of the same rarity. Exchange four universal parts for one of the next rarity. You can only exchange up.</p>')}`],
             ['achievements', 'Achievements & rarities', `
                 ${block('Track & claim', '<p>Claim each reward in Achievements. Bronze gives XP; Silver and Gold add crates to Inventory. Secret goals stay hidden until you find them.</p>')}
                 ${block('Rarity rewards', `<p>Check the info box for earned tier rewards.</p>${table('Single-goal XP by rarity', ['Rarity', 'XP'], Object.entries(RARITY_ACH).map(([id, { label }]) => [label, number(_ACH_XP[id])]))}`)}`],
@@ -11380,8 +11328,9 @@
             hold: doHold, drop: playerDrop, sweep: arenaSweep, tick(dtMs) { update(lastTime + dtMs); },
             nextPiece: getNextPiece, gameOver, getLevelInfo, drawRankBadge, badgeLevelLabel: _badgeLevelLabel,
             imageSkinAtlasCell, imageSkinTintKey, drawGameBlock, partsItems: _getAllPartsItems, partCost: _getItemCost,
+            partRarity: _getItemRarity, exchangeUniversalParts,
             missionWeekKey: _missionWeekKey, missionDateKey: _missionDateKey,
-            rewardLabel: _rewardLabel, grantRewardPart: _grantRewardPart, generateLevelBoxRewards: _generateLevelBoxRewards,
+            generateLevelBoxRewards: _generateLevelBoxRewards,
             previewRunMissions: _previewRunMissions,
             encSave: _encSave, decSave: _decSave,
             defaultMissions: _defaultMissions, refreshMissions: _checkMissionsRefresh,

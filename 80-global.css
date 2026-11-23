@@ -42,9 +42,6 @@ html ::-webkit-scrollbar-corner { background: var(--bb-well); }
 .lb-color-actions .lb-block-btn { flex: 1 auto; }
 .lb-r3 [data-invtab-content="colors"] :is(.lb-colors-theme-sample, .lb-palette-preview) { background: transparent !important; }
 .lb-playlist-row .lb-playlist-track { box-shadow: none !important; }
-.lb64-streak-dots > .lb64-streak-filled { background: #e88746; border-color: #e88746; }
-.lb64-streak-dots > .lb64-streak-today { background: #ed734d; border-color: #ffd0a0; }
-.lb64-streak-count svg { color: #ffad79; }
 
 #credits-overlay { z-index: 1010; background: var(--bb-page); }
 .lb80-credits {

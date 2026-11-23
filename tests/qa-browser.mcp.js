@@ -259,6 +259,44 @@
                 await page.locator(`[data-ui-theme="${theme}"]`).click();
                 await chooseWallpaper(original);
             }
+            if (name === 'inventory-parts') {
+                const parts = await page.locator('#inventory-parts .lb-inventory-parts').evaluateAll(rows => rows.map(row => ({
+                    rarity: row.dataset.rarity,
+                    art: row.querySelector('img')?.getAttribute('src'),
+                    quantity: row.querySelector('.lb-collection-quantity')?.textContent,
+                    use: row.querySelector('[data-use-parts]')?.dataset.useParts,
+                    exchange: row.querySelector('[data-exchange-parts]')?.dataset.exchangeParts ?? null,
+                })));
+                const rarities = ['common', 'rare', 'epic', 'legendary', 'mythic'];
+                if (parts.length !== rarities.length || !parts.every((part, index) => {
+                    const rarity = rarities[index];
+                    return part.rarity === rarity && part.art === `assets/ui/parts/universal-${rarity}.webp` && part.use === rarity
+                        && part.exchange === (rarity === 'mythic' ? null : rarity) && part.quantity === `${[13, 6, 4, 2, 1][index]} owned`;
+                })) fail('Parts locker must show five separate rarity balances with upward-only exchange');
+            }
+            if (name === 'universal-parts') {
+                const allocation = await page.locator('#uni-modal-overlay').evaluate(dialog => {
+                    const rows = [...dialog.querySelectorAll('.lb-exchange-row')];
+                    return dialog.querySelector('#uni-title')?.textContent === 'Rare Universal Parts' && rows.length > 0
+                        && rows.every(row => row.querySelector('img')?.getAttribute('src') === 'assets/ui/parts/part-rune.webp')
+                        && !dialog.querySelector('#uni-inc-outline');
+                });
+                if (!allocation) fail('Rare parts must show only Rare items with the rune material');
+            }
+            if (name === 'universal-exchange') {
+                const exchange = await page.locator('#uni-xch-overlay').evaluate(dialog => ({
+                    spent: dialog.querySelector('#uni-xch-count')?.textContent,
+                    received: dialog.querySelector('#uni-xch-receive')?.textContent,
+                    rarities: [...dialog.querySelectorAll('.lb-exchange-item')].map(card => card.dataset.rarity),
+                }));
+                if (exchange.spent !== '4' || exchange.received !== '+1' || exchange.rarities.join() !== 'common,rare') {
+                    fail('Exchange preview must show 4 Common parts for 1 Rare part');
+                }
+            }
+            if (['missions', 'missions-weekly', 'stats', 'achievements', 'settings-notifications'].includes(name)) {
+                const hasDayStreak = await page.evaluate(() => /\b(?:daily streak|day streak|streak reminder|days in a row|consecutive days)\b/i.test(document.body.innerText));
+                if (hasDayStreak) fail('Day-streak copy must not appear');
+            }
             if (name === 'achievements') {
                 const singleColumn = await page.locator('.ach-records, .ach-pending-list').evaluateAll(lists =>
                     lists.length > 0 && lists.every(list => {

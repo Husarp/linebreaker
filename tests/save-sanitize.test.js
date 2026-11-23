@@ -23,9 +23,9 @@ it('rebuilds hostile save fields and ignores unrecognised top-level data', () =>
  expect(clean.customThemeColor).toBe('#00ffff'); expect(clean.customPickerColors[0]).toBe('#00ffff');
  expect(clean.achievements.test.unlockedAt).toBe('');
  expect(clean.pendingLevelBox.rewards).toHaveLength(1);
- expect(clean.pendingLevelBox.rewards[0].label).toBe('+3 Universal Parts');
+ expect(clean.pendingLevelBox.rewards[0]).toEqual({ type: 'universal_parts', amount: 3, rarity: 'common', label: 'Common Universal Part' });
  expect(clean.pendingMilestoneReward.rewards[0].label).toBe('1.5x Score Booster');
- expect(clean.pendingLevelBoxes[0].rewards[0].label).toBe('+1 Part: Shadow');
+ expect(clean.pendingLevelBoxes[0].rewards[0].label).toBe('Shadow Part');
  expect(JSON.stringify(clean)).not.toContain('<img');
 });
 it('loads a defaults-based real save with progress, dates, missions and legacy boxes intact', () => {
@@ -40,7 +40,7 @@ it('loads a defaults-based real save with progress, dates, missions and legacy b
  fixture.missions.weekly.weekKey = a.missionWeekKey(); fixture.missions.weekly.isoWeekKey=true;
  fixture.missions.stats.totalPts=25;
  a.applyLoadedData(fixture);
- expect(a.save).toMatchObject({schemaVersion:2,skinCatalogVersion:1,totalXP:12345,parts:{shadow:4},universalParts:3.4,ownedSkins:['retro'],boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
+ expect(a.save).toMatchObject({schemaVersion:3,skinCatalogVersion:1,totalXP:12345,parts:{shadow:4},universalParts:{common:3.4},ownedSkins:['retro'],boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
  expect(a.save.leaderboard[0]).toMatchObject({score:5000,date:'2026-11-18',clock:'12:30'});
  expect(a.save.pinnedScores[0].note).toBe('Nice run');
  expect(a.save.storedCrates[0].rewards).toHaveLength(2);
@@ -61,7 +61,7 @@ it('drops retired background entries on load and keeps already collected rewards
    stats:{gamesPlayed:12, parachuteDropsCaught:8},
    achievements:{parachute_catcher:{unlocked:true}, sec_early_bird:{unlocked:true}},
    pendingAchievementClaims:[{id:'parachute_catcher', xp:100}, {id:'sec_early_bird', xp:500}]});
- expect(a.save).toMatchObject({totalXP:12345, parts:{shadow:4}, universalParts:2, stats:{gamesPlayed:12}});
+ expect(a.save).toMatchObject({totalXP:12345, parts:{shadow:4}, universalParts:{common:2}, stats:{gamesPlayed:12}});
  expect(a.save.stats).not.toHaveProperty('parachuteDropsCaught');
  expect(a.save.achievements).toEqual({sec_early_bird:expect.objectContaining({unlocked:true})});
  expect(a.save.pendingAchievementClaims.map(claim => claim.id)).toEqual(['sec_early_bird']);
@@ -92,10 +92,28 @@ it('sanitizes schema v1 skin keys while preserving image rewards and the Neon pa
   ownedSkins:['lava','lava-glass','gem','neon'],ownedPalettes:['classic','neon'],parts:{'golden-dragon':7,lava:4,gem:3,neon:2},
   _settings:{skin:'gem',blockShape:'round'},
   pendingLevelBox:{rewards:[{type:'parts',key:'golden-dragon'},{type:'parts',key:'gem'},{type:'parts',key:'lava'}]}});
- expect(a.save).toMatchObject({schemaVersion:2,ownedSkins:['retro','lava-glass'],ownedPalettes:['classic','neon'],universalParts:3,
+ expect(a.save).toMatchObject({schemaVersion:3,ownedSkins:['retro','lava-glass'],ownedPalettes:['classic','neon'],universalParts:{common:3},
   _settings:{skin:'retro',blockShape:'square'}});
  expect(a.save.parts).toEqual({'golden-dragon':7,neon:2});
- expect(a.save.storedCrates[0].rewards).toEqual([expect.objectContaining({key:'golden-dragon',label:'+1 Part: Golden Dragon',desc:'7/250 parts'})]);
+ expect(a.save.storedCrates[0].rewards).toEqual([expect.objectContaining({key:'golden-dragon',label:'Golden Dragon Part',rarity:'legendary',desc:'7/10 parts'})]);
+});
+it('migrates v2 balances and receipts and caps existing per-item parts without losing owned items', () => {
+ const { w } = game;
+ a.applyLoadedData({ ...a.save, schemaVersion: 2, ownedSkins: ['retro', 'shadow'], ownedThemes: ['ocean'],
+  parts: { outline: 19, glass: 48, shadow: 33, holo: 5, 'golden-dragon': 200 }, universalParts: 7.2,
+  storedCrates: [{ rarity: 'rare', source: 'legacy', rewards: [{ type: 'universal_parts', rarity: 'rare', amount: 3 }] }] });
+ expect(a.save.parts).toEqual({ outline: 19, glass: 15, shadow: 15, holo: 5, 'golden-dragon': 10 });
+ expect(a.save.ownedSkins).toContain('shadow');
+ expect(a.save.ownedThemes).toContain('ocean');
+ expect(a.save.universalParts).toEqual({ common: 7.2 });
+ expect(a.save.storedCrates[0].rewards[0]).toMatchObject({ amount: 3, rarity: 'common' });
+ expect(a.exchangeUniversalParts('common', 1)).toBe(true);
+ for (const [rarity, sets] of [['common', 1], ['rare', 1], ['mythic', 1], ['unknown', 1], ['rare', -1], ['rare', 0.5]]) {
+  expect(a.exchangeUniversalParts(rarity, sets)).toBe(false);
+ }
+ expect(a.save.universalParts).toEqual({ common: 3.2, rare: 1 });
+ a.applyLoadedData(w.LBSave.serializeSave(a.save));
+ expect(a.save.universalParts).toEqual({ common: 3.2, rare: 1 });
 });
 it('sanitizes native desktop saves before displaying loaded progress', async () => {
  game.close();

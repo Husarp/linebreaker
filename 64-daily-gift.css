@@ -39,22 +39,6 @@
 .lb64-crate-subtitle { margin: 4px 0 12px; }
 .lb64-action { min-width: 124px; }
 
-.lb64-streak {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    margin: 10px 0 12px;
-    padding: 5px 10px;
-    color: var(--accent-bright);
-}
-
-.lb64-streak-count, .lb64-streak-dots { display: inline-flex; align-items: center; gap: 5px; }
-.lb64-streak-count { font: 700 14px/1 var(--font-body); }
-.lb64-streak-count svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
-.lb64-streak-dots > span { box-sizing: border-box; width: 10px; height: 10px; border: 1px solid var(--bb-edge); border-radius: 50%; }
-.lb64-streak-dots > .lb64-streak-filled { background: var(--accent); border-color: var(--accent); }
-.lb64-streak-dots > .lb64-streak-today { border: 2px solid var(--accent-bright); background: var(--accent); box-shadow: inset 0 0 0 1px var(--bb-well); }
-
 .lb64-crate-panel .lb64-rewards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(94px, 100%), 1fr)) !important;

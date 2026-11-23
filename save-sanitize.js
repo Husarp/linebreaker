@@ -8,7 +8,8 @@
     const number = (v, fallback = 0, max = 1e12) => typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, v)) : fallback;
     const string = v => typeof v === 'string' ? v.replace(/[&<>"'`\\\u0000-\u001f]/g, '').slice(0, 200) : '';
     const colour = (v, fallback = '#ffffff') => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v : fallback;
-    const version = 2;
+    const version = 3;
+    const retiredDayAchievements = new Set(['daily_streak', 'streak_lost', 'mq_streak_7', 'mq_streak_30']);
     const retainedAchievementTiers = {
         score: [1, 3, 5], games: [1, 3, 5], speed: [1, 3, 5], survival: [1, 3, 5],
         total_blocks: [1, 3, 5], total_lines: [1, 3, 5], speedrunner: [1, 3, 4],
@@ -23,7 +24,7 @@
     };
     const scoreKeys = ['highscoreHistory', 'pinnedScores', 'funLeaderboard', 'leaderboard'];
     const keyGroups = [
-        ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'pendingDailyGift', 'dailyGiftStreak', 'lastSeenTime', 'levelRewardsThrough', 'pendingRankRewards', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
+        ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'pendingDailyGift', 'lastSeenTime', 'levelRewardsThrough', 'pendingRankRewards', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
         ['parts', 'universalParts', 'boosters', 'boxes', 'storedCrates', 'ghostColorUnlocked', 'ownedSkins', 'ownedThemes', 'ownedBtnStyles', 'ownedGridStyles', 'ownedSfxPacks', 'ownedPalettes', 'customPaletteOverrides', 'customPickerColors', 'customThemeColor', '_cpmBaseColor', '_cpmMode', 'menuPlaylist', 'gamePlaylist', 'actionPlaylist'],
         ['missions'], ['season', 'lastSeenTime', 'seasonBlockedUntil'], ['achievements', 'pendingAchievementClaims', 'seenArt'], ['stats'], scoreKeys,
     ];
@@ -66,7 +67,13 @@
     function cleanSettings(value) {
         const { bgStyle, bgBlockMotion, heavyBg, actionMusicMode, classicColors, ...settings } = object(value) ? value : {};
         if ('uiTheme' in settings && !['dark', 'light', 'system'].includes(settings.uiTheme)) settings.uiTheme = 'dark';
+        if (object(settings.reminders)) settings.reminders = Object.fromEntries(['enabled', 'daily', 'weekly']
+            .filter(key => typeof settings.reminders[key] === 'boolean').map(key => [key, settings.reminders[key]]));
         return settings;
+    }
+    function withoutDayStreakStats(value) {
+        const { dailyStreak, highestDailyStreak, ...stats } = value;
+        return stats;
     }
     const legacyListens = 'legacy:unattributed';
     function musicCounts(counts) {
@@ -102,7 +109,7 @@
         return score;
     }
     function cleanAchievements(value) {
-        return Object.fromEntries(entries(value).filter(([key]) => key !== 'parachute_catcher'
+        return Object.fromEntries(entries(value).filter(([key]) => key !== 'parachute_catcher' && !retiredDayAchievements.has(key)
             && (key !== '\u0074etris_lines' || !Object.hasOwn(value, 'i_piece_lines'))).map(([key, entry]) => {
             const achievement = { unlocked: entry?.unlocked === true, unlockedAt: date(entry?.unlockedAt) };
             if (typeof entry?.tier === 'number') achievement.tier = Math.floor(number(entry.tier, 0, 100));
@@ -159,12 +166,13 @@
     }
     function serializeSave(data, weeklyDefinitions = []) {
         const out = { ...data, schemaVersion: version };
+        if (object(data.stats)) out.stats = withoutDayStreakStats(data.stats);
         if (Object.hasOwn(data, 'seenArt')) out.seenArt = window.LBArtPack.cleanSeenArt(data.seenArt);
         if (object(data._settings)) out._settings = cleanSettings(data._settings);
         if (object(data.achievements)) out.achievements = cleanAchievements(data.achievements);
         for (const key of scoreKeys) if (Array.isArray(data[key])) out[key] = data[key].filter(object).map(cleanScore);
         if (object(data.missions)) {
-            const { daily, weekly, streaks } = data.missions;
+            const { daily, weekly, streaks, ...missionState } = data.missions;
             const { daysPlayedThisWeek, ...weeklyState } = weekly;
             const tiers = new Map(weeklyDefinitions.map(def => [def.id, def.tier]));
             const weeklyProgress = quest => {
@@ -173,10 +181,9 @@
                 return progress;
             };
             out.missions = {
-                ...data.missions,
+                ...missionState,
                 daily: { ...daily, quests: daily.quests.map(quest => missionProgress(quest)).filter(Boolean), secret: missionProgress(daily.secret) },
                 weekly: { ...weeklyState, missions: weekly.missions.map(weeklyProgress).filter(Boolean) },
-                streaks: { daily: streaks.daily, bestDaily: streaks.bestDaily },
             };
         }
         return Object.fromEntries(saveKeys.filter(key => Object.hasOwn(out, key)).map(key => [key, sorted(out[key])]));
@@ -231,7 +238,6 @@
         for (const [key, value] of entries(data)) {
             if (!allowed.has(key) || key === 'schemaVersion') continue;
             if (key === 'lastSeenTime') out[key] = Number.isSafeInteger(value) && value >= 0 && value <= 253_402_300_799_999 ? value : 0;
-            else if (key === 'dailyGiftStreak') out[key] = Math.floor(number(value, 0, 100000));
             else if (typeof defaults[key] === 'number' || key === 'levelRewardsThrough' || key === 'skinCatalogVersion') out[key] = number(value, defaults[key] || 0);
             else if (typeof defaults[key] === 'boolean') out[key] = value === true;
             else if (key.endsWith('Playlist')) out[key] = Array.isArray(value) ? [...new Set(list(value).filter(trackName).map(trackTitle))] : (defaults[key] || []);
@@ -242,6 +248,8 @@
             else if (/Color$/.test(key)) out[key] = colour(value, '#00ffff');
             else if (['_cpmMode'].includes(key)) out[key] = string(value);
         }
+        const balances = object(data.universalParts) ? data.universalParts : { common: data.universalParts };
+        out.universalParts = Object.fromEntries(window.LBCrates.rarities.map(rarity => [rarity, number(balances[rarity])]).filter(([, count]) => count > 0));
         out.ownedSkins = [...new Set(list(out.ownedSkins).filter(key => typeof key === 'string' && Object.hasOwn(skins, key)))];
         out.pendingDailyGift = window.LBCrates.restoreGift(data.pendingDailyGift, out.lastDailyGift, date);
         const { from, through } = object(data.pendingRankRewards) ? data.pendingRankRewards : {};
@@ -249,8 +257,8 @@
             && through <= out.levelRewardsThrough && through <= 100000 ? { from, through } : null;
         for (const k of scoreKeys) out[k] = list(data[k]).filter(object).map(cleanScore);
         out.leaderboard.sort((first, second) => (second.score || 0) - (first.score || 0));
-        out.stats = { ...defaults.stats };
-        for (const k of ['_lastSkin', 'bestBlocksIn60s', 'bestDailyXP', 'bestEarnedXP', 'bestFunScore', 'bestHighPlacer', 'bestIPieceLines', 'bestLineStreak', 'bestLoyalPiece', 'bestMaxSpeed', 'bestMirrorScore', 'bestSpeedrunnerTime', 'bestSurvivalTime', 'blockTypeUsage', 'dailyStreak', 'dailyXPAmount', 'dailyXPDate', 'funGamesPlayed', 'gamesAborted', 'gamesPlayed', 'highStackBlocks', 'highestDailyStreak', 'lastPlayDate', 'luckySevenCount', 'maxCombo', 'menuIdleTime', 'muteCount', 'nearMissCount', 'noLineStreak', 'noSpinBlocks', 'pinnedCount', 'playHistory', 'rareItemsFromDailyBox', 'rulesOpened', 'sameSkinStreak', 'seenTitleAnims', 'singleLineClears', 'songPlayCounts', 'surgeonLines', 'tSpinTriples', 'totalBlocksPlaced', 'totalBoostersUsed', 'totalLinesCleared', 'totalQuads', 'totalRotations', 'totalScore', 'totalTimePlayed']) if (Object.hasOwn(data.stats || {}, k)) out.stats[k] = data.stats[k];
+        out.stats = withoutDayStreakStats(defaults.stats || {});
+        for (const k of ['_lastSkin', 'bestBlocksIn60s', 'bestDailyXP', 'bestEarnedXP', 'bestFunScore', 'bestHighPlacer', 'bestIPieceLines', 'bestLineStreak', 'bestLoyalPiece', 'bestMaxSpeed', 'bestMirrorScore', 'bestSpeedrunnerTime', 'bestSurvivalTime', 'blockTypeUsage', 'dailyXPAmount', 'dailyXPDate', 'funGamesPlayed', 'gamesAborted', 'gamesPlayed', 'highStackBlocks', 'lastPlayDate', 'luckySevenCount', 'maxCombo', 'menuIdleTime', 'muteCount', 'nearMissCount', 'noLineStreak', 'noSpinBlocks', 'pinnedCount', 'playHistory', 'rareItemsFromDailyBox', 'rulesOpened', 'sameSkinStreak', 'seenTitleAnims', 'singleLineClears', 'songPlayCounts', 'surgeonLines', 'tSpinTriples', 'totalBlocksPlaced', 'totalBoostersUsed', 'totalLinesCleared', 'totalQuads', 'totalRotations', 'totalScore', 'totalTimePlayed']) if (Object.hasOwn(data.stats || {}, k)) out.stats[k] = data.stats[k];
         for (const [k, v] of Object.entries(out.stats)) {
             if (['lastPlayDate','dailyXPDate'].includes(k)) out.stats[k] = date(v);
             else if (k === '_lastSkin') out.stats[k] = string(v);
@@ -269,7 +277,7 @@
         out.seenArt = window.LBArtPack.cleanSeenArt(data.seenArt);
         out.achievements = cleanAchievements(data.achievements);
         out.pendingAchievementClaims = list(data.pendingAchievementClaims).filter(claim => object(claim) && typeof claim.id === 'string' && safeKey(claim.id) && claim.id !== 'parachute_catcher').map(claim => ({
-            id: achievementId(claim.id), name: string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common',
+            id: achievementId(claim.id), name: retiredDayAchievements.has(claim.id) ? 'Legacy achievement' : string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common',
             ...(claim.tierNum ? { tierNum: Math.floor(number(claim.tierNum, 0, 100)) } : {}),
             ...(sourceVersion >= 2 && [2, 3].includes(claim.tierNum) && ['common', 'rare', 'epic', 'legendary'].includes(claim.crateRarity)
                 ? { crateRarity: claim.crateRarity } : { xp: number(claim.xp, 0, 100000) }),
@@ -291,7 +299,7 @@
             const missionDefaults = definitions.missionDefaults || {
                 daily:{quests:[],secret:null,lastRefreshDate:'',swapDate:'',pointsToday:0,claimedMilestones:[],completedToday:false,newVisit:false,rawXPToday:0},
                 weekly:{missions:[],weekKey:'',swapDate:'',points:0,claimedMilestones:[],anyCompleted:false,dailyPtsLog:{},newVisit:false,pendingUniversalParts:0,universalPtsTracked:0,hitAnyMilestone:false,dailyAllCompleteCount:0,dailyAllCompleteDate:''},
-                streaks:{daily:0},stats:{totalCompleted:0,byTier:{easy:0,normal:0,hard:0,secret:0},weeklyCompleted:0,totalPts:0,completionHistory:{}},specialBox:{pts:0}
+                stats:{totalCompleted:0,byTier:{easy:0,normal:0,hard:0,secret:0},weeklyCompleted:0,totalPts:0,completionHistory:{}},specialBox:{pts:0}
             };
             out.missions = structured(data.missions, missionDefaults);
             for (const section of ['daily', 'weekly']) {
@@ -300,14 +308,13 @@
                     out.missions[section].swapDate = out.missions.daily.lastRefreshDate;
                 }
             }
-            for (const [section, key] of [['daily','ptsTrackedForWeekly'],['specialBox','excessTracked'],['streaks','bestDaily']]) out.missions[section][key] = number(data.missions[section]?.[key]);
+            for (const [section, key] of [['daily','ptsTrackedForWeekly'],['specialBox','excessTracked']]) out.missions[section][key] = number(data.missions[section]?.[key]);
             for (const [section, key] of [['daily','quests'], ['weekly','missions']]) {
                 out.missions[section][key] = list(data.missions[section]?.[key]).map(quest => missionProgress(quest, section === 'weekly')).filter(Boolean);
             }
             out.missions.daily.secret = missionProgress(data.missions.daily?.secret);
             out.missions.weekly.dailyPtsLog = dateCounts(data.missions.weekly?.dailyPtsLog);
             out.missions.stats.completionHistory = dateCounts(data.missions.stats?.completionHistory);
-            out.missions.streaks.bestDaily = number(data.missions.streaks?.bestDaily, out.missions.streaks.daily);
             if (legacy && list(data.missions.daily?.quests).some(quest => [10, 20, 40, 60].includes(quest?.pts))) {
                 out.missions.daily.pointsToday = 0;
                 out.missions.daily.claimedMilestones = [];
@@ -330,8 +337,7 @@
             }
             if (typeof data._settings._lastPalette === 'string' && Object.hasOwn(definitions.palettes || {}, data._settings._lastPalette)) out._settings._lastPalette = data._settings._lastPalette;
             if (object(data._settings.keyBindings) && window.LBControls) out._settings.keyBindings = window.LBControls.normalizeBindings(data._settings.keyBindings);
-            if (object(data._settings.reminders)) out._settings.reminders = Object.fromEntries(['enabled', 'daily', 'streak', 'weekly']
-                .filter(key => typeof data._settings.reminders[key] === 'boolean').map(key => [key, data._settings.reminders[key]]));
+            if (object(data._settings.reminders)) out._settings.reminders = cleanSettings(data._settings).reminders;
         }
         const palettes = definitions.palettes || {};
         const classic = palettes.classic?.colors || ['#00ffff','#3388ff','#ff9900','#ffff33','#33ff33','#cc33ff','#ff3366'];
@@ -344,9 +350,10 @@
             ...('ocean forest fire dragon void sunset arctic midnight sakura ghostColor dots boxes dotboxes sfxCyber sfxRetro sfxZen sfxArcade').split(' '),
             ...Object.keys(palettes),
         ]);
-        if (out.parts) out.parts = Object.fromEntries(Object.entries(out.parts).filter(([key]) => items.has(key)));
         const partLabel = definitions.partLabel || (key => key === 'ghostColor' ? 'Colored Ghost' : Object.hasOwn(skins, key) ? skins[key] : key.charAt(0).toUpperCase() + key.slice(1));
         const partCost = definitions.partCost || (() => 10);
+        out.parts = Object.fromEntries(Object.entries(out.parts || {}).filter(([key]) => items.has(key) && partCost(key) > 0)
+            .map(([key, count]) => [key, Math.min(partCost(key), Math.floor(count))]));
         function reward(r) {
             if (!object(r)) return null;
             let type = r.type, key = r.key;
@@ -357,10 +364,10 @@
                 if (key) type = 'parts';
             }
             const amount = number(r.amount, 1, 1000);
-            const rarity = ['common','rare','epic','legendary'].includes(r.rarity) ? r.rarity : 'common';
-            if (type === 'converted_parts' && items.has(key) && Number.isInteger(r.amount) && amount > 0) return { type, key, amount, icon:'⭐', desc:'Duplicate converted', rarity:'rare' };
-            if (type === 'universal_parts') return { type, amount, rarity, icon:'⭐', label:`+${amount} Universal Part${amount === 1 ? '' : 's'}`, desc:'Added to your inventory' };
-            if (type === 'parts' && items.has(key)) return { type, key, amount, rarity, icon:'🧩', label:`+${amount} Part: ${partLabel(key)}`, desc:`${number(out.parts[key])}/${partCost(key)} parts` };
+            const rarity = sourceVersion >= 3 && window.LBCrates.rarities.includes(r.rarity) ? r.rarity : 'common';
+            if (type === 'converted_parts' && items.has(key) && Number.isInteger(r.amount) && amount > 0) return { type, key, amount, rarity };
+            if (type === 'universal_parts') return { type, amount, rarity, label: window.LBCrates.universalPartName(rarity) };
+            if (type === 'parts' && items.has(key)) return { type, key, amount, rarity: definitions.partRarity?.(key) || rarity, label:`${partLabel(key)} Part`, desc:`${number(out.parts[key])}/${partCost(key)} parts` };
             if (type === 'booster' && Object.hasOwn(definitions.boosters || {}, key)) {
                 const b = definitions.boosters[key];
                 return { type, key, amount, rarity:b.rarity, icon:b.icon, label:b.label, desc:'Booster added to inventory' };

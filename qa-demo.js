@@ -24,7 +24,7 @@
             ownedSfxPacks: ['default', 'retro'],
             ownedPalettes: ['classic', 'greyscale', 'ice', 'pastel', 'dark', 'synthwave', 'earth', 'neon'],
             parts: { 'aztec-gold': 12, bubble: 4, 'carved-stone': 7 },
-            universalParts: 13,
+            universalParts: { common: 13, rare: 6, epic: 4, legendary: 2, mythic: 1 },
             boosters: { '1.25x_game': 4, '1.5x_game': 2, '2xp_game': 1 },
             ghostColorUnlocked: true,
             seenFunRules: true,
@@ -35,7 +35,7 @@
             missions,
             stats: {
                 ...defaults.stats, gamesPlayed: 12, totalTimePlayed: 2840, totalBlocksPlaced: 1211,
-                totalLinesCleared: 214, totalQuads: 8, totalBoostersUsed: 3, dailyStreak: 2, highestDailyStreak: 4,
+                totalLinesCleared: 214, totalQuads: 8, totalBoostersUsed: 3,
                 maxCombo: 4, lastPlayDate: previousDate(), bestMaxSpeed: 5, totalScore: 73210,
                 playHistory: { [previousDate(0)]: 1, [previousDate()]: 4, [previousDate(2)]: 3, [previousDate(4)]: 4 },
                 blockTypeUsage: { I: 185, J: 172, L: 169, O: 172, S: 169, T: 181, Z: 163 },
@@ -57,7 +57,7 @@
         };
     }
 
-    function seedMissions({ daily, weekly, streaks, stats }) {
+    function seedMissions({ daily, weekly, stats }) {
         for (const entries of [daily.quests, weekly.missions]) {
             entries.forEach((entry, index) => {
                 const target = entry.target || 1;
@@ -67,7 +67,6 @@
         }
         Object.assign(daily, { pointsToday: 8, rawXPToday: 180, newVisit: false });
         Object.assign(weekly, { points: 84, newVisit: false });
-        Object.assign(streaks, { daily: 2, bestDaily: 4 });
         Object.assign(stats, { totalCompleted: 13, weeklyCompleted: 3, totalPts: 84 });
     }
 
@@ -137,8 +136,8 @@
         add('palette-editor', () => window._openPaletteEditor('ice'), () => remove('pal-edit-modal'));
         add('sfx-preview', window.openSfxPackPreview, () => remove('sfx-preview-modal'));
         add('sfx-panel', window.devSFXPanel, () => remove('sfx-panel-modal'));
-        add('universal-parts', window.openUseUniversalPart, () => remove('uni-modal-overlay'));
-        add('universal-exchange', window.openExchangeUniversalParts, () => remove('uni-xch-overlay'));
+        add('universal-parts', () => window.openUseUniversalPart('rare'), () => remove('uni-modal-overlay'));
+        add('universal-exchange', () => window.openExchangeUniversalParts('common'), () => remove('uni-xch-overlay'));
         add('booster-exchange', () => window._openExchangeModal('1.25x_game', '1.5x_game', 'booster'), () => remove('exc-modal-overlay'));
         screen('inventory-sfx', 'inventory-overlay', async () => { await inventory('other'); click('[data-sfx-preview="retro"]'); }, () => {
             remove('sfx-inv-preview');

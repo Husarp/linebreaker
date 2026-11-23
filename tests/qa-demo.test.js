@@ -143,7 +143,7 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
   visible('menu-overlay');
   expect(get('mw-mute').getAttribute('aria-label')).toBe('Mute music');
   expect(get('file-setup-overlay').classList.contains('hidden')).toBe(true);
-  expect(api.save).toMatchObject({ totalXP: 64000, stats: { gamesPlayed: 12 }, universalParts: 13 });
+  expect(api.save).toMatchObject({ totalXP: 64000, stats: { gamesPlayed: 12 }, universalParts: { common: 13, rare: 6, epic: 4, legendary: 2, mythic: 1 } });
   expect(api.save.ownedSkins).toContain('aztec');
   expect(api.save.missions.daily.quests.some(quest => quest.completed)).toBe(true);
   await qa.open('settings');
@@ -446,13 +446,16 @@ it('shows the highest earned shape and live counts for the next tier in one row'
 it('queues only affordable whole parts and re-enables controls when a part is removed', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w, api } = game;
-  api.setSave({ ...api.save, universalParts: 13.2 });
+  api.setSave({ ...api.save, universalParts: { common: 4, rare: 13.2 } });
   await w.__LB_QA.open('universal-parts');
   const get = id => w.document.getElementById(id);
   const dialog = get('uni-modal-overlay');
   const apply = get('uni-apply-btn');
   expect(apply.disabled).toBe(true);
-  expect(dialog.querySelector('.lb-exchange-parts-icon').getAttribute('src')).toBe('assets/ui/parts/universal-part-128.png');
+  expect(dialog.querySelector('.lb-exchange-parts-icon').getAttribute('src')).toBe('assets/ui/parts/universal-rare.webp');
+  expect(get('uni-inc-outline')).toBeNull();
+  w._uniInc('outline');
+  expect(apply.disabled).toBe(true);
   for (let count = 0; count < 13; count++) dialog.querySelector('button[id^="uni-inc-"]:not(:disabled)').click();
   expect(get('uni-avail-lbl').textContent).toBe('0.2 available');
   expect(dialog.querySelector('button[id^="uni-inc-"]:not(:disabled)')).toBeNull();
@@ -461,19 +464,24 @@ it('queues only affordable whole parts and re-enables controls when a part is re
   expect(get('uni-avail-lbl').textContent).toBe('1.2 available');
   expect(dialog.querySelector('button[id^="uni-inc-"]:not(:disabled)')).not.toBeNull();
   w._uniDoApply();
-  expect(api.save.universalParts).toBeCloseTo(1.2);
+  expect(api.save.universalParts).toEqual({ common: 4, rare: 1.2 });
+  expect(api.save.parts.outline).toBeUndefined();
 });
 
-it('updates the parts-for-XP preview and grants the selected amount', async () => {
+it('previews and exchanges the selected number of 4-to-1 rarity sets in Inventory', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w, api } = game;
   const startXP = 65_000;
-  api.setSave({ ...api.save, totalXP: startXP, universalParts: 13.2 });
-  await w.__LB_QA.open('universal-exchange');
+  api.setSave({ ...api.save, totalXP: startXP, universalParts: { common: 13.2, rare: 2, mythic: 8 } });
+  await w.__LB_QA.open('inventory-parts');
+  expect(w.document.querySelectorAll('#inventory-parts [data-use-parts]')).toHaveLength(5);
+  expect(w.document.querySelector('[data-exchange-parts="rare"]').disabled).toBe(true);
+  expect(w.document.querySelector('[data-exchange-parts="mythic"]')).toBeNull();
+  w.document.querySelector('[data-exchange-parts="common"]').click();
   const get = id => w.document.getElementById(id);
   const quantity = get('uni-xch-quantity');
-  expect(quantity.value).toBe('13');
-  expect(quantity.max).toBe('13');
+  expect(quantity.value).toBe('1');
+  expect(quantity.max).toBe('3');
   quantity.value = '0';
   quantity.dispatchEvent(new w.Event('input'));
   expect(quantity.value).toBe('1');
@@ -482,9 +490,12 @@ it('updates the parts-for-XP preview and grants the selected amount', async () =
   expect(quantity.value).toBe('');
   quantity.dispatchEvent(new w.Event('blur'));
   expect(quantity.value).toBe('1');
-  expect(get('uni-xch-count').textContent).toBe('1 part');
-  expect(get('uni-xch-xp').textContent).toBe(`+${(5000).toLocaleString()} XP`);
+  quantity.value = '2';
+  quantity.dispatchEvent(new w.Event('input'));
+  expect(get('uni-xch-count').textContent).toBe('8');
+  expect(get('uni-xch-receive').textContent).toBe('+2');
   get('uni-xch-confirm').click();
-  expect(api.save.universalParts).toBeCloseTo(12.2);
-  expect(api.save.totalXP).toBe(startXP + 5000);
+  expect(api.save.universalParts).toEqual({ common: 5.2, rare: 4, mythic: 8 });
+  expect(api.save.totalXP).toBe(startXP);
+  expect(w.document.querySelector('[data-exchange-parts="rare"]').disabled).toBe(false);
 });

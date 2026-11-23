@@ -66,7 +66,6 @@
 #stats-overlay .lb-metric-progress .lb-metric-icon { color: var(--bb-rarity-legendary); }
 #stats-overlay .lb-metric-activity .lb-metric-icon { color: var(--bb-rarity-epic); }
 #stats-overlay .lb-metric-field .lb-metric-icon { color: #91e5a9; }
-#stats-overlay .lb-metric-streak .lb-metric-icon { color: #ffa369; }
 
 .lb-place-crown {
     display: block;

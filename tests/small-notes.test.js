@@ -11,46 +11,33 @@ afterEach(() => game?.close());
 
 const cappedParts = () => Object.fromEntries(api.partsItems().map(({ key }) => [key, api.partCost(key)]));
 
-it('converts owned parts and formats both singular and grouped conversions', () => {
-  api.setup({ save: { ownedSkins: ['retro'] } });
-  expect(api.grantRewardPart('retro')).toBe(true);
-  expect(api.save.parts.retro).toBeUndefined();
-  expect(api.save.universalParts).toBe(0.2);
-  expect(api.rewardLabel({ type: 'converted_parts', key: 'retro', amount: 1 })).toBe('<s>+1 part (Retro)</s> → +0.2 universal parts');
-  expect(api.rewardLabel({ type: 'converted_parts', key: 'ghostColor', amount: 5 })).toBe('<s>+5 parts (Colored Ghost)</s> → +1 universal part');
-});
-
-it('shows grouped converted parts in Inventory while escaping reward text', async () => {
+it('shows grouped legacy conversions in Inventory while escaping reward text', async () => {
   const reward = { type: 'converted_parts', key: 'retro<b>', amount: 2, icon: '<b>icon</b>', desc: '<b>desc</b>', rarity: '<b>rarity</b>' };
   api.setup({ save: { storedCrates: [{ rarity: 'common', source: 'legacy', rewards: [reward] }] } });
   await window.openInventory('crates');
   document.querySelector('[data-crate-rarity="common"]').click();
   const card = document.querySelector('#inventory-crate-overlay .lb-reward-card');
-  expect(card.querySelector('.lb64-reward-name').textContent).toBe('Universal Part');
+  expect(card.querySelector('.lb64-reward-name').textContent).toBe('Common Universal Part');
   expect(card.querySelector('.lb-block-reward-amount').textContent).toBe('×0.4');
   expect(card.querySelector('.lb64-reward-desc').textContent).toBe('From duplicate Retro<b> parts');
   expect(card.querySelector('.lb-reward-rarity').textContent).toBe(reward.rarity);
   expect(card.querySelector('b')).toBeNull();
 });
 
-it('shows mission milestone conversions and restores pending level milestone conversions from save', () => {
+it('pays matched universal parts in mission and legacy level crates if eligible items are capped', () => {
   const missions = api.defaultMissions();
   missions.daily.pointsToday = 6;
   api.setup({ save: { parts: cappedParts(), missions } });
   window.Math.random = () => 0;
   window._claimMissionMilestone(6, false);
   const card = document.querySelector('#inventory-crate-overlay .lb-block-reward');
-  expect(card.querySelector('.lb64-reward-name').textContent).toBe('Universal Part');
-  expect(card.querySelector('.lb-block-reward-amount').textContent).toBe('×0.2');
-  expect(card.querySelector('.lb64-reward-desc').textContent).toBe('From duplicate Glass parts');
-
-  const rewards = api.generateLevelBoxRewards();
-  expect(rewards.filter(reward => reward.type === 'converted_parts')).toHaveLength(10);
-  const saved = { ...api.save, pendingMilestoneReward: { level: 10, rewards: [{ ...rewards[0], label: '<b>Injected</b>' }, ...rewards.slice(1)] } };
-  const clean = window.sanitizeSave(saved, api.save);
-  const restored = clean.pendingMilestoneReward.rewards[0];
-  expect(restored).not.toHaveProperty('label');
-  expect(api.rewardLabel(restored)).toBe('<s>+1 part (Glass)</s> → +0.2 universal parts');
+  expect(card.querySelector('.lb64-reward-name').textContent).toBe('Common Universal Part');
+  expect(card.querySelector('.lb-block-reward-amount').textContent).toBe('×1');
+  const rewards = api.generateLevelBoxRewards('legendary');
+  expect(rewards).toEqual([
+    { type: 'universal_parts', label: 'Common Universal Part', amount: 10, rarity: 'common' },
+    { type: 'universal_parts', label: 'Legendary Universal Part', amount: 2, rarity: 'legendary' },
+  ]);
 });
 
 it('projects best-run, cumulative, and secret progress without mutating missions', () => {
@@ -79,7 +66,6 @@ it.each([false, true])('keeps portrait missions collapsed and only commits a qua
     { id: 'raw_xp_easy', title: 'Raw XP', tier: 'easy', metric: 'rawXP', progress: 0, target: 100, cumulative: true },
     { id: 'total_xp_easy', title: 'Total XP', tier: 'easy', metric: 'totalXP', progress: 0, target: 200, cumulative: true },
   ];
-  missions.streaks.daily = 6;
   api.setup({ save: { missions }, scoreMultiplier: 1.3 });
   window.innerWidth = 400;
   window.innerHeight = 800;

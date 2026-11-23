@@ -272,9 +272,9 @@ it('marks equipped and locked inventory cards without adding owned tags', () => 
   expect(owned.querySelector('.lb-inventory-equip-target').getAttribute('aria-label')).toBe('Equip Bubble');
   expect(owned.querySelector('progress')).toBeNull();
   expect(locked.querySelector('progress').value).toBe(2);
-  expect(locked.textContent).toContain('2/50 parts');
+  expect(locked.textContent).toContain('2/15 parts');
   expect(locked.querySelector('button')).toBeNull();
-  expect(ready.querySelector('progress').value).toBe(50);
+  expect(ready.querySelector('progress').value).toBe(15);
   expect(ready.querySelector('button').textContent).toBe('Unlock');
 });
 

@@ -166,23 +166,28 @@ it('daily reset auto-claims rewards exactly once', () => {
   m.daily.lastRefreshDate='2020-1-1';m.daily.quests=[{id:'test',tier:'easy',completed:true,ptsClaimed:false,pts:1}];
   m.weekly.weekKey=a.missionWeekKey();m.weekly.isoWeekKey=true;m.weekly.pendingUniversalParts=3;
   save.missions=m;a.setSave(save);a.refreshMissions();
-  const first=a.save;expect(first.universalParts).toBe(3);expect(first.missions.stats.totalPts).toBe(1);
+  const first=a.save;expect(first.universalParts).toEqual({ common: 3 });expect(first.missions.stats.totalPts).toBe(1);
   a.refreshMissions();expect(a.save).toEqual(first);
 });
-it('loads legacy daily streaks without updating them or unlocking their achievements', () => {
+it('drops legacy day streaks and their achievements while preserving play history', () => {
   const save = a.save;
   const missions = a.defaultMissions();
   missions.daily.lastRefreshDate = '2020-01-01';
   missions.daily.rawXPToday = 600;
   missions.streaks = { daily: 30, bestDaily: 48 };
   Object.assign(save.stats, { dailyStreak: 30, highestDailyStreak: 48, lastPlayDate: '2020-01-01' });
+  save.achievements.daily_streak = { unlocked: true };
+  save.achievements.mq_streak_7 = { unlocked: true };
   save.missions = missions;
   a.applyLoadedData(save);
   a.refreshMissions();
   a.gameOver();
   expect(a.save.missions.daily.lastRefreshDate).toBe(a.missionDateKey());
-  expect(a.save.missions.streaks).toEqual(missions.streaks);
-  expect(a.save.stats).toMatchObject({ dailyStreak: 30, highestDailyStreak: 48, lastPlayDate: a.missionDateKey() });
+  expect(a.save.missions).not.toHaveProperty('streaks');
+  expect(a.save.stats).not.toHaveProperty('dailyStreak');
+  expect(a.save.stats).not.toHaveProperty('highestDailyStreak');
+  expect(a.save.stats.lastPlayDate).toBe(a.missionDateKey());
+  expect(a.save.achievements).not.toHaveProperty('daily_streak');
   expect(a.save.achievements).not.toHaveProperty('streak_lost');
   expect(a.save.achievements).not.toHaveProperty('mq_streak_7');
   expect(a.save.achievements).not.toHaveProperty('mq_streak_30');

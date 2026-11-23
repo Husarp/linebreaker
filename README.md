@@ -142,22 +142,6 @@ Questy wyświetlane: hard → normal → easy, w ramach tieru sortowane malejąc
 - Postęp po lewej (tytuł, opis, pasek)
 - Karta mniejsza = bardziej kompaktowa niż classyczne
 
-#### Streak
-
-**Daily streak:** zalicza się gdy ukończono ≥1 daily quest danego dnia.
-
-**XP Multiplier z daily streak** (tylko gameplay XP, czyli game over screen):
-| Streak | Mnożnik |
-|--------|---------|
-| 5 dni | ×1.25 |
-| 10 dni | ×1.50 |
-| 20 dni | ×1.75 |
-| 30 dni | ×2.00 |
-
-**Weekly streak:** zalicza się gdy ukończono ≥1 weekly mission w danym tygodniu.
-
-Streak badge w prawym górnym rogu ekranu misji. Hover → tooltip z detalami i perkami.
-
 #### Pasek postępu (styl XP baru)
 
 Pionowe separatory w pozycjach milestone. Pod separatorami ikona pudełka:
@@ -176,8 +160,6 @@ Weekly pasek: hover pokazuje ile punktów każdy dzień wniósł.
 | `mq_hard_5` | Ukończ 5 hard questów | Rare |
 | `mq_secret_1` | Ukończ 1 secret quest | Epic |
 | `mq_total_50` | Ukończ łącznie 50 questów/misji | Epic |
-| `mq_streak_7` | 7-day daily streak | Rare |
-| `mq_streak_30` | 30-day daily streak | Legendary |
 | `mq_daily_perfect` | Ukończ wszystkie 5 questów + secret w 1 dzień | Secret/Rare |
 
 ---
@@ -186,7 +168,7 @@ Weekly pasek: hover pokazuje ile punktów każdy dzień wniósł.
 
 ~65+ osiągnięć w kategoriach:
 
-**Basic (tierowane):** Score, Games, Speed, Survival, Streak, Speed Stack, Block Layer, Line Cruncher, Speedrunner, Quad Killer, Combo, Low Rider, Booster Fan, Fun Run, I-Piece Devotion, Daily Grind, Daily XP, Mirror Score, Fun², One at a Time, No Spin Zone, Spinner, Audiophile, Collector.
+**Basic (tierowane):** Score, Games, Speed, Survival, Speed Stack, Block Layer, Line Cruncher, Speedrunner, Quad Killer, Combo, Low Rider, Booster Fan, Fun Run, I-Piece Devotion, Daily Grind, Daily XP, Mirror Score, Fun², One at a Time, No Spin Zone, Spinner, Audiophile, Collector.
 
 **Missions (tierowane):** patrz tabela wyżej.
 
@@ -197,8 +179,18 @@ Weekly pasek: hover pokazuje ile punktów każdy dzień wniósł.
 ### Ekwipunek i sklep
 
 **Waluty:**
-- **Parts** — zbierane z milestone nagród, level-upów. Waluta per-skin (każdy skin ma swój własny licznik)
-- **Universal Parts** — waluta ogólna, użyteczna do dowolnego skinu/przedmiotu
+- **Parts** — każdy przedmiot ma osobny licznik części. Ikona materiału wskazuje rzadkość.
+- **Universal Parts** — osobny zapas dla każdej rzadkości. Jedna część uniwersalna zastępuje jedną część przedmiotu tej samej rzadkości. W **Inventory → Parts** wymienisz 4 części uniwersalne na 1 kolejnej rzadkości (tylko w górę).
+
+| Rarity | Materiał | Koszt odblokowania | Szansa na rzadkość części w skrzyni |
+|---|---|---:|---:|
+| Common | Zapieczętowany wzór | 20 | 60% |
+| Rare | Kamień runiczny | 15 | 25% |
+| Epic | Szpulka nici | 12 | 10% |
+| Legendary | Ruda złota | 10 | 4% |
+| Mythic | Surowy kryształ | 8 | 1% |
+
+Każdy losowany slot części stosuje tę tabelę. Jeśli nie ma dostępnego przedmiotu danej rzadkości, slot daje część uniwersalną tej rzadkości. Gwarantowany bonus uniwersalny jest tej samej rzadkości co skrzynia.
 
 **Odblokowanie** odbywa się przez zakładkę Inventory (pasek postępu części → odblokuj).
 
@@ -266,8 +258,8 @@ Plik `.lbsave` — XOR-szyfrowany + Base64. Importowany/eksportowany przez Trans
 - Ekwipunek (posiadane skiny, motywy, palety, grid style, itp.)
 - Parts per item, universal parts
 - Leaderboard (wszystkie gry)
-- Misje (daily quests, weekly missions, streaki, punkty, milestones)
-- Daily quest stats (byTier, totalCompleted, streak)
+- Misje (daily quests, weekly missions, punkty, milestones)
+- Daily quest stats (byTier, totalCompleted)
 
 ---
 

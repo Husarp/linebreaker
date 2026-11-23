@@ -45,8 +45,7 @@ Backup/restore and device persistence still need physical-device verification.
 ## Mission reminders
 
 Settings → Reminders is Android-only and off by default. Its switches control
-daily mission refresh at local midnight, weekly refresh at Monday midnight,
-and a same-day 8 p.m. streak reminder when the daily gameplay XP goal is unmet.
+daily mission refresh at local midnight and weekly refresh at Monday midnight.
 Linebreaker requests notification permission once from a settings toggle. If
 denied, enable it in Android Settings. Android can delay delivery when exact
 alarms aren't allowed; the app doesn't prompt for exact-alarm access.

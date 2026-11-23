@@ -1656,22 +1656,6 @@ body[data-pack="pixel"] .mt-enable-btn {
 }
 .mq-no-secret { text-align: center; font-size: 0.57rem; color: #333; padding: 6px 0; }
 
-/* Streak panel — right sidebar column */
-.mq-streak-panel {
-    display: flex; flex-direction: column; gap: 10px;
-}
-.mq-streak-half {
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;
-    position: relative;
-}
-.mq-streak-main { display: flex; align-items: baseline; gap: 5px; }
-.mq-streak-num { font-family: var(--ui-font); font-size: 1.6rem; font-weight: bold; line-height: 1; }
-.mq-streak-unit { font-size: 0.5rem; color: #777; letter-spacing: 0.3px; }
-.mq-streak-label { font-family: var(--ui-font); font-size: 0.43rem; letter-spacing: 1.5px; color: #555; margin-top: 1px; }
-.mq-streak-best { font-size: 0.48rem; color: #444; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 4px; }
-.mq-streak-best b { color: #666; }
-
 /* Reward banner */
 .mq-reward-banner {
     position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);

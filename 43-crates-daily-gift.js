@@ -49,13 +49,46 @@
         return true;
     }
 
-    function rollRarity(roll = Math.random()) {
+    const partWeights = [60, 25, 10, 4, 1];
+    function rollWeightedRarity(weights, roll) {
         let cutoff = 0;
         for (const [index, weight] of weights.entries()) {
             cutoff += weight;
             if (roll < cutoff / 100) return rarities[index];
         }
         return 'mythic';
+    }
+    function rollRarity(roll = Math.random()) { return rollWeightedRarity(weights, roll); }
+    function rollPartRarity(roll = Math.random()) { return rollWeightedRarity(partWeights, roll); }
+
+    function grantPartDrops(count, { eligibleParts, addPart, partName, partCost, partRarity, addUniversal }, guaranteed = null) {
+        const cards = [];
+        const universal = Object.fromEntries(rarities.map(rarity => [rarity, 0]));
+        if (guaranteed) universal[guaranteed.rarity] = guaranteed.amount;
+        const pools = Object.fromEntries(rarities.map(rarity => [rarity, []]));
+        for (const item of eligibleParts()) pools[partRarity(item.key)].push(item);
+        for (let slot = 0; slot < count; slot++) {
+            const rarity = rollPartRarity();
+            const pool = pools[rarity];
+            if (!pool.length) {
+                universal[rarity]++;
+                continue;
+            }
+            const [{ key }] = pool.splice(Math.floor(Math.random() * pool.length), 1);
+            const owned = addPart(key, 1);
+            cards.push({ type: 'parts', key, label: `${partName(key)} Part`, amount: 1, rarity, desc: `${owned}/${partCost(key)} parts` });
+        }
+        for (const rarity of rarities) {
+            if (!universal[rarity]) continue;
+            addUniversal(universal[rarity], rarity);
+            cards.push({ type: 'universal_parts', label: universalPartName(rarity), amount: universal[rarity], rarity });
+        }
+        return cards;
+    }
+
+    function universalPartName(rarity, amount = 1) {
+        if (!rarities.includes(rarity)) rarity = 'common';
+        return `${rarity[0].toUpperCase()}${rarity.slice(1)} Universal Part${amount === 1 ? '' : 's'}`;
     }
 
     function giftContents(rarity) {
@@ -88,21 +121,14 @@
         return (weekly ? weeklyTiers : dailyTiers)[points] || 'common';
     }
 
-    function grantDailyGift(data, plan, { pickParts, addPart, partName, addUniversal, addBooster, boosterInfo }, daily = true) {
-        const items = pickParts(plan.parts);
-        const cards = items.map(item => {
-            addPart(item.key, 1);
-            return { type: 'parts', key: item.key, label: `${partName(item.key)} Part`, amount: 1, rarity: item.cat === 'ghostColor' ? 'epic' : 'common' };
-        });
-        const universal = plan.universal + plan.parts - items.length;
-        addUniversal(universal);
-        const universalCard = { type: 'universal_parts', label: 'Universal Part', rarity: 'rare' };
-        cards.push({ ...universalCard, amount: universal });
+    function grantDailyGift(data, plan, hooks, daily = true, rarity = 'common') {
+        const { addBooster, boosterInfo } = hooks;
+        const cards = grantPartDrops(plan.parts, hooks, { rarity, amount: plan.universal });
         const booster = boosterInfo[plan.booster];
         for (let count = 0; count < plan.boosters; count++) addBooster(plan.booster);
         cards.push({ type: 'booster', key: plan.booster, label: booster.label, amount: plan.boosters, rarity: booster.rarity });
-        if (daily) data.stats.rareItemsFromDailyBox = (Number(data.stats.rareItemsFromDailyBox) || 0) + universal
-            + (booster.rarity === 'common' ? 0 : plan.boosters) + items.filter(item => item.cat === 'ghostColor').length;
+        if (daily) data.stats.rareItemsFromDailyBox = (Number(data.stats.rareItemsFromDailyBox) || 0)
+            + cards.reduce((total, card) => total + (card.rarity === 'common' ? 0 : card.amount), 0);
         return cards;
     }
 
@@ -136,7 +162,7 @@
             image.alt = '';
             const isPart = reward.type === 'parts' || reward.type === 'universal_parts';
             image.src = reward.type === 'crate' ? `assets/ui/crates/${reward.rarity}.png`
-                : isPart ? window.LBArtPack.universalPart
+                : isPart ? (reward.type === 'parts' ? window.LBArtPack.itemPart(reward.rarity) : window.LBArtPack.universalPart(reward.rarity))
                 : (reward.type === 'booster' && window.LBArtPack.boosterToken(reward.key)) || 'assets/ui/64-item-part.svg';
             let art = image;
             if (reward.type === 'parts') {
@@ -375,5 +401,5 @@
         return { refresh, claim };
     }
 
-    window.LBCrates = Object.freeze({ giftStatus, observeTime, rollRarity, shakeGift, restoreGift, giftContents, levelRarity, missionRarity, grantDailyGift, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
+    window.LBCrates = Object.freeze({ rarities: Object.freeze(rarities), giftStatus, observeTime, rollRarity, rollPartRarity, shakeGift, restoreGift, giftContents, levelRarity, missionRarity, universalPartName, grantPartDrops, grantDailyGift, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
 })();

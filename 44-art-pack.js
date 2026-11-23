@@ -1,5 +1,7 @@
 window.LBArtPack = (() => {
-    const universalPart = 'assets/ui/parts/universal-part-128.png';
+    const partMaterial = { common: 'scroll', rare: 'rune', epic: 'thread', legendary: 'ore', mythic: 'crystal' };
+    const itemPart = rarity => `assets/ui/parts/part-${Object.hasOwn(partMaterial, rarity) ? partMaterial[rarity] : partMaterial.common}.webp`;
+    const universalPart = rarity => `assets/ui/parts/universal-${Object.hasOwn(partMaterial, rarity) ? rarity : 'common'}.webp`;
     const boosterTokens = {
         '1.25x_game': 'common-1.25x',
         '1.5x_game': 'rare-1.5x',
@@ -83,6 +85,6 @@ window.LBArtPack = (() => {
         }
     }
 
-    return { universalPart, boosterToken, boosterIcon, wallpapers, wallpaperName, wallpaperId, nextWallpaper, backgroundMode, themeBackground, applyThemeBackground,
+    return { itemPart, universalPart, boosterToken, boosterIcon, wallpapers, wallpaperName, wallpaperId, nextWallpaper, backgroundMode, themeBackground, applyThemeBackground,
         menuElements, pickMenuArt, menuArtPath, seenArtIds, cleanSeenArt };
 })();
