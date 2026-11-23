@@ -916,6 +916,7 @@
     const menuArtTiles = LBArtPack.menuElements.map(key => [key, document.getElementById(`btn-${key}`)]);
     const gameArtBoard = document.getElementById('app');
     const gameArtIntro = document.getElementById('start-animation-overlay');
+    const missionsArtPanel = document.getElementById('missions-overlay');
     const seasonArtPanel = document.getElementById('season-pass-overlay');
     const menuArtStorageKey = 'linebreaker_menu_art';
     let menuArtReady = false;
@@ -950,7 +951,7 @@
             visibleArt.push(LBArtPack.wallpaperId(LBArtPack.wallpaperName(settings.theme, settings.themeBackground)));
         }
         if (open) visibleArt.push(...menuArtTiles.map(([, tile]) => tile.dataset.menuArt));
-        if (!seasonArtPanel.hidden) visibleArt.push('season-pass');
+        if (!missionsArtPanel.classList.contains('hidden') || !seasonArtPanel.hidden) visibleArt.push('season-pass');
         const previous = saveData.seenArt || [];
         const seen = LBArtPack.cleanSeenArt([...previous, ...visibleArt]);
         if (seen.length === previous.length) return;
@@ -2421,17 +2422,9 @@
     }
     // === END MUSIC SYSTEM ===
 
-    function refreshSeasonCard() {
-        const { id, day, days } = seasonPass.seasonWindow(Date.now());
-        const date = document.getElementById('lb-menu-season-date');
-        const format = number => String(number).padStart(2, '0');
-        date.textContent = id ? `Season ${format(id)} · Day ${day} of ${days}` : 'Season Calendar';
-        _seasonScreen.updatePreview();
-    }
     function refreshMenuUtilities() {
         dailyGiftReady = true;
         dailyGift.refresh();
-        refreshSeasonCard();
         if (!_widgetIntervalId) {
             _widgetIntervalId = setInterval(() => {
                 if (_currentMode === 'menu' && !settings.musicPaused && _trackDuration > 0) _updateMusicWidget();
@@ -8884,7 +8877,7 @@
     
     document.addEventListener('visibilitychange', () => {
         _syncAudioLifecycle();
-        if (!document.hidden) refreshSeasonCard();
+        if (!document.hidden && !document.getElementById('missions-overlay').classList.contains('hidden')) _seasonScreen.updatePreview();
         if(document.hidden && document.getElementById('app').classList.contains('active-game') && !isGameOver && !isPaused && !isAnimating && document.getElementById('start-animation-overlay').classList.contains('hidden')) togglePause();
     });
     window.addEventListener('pagehide', event => {
@@ -10044,7 +10037,6 @@
     };
     window.renderMissionsOverlay = renderMissionsOverlay;
     document.querySelectorAll('#missions-overlay [data-tab]').forEach(button => {
-        if (button.dataset.tab === 'season') button.removeAttribute('aria-pressed');
         button.addEventListener('click', () => renderMissionsOverlay(button.dataset.tab));
     });
 
@@ -10064,7 +10056,7 @@
     window.openSeasonPass = function(opener) {
         const source = opener?.closest('.overlay, [id$="-overlay"]') || LBGamepad.topOverlay()
             || document.getElementById('menu-overlay');
-        const trigger = opener || (source.id === 'menu-overlay' ? document.getElementById('btn-season-pass')
+        const trigger = opener || (source.id === 'menu-overlay' ? document.getElementById('btn-missions')
             : source.contains(document.activeElement) ? document.activeElement : source.querySelector('.lb-block-back'));
         return _seasonScreen.open(trigger, source);
     };

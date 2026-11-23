@@ -455,7 +455,7 @@
                 });
                 if (!forestEdge) fail('PLAY must have a plain face when unselected and scrimmed Forest Edge art when selected, without a chevron');
                 const menuArt = await page.evaluate(() => {
-                    const allowed = ['player-rank', 'play', 'season-pass', 'missions', 'inventory', 'achievements', 'settings', 'stats'];
+                    const allowed = ['player-rank', 'play', 'missions', 'inventory', 'achievements', 'settings', 'stats'];
                     const elements = allowed.map(key => document.getElementById(`btn-${key}`));
                     const selected = [...document.querySelectorAll('#menu-overlay [data-menu-art]')];
                     return selected.length === 3 && selected.every(tile => elements.includes(tile)) && elements.every(tile => {
@@ -468,25 +468,23 @@
                             const filename = `${id.slice('wallpaper-'.length)}-${crop}.jpg`;
                             return face.includes(filename) && !bannerBackground.includes(filename);
                         }
-                        return face.includes(id === 'season-pass' ? '41-season-pass-banner.webp' : `/tiles/${id}.webp`);
+                        return face.includes(`/tiles/${id}.webp`);
                     });
                 });
                 if (!menuArt) fail('Exactly three eligible menu elements must show their assigned art, with all other faces plain');
-                const navigationFits = await page.locator('#menu-overlay button:has(> .lb-ledger-chevron)').evaluateAll(rows => rows.length >= 6 && rows.every(row => {
-                    const chevron = row.querySelector('.lb-ledger-chevron');
+                const navigationFits = await page.locator('#menu-overlay .lb-menu-art-tile').evaluateAll(rows => rows.length === 5 && rows.every(row => {
                     const hadNotification = row.hasAttribute('data-ready');
                     row.removeAttribute('data-ready');
-                    const idle = getComputedStyle(chevron).display !== 'none' && getComputedStyle(row, '::after').content !== '""';
+                    const idle = !row.querySelector('.lb-ledger-chevron') && getComputedStyle(row, '::after').content !== '""';
                     row.setAttribute('data-ready', '');
                     const dot = getComputedStyle(row, '::after');
                     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
                     const ready = dot.content === '""' && parseFloat(dot.width) > 0
-                        && dot.animationName === (reducedMotion ? 'none' : 'lb-menu-ready-pulse')
-                        && getComputedStyle(chevron).display === 'none';
+                        && dot.animationName === (reducedMotion ? 'none' : 'lb-menu-ready-pulse');
                     row.toggleAttribute('data-ready', hadNotification);
                     return idle && ready;
                 }));
-                if (!navigationFits) fail('Ready menu destinations must replace their chevron with a motion-aware dot');
+                if (!navigationFits) fail('Menu tiles must have no chevrons and retain a motion-aware readiness dot');
                 const menuDesign = await page.evaluate(() => {
                     const box = selector => document.querySelector(selector).getBoundingClientRect();
                     const clipped = selector => getComputedStyle(document.querySelector(selector)).clipPath.startsWith('polygon(');
@@ -498,34 +496,28 @@
                         && Math.abs(sticker.right - banner.right) <= 1 && sticker.bottom < banner.bottom;
                 });
                 if (!menuDesign) fail('Menu banner or cut XP bar does not match the r9 treatment');
-                const seasonCopyFits = await page.locator('.lb-menu-season-copy').evaluate(copy => {
-                    const range = document.createRange();
-                    return [...copy.children].every(label => {
-                        range.selectNodeContents(label);
-                        const ink = range.getBoundingClientRect();
-                        return ink.width > 0 && ink.right <= copy.getBoundingClientRect().right + 1
-                            && label.getBoundingClientRect().height <= parseFloat(getComputedStyle(label).lineHeight) + 1;
-                    });
-                });
-                if (!seasonCopyFits) fail('Menu Season Pass label wraps or overlaps reward art');
-                await page.locator('#lb43-daily-gift').scrollIntoViewIfNeeded();
                 const fits = await page.evaluate(() => {
+                    const wrapper = document.querySelector('#menu-overlay .menu-scale-wrapper');
                     const gift = document.querySelector('#lb43-daily-gift').getBoundingClientRect();
                     const stats = document.querySelector('#btn-stats').getBoundingClientRect();
                     const player = document.querySelector('#music-widget').getBoundingClientRect();
                     const near = (first, second) => Math.abs(first - second) <= 1;
-                    return gift.width >= 44 && gift.height >= 44 && stats.width > gift.width && player.height > 0
+                    return wrapper.scrollHeight <= wrapper.clientHeight && wrapper.scrollWidth <= wrapper.clientWidth
+                        && player.bottom <= wrapper.getBoundingClientRect().bottom
+                        && gift.width >= 44 && gift.height >= 44 && stats.width > gift.width && player.height > 0
                         && near(gift.top, stats.top) && near(gift.bottom, stats.bottom) && gift.right < stats.left
                         && player.top > gift.bottom && near(player.left, gift.left) && near(player.right, stats.right);
                 });
-                if (!fits) fail('Daily Gift must sit left of Stats, above the full-width music card');
-                await page.locator('#btn-season-pass').click();
+                if (!fits) fail('Daily Gift and Stats must sit above the music player, with no menu overflow');
+                if (await page.locator('#menu-overlay #btn-season-pass').count()) fail('Season Pass is still on the main menu');
+                await page.locator('#btn-missions').click();
+                const seasonCard = page.locator('#missions-overlay .mq-board-controls + #btn-season-pass');
+                await seasonCard.click();
                 await page.locator('#season-pass-overlay').waitFor({ state: 'visible', timeout: 3000 })
                     .catch(() => fail('Season Pass card did not open the Season Pass view'));
-                await page.evaluate(() => {
-                    window.closeMissions();
-                    document.querySelector('#menu-overlay .menu-scale-wrapper').scrollTop = 0;
-                });
+                await page.getByRole('button', { name: 'Back to Missions' }).click();
+                if (!await seasonCard.evaluate(card => card === document.activeElement)) fail('Season Pass back button did not restore card focus');
+                await page.locator('#mq-menu').click();
             }
             if (name === 'game') {
                 const speedStrip = await page.locator('.lb-hud-level').evaluate(tile => {

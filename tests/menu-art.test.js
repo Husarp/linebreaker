@@ -36,14 +36,18 @@ it('holds three artworks for a visit, then rotates to a different set and saves 
   } finally { close(); }
 });
 
-it('counts Season Pass art on its full screen and changes the set when returning', async () => {
+it('counts Season Pass art once across Missions and the reward track, then rotates the menu art', async () => {
   const { w, api, close } = await loadGame();
   try {
     const { document } = w;
     const first = selectedArt(document).map(tile => tile.id);
     api.setup();
-    await w.openSeasonPass(document.getElementById('btn-season-pass'));
+    await w.openMissions();
     expect(api.save.seenArt).toEqual(['season-pass']);
+    document.getElementById('btn-season-pass').click();
+    await nextTurn();
+    expect(api.save.seenArt).toEqual(['season-pass']);
+    w.closeMissions();
     w.closeMissions();
     await nextTurn();
     expect(selectedArt(document)).toHaveLength(3);

@@ -1,5 +1,5 @@
 (() => {
-    const { DAY, observe, claimStage, claimBonus, bonusProgress, storeState, stageStatus, prepareConfig, seasonState, summarizeTrack, exclusiveSkin } = window.LBSeason;
+    const { DAY, observe, claimStage, claimBonus, bonusProgress, storeState, stageStatus, prepareConfig, seasonState, seasonWindow, summarizeTrack, exclusiveSkin } = window.LBSeason;
     const title = value => value[0].toUpperCase() + value.slice(1);
     const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
     const clockDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -77,19 +77,21 @@
         const notice = find('#sp-notice');
         const loading = find('#sp-loading');
         const announcement = find('#sp-announcement');
-        const menuStage = document.getElementById('lb-menu-season-stage');
+        const missionDate = document.getElementById('mq-season-date');
         const missionStage = document.getElementById('mq-season-stage');
         let config, configRequest, timer, previous, saveCheckpoint, returnTo;
         const isOpen = () => !screen.hidden;
 
         async function updatePreview() {
+            const now = Date.now();
+            const { id, day, days } = seasonWindow(now);
+            missionDate.textContent = id ? `Season ${String(id).padStart(2, '0')} · Day ${day} of ${days}` : 'Season Calendar';
             await loadConfig();
             if (!config) return;
-            const state = seasonState(getSave(), Date.now());
+            const state = seasonState(getSave(), now);
             const { current, next } = summarizeTrack(config.stages, state);
             const stage = current ? `Stage ${stageNumber(current.number)}` : '';
             const requirement = next ? `Next reward at ${points.format(next.points)} SP` : `Bonus chest every ${points.format(config.bonusStep)} SP`;
-            menuStage.textContent = stage ? `${stage} · View rewards` : 'View rewards';
             missionStage.textContent = stage ? `${stage} · ${requirement}` : requirement;
         }
 

@@ -53,8 +53,6 @@
     #level-badge-container { width: 220px; height: 220px; margin: 4px auto; }
     #rank-canvas { width: 220px !important; height: 220px !important; }
     #menu-overlay .btn-neon { max-width: 100%; }
-    #menu-overlay .menu-scale-wrapper > div:has(#btn-play) { width: 100%; }
-    #menu-overlay .menu-scale-wrapper > div:has(#btn-play) > div { width: 100%; max-width: 360px; }
     #music-widget { width: 100%; max-width: 320px; }
     #mw-controls button { min-width: 44px; }
     #dev-list { width: calc(100vw - 32px) !important; }

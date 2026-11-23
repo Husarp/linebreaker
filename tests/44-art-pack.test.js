@@ -8,29 +8,30 @@ const scope = { window: {} };
 runInNewContext(readFileSync(projectFile('44-art-pack.js'), 'utf8'), scope);
 const art = scope.window.LBArtPack;
 
-it('offers all 56 sets of three eligible menu elements and excludes the previous set', () => {
-  const sets = Array.from({ length: 56 }, (_, index) => art.pickMenuArt({}, 'ocean', 'image', () => (index + 0.5) / 56));
-  expect(new Set(sets.map(set => Object.keys(set).join(','))).size).toBe(56);
+it('offers all 35 sets of three eligible menu elements and excludes the previous set', () => {
+  const sets = Array.from({ length: 35 }, (_, index) => art.pickMenuArt({}, 'ocean', 'image', () => (index + 0.5) / 35));
+  expect(new Set(sets.map(set => Object.keys(set).join(','))).size).toBe(35);
   for (const [index, set] of sets.entries()) {
     const keys = Object.keys(set);
     expect(keys).toHaveLength(3);
+    expect(keys).not.toContain('season-pass');
     expect(keys.every(key => art.menuElements.includes(key))).toBe(true);
-    expect(Object.keys(art.pickMenuArt(set, 'ocean', 'image', () => (index + 0.5) / 56))).not.toEqual(keys);
+    expect(Object.keys(art.pickMenuArt(set, 'ocean', 'image', () => (index + 0.5) / 35))).not.toEqual(keys);
     if (set.play) expect(set.play).toBe('wallpaper-forest');
   }
   expect(Object.keys(art.pickMenuArt(art.pickMenuArt({}, 'default', 'plain', () => 0), 'default', 'plain', () => 0)))
     .not.toEqual(Object.keys(sets[0]));
 });
 
-it('picks both variants for paired elements and ships every collectible image', () => {
-  const ids = new Set();
-  for (let index = 0; index < 56; index++) {
+it('picks both variants for paired elements and keeps Season Pass in the collectible catalog', () => {
+  const ids = new Set(['season-pass']);
+  for (let index = 0; index < 35; index++) {
     for (const variant of [0, 0.99]) {
       let firstRoll = true;
       const pick = art.pickMenuArt({}, 'default', 'plain', () => {
         if (!firstRoll) return variant;
         firstRoll = false;
-        return (index + 0.5) / 56;
+        return (index + 0.5) / 35;
       });
       if (pick.play) expect(pick.play).toBe('wallpaper-default');
       for (const id of Object.values(pick)) ids.add(id);

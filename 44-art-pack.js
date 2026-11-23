@@ -10,7 +10,6 @@ window.LBArtPack = (() => {
     const menuArt = {
         'player-rank': ['player-training', 'player-heraldry'],
         play: [],
-        'season-pass': ['season-pass'],
         missions: ['missions-outpost'],
         inventory: ['inventory-caravan'],
         achievements: ['achievements-hall', 'achievements-summit'],
@@ -21,7 +20,7 @@ window.LBArtPack = (() => {
     const menuSets = menuElements.flatMap((first, index) => menuElements.slice(index + 1)
         .flatMap((second, offset) => menuElements.slice(index + offset + 2).map(third => [first, second, third])));
     const wallpaperId = name => backgrounds.has(name) ? `wallpaper-${name}` : null;
-    const seenArtIds = Object.freeze([...wallpapers.map(wallpaperId), ...Object.values(menuArt).flat()]);
+    const seenArtIds = Object.freeze([...wallpapers.map(wallpaperId), ...Object.values(menuArt).flat(), 'season-pass']);
     const knownArt = new Set(seenArtIds);
 
     function pickMenuArt(previous, theme, mode, random = Math.random) {

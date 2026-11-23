@@ -629,6 +629,7 @@
 .lb-ledger-action.lb-block-btn--primary > :is(svg, .lb-ledger-chevron) { color: currentColor; }
 
 .lb-game-root #menu-overlay {
+    container: lb-menu / size;
     --lb-menu-edge: calc(var(--lb-space-lg) + 2px);
     --lb-tile-face: var(--lb-art);
     --lb-tile-ink: var(--lb-ink);
@@ -646,11 +647,14 @@
     --lb-tile-face: #f8edcf;
 }
 #menu-overlay .menu-scale-wrapper {
+    --lb-menu-gap: var(--lb-space-md);
+    --lb-menu-banner-limit: 282px;
+    --lb-menu-tile-height: 90px;
     display: grid;
     align-content: start;
     align-items: stretch;
     justify-content: stretch;
-    gap: var(--lb-space-md);
+    gap: var(--lb-menu-gap);
     width: min(100%, clamp(390px, 35vw, 448px));
     max-height: 100%;
     min-height: 0;
@@ -660,12 +664,13 @@
     overflow: hidden auto;
     scrollbar-gutter: auto;
 }
+#menu-overlay .lb-menu-primary { display: contents; }
 #menu-overlay .lb-menu-banner {
     position: relative;
     display: grid;
     justify-items: center;
     align-content: start;
-    min-height: 282px;
+    min-height: min(282px, var(--lb-menu-banner-limit));
     padding: clamp(24px, 5dvh, 38px) 0 0;
     background: var(--lb-art-tint), var(--lb-menu-art, var(--lb-theme-art-portrait, none)) center 47% / cover no-repeat, var(--lb-art) !important;
     border-color: var(--lb-action-rim) !important;
@@ -762,13 +767,6 @@
     transition: width .2s ease;
 }
 
-#menu-overlay .lb-block-btn.lb-menu-season {
-    display: grid;
-    align-items: center;
-    gap: var(--lb-space-sm);
-    padding: var(--lb-space-sm) var(--lb-space-md) !important;
-    text-align: start;
-}
 #menu-overlay :is(.lb-menu-play, .lb-menu-nav button, #btn-stats)::before,
 #menu-overlay :is(.lb-menu-play, .lb-menu-nav button, #btn-stats):not([data-ready])::after { content: none; }
 #menu-overlay :is(.lb-menu-play, .lb-menu-nav button, #btn-stats):hover:not(:active) { transform: none; }
@@ -795,7 +793,7 @@
     --lb-button-shadow: var(--lb-card-shadow);
     grid-template-columns: 16px minmax(0, 1fr) 10px;
     gap: clamp(3px, 1.5vw, var(--lb-space-sm));
-    min-height: 90px;
+    min-height: var(--lb-menu-tile-height);
     padding-inline: 8px !important;
     font-size: var(--lb-type-small) !important;
 }
@@ -816,8 +814,7 @@
     filter: drop-shadow(1px 1px 1px var(--lb-art)) drop-shadow(-1px -1px 1px var(--lb-art));
 }
 #menu-overlay .lb-menu-art-tile[data-menu-art]::after { --lb-ready-ink: var(--lb-art-gold); outline: 1px solid var(--lb-art); }
-#menu-overlay button[data-ready] > .lb-ledger-chevron { display: none; }
-#menu-overlay button[data-ready]:has(> .lb-ledger-chevron)::after {
+#menu-overlay .lb-menu-art-tile[data-ready]::after {
     content: '';
     position: static;
     grid-area: 1 / 3;
@@ -841,32 +838,6 @@
         font-size: min(var(--lb-type-small), 3.4vw) !important;
     }
 }
-#menu-overlay .lb-block-btn.lb-menu-season {
-    --lb-control-face: var(--lb-panel-face);
-    --lb-button-shadow: var(--lb-card-shadow);
-    grid-template-columns: minmax(0, 1fr) auto 16px;
-    min-height: 100px;
-    padding-block: 10px !important;
-}
-#menu-overlay .lb-block-btn.lb-menu-season[data-menu-art] {
-    --lb-control-face: linear-gradient(90deg, var(--lb-art) 42%, color-mix(in srgb, var(--lb-art) 57%, transparent)),
-        var(--lb-tile-art) right center / cover no-repeat, var(--lb-art);
-    --lb-control-edge: var(--lb-action-rim);
-    --lb-control-ink: var(--lb-art-ink);
-}
-.lb-menu-season-copy { display: grid; gap: 2px; font: 400 var(--lb-type-small)/1.3 var(--lb-font-body); }
-.lb-menu-season-copy strong { font: 400 clamp(.875rem, 4.4vw, 1.0625rem)/1.3 var(--lb-font-heading); }
-.lb-menu-season :is(.lb-menu-kicker, small, .lb-ledger-chevron) { color: var(--lb-label); }
-.lb-menu-season[data-menu-art] :is(.lb-menu-kicker, small, .lb-ledger-chevron) { color: var(--lb-art-label); }
-.lb-menu-season-copy :is(.lb-menu-kicker, small) { white-space: nowrap; }
-.lb-menu-season-copy small { font: inherit; }
-.lb-menu-season img { display: block; width: clamp(52px, calc(100vw - 310px), 65px); height: auto; object-fit: contain; }
-.lb-menu-season:not([data-menu-art]) img { visibility: hidden; }
-.lb-menu-season .lb-ledger-chevron { justify-self: center; width: 7px; height: 7px; border-width: 1px; }
-@media (max-width: 360px) {
-    #menu-overlay .lb-menu-season .lb-menu-kicker { font-size: min(var(--lb-type-micro), 2.6vw); }
-}
-
 .lb-menu-utilities {
     display: grid;
     grid-template-columns: 54px minmax(0, 1fr);
@@ -948,10 +919,86 @@
     50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--lb-utility) 55%, transparent); }
 }
 @media (orientation: landscape) {
-    #menu-overlay .lb-menu-banner { min-height: clamp(196px, 32dvh, 282px); }
+    #menu-overlay .lb-menu-banner { min-height: min(clamp(196px, 32dvh, 282px), var(--lb-menu-banner-limit)); }
+}
+@container lb-menu (height < 880px) {
+    #menu-overlay #music-widget {
+        grid-template-columns: minmax(0, 1fr) min(222px, 62%);
+        grid-template-rows: 37px 23px;
+        column-gap: 6px;
+        padding: 0;
+        background: none !important;
+        border: 0 !important;
+        box-shadow: none !important;
+    }
+    #menu-overlay #music-widget :is(.lb110-track, #mw-controls, #mw-time-row) {
+        background: var(--lb-panel);
+        border: var(--lb-border) solid var(--lb-rule);
+        border-radius: var(--lb-radius);
+    }
+    #menu-overlay #music-widget .lb110-track {
+        grid-area: 1 / 1;
+        min-height: 0;
+        padding: 2px 5px 0;
+        gap: 4px;
+        border-bottom: 0;
+        border-end-start-radius: 0;
+        border-end-end-radius: 0;
+    }
+    #menu-overlay .lb110-track > svg { width: 13px; height: 13px; }
+    #menu-overlay #mw-artist { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #menu-overlay #music-widget #mw-time-row {
+        grid-area: 2 / 1;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 3px;
+        padding-inline: 5px;
+        border-top: 0;
+        border-start-start-radius: 0;
+        border-start-end-radius: 0;
+        box-shadow: var(--lb-card-shadow);
+    }
+    #menu-overlay #mw-progress { min-width: 0; margin: 0; }
+    #menu-overlay #mw-time-row :is(#mw-elapsed, #mw-total) { font-size: .5625rem; }
+    #menu-overlay #music-widget #mw-controls {
+        grid-area: 1 / 2 / span 2;
+        align-content: center;
+        box-shadow: var(--lb-card-shadow);
+    }
+}
+@container lb-menu (height < 820px) {
+    #menu-overlay .menu-scale-wrapper {
+        --lb-menu-gap: var(--lb-space-sm);
+        --lb-menu-banner-limit: clamp(144px, calc(100cqh - 514px), 282px);
+        --lb-menu-tile-height: clamp(44px, calc((100cqh - 478px) / 2), 90px);
+    }
+}
+@container lb-menu (height < 760px) {
+    #menu-overlay .lb-menu-banner { padding-block-start: var(--lb-space-sm); }
+    #menu-overlay .lb-menu-logo-lockup { width: min(88%, 280px); }
+    #menu-overlay #splash-quote { inset-block-end: var(--lb-space-sm); max-width: min(90%, 290px); }
+}
+@container lb-menu (height < 570px) {
+    #menu-overlay .menu-scale-wrapper { --lb-menu-banner-limit: clamp(128px, calc(100cqh - 426px), 144px); }
+    #menu-overlay .lb-menu-logo-lockup { width: min(82%, 264px); }
+}
+@media (orientation: landscape) and (min-width: 600px) and (max-height: 560px) {
+    #menu-overlay .menu-scale-wrapper {
+        --lb-menu-banner-limit: clamp(128px, calc(100cqh - 189px), 282px);
+        --lb-menu-tile-height: clamp(44px, calc((100cqh - 148px) / 2), 90px);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: auto auto;
+        width: min(100%, 800px);
+    }
+    #menu-overlay .lb-menu-primary {
+        display: grid;
+        grid-area: 1 / 1 / span 2;
+        align-content: start;
+        gap: var(--lb-menu-gap);
+    }
+    #menu-overlay :is(.lb-menu-nav, .lb-menu-utilities) { align-self: start; }
 }
 @media (prefers-reduced-motion: reduce) {
-    #menu-overlay button[data-ready]:has(> .lb-ledger-chevron)::after { animation: none; }
+    #menu-overlay .lb-menu-art-tile[data-ready]::after { animation: none; }
     #menu-overlay #lb43-daily-gift[data-status='available']::before {
         animation: none;
         box-shadow: 0 0 0 2px var(--lb-utility);

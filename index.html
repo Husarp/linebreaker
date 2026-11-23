@@ -143,40 +143,37 @@
 <!-- MENU -->
 <div id="menu-overlay" class="overlay">
     <div class="menu-scale-wrapper lb-scroll-fade">
-        <div class="lb-menu-banner lb-block-card">
-            <div class="lb-menu-logo-lockup">
-                <h1 id="main-title"><button type="button" id="lb122-logo-button"><img class="lb122-logo" src="assets/ui/logo-title.png" srcset="assets/ui/logo-title@2x.png 2x" width="640" height="211" alt="Linebreaker" draggable="false"></button></h1>
+        <div class="lb-menu-primary">
+            <div class="lb-menu-banner lb-block-card">
+                <div class="lb-menu-logo-lockup">
+                    <h1 id="main-title"><button type="button" id="lb122-logo-button"><img class="lb122-logo" src="assets/ui/logo-title.png" srcset="assets/ui/logo-title@2x.png 2x" width="640" height="211" alt="Linebreaker" draggable="false"></button></h1>
+                </div>
+                <div id="splash-quote"></div>
             </div>
-            <div id="splash-quote"></div>
-        </div>
-        <section id="btn-player-rank" class="lb-menu-rank lb-block-card" aria-label="Player Rank">
-            <div id="level-badge-container">
-                <canvas id="rank-canvas" width="300" height="300" aria-hidden="true"></canvas>
-            </div>
-            <div class="lb-menu-rank-copy">
-                <span class="lb-menu-kicker">Player Rank</span>
-                <h2 id="badge-rank-name">Bronze</h2>
-                <div id="menu-xp-bar-wrap">
-                    <div class="lb-menu-xp-display">
-                        <span class="lb-xp-track" aria-hidden="true"><span class="lb-xp-fill" id="menu-xp-bar-fill"></span></span>
-                        <span id="badge-level-num">Level 1</span>
-                        <span id="menu-xp-detail"></span>
+            <section id="btn-player-rank" class="lb-menu-rank lb-block-card" aria-label="Player Rank">
+                <div id="level-badge-container">
+                    <canvas id="rank-canvas" width="300" height="300" aria-hidden="true"></canvas>
+                </div>
+                <div class="lb-menu-rank-copy">
+                    <span class="lb-menu-kicker">Player Rank</span>
+                    <h2 id="badge-rank-name">Bronze</h2>
+                    <div id="menu-xp-bar-wrap">
+                        <div class="lb-menu-xp-display">
+                            <span class="lb-xp-track" aria-hidden="true"><span class="lb-xp-fill" id="menu-xp-bar-fill"></span></span>
+                            <span id="badge-level-num">Level 1</span>
+                            <span id="menu-xp-detail"></span>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </section>
-        <button type="button" class="lb-block-btn lb-block-btn--primary lb-ledger-action lb-menu-play" id="btn-play" onclick="window.openModeSelect()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-play"/></svg><span>Play</span></button>
+            </section>
+            <button type="button" class="lb-block-btn lb-block-btn--primary lb-ledger-action lb-menu-play" id="btn-play" onclick="window.openModeSelect()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-play"/></svg><span>Play</span></button>
+        </div>
         <nav class="lb-menu-nav" aria-label="Main Menu">
-            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-missions" onclick="window.openMissions()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Missions</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-inventory" onclick="window.openInventory('crates')"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-inventory"/></svg><span>Inventory</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-achievements" onclick="window.openAchievements()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Achievements</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg><span>Settings</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-missions" onclick="window.openMissions()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Missions</span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-inventory" onclick="window.openInventory('crates')"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-inventory"/></svg><span>Inventory</span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-achievements" onclick="window.openAchievements()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Achievements</span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg><span>Settings</span></button>
         </nav>
-        <button type="button" class="lb-block-btn lb-menu-season" id="btn-season-pass" onclick="window.openMissions('season')">
-            <span class="lb-menu-season-copy"><span class="lb-menu-kicker" id="lb-menu-season-date"></span><strong>Season Pass</strong><small id="lb-menu-season-stage">View rewards</small></span>
-            <img src="assets/ui/crates/rare.png" width="65" height="65" alt="">
-            <span class="lb-ledger-chevron" aria-hidden="true"></span>
-        </button>
 
         <section class="lb-menu-utilities" aria-label="Daily gift, stats and music">
             <div class="lb43-gift-corner">
@@ -187,7 +184,7 @@
                     <small id="lb43-gift-status" class="lb43-gift-status">Checking save…</small>
                 </button>
             </div>
-            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-stats" onclick="window.openStats()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-average"/></svg><span>Stats</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-stats" onclick="window.openStats()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-average"/></svg><span>Stats</span></button>
             <div id="music-widget" class="lb-block-card">
                 <div class="lb110-track">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13M9 9l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/></svg>
@@ -473,6 +470,11 @@
                     <button type="button" class="lb-block-btn lb-block-tab" data-tab="weekly" aria-pressed="false" aria-controls="missions-body">Weekly</button>
                 </div>
             </div>
+            <button type="button" class="lb-block-btn mq-season-card" id="btn-season-pass" data-tab="season" aria-controls="season-pass-overlay">
+                <span class="mq-season-copy"><span class="lb-menu-kicker" id="mq-season-date"></span><strong>Season Pass</strong><small id="mq-season-stage">View rewards</small></span>
+                <img src="assets/ui/crates/rare.png" width="65" height="65" alt="">
+                <span class="lb-ledger-chevron" aria-hidden="true"></span>
+            </button>
             <section class="lb-block-feature mq-board lb-r17-feature" aria-labelledby="mq-board-title" data-feature-art="mission-forest-outpost">
                 <div>
                     <span class="lb-block-kicker" id="mq-board-period">Daily objectives</span>
@@ -485,11 +487,6 @@
                 <div id="missions-body"></div>
             </section>
             <div class="mq-board-actions" role="group" aria-label="Mission actions">
-                <button type="button" class="lb-block-btn mq-season-link" data-tab="season" aria-pressed="false" aria-controls="season-pass-overlay">
-                    <svg aria-hidden="true"><use href="#lb-season-flag"/></svg>
-                    <span><strong>Season Pass</strong><small id="mq-season-stage">View rewards</small></span>
-                    <span class="mq-season-key" aria-hidden="true"><span class="lb-ledger-chevron"></span></span>
-                </button>
                 <div class="mq-swap-control">
                     <button type="button" id="mq-change-toggle" class="lb-block-btn" aria-pressed="false" aria-describedby="mq-swaps-left" onclick="event.stopPropagation();window._toggleChangeMode()">Swap</button>
                     <span id="mq-swaps-left">1 swap left today</span>

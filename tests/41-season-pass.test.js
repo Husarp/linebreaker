@@ -229,27 +229,27 @@ it('migrates old saves without resetting points or already-claimed stage receipt
   expect(sanitizeSave({ schemaVersion: 1, lastSeenTime: Infinity }, defaults)).toMatchObject({ season: emptySeason(), lastSeenTime: 0, seasonBlockedUntil: 0 });
 });
 
-it('opens straight from the menu without mounting the Missions board, then returns to the menu card', async () => {
+it('has a single entry below the Mission period controls and returns focus to it', async () => {
   game = await loadGame(true, null, null, async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] }));
   const { w } = game;
-  const menu = w.document.getElementById('menu-overlay');
   const card = w.document.getElementById('btn-season-pass');
   const missions = w.document.getElementById('missions-overlay');
   const screen = w.document.getElementById('season-pass-overlay');
-  const mutations = new w.MutationObserver(() => {});
-  mutations.observe(missions, { attributes: true, attributeFilter: ['class'] });
-  const opened = w.Function(`return ${card.getAttribute('onclick')}`).call(card);
+  expect(w.document.querySelector('#menu-overlay #btn-season-pass')).toBeNull();
+  expect(missions.querySelector('.mq-board-controls').nextElementSibling).toBe(card);
+  expect(missions.querySelectorAll('[aria-controls="season-pass-overlay"]')).toHaveLength(1);
+  await w.openMissions();
+  const { id, day, days } = w.LBSeason.seasonWindow(w.Date.now());
+  expect(card.querySelector('#mq-season-date').textContent).toBe(`Season ${String(id).padStart(2, '0')} · Day ${day} of ${days}`);
+  card.click();
   expect(screen.hidden).toBe(false);
-  expect(missions.classList.contains('hidden')).toBe(true);
-  expect(mutations.takeRecords()).toHaveLength(0);
-  expect(menu.hasAttribute('inert')).toBe(true);
-  await opened;
+  expect(missions.classList.contains('hidden')).toBe(false);
+  expect(missions.hasAttribute('inert')).toBe(true);
   screen.querySelector('.lb-block-back').click();
   expect(screen.hidden).toBe(true);
-  expect(missions.classList.contains('hidden')).toBe(true);
-  expect(menu.hasAttribute('inert')).toBe(false);
+  expect(missions.classList.contains('hidden')).toBe(false);
+  expect(missions.hasAttribute('inert')).toBe(false);
   expect(w.document.activeElement).toBe(card);
-  mutations.disconnect();
 });
 
 it('opens from missions, rechecks a stale claim, and awards the exclusive skin after correction', async () => {
@@ -268,7 +268,6 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   const missionBoard = w.document.getElementById('missions-body').firstElementChild;
   missionView.scrollTop = 120;
   await vi.waitFor(() => expect(seasonTab.querySelector('small').textContent).toBe('Stage 30 · Next reward at 8 SP'));
-  expect(w.document.getElementById('lb-menu-season-stage').textContent).toBe('Stage 30 · View rewards');
   seasonTab.click();
   await vi.waitFor(() => expect(w.document.querySelectorAll('.sp-card[data-stage]')).toHaveLength(30));
   const overlay = w.document.getElementById('season-pass-overlay');

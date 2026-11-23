@@ -28,15 +28,6 @@
     inset: auto var(--mq-end) 0 var(--mq-start);
     border-block-end: var(--lb-border) dashed var(--lb-rule);
 }
-#missions-overlay .mq-season-link > svg {
-    inline-size: 20px;
-    block-size: 20px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
 #missions-overlay [hidden] { display: none !important; }
 
 #missions-overlay > :is(#mq-mission-view, #season-pass-overlay) {
@@ -140,32 +131,29 @@
     --lb-button-shadow: var(--lb-card-shadow);
 }
 .mq-board-actions { flex-direction: column; align-items: stretch; }
-#missions-overlay .mq-season-link {
+#missions-overlay .lb-block-btn.mq-season-card {
+    --lb-control-face: linear-gradient(90deg, var(--lb-art) 42%, color-mix(in srgb, var(--lb-art) 57%, transparent)),
+        url('assets/ui/41-season-pass-banner.webp') right center / cover no-repeat, var(--lb-art);
+    --lb-control-edge: var(--lb-action-rim);
+    --lb-control-ink: var(--lb-art-ink);
+    --lb-button-shadow: var(--lb-card-shadow);
     display: grid;
-    grid-template-columns: 20px minmax(0, 1fr) 36px;
-    gap: 11px;
-    min-height: 62px;
-    padding: 9px 11px !important;
+    grid-template-columns: minmax(0, 1fr) auto 16px;
+    align-items: center;
+    gap: var(--lb-space-sm);
+    min-height: 100px;
+    padding: 10px var(--lb-space-md) !important;
     text-align: start;
     letter-spacing: normal;
     text-transform: none;
-    --lb-control-face: var(--lb-panel);
-    --lb-button-shadow: var(--lb-card-shadow);
 }
-.mq-season-link strong { font: 700 .9375rem/1.25 var(--lb-font-body); }
-.mq-season-link small { display: block; color: var(--lb-muted); font: 400 .6875rem/1.32 var(--lb-font-body); }
-.mq-season-link > svg { color: var(--lb-label); }
-.mq-season-key {
-    display: grid;
-    place-items: center;
-    width: 36px;
-    height: 36px;
-    color: var(--lb-label);
-    border: var(--lb-border) solid var(--lb-rule);
-    border-radius: var(--lb-radius);
-    background: var(--lb-key);
-    box-shadow: var(--lb-key-shadow);
-}
+.mq-season-copy { display: grid; gap: 2px; font: 400 var(--lb-type-small)/1.3 var(--lb-font-body); }
+.mq-season-copy strong { font: 400 clamp(.875rem, 4.4vw, 1.0625rem)/1.3 var(--lb-font-heading); }
+.mq-season-card :is(.lb-menu-kicker, small, .lb-ledger-chevron) { color: var(--lb-art-label); }
+.mq-season-card .lb-menu-kicker { font-size: min(var(--lb-type-micro), 2.6vw); }
+.mq-season-copy small { font: inherit; }
+.mq-season-card img { display: block; width: clamp(52px, calc(100vw - 310px), 65px); height: auto; object-fit: contain; }
+.mq-season-card .lb-ledger-chevron { justify-self: center; width: 7px; height: 7px; border-width: 1px; }
 .mq-swap-control { display: flex; align-items: center; gap: var(--lb-space-sm); color: var(--lb-muted); font-size: var(--lb-type-small); }
 #missions-overlay #mq-change-toggle { min-inline-size: 76px; white-space: nowrap; }
 #missions-overlay #mq-change-toggle[aria-pressed='true'] { --lb-control-edge: var(--lb-label); --lb-control-face: var(--lb-track); }
