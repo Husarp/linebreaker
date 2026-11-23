@@ -11,12 +11,14 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import com.husarp.ota.core.UpdateBannerStep
 import com.husarp.linebreaker.R
 
 internal data class UpdateBannerItem(
     val key: String, val title: String, val text: String, val actionLabel: String? = null,
     val action: (() -> Unit)? = null, val percent: Int? = null, val downloading: Boolean = false,
-    val keepOnAction: Boolean = false, val installing: Boolean = false, val brief: Boolean = false
+    val keepOnAction: Boolean = false, val installing: Boolean = false, val brief: Boolean = false,
+    val step: UpdateBannerStep? = null
 )
 
 internal class NativeUpdateBanner(private val host: FrameLayout, private val dismiss: (String) -> Unit) {
@@ -45,6 +47,7 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
             progress?.apply { isIndeterminate = item.percent == null; item.percent?.let { setProgress(it) } }
             return
         }
+        val alreadyVisible = panel != null
         clear()
         key = item.key
         light = currentLight
@@ -98,7 +101,7 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
         }, LinearLayout.LayoutParams(44.dp, 44.dp))
         host.addView(row, layout)
         panel = row
-        row.post {
+        if (!alreadyVisible) row.post {
             if (panel === row && !item.installing) {
                 row.translationY = -row.height.toFloat()
                 row.alpha = 0f

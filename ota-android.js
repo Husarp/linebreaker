@@ -78,9 +78,11 @@
   const feedback = (panel, value) => { panel.querySelector('[data-feedback]').textContent = value; };
   const guarded = async action => {
     await bounded('Save flush before update', () => window.flushLinebreakerSave?.());
-    if (!canInterrupt()) { message('Finish playing first', 'You can install the update after returning to the menu.'); return; }
+    if (!canInterrupt()) { message('Finish playing first', 'You can install the update after returning to the menu.'); return false; }
     await syncSafety();
-    if (canInterrupt()) await action();
+    if (!canInterrupt()) return false;
+    await action();
+    return true;
   };
   const run = async action => {
     try { await action(); await refresh(); }
@@ -243,18 +245,45 @@
   }
   preferences.addEventListener('close', () => { settingsBusy = false; void syncSafety(); });
 
+  const phaseOrder = { available: 0, downloading: 1, ready: 2, installing: 3 };
+  const target = (channel, version, phase) => ({ channel, version, phase, flow: `${channel}:${version}` });
+  let flow;
+  const failureStatus = (current, channel) => (channel === 'web' ? [current.status] : channel === 'shell' ? [current.shellStatus]
+    : [current.status, current.shellStatus]).find(value => /^(Download failed|(?:Shell )?Update processing failed|Install failed|App install failed|Restart failed|Could not apply)|Not enough storage/i.test(value));
+
+  async function startAction(item) {
+    const previous = flow;
+    const next = { ...target(item.channel, item.version, item.phase === 'ready' ? 'installing' : 'downloading'), baseline: failureStatus(state, item.channel) };
+    flow = next;
+    render(state);
+    function restore() {
+      if (flow?.flow === next.flow && flow.phase === next.phase) flow = previous;
+      render(state);
+    }
+    try {
+      if (await item.action() === false) restore();
+    } catch (error) {
+      restore();
+      throw error;
+    }
+  }
+
+  const isNewShell = (current, version, code) => current.runningShellVersionCode && code
+    ? code > current.runningShellVersionCode : newer(version, current.shellVersion);
+
   function offers(current) {
     if (current.trial) return [];
     const web = newer(current.available?.version, bundle.version) ? current.available : null;
     const staged = newer(current.staged?.version, bundle.version) ? current.staged : null;
-    const shell = current.shellReady || current.shellAvailable;
+    const shellReady = isNewShell(current, current.shellReady?.version, current.shellReady?.versionCode) ? current.shellReady : null;
+    const shell = shellReady || (isNewShell(current, current.shellAvailable?.version, current.shellAvailable?.versionCode) ? current.shellAvailable : null);
     const rollback = current.rolledBack;
     return [
       rollback && { key: `rollback:${rollback.from}:${rollback.to}`, title: 'Previous version restored', text: `Version ${rollback.from} could not start. You’re back on ${rollback.to}.` },
-      current.shellReady && { key: `shell-ready:${shell.versionCode}`, title: 'App update ready', text: `Version ${shell.version} is ready to install.`, label: getLabel(shell.version, true), action: () => guarded(() => ota.installShell()), keepOnAction: true },
-      staged && { key: `staged:${staged.version}`, title: 'Update ready', text: 'Restart Linebreaker to finish updating.', label: getLabel(staged.version, true), action: restart, keepOnAction: true },
-      !current.shellReady && shell && { key: `shell:${shell.versionCode}`, title: 'App update available', text: `Version ${shell.version} · ${size(shell.size)}`, label: getLabel(shell.version), action: () => ota.downloadShell({ downloadOnly: true }) },
-      !staged && web && { key: `web:${web.version}`, title: 'Update available', text: web.needsShell ? `Install the app update first to get version ${web.version}.` : `Version ${web.version} · ${size(web.size)}`, label: getLabel(web.version), action: web.needsShell ? undefined : () => ota.download({ downloadOnly: true }) },
+      shellReady && { ...target('shell', shell.version, 'ready'), key: `shell-ready:${shell.versionCode}`, title: 'App update ready', text: `Version ${shell.version} is ready to install.`, label: getLabel(shell.version, true), action: () => guarded(() => ota.installShell()) },
+      staged && { ...target('web', staged.version, 'ready'), key: `staged:${staged.version}`, title: 'Update ready', text: 'Restart Linebreaker to finish updating.', label: getLabel(staged.version, true), action: restart },
+      !shellReady && shell && { ...target('shell', shell.version, 'available'), key: `shell:${shell.versionCode}`, title: 'App update available', text: `Version ${shell.version} · ${size(shell.size)}`, label: getLabel(shell.version), action: () => ota.downloadShell({ downloadOnly: true }) },
+      !staged && web && { ...target('web', web.version, 'available'), key: `web:${web.version}`, title: 'Update available', text: web.needsShell ? `Install the app update first to get version ${web.version}.` : `Version ${web.version} · ${size(web.size)}`, label: getLabel(web.version), action: web.needsShell ? undefined : () => ota.download({ downloadOnly: true }) },
     ].filter(Boolean);
   }
 
@@ -303,15 +332,42 @@
   }
 
   function render(current) {
-    const installing = current.installingVersion;
-    const webDownloading = current.webDownloadVersion && current.busy !== false;
-    const busy = webDownloading || current.shellDownloading;
-    const transfer = webDownloading ? current.webTransfer : current.shellTransfer;
-    const percent = !installing && busy ? (transfer?.total ? 100 * transfer.done / transfer.total : null) : undefined;
     const items = offers(current);
+    const failure = failureStatus(current);
+    const webDownload = current.busy !== false && newer(current.webDownloadVersion, bundle.version) && current.webDownloadVersion;
+    const shellDownload = current.shellDownloadVersion
+      ? isNewShell(current, current.shellDownloadVersion, current.shellDownloadVersionCode) && current.shellDownloadVersion
+      : current.shellDownloading && (items.find(item => item.channel === 'shell')?.version || (flow?.channel === 'shell' && flow.version) || 'app');
+    const installVersion = current.installingVersion;
+    const installChannel = current.installingChannel || (flow?.version === installVersion && flow?.channel) ||
+      (current.shellReady?.version === installVersion ? 'shell' : 'web');
+    const installCode = current.installingShellVersionCode || (current.shellReady?.version === installVersion && current.shellReady?.versionCode);
+    const installing = installVersion && (installChannel === 'shell' ? isNewShell(current, installVersion, installCode)
+      : newer(installVersion, bundle.version)) ? target(installChannel, installVersion, 'installing') : null;
+    const transfers = [[webDownload, 'web', current.webTransfer], [shellDownload, 'shell', current.shellTransfer]]
+      .filter(([version]) => version).map(([version, channel, transfer]) => ({ ...target(channel, version, 'downloading'),
+        percent: transfer?.total ? 100 * transfer.done / transfer.total : null }));
+    const flowFailure = flow && failureStatus(current, flow.channel);
+    if (flow && !flowFailure) flow.baseline = undefined;
+    if (flow && ((flow.channel === 'web' && current.rolledBack?.from === flow.version) || (flowFailure && flowFailure !== flow.baseline
+      && !installing && !transfers.some(item => item.flow === flow.flow)))) flow = null;
+    if (flow?.version === 'app' && flow.channel === 'shell') {
+      const identified = items.find(item => item.channel === 'shell') || transfers.find(item => item.channel === 'shell' && item.version !== 'app');
+      if (identified) flow = { ...flow, ...target('shell', identified.version, flow.phase) };
+    }
+    if (installing && flow?.phase !== 'installing') flow = installing;
+    else if (flow) {
+      const next = [...items, ...transfers].find(item => item.flow === flow.flow && phaseOrder[item.phase] >= phaseOrder[flow.phase]);
+      if (next) flow = { ...next, baseline: flow.baseline, ...(next.phase === 'downloading' && {
+        percent: next.percent == null ? flow.percent : Math.max(next.percent, flow.percent || 0),
+      }) };
+    } else if (!failure) flow = items.find(item => item.phase === 'ready') || transfers[0];
+    const busy = flow?.phase === 'downloading';
+    const applying = flow?.phase === 'installing';
+    const percent = busy ? flow.percent ?? null : undefined;
+    if (flow?.phase === 'ready') items.splice(0, items.length, flow, ...items.filter(item => item.flow !== flow.flow));
     const action = items.find(item => item.action);
-    const failure = [current.status, current.shellStatus].find(value => /^(Download failed|(?:Shell )?Update processing failed|Install failed|App install failed|Restart failed|Could not apply)|Not enough storage/i.test(value));
-    status(installing ? 'Installing…' : busy ? 'Downloading' : failure ? 'Could not update' : current.shellReady ? 'Ready to install' : items.some(item => item.key.startsWith('staged:')) ? 'Ready to apply on restart'
+    status(applying ? 'Installing…' : busy ? 'Downloading' : failure ? 'Could not update' : items.some(item => item.key.startsWith('shell-ready:')) ? 'Ready to install' : items.some(item => item.key.startsWith('staged:')) ? 'Ready to apply on restart'
       : current.updateChecks?.failed ? 'Could not check for updates' : items.some(item => item.label) ? 'Update available'
       : current.busy ? 'Checking for updates…' : 'No update ready', percent);
     diagnostics.querySelector('[data-state]').textContent = [current.status, current.shellStatus, current.updateChecks?.summary].filter(Boolean).join(' · ');
@@ -335,19 +391,20 @@
       ? current.updated?.to === bundle.version && current.updated.notes || bundle.message : current.shellNotes);
     setReleaseNotes(releaseVersion, releaseText, openGitHub);
     releaseInfo = [releaseVersion, releaseText];
-    currentAction = !installing && !busy && action?.action;
+    currentAction = !applying && !busy && action && (() => startAction(action));
     getUpdate.hidden = !currentAction;
     getUpdate.textContent = action?.label || '';
-    notices('android-state', !ready ? [] : installing ? [{ key: `installing:${installing}`, title: 'Installing…', text: `Update ${installing}`, locked: true }] : busy ? [{
-      key: `download:${current.webDownloadVersion || 'app'}`, title: 'Downloading update', text: 'You can keep playing.', percent,
+    notices('android-state', !ready ? [] : applying ? [{ key: `installing:${flow.flow}`, flow: flow.flow, title: 'Installing…', text: `Update ${flow.version}`, locked: true }] : busy ? [{
+      key: `download:${flow.flow}`, flow: flow.flow, active: true, title: 'Downloading update', text: 'You can keep playing.', percent,
     }] : [failure && { key: `android-error:${failure}`, title: 'Could not update', text: 'Try again from Settings → Updates.', actions: [['Details', openShell]] },
       ...items.filter(item => !localStorage.getItem(`lb149:${item.key}`)).map(item => ({ ...item,
-        actions: item.action ? [[item.label, () => run(item.action)]] : [['Details', openShell]],
+        keepOnAction: !!item.action, active: !failure && item === flow,
+        actions: item.action ? [[item.label, () => run(() => startAction(item))]] : [['Details', openShell]],
         dismiss: () => localStorage.setItem(`lb149:${item.key}`, '1'),
       }))]);
     if (ready) showReleaseNotice(notice?.to || releaseVersion, notice?.notes || releaseText, {
       upgraded: Boolean(notice),
-      suppressed: Boolean(installing), fallback: openGitHub, brief: true,
+      suppressed: applying, fallback: openGitHub, brief: true,
     });
   }
   function refresh() {

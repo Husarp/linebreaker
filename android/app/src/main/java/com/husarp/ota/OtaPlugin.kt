@@ -23,15 +23,22 @@ class OtaPlugin : Plugin() {
         catch(e: Exception) { call.reject(e.message ?: "Invalid settings") }
     }
     @PluginMethod fun downloadShell(call: PluginCall) {
-        if (call.getBoolean("downloadOnly") == true) updater.shell.check(consent = true, downloadOnly = true)
-        else activity.runOnUiThread { (activity as MainActivity).installWithNotificationPermission { updater.shell.check(true) } }
-        call.resolve()
+        if (call.getBoolean("downloadOnly") == true) {
+            if (updater.shell.downloadOffered()) call.resolve() else call.reject("App download is not available")
+        } else {
+            activity.runOnUiThread { (activity as MainActivity).installWithNotificationPermission { updater.shell.check(true) } }
+            call.resolve()
+        }
     }
     @PluginMethod fun info(call: PluginCall) { call.resolve(updater.info()) }
     @PluginMethod fun getState(call: PluginCall) { call.resolve(updater.info()) }
     @PluginMethod fun installShell(call: PluginCall) {
-        activity.runOnUiThread { (activity as MainActivity).installWithNotificationPermission { updater.shell.installFromWeb(activity as MainActivity) } }
-        call.resolve()
+        activity.runOnUiThread {
+            val screen = activity as MainActivity
+            screen.installWithNotificationPermission {
+                if (updater.shell.installFromWeb(screen)) call.resolve() else call.reject("App install is not available")
+            }
+        }
     }
     @PluginMethod fun setSafeToInterrupt(call: PluginCall) {
         val safe=call.getBoolean("safe")
@@ -48,8 +55,13 @@ class OtaPlugin : Plugin() {
         call.resolve(JSObject().put("message", notice?.failure?.message))
     }
     @PluginMethod fun check(call: PluginCall) { updater.retryChecks(); call.resolve() }
-    @PluginMethod fun download(call: PluginCall) { updater.download(installAfterDownload = call.getBoolean("downloadOnly") != true); call.resolve() }
-    @PluginMethod fun restart(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).restartBundle() }; call.resolve() }
+    @PluginMethod fun download(call: PluginCall) {
+        if (updater.download(installAfterDownload = call.getBoolean("downloadOnly") != true)) call.resolve()
+        else call.reject("Download is not available")
+    }
+    @PluginMethod fun restart(call: PluginCall) { activity.runOnUiThread {
+        if ((activity as MainActivity).restartBundle()) call.resolve() else call.reject("Restart is not available")
+    } }
     @PluginMethod fun settings(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).showSettings() }; call.resolve() }
     @PluginMethod fun logs(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).showLogs() }; call.resolve() }
     @PluginMethod fun logWebDiagnostic(call: PluginCall) {

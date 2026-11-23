@@ -50,6 +50,7 @@ class MainActivity : BridgeActivity() {
     private var updateBanner: NativeUpdateBanner? = null
     private var maintenanceBanner: NativeUpdateBanner? = null
     private var activeBannerKey: String? = null
+    private val bannerFlow = UpdateBannerFlow(UpdateBannerItem::step)
     private val transientBanners = mutableListOf<UpdateBannerItem>()
     private var applyingStartupFix = false
     private lateinit var activityLaunchToken: String
@@ -332,6 +333,7 @@ class MainActivity : BridgeActivity() {
         super.onResume()
         resumed = true; refreshRecovery(); showNativeMessages()
         UpdateWorker.once(this,"start")
+        updater.shell.returnedFromInstallSettings()
         updater.shell.maybeInstall() // recheck permission on return from unknown-app settings
         updater.shell.presentRequestedAndroidUi(this)
     }
@@ -374,7 +376,7 @@ class MainActivity : BridgeActivity() {
             restart.run()
         }
     }
-    fun restartBundle(reset: Boolean = false, startupRecovery: Boolean = false) { updater.restart(reset, startupRecovery, ::recreateBundle) }
+    fun restartBundle(reset: Boolean = false, startupRecovery: Boolean = false) = updater.restart(reset, startupRecovery, ::recreateBundle)
     fun openReleases(): Boolean {
         try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.RELEASES_URL))); return true }
         catch (e: android.content.ActivityNotFoundException) {
@@ -447,7 +449,7 @@ class MainActivity : BridgeActivity() {
             setOnClickListener {
                 if (!updater.safeToInterrupt) return@setOnClickListener
                 if (updater.shell.isReady()) updater.shell.installFromWeb(this@MainActivity)
-                else updater.shell.check(consent = true, downloadOnly = true)
+                else updater.shell.downloadOffered()
             }
         }
         fun refreshShellOffer() {
@@ -534,6 +536,7 @@ class MainActivity : BridgeActivity() {
 
     private fun dismissUpdateBanner(key: String) {
         nativeSeen.add(key)
+        if (key == activeBannerKey) bannerFlow.clear()
         if (key.startsWith("app-installed:")) getSharedPreferences("native-update-messages", Context.MODE_PRIVATE)
             .edit().putBoolean(key, true).apply()
         transientBanners.removeAll { it.key == key }
@@ -545,9 +548,11 @@ class MainActivity : BridgeActivity() {
         if (loadingOverlay?.visibility == View.VISIBLE && maintenance == null) return
         if (maintenance != null) updateBanner?.clear()
         val webNotices = updater.gameCheckNotices()
-        if (!resumed || isFinishing || isDestroyed || logDialog != null ||
-            (maintenance == null && (recoveryDialog != null || webNotices != false))) {
-            banner.clear(); activeBannerKey = null; return
+        if (!UpdateBannerFlow.nativeOwns(webNotices, maintenance != null)) {
+            banner.clear(); activeBannerKey = null; bannerFlow.clear(); return
+        }
+        if (!resumed || isFinishing || isDestroyed || logDialog != null || (maintenance == null && recoveryDialog != null)) {
+            banner.clear(); return
         }
         updater.checks.claim()?.let { notice ->
             transientBanners.add(UpdateBannerItem("check:${SystemClock.elapsedRealtime()}", "Could not check for updates",
@@ -562,42 +567,56 @@ class MainActivity : BridgeActivity() {
         val installedKey = "app-installed:${BuildConfig.VERSION_CODE}"
         val appUpdated = updater.shell.installedNotes() != null
         val webUpdated = state.optJSONObject("updated")?.optString("to")
-        if (if (appUpdated) !getSharedPreferences("native-update-messages", Context.MODE_PRIVATE).getBoolean(installedKey, false) else webUpdated != null) {
+        if (webNotices == false && (if (appUpdated) !getSharedPreferences("native-update-messages", Context.MODE_PRIVATE).getBoolean(installedKey, false) else webUpdated != null)) {
             val version = webUpdated ?: BuildConfig.VERSION_NAME
             items.add(UpdateBannerItem(if (appUpdated) installedKey else "updated:$version", "Updated to $version", "", brief = true))
         }
-        val webDownload = state.optJSONObject("webTransfer").takeIf { state.optBoolean("busy") && state.optString("webDownloadVersion").isNotBlank() }
-        val appDownloading = state.optBoolean("shellDownloading")
-        if (webDownload != null || appDownloading) {
-            val transfer = webDownload ?: state.optJSONObject("shellTransfer")
+        for ((channel, version, transfer) in listOf(
+            Triple("web", state.optString("webDownloadVersion"), state.optJSONObject("webTransfer")),
+            Triple("shell", state.optString("shellDownloadVersion"), state.optJSONObject("shellTransfer"))
+        )) {
+            if (version.isBlank()) continue
             val total = transfer?.optLong("total") ?: 0
             val progress = if (total > 0) (100.0 * transfer!!.optLong("done") / total).toInt().coerceIn(0, 100) else null
-            items.add(UpdateBannerItem("download:${if (webDownload != null) state.optString("webDownloadVersion") else "app"}",
-                "Downloading update", "Leave Linebreaker open or come back later.", percent = progress, downloading = true))
+            items.add(UpdateBannerItem("download:$channel:$version",
+                "Downloading update", "Leave Linebreaker open or come back later.", percent = progress, downloading = true,
+                step = UpdateBannerStep("$channel:$version", UpdateBannerPhase.DOWNLOADING)))
         }
         val appReady = state.optJSONObject("shellReady")
-        if (!appDownloading) (appReady ?: state.optJSONObject("shellAvailable"))?.let {
+        (appReady ?: state.optJSONObject("shellAvailable"))?.let {
             val version = it.optString("version")
             items.add(if (appReady != null) UpdateBannerItem("app-ready:$version", "App update ready", "Version $version is ready to install.",
-                "Install update $version", { installWithNotificationPermission { updater.shell.installFromWeb(this) } }, keepOnAction = true)
+                "Install update $version", { installWithNotificationPermission { updater.shell.installFromWeb(this) } }, keepOnAction = true,
+                step = UpdateBannerStep("shell:$version", UpdateBannerPhase.READY))
             else UpdateBannerItem("app-offer:$version", "App update available", "Version $version · ${updater.formatSize(it.optLong("size"))}",
-                "Download update $version", { updater.shell.check(consent = true, downloadOnly = true) }))
+                "Download update $version", { updater.shell.downloadOffered() }, keepOnAction = true,
+                step = UpdateBannerStep("shell:$version", UpdateBannerPhase.AVAILABLE)))
         }
         val staged = state.optJSONObject("staged")
-        if (!state.optBoolean("busy")) (staged ?: state.optJSONObject("available"))?.let {
+        (staged ?: state.optJSONObject("available"))?.let {
             val version = it.optString("version")
             items.add(when {
-                staged != null -> UpdateBannerItem("ready:$version", "Update ready", "Restart Linebreaker to finish updating.", "Install update $version", { restartBundle(startupRecovery = updater.watchdog.reason != null) }, keepOnAction = true)
+                staged != null -> UpdateBannerItem("ready:$version", "Update ready", "Restart Linebreaker to finish updating.", "Install update $version", { restartBundle(startupRecovery = updater.watchdog.reason != null) }, keepOnAction = true,
+                    step = UpdateBannerStep("web:$version", UpdateBannerPhase.READY))
                 it.optBoolean("needsShell") -> UpdateBannerItem("app-first:$version", "Update available", "Install the app update first to get version $version.")
-                else -> UpdateBannerItem("offer:$version", "Update available", "Version $version · ${updater.formatSize(it.optLong("size"))}", "Download update $version", { updater.download(installAfterDownload = false) })
+                else -> UpdateBannerItem("offer:$version", "Update available", "Version $version · ${updater.formatSize(it.optLong("size"))}", "Download update $version", { updater.download(installAfterDownload = false) }, keepOnAction = true,
+                    step = UpdateBannerStep("web:$version", UpdateBannerPhase.AVAILABLE))
             })
         }
         val error = updateFailure(updater.status, updater.shell.status)
         if (error != null) items.add(UpdateBannerItem("error:$error", "Could not update", "Check your connection or try again later.", "Details", ::showLogs))
-        val queue = items.filter { it.key !in nativeSeen }
         val installing = state.optString("installingVersion").takeIf { it.isNotBlank() }
-        val next = installing?.let { UpdateBannerItem("installing:$it", "Installing…", "Update $it", installing = true) }
-            ?: queue.firstOrNull { it.key == activeBannerKey } ?: queue.firstOrNull()
+        if (installing != null) {
+            val target = "${state.optString("installingChannel")}:$installing"
+            items.add(UpdateBannerItem("installing:$target", "Installing…", "Update $installing", installing = true,
+                step = UpdateBannerStep(target, UpdateBannerPhase.INSTALLING)))
+        }
+        val queue = items.filter { it.key !in nativeSeen }
+        val rolledBackVersion = state.optJSONObject("rolledBack")?.optString("from")
+        val next = bannerFlow.select(queue, failed = { step ->
+            if (step.target.startsWith("shell:")) updateFailure(updater.shell.status) != null
+            else step.target == "web:$rolledBackVersion" || updateFailure(updater.status) != null
+        }, preferred = queue.firstOrNull { it.brief } ?: queue.firstOrNull { it.key == activeBannerKey })
         activeBannerKey = next?.key
         val bandInset = maxOf(safeArea.top, systemTop)
         val bandHeight = if (bandInset > 0) bandInset + 14.dp else 0

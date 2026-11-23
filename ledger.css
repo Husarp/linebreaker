@@ -632,7 +632,7 @@
     --lb-menu-edge: calc(var(--lb-space-lg) + 2px);
     --lb-tile-face: var(--lb-art);
     --lb-tile-ink: var(--lb-ink);
-    --lb-tile-fade: color-mix(in srgb, var(--lb-tile-face) 52%, transparent);
+    --lb-tile-fade: color-mix(in srgb, var(--lb-tile-face) 46%, transparent);
     background: var(--lb-paper);
     color: var(--lb-ink);
     padding: calc(var(--lb-band-height) + var(--lb-space-md))
@@ -644,7 +644,6 @@
 }
 .lb-game-root[data-lb-ui-theme='light'] #menu-overlay {
     --lb-tile-face: #f8edcf;
-    --lb-tile-fade: color-mix(in srgb, var(--lb-tile-face) 48%, transparent);
 }
 #menu-overlay .menu-scale-wrapper {
     display: grid;
@@ -802,13 +801,16 @@
 }
 #menu-overlay :is(.lb-menu-nav, .lb-menu-utilities) .lb-ledger-action > svg { width: 16px; height: 16px; }
 .lb-game-root #menu-overlay .lb-ledger-action.lb-menu-art-tile[data-menu-art] {
-    --lb-control-face: linear-gradient(90deg, var(--lb-tile-face) var(--lb-tile-solid, 44%),
-        var(--lb-tile-fade) var(--lb-tile-mid, 62%), transparent var(--lb-tile-clear, 84%)),
+    --lb-control-face: linear-gradient(90deg, var(--lb-tile-face) 8%,
+        var(--lb-tile-fade) var(--lb-tile-mid, 36%), transparent var(--lb-tile-clear, 62%)),
         var(--lb-tile-art) right center / cover no-repeat, var(--lb-tile-face);
     --lb-control-ink: var(--lb-tile-ink);
 }
-#btn-achievements { --lb-tile-solid: 57%; --lb-tile-mid: 69%; --lb-tile-clear: 89%; }
-#btn-stats { --lb-tile-solid: 22%; --lb-tile-mid: 44%; --lb-tile-clear: 68%; }
+#btn-stats { --lb-tile-mid: 28%; --lb-tile-clear: 50%; }
+#menu-overlay .lb-menu-art-tile[data-menu-art] > span:not(.lb-ledger-chevron) {
+    text-shadow: 0 1px 2px var(--lb-tile-face), 0 -1px 2px var(--lb-tile-face),
+        1px 0 2px var(--lb-tile-face), -1px 0 2px var(--lb-tile-face);
+}
 #menu-overlay .lb-menu-art-tile[data-menu-art] > .lb-ledger-chevron {
     color: var(--lb-art-ink);
     filter: drop-shadow(1px 1px 1px var(--lb-art)) drop-shadow(-1px -1px 1px var(--lb-art));

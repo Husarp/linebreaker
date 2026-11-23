@@ -55,15 +55,28 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
         verifier.verifyShell(envelope.readBytes(),System.currentTimeMillis(),BuildConfig.VERSION_CODE.toLong())
     }.getOrNull() else null
     @Volatile private var available: ShellManifest? = null
+    @Volatile private var requestedDownload: ShellManifest? = null
+    @Volatile private var downloadingTarget: ShellManifest? = null
+    fun downloadTarget() = downloadingTarget ?: requestedDownload
     fun state(m: ShellManifest): JSObject = JSObject(json.toJson(engine.dates.get("shell", m.versionCode.toString())))
         .put("releasedAt",m.releasedAt).put("version",m.versionName).put("size",m.size).put("versionCode",m.versionCode)
     private fun installedCode() = maxOf(BuildConfig.VERSION_CODE.toLong(), completedInstall?.versionCode ?: 0)
-    fun installingVersion(): String? = (completedInstall ?: preparingInstall ?: ready?.takeIf {
-        installing && (confirmation == null || explicitInstallRequested || prefs.getBoolean("confirmationShown", false))
-    })?.versionName
+    fun installingTarget(): ShellManifest? = completedInstall ?: preparingInstall ?: ready?.takeIf {
+        explicitInstallRequested || (installing && (confirmation == null || prefs.getBoolean("confirmationShown", false)))
+    }
     fun availableState(): JSObject? = available?.takeIf {
         isUpdateOffer(it.versionCode, installedCode(), ready?.versionCode, preparingInstall?.versionCode)
     }?.let { state(it) }
+    @Synchronized fun downloadOffered(): Boolean {
+        val offered = available ?: return false
+        if (downloadTarget() != null || !isUpdateOffer(offered.versionCode, installedCode(), ready?.versionCode, preparingInstall?.versionCode)) return false
+        requestedDownload = offered
+        transfer = null
+        status = "Preparing app download ${offered.versionName}"
+        changed()
+        check(consent = true, downloadOnly = true)
+        return true
+    }
     fun check(consent: Boolean = false, manual: Boolean = false, downloadOnly: Boolean = false): Future<*> = executor.submit {
         if (!consent && !manual && !settings().automaticChecks) return@submit
         val start = System.nanoTime()
@@ -123,10 +136,14 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
             // Do not replace an APK while a committed installer session is using it.
             if (installing) { log("existing session pending; defer new shell download"); return@submit }
             available = m
+            if (consent && downloadOnly && requestedDownload?.versionCode?.let { it != m.versionCode } == true) {
+                status = "The app update changed; check the new version before downloading"
+                return@submit
+            }
             if (!consent && !automaticDownload(settings(),"shell",m.size,unmetered())) {
                 status="App update ${m.versionName} · ${m.size} bytes · Later / Update"; changed(); return@submit
             }
-            transfer=TransferState(0,m.size,0); downloading=true; status="Downloading app ${m.versionName}"; changed()
+            transfer=TransferState(0,m.size,0); downloadingTarget=m; downloading=true; status="Downloading app ${m.versionName}"; changed()
             val apk=download(m,consent)
             verifyApk(apk,m)
             engine.dates.record("shell",m.versionCode.toString(),m.releasedAt,downloaded=true)
@@ -142,7 +159,15 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
             lastCheckSucceeded=false
             status=if (e is CheckException) e.failure.message else "Shell update processing failed: ${e.message}"
             log("failed: ${e.javaClass.simpleName}: ${e.message}",start)
-        } finally { downloading=false; changed(); log("check finished",start) }
+        } finally {
+            val requested = requestedDownload
+            if (consent && downloadOnly && requested != null) {
+                if (ready?.versionCode != requested.versionCode) status = "Download failed: $status"
+                requestedDownload = null
+            }
+            downloading=false; downloadingTarget=null; transfer=null
+            log("check finished",start)
+        }
     }
     private fun download(m: ShellManifest, consent: Boolean): File {
         require(dir.usableSpace >= m.size*2) { "Not enough APK storage" }
@@ -204,7 +229,7 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
         }
         log("APK SHA-256, package/version, signing certificate and embedded version verified",start)
     }
-    fun maybeInstall() { executor.execute { runCatching { maybeInstallOnExecutor() }.onFailure { status="Install failed: ${it.message}"; log("failed: ${it.message}") } } }
+    fun maybeInstall() { executor.execute { runCatching { maybeInstallOnExecutor() }.onFailure { failInstall(it.message ?: "Could not start Android installer") } } }
     private fun maybeInstallOnExecutor() {
         val m=ready ?: return
         if (prefs.getLong("awaitingInstallTap",-1) == m.versionCode) return
@@ -254,8 +279,8 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
             installFromWeb(activity, false)
         }
     }
-    fun installFromWeb(activity: MainActivity, userInitiated: Boolean = true) {
-        if (!mayInterrupt() || !isReady()) return
+    fun installFromWeb(activity: MainActivity, userInitiated: Boolean = true): Boolean {
+        if (!mayInterrupt() || !isReady()) return false
         installRequested = true
         if(userInitiated) {
             explicitInstallRequested = true
@@ -263,15 +288,24 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
         }
         permissionOpened = false
         prefs.edit().putBoolean("failed",false).apply()
+        status = "Installing app ${ready?.versionName}"
         if(!canInstallPackages()) {
             permissionOpened = true
             log("opening Android Install unknown apps settings")
-            activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:${context.packageName}")))
+            try { activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:${context.packageName}"))) }
+            catch (e: Exception) { failInstall("Could not open Android install settings: ${e.message}") }
         } else confirmation?.let {
             prefs.edit().putBoolean("confirmationShown",true).apply()
             log("user confirmation: launching Android installer once")
             try { activity.startActivity(it) } catch(e: Exception) { failInstall("Could not open Android installer: ${e.message}") }
         } ?: maybeInstall()
+        changed()
+        return true
+    }
+    fun returnedFromInstallSettings() {
+        if (!permissionOpened) return
+        permissionOpened = false
+        if (!canInstallPackages() && explicitInstallRequested) failInstall("Android install permission was not granted")
     }
     private fun recordInstalledIfNeeded(): Boolean {
         val target=prefs.getInt("targetCode",-1)

@@ -172,8 +172,12 @@ it('keeps the rank and XP display visible without opening an info box on tap or 
   const badge = badgeText();
   xp.dispatchEvent(new Event('pointerenter'));
   xp.querySelector('#menu-xp-bar-fill').click();
+  xp.querySelector('#badge-level-num').click();
+  xp.querySelector('#menu-xp-detail').click();
   card.click();
-  expect(card.querySelector('button, [aria-describedby], [role="tooltip"], [data-help-section]')).toBeNull();
+  const interactive = 'button, [tabindex], [title], [aria-describedby], [role="tooltip"], [data-help-section]';
+  expect(card.matches(interactive)).toBe(false);
+  expect(card.querySelector(interactive)).toBeNull();
   expect(document.querySelector('[role="tooltip"]:not([hidden])')).toBeNull();
   expect(badgeText()).toEqual(badge);
 });

@@ -126,14 +126,17 @@
       document.body.append(banner);
     }
     const queue = [...sources.values()].flat().filter(item => !dismissed.has(item.key));
-    const item = queue.find(entry => entry.locked) || queue.find(entry => entry.brief) || queue.find(entry => entry.key === showing?.key) || queue[0];
+    const item = queue.find(entry => entry.locked) || queue.find(entry => entry.brief) || queue.find(entry => entry.active)
+      || queue.find(entry => entry.key === showing?.key) || queue[0];
     banner.hidden = !item;
     if (!item) { showing = null; return; }
     if (showing?.key !== item.key) {
       banner.dataset.notice = item.key;
-      banner.getAnimations?.().forEach(animation => animation.cancel());
-      if (!item.locked && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-        banner.animate?.([{ transform: 'translateY(-110%)', opacity: 0 }, { transform: 'none', opacity: 1 }], 220);
+      if (!item.flow || item.flow !== showing?.flow) {
+        banner.getAnimations?.().forEach(animation => animation.cancel());
+        if (!item.locked && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+          banner.animate?.([{ transform: 'translateY(-110%)', opacity: 0 }, { transform: 'none', opacity: 1 }], 220);
+        }
       }
       banner.querySelector('[data-title]').textContent = item.title;
       banner.querySelector('[data-detail]').textContent = item.text || '';

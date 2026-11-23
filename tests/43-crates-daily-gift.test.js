@@ -266,7 +266,7 @@ it('merges pending level-ups across reload and opens stored rank crates only thr
   expect(api.save.storedCrates).toHaveLength(11);
   expect(api.save.universalParts).toMatchObject({ common: 1, rare: 3 });
   document.querySelector('#inventory-crate-overlay button').click();
-  expect(document.querySelector('.lb43-open-all')).toBeNull();
+  expect(Array.from(document.querySelectorAll('#inventory-crates button'), button => button.textContent)).toEqual(['Open', 'Open', 'Open']);
   for (let remaining = 11; remaining > 0; remaining--) {
     document.querySelector('[data-crate-rarity]').click();
     expect(api.save.storedCrates).toHaveLength(remaining - 1);

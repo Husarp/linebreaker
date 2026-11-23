@@ -33,7 +33,7 @@ async function boot({ platform = 'android', native = {}, version = '0.1.1', safe
     info: vi.fn(async () => state), getState: vi.fn(async () => state),
     setSafeToInterrupt: vi.fn(async () => {}), appReady: vi.fn(async () => ({ accepted: true })),
     setUpdateSettings: vi.fn(async partial => Object.assign(state.updateSettings, partial)),
-    download: vi.fn(async () => {}), restart: vi.fn(async () => {}), installShell: vi.fn(async () => {}), check: vi.fn(async () => {}),
+    download: vi.fn(async () => {}), downloadShell: vi.fn(async () => {}), restart: vi.fn(async () => {}), installShell: vi.fn(async () => {}), check: vi.fn(async () => {}),
     claimCheckNotice: vi.fn(async () => ({})),
   };
   window.Capacitor = { getPlatform: () => platform, Plugins: { Ota: ota, ...plugins } };
@@ -306,6 +306,113 @@ it('keeps progress in the same slot and switches Download to Install when ready'
   expect(game.get('.lb184-banner [data-actions] button').textContent).toBe(button.textContent);
 });
 
+it.each(['bundle', 'apk'])('runs 1.4.0 → 1.4.1 for a %s without hiding or replaying earlier phases', async kind => {
+  const from = '1.4.0', version = '1.4.1';
+  const apk = kind === 'apk';
+  const offer = apk ? { shellAvailable: { version, versionCode: 1401, size: 100 } } : { available: { version, size: 100 } };
+  const staged = apk ? { shellReady: offer.shellAvailable } : { staged: { version } };
+  const game = await boot({ version: from, native: { shellVersion: from, runningShellVersionCode: 1400, ...offer } });
+  const animate = vi.fn();
+  game.window.Element.prototype.animate = animate;
+  await game.restoreSave(); await game.ready();
+  const banner = game.get('.lb184-banner');
+  const expectBanner = (title, label) => {
+    expect(game.get('.lb184-banner')).toBe(banner);
+    expect(banner.hidden).toBe(false);
+    expect(banner.querySelector('[data-title]').textContent).toBe(title);
+    expect(banner.querySelector('[data-actions] button')?.textContent).toBe(label);
+  };
+  expectBanner(apk ? 'App update available' : 'Update available', `Download update ${version}`);
+  banner.querySelector('[data-actions] button').click();
+  expectBanner('Downloading update');
+  await game.redraw();
+  expectBanner('Downloading update');
+  expect(apk ? game.ota.downloadShell : game.ota.download).toHaveBeenCalledExactlyOnceWith({ downloadOnly: true });
+
+  const transfer = { done: 42, total: 100 };
+  const downloading = apk ? { shellDownloadVersion: version, shellDownloading: true, shellTransfer: transfer }
+    : { webDownloadVersion: version, busy: true, webTransfer: transfer };
+  Object.assign(game.state, downloading);
+  await game.redraw();
+  expectBanner('Downloading update');
+  expect(banner.querySelector('progress').value).toBe(42);
+  transfer.done = 21;
+  await game.redraw();
+  expect(banner.querySelector('progress').value).toBe(42);
+  Object.assign(game.state, { shellDownloadVersion: null, shellDownloading: false, busy: false, webDownloadVersion: null });
+  await game.redraw();
+  expectBanner('Downloading update');
+  Object.assign(game.state, staged);
+  await game.redraw();
+  const readyTitle = apk ? 'App update ready' : 'Update ready';
+  expectBanner(readyTitle, `Install update ${version}`);
+  Object.assign(game.state, downloading, { shellReady: null, staged: null });
+  game.emit('updateAvailable', { version });
+  await game.redraw();
+  expectBanner(readyTitle, `Install update ${version}`);
+
+  banner.querySelector('[data-actions] button').click();
+  expectBanner('Installing…');
+  await game.redraw();
+  expectBanner('Installing…');
+  expect(apk ? game.ota.installShell : game.ota.restart).toHaveBeenCalledOnce();
+  Object.assign(game.state, staged, { installingVersion: version });
+  game.emit(apk ? 'shellUpdateReady' : 'updateStaged', { version });
+  await game.redraw();
+  Object.assign(game.state, offer, { installingVersion: null, shellReady: null, staged: null });
+  await game.redraw();
+  expectBanner('Installing…');
+  game.ota.getState.mockResolvedValue({ token: 'next-launch', ...offer });
+  await game.redraw();
+  expectBanner('Installing…');
+  expect(animate).toHaveBeenCalledTimes(1);
+
+  const briefTimers = [];
+  const saved = Object.fromEntries(Object.entries(game.window.localStorage));
+  const next = await boot({ version, saved, briefTimers, native: { ...offer, ...staged, ...downloading, token: 'next-launch',
+    shellVersion: apk ? version : from, runningShellVersionCode: apk ? 1401 : 1400, updated: apk ? undefined : { to: version },
+    installingVersion: version, installingChannel: apk ? 'shell' : 'web', installingShellVersionCode: apk ? 1401 : undefined } });
+  await next.restoreSave(); await next.ready();
+  next.emit('updated', { to: version });
+  await next.redraw();
+  expect(next.get('.lb184-banner [data-title]').textContent).toBe(`Updated to ${version}`);
+  expect(briefTimers).toHaveLength(1);
+  briefTimers[0]();
+  expect(next.get('.lb184-banner').hidden).toBe(true);
+});
+
+it('keeps an accepted install visible if its first state refresh fails', async () => {
+  const game = await boot({ version: '1.4.0', native: { staged: { version: '1.4.1' } } });
+  await game.restoreSave(); await game.ready();
+  game.ota.getState.mockRejectedValueOnce(new Error('Bridge busy during restart'));
+  game.click('Install update 1.4.1');
+  await flush();
+  expect(game.get('.lb184-banner [data-title]').textContent).toBe('Installing…');
+  await game.redraw();
+  expect(game.get('.lb184-banner [data-title]').textContent).toBe('Installing…');
+});
+
+it('unlocks a staged APK after Android rejects the install permission', async () => {
+  const version = '1.4.1';
+  const game = await boot({ version: '1.4.0', native: { shellVersion: '1.4.0', shellReady: { version, versionCode: 1401 } } });
+  await game.restoreSave(); await game.ready();
+  game.click(`Install update ${version}`);
+  await game.redraw();
+  expect(game.get('.lb184-banner [data-title]').textContent).toBe('Installing…');
+  game.state.shellStatus = 'App install failed: Android install permission was not granted';
+  await game.redraw();
+  expect(game.get('.lb184-banner [data-title]').textContent).toBe('Could not update');
+  game.get('.lb184-banner [data-dismiss]').click();
+  expect(game.get('.lb184-banner [data-actions] button').textContent).toBe(`Install update ${version}`);
+  game.click(`Install update ${version}`);
+  Object.assign(game.state, { installingVersion: version, installingChannel: 'shell', shellStatus: `Installing app ${version}` });
+  await game.redraw();
+  expect(game.get('.lb184-banner [data-title]').textContent).toBe('Installing…');
+  Object.assign(game.state, { installingVersion: null, shellStatus: 'App install failed: Android install permission was not granted' });
+  await game.redraw();
+  expect(game.get('.lb184-banner [data-actions] button').textContent).toBe(`Install update ${version}`);
+});
+
 it.each(['bundle', 'apk'])('keeps the %s install banner visible through duplicate events and the handoff', async kind => {
   const version = '1.4.0';
   const offer = kind === 'apk' ? { shellReady: { version, versionCode: 1400 } } : { staged: { version } };
@@ -314,6 +421,7 @@ it.each(['bundle', 'apk'])('keeps the %s install banner visible through duplicat
   const banner = game.get('.lb184-banner');
   banner.querySelector('[data-actions] button').click();
   expect(banner.hidden).toBe(false);
+  expect(banner.querySelector('[data-title]').textContent).toBe('Installing…');
   await flush();
   expect(kind === 'apk' ? game.ota.installShell : game.ota.restart).toHaveBeenCalledOnce();
   Object.assign(game.state, { installingVersion: version, shellDownloading: true, available: { version } });
