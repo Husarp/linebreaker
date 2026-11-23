@@ -49,6 +49,7 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   await configureWindow?.(w);
   w.eval(readFileSync(new URL('../native-save.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../41-season-pass.js', import.meta.url), 'utf8'));
+  w.eval(readFileSync(new URL('../44-art-pack.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../save-sanitize.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../43-crates-daily-gift.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../controls.js', import.meta.url), 'utf8'));
@@ -58,7 +59,6 @@ export async function loadGame(flag = true, desktopInvoke = null, capacitor = nu
   w.eval(readFileSync(new URL('../notifications.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../color-picker.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../assets/skins/catalog.js', import.meta.url), 'utf8'));
-  w.eval(readFileSync(new URL('../44-art-pack.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../121-mission-art.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../42-line-clear.js', import.meta.url), 'utf8'));
   w.eval(readFileSync(new URL('../41-season-pass-ui.js', import.meta.url), 'utf8'));

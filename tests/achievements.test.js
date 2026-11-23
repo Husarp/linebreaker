@@ -24,17 +24,17 @@ describe('achievement screen', () => {
   it('counts every earned tier and excludes secrets from the completion numerator and denominator', () => {
     game.w.openAchievements();
     expect(query('#ach-counter').textContent).toBe('0% complete');
-    expect(sectionCount('BASIC')).toBe('0 of 117');
+    expect(sectionCount('BASIC')).toBe('0 of 120');
     expect(sectionCount('SECRET')).toBe('0 of 55');
 
     game.api.setup({ save: { achievements: { collector: { tier: 2 }, sec_nice: { unlocked: true } } } });
     game.w.openAchievements();
     expect(query('#ach-counter').textContent).toBe('2% complete');
-    expect(query('#ach-milestone-count').textContent).toBe('2 of 117 unlocked');
-    expect(query('#ach-milestone-progress').position).toBeCloseTo(2 / 117);
+    expect(query('#ach-milestone-count').textContent).toBe('2 of 120 unlocked');
+    expect(query('#ach-milestone-progress').position).toBeCloseTo(2 / 120);
     expect(query('#achievements-overlay .lb-collection-feature img')).toBeNull();
     expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 55');
-    expect(sectionCount('BASIC')).toBe('2 of 117');
+    expect(sectionCount('BASIC')).toBe('2 of 120');
     expect(sectionCount('SECRET')).toBe('1 of 55');
 
     game.api.setup({ save: { achievements: { collector: { tier: 2 } } } });
@@ -58,7 +58,7 @@ describe('achievement screen', () => {
 
     select('#ach-category', 'basic');
     expect(sectionNamed('SECRET')).toBeUndefined();
-    expect(sectionCount('BASIC')).toBe('2 of 117');
+    expect(sectionCount('BASIC')).toBe('2 of 120');
     expect(query('#ach-counter').textContent).toBe('2% complete');
     expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 55');
   });
@@ -117,7 +117,7 @@ describe('achievement screen', () => {
     game.w.devUnlockAllAchievements();
     game.w.openAchievements('unlocked');
     const earned = [...badges('BASIC'), ...badges('SECRET')];
-    expect(earned).toHaveLength(91);
+    expect(earned).toHaveLength(92);
     for (const badge of earned) {
       const icon = badge.querySelector('.ach-card-icon');
       if (icon.localName === 'img') {

@@ -150,7 +150,7 @@
             </div>
             <div id="splash-quote"></div>
         </div>
-        <section class="lb-menu-rank lb-block-card" aria-label="Player Rank">
+        <section id="btn-player-rank" class="lb-menu-rank lb-block-card" aria-label="Player Rank">
             <div id="level-badge-container">
                 <canvas id="rank-canvas" width="300" height="300" aria-hidden="true"></canvas>
             </div>
@@ -175,7 +175,7 @@
             <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-missions" onclick="window.openMissions()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Missions</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
             <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-inventory" onclick="window.openInventory('crates')"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-inventory"/></svg><span>Inventory</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
             <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-achievements" onclick="window.openAchievements()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Achievements</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-ledger-action" id="btn-settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg><span>Settings</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg><span>Settings</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
         </nav>
         <button type="button" class="lb-block-btn lb-menu-season" id="btn-season-pass" onclick="window.openMissions('season')">
             <span class="lb-menu-season-copy"><span class="lb-menu-kicker" id="lb-menu-season-date"></span><strong>Season Pass</strong><small id="lb-menu-season-stage">View rewards</small></span>
@@ -1204,6 +1204,7 @@
 
 <script src="native-save.js"></script>
 <script src="41-season-pass.js"></script>
+<script src="44-art-pack.js"></script>
 <script src="save-sanitize.js"></script>
 <script src="43-crates-daily-gift.js"></script>
 <script src="controls.js"></script>
@@ -1213,7 +1214,6 @@
 <script src="notifications.js"></script>
 <script src="color-picker.js"></script>
 <script src="assets/skins/catalog.js"></script>
-<script src="44-art-pack.js"></script>
 <script src="121-mission-art.js"></script>
 <script src="42-line-clear.js"></script>
 <script src="41-season-pass-ui.js"></script>

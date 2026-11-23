@@ -225,7 +225,8 @@
                     await page.locator(`#setting-theme-background-list [data-value="${value}"]`).click();
                 };
                 const crop = viewport.width < viewport.height ? 'portrait' : 'landscape';
-                const playArt = () => play.evaluate(element => getComputedStyle(element).backgroundImage);
+                const playArt = () => play.evaluate((element, orientation) =>
+                    element.style.getPropertyValue(`--lb-theme-art-${orientation}`), crop);
                 await chooseWallpaper('plain');
                 if (await preview.evaluate(element => getComputedStyle(element).backgroundImage) !== 'none') fail('Plain wallpaper still shows artwork');
                 if ((await banner.evaluate(element => getComputedStyle(element).backgroundImage)).includes('/bg/')) fail('Plain wallpaper still shows banner art');
@@ -265,10 +266,29 @@
             if (name === 'menu') {
                 const forestEdge = await page.getByRole('button', { name: 'Play', exact: true }).evaluate(button => {
                     const style = getComputedStyle(button);
-                    return !button.querySelector('.lb-ledger-chevron') && style.backgroundImage.startsWith('linear-gradient(')
-                        && style.backgroundImage.includes('/bg/') && style.boxShadow.includes('inset');
+                    return !button.querySelector('.lb-ledger-chevron') && (button.hasAttribute('data-menu-art')
+                        ? style.backgroundImage.startsWith('linear-gradient(') && style.backgroundImage.includes('/bg/') && style.boxShadow.includes('inset')
+                        : style.backgroundImage === 'none');
                 });
-                if (!forestEdge) fail('PLAY must have scrimmed wallpaper and an inset rim without a chevron');
+                if (!forestEdge) fail('PLAY must have a plain face when unselected and scrimmed Forest Edge art when selected, without a chevron');
+                const menuArt = await page.evaluate(() => {
+                    const allowed = ['player-rank', 'play', 'season-pass', 'missions', 'inventory', 'achievements', 'settings', 'stats'];
+                    const elements = allowed.map(key => document.getElementById(`btn-${key}`));
+                    const selected = [...document.querySelectorAll('#menu-overlay [data-menu-art]')];
+                    return selected.length === 3 && selected.every(tile => elements.includes(tile)) && elements.every(tile => {
+                        const id = tile.dataset.menuArt;
+                        const face = getComputedStyle(tile).backgroundImage;
+                        if (!id) return face === 'none';
+                        if (tile.id === 'btn-play') {
+                            const crop = matchMedia('(min-aspect-ratio: 1/1)').matches ? 'landscape' : 'portrait';
+                            const bannerBackground = getComputedStyle(document.querySelector('.lb-menu-banner')).backgroundImage;
+                            const filename = `${id.slice('wallpaper-'.length)}-${crop}.jpg`;
+                            return face.includes(filename) && !bannerBackground.includes(filename);
+                        }
+                        return face.includes(id === 'season-pass' ? '41-season-pass-banner.webp' : `/tiles/${id}.webp`);
+                    });
+                });
+                if (!menuArt) fail('Exactly three eligible menu elements must show their assigned art, with all other faces plain');
                 const navigationFits = await page.locator('#menu-overlay button:has(> .lb-ledger-chevron)').evaluateAll(rows => rows.length >= 6 && rows.every(row => {
                     const chevron = row.querySelector('.lb-ledger-chevron');
                     const hadNotification = row.hasAttribute('data-ready');
@@ -292,11 +312,9 @@
                     const sticker = box('#splash-quote');
                     return clipped('.lb-xp-track') && clipped('.lb-xp-fill') && clipped('#splash-quote')
                         && logo.top - banner.top < banner.height / 3 && logo.bottom <= sticker.top
-                        && Math.abs(sticker.right - banner.right) <= 1 && sticker.bottom < banner.bottom
-                        && ['missions', 'inventory', 'achievements', 'stats'].every(name =>
-                            getComputedStyle(document.getElementById(`btn-${name}`)).backgroundImage.includes(`menu-${name}.svg`));
+                        && Math.abs(sticker.right - banner.right) <= 1 && sticker.bottom < banner.bottom;
                 });
-                if (!menuDesign) fail('Menu banner, cut XP bar, or art tiles do not match the r9 treatment');
+                if (!menuDesign) fail('Menu banner or cut XP bar does not match the r9 treatment');
                 const seasonCopyFits = await page.locator('.lb-menu-season-copy').evaluate(copy => {
                     const range = document.createRange();
                     return [...copy.children].every(label => {

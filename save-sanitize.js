@@ -13,7 +13,7 @@
     const keyGroups = [
         ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'pendingDailyGift', 'dailyGiftStreak', 'lastSeenTime', 'levelRewardsThrough', 'pendingRankRewards', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
         ['parts', 'universalParts', 'boosters', 'boxes', 'storedCrates', 'ghostColorUnlocked', 'ownedSkins', 'ownedThemes', 'ownedBtnStyles', 'ownedGridStyles', 'ownedSfxPacks', 'ownedPalettes', 'customPaletteOverrides', 'customPickerColors', 'customThemeColor', '_cpmBaseColor', '_cpmMode', 'menuPlaylist', 'gamePlaylist', 'actionPlaylist'],
-        ['missions'], ['season', 'lastSeenTime', 'seasonBlockedUntil'], ['achievements', 'pendingAchievementClaims'], ['stats'], scoreKeys,
+        ['missions'], ['season', 'lastSeenTime', 'seasonBlockedUntil'], ['achievements', 'pendingAchievementClaims', 'seenArt'], ['stats'], scoreKeys,
     ];
     const saveKeys = keyGroups.flat();
     const day = v => String(v).padStart(2, '0');
@@ -111,6 +111,7 @@
     }
     function serializeSave(data, weeklyDefinitions = []) {
         const out = { ...data, schemaVersion: version };
+        if (Object.hasOwn(data, 'seenArt')) out.seenArt = window.LBArtPack.cleanSeenArt(data.seenArt);
         if (object(data._settings)) out._settings = cleanSettings(data._settings);
         if (object(data.achievements)) out.achievements = cleanAchievements(data.achievements);
         for (const key of scoreKeys) if (Array.isArray(data[key])) out[key] = data[key].filter(object).map(cleanScore);
@@ -216,6 +217,7 @@
             else if (k === 'blockTypeUsage') out.stats[k] = numericMap(v);
             else out.stats[k] = number(v);
         }
+        out.seenArt = window.LBArtPack.cleanSeenArt(data.seenArt);
         out.achievements = cleanAchievements(data.achievements);
         out.pendingAchievementClaims = list(data.pendingAchievementClaims).filter(claim => object(claim) && typeof claim.id === 'string' && safeKey(claim.id) && claim.id !== 'parachute_catcher').map(claim => ({
             id: achievementId(claim.id), name: string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common', xp: number(claim.xp, 0, 100000),

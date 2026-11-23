@@ -9,6 +9,42 @@ window.LBArtPack = (() => {
         'default', 'ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura',
     ]);
     const wallpapers = Object.freeze([...backgrounds]);
+    const menuArt = {
+        'player-rank': ['player-training', 'player-heraldry'],
+        play: [],
+        'season-pass': ['season-pass'],
+        missions: ['missions-outpost'],
+        inventory: ['inventory-caravan'],
+        achievements: ['achievements-hall', 'achievements-summit'],
+        settings: ['settings-clockwork-vivid', 'settings-lighthouse'],
+        stats: ['stats-archive', 'stats-archive-calm'],
+    };
+    const menuElements = Object.freeze(Object.keys(menuArt));
+    const menuSets = menuElements.flatMap((first, index) => menuElements.slice(index + 1)
+        .flatMap((second, offset) => menuElements.slice(index + offset + 2).map(third => [first, second, third])));
+    const wallpaperId = name => backgrounds.has(name) ? `wallpaper-${name}` : null;
+    const seenArtIds = Object.freeze([...wallpapers.map(wallpaperId), ...Object.values(menuArt).flat()]);
+    const knownArt = new Set(seenArtIds);
+
+    function pickMenuArt(previous, theme, mode, random = Math.random) {
+        const previousSet = menuElements.filter(key => Object.hasOwn(previous, key));
+        const choices = previousSet.length === 3 ? menuSets.filter(set => !set.every(key => previousSet.includes(key))) : menuSets;
+        const selected = choices[Math.floor(random() * choices.length)];
+        return Object.fromEntries(selected.map(key => {
+            const variants = menuArt[key];
+            return [key, key === 'play' ? wallpaperId(nextWallpaper(theme, mode))
+                : variants[variants.length === 1 ? 0 : Math.floor(random() * variants.length)]];
+        }));
+    }
+
+    function menuArtPath(id) {
+        if (id === 'season-pass') return 'assets/ui/41-season-pass-banner.webp';
+        return knownArt.has(id) && !id.startsWith('wallpaper-') ? `assets/ui/tiles/${id}.webp` : null;
+    }
+
+    function cleanSeenArt(value) {
+        return Array.isArray(value) ? [...new Set(value.slice(0, 2000).filter(id => knownArt.has(id)))] : [];
+    }
 
     function boosterToken(key) {
         return Object.hasOwn(boosterTokens, key) ? `assets/ui/boosters/${boosterTokens[key]}.png` : null;
@@ -47,5 +83,6 @@ window.LBArtPack = (() => {
         }
     }
 
-    return { universalPart, boosterToken, boosterIcon, wallpapers, nextWallpaper, backgroundMode, themeBackground, applyThemeBackground };
+    return { universalPart, boosterToken, boosterIcon, wallpapers, wallpaperName, wallpaperId, nextWallpaper, backgroundMode, themeBackground, applyThemeBackground,
+        menuElements, pickMenuArt, menuArtPath, seenArtIds, cleanSeenArt };
 })();

@@ -4,7 +4,7 @@ import { afterEach, expect, it } from 'vitest';
 import { loadGame } from './loader.js';
 
 const context = createContext({ window: {}, Date });
-for (const file of ['41-season-pass.js', 'save-sanitize.js', '43-crates-daily-gift.js']) {
+for (const file of ['41-season-pass.js', '44-art-pack.js', 'save-sanitize.js', '43-crates-daily-gift.js']) {
   runInContext(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), context);
   Object.assign(context, context.window);
 }
