@@ -664,6 +664,10 @@
     overflow: hidden auto;
     scrollbar-gutter: auto;
 }
+@media (orientation: portrait) and (max-width: 767px), (orientation: landscape) and (max-height: 560px) and (pointer: coarse) {
+    .lb-game-root #menu-overlay { --lb-menu-edge: var(--lb-space-md); }
+    .lb-game-root #menu-overlay .menu-scale-wrapper { width: 100%; }
+}
 #menu-overlay .lb-menu-primary { display: contents; }
 #menu-overlay .lb-menu-banner {
     position: relative;
@@ -813,24 +817,33 @@
     color: var(--lb-art-ink);
     filter: drop-shadow(1px 1px 1px var(--lb-art)) drop-shadow(-1px -1px 1px var(--lb-art));
 }
-#menu-overlay .lb-menu-art-tile[data-menu-art]::after { --lb-ready-ink: var(--lb-art-gold); outline: 1px solid var(--lb-art); }
-#menu-overlay .lb-menu-art-tile[data-ready]::after {
+.lb-game-root :is(#menu-overlay, #inventory-overlay) :is(.lb-menu-art-tile[data-ready], [data-invtab][data-ready], .lb43-gift-button[data-status='available']) {
+    position: relative;
+    --lb-ready-line: inset 0 0 0 1px var(--lb-ready-ink, var(--lb-utility));
+    --lb-ready-halo: color-mix(in srgb, var(--lb-ready-ink, var(--lb-utility)) 36%, transparent);
+}
+#menu-overlay .lb-menu-art-tile[data-menu-art] { --lb-ready-ink: var(--lb-art-gold); }
+.lb-game-root :is(#menu-overlay, #inventory-overlay) :is(.lb-menu-art-tile[data-ready], [data-invtab][data-ready], .lb43-gift-button[data-status='available'])::after {
     content: '';
-    position: static;
-    grid-area: 1 / 3;
-    place-self: center;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    box-shadow: none;
-    background: var(--lb-ready-ink, var(--lb-utility));
+    position: absolute;
+    inset: -1px;
+    width: auto;
+    height: auto;
+    border-radius: inherit;
+    box-shadow: var(--lb-ready-line), 0 0 5px var(--lb-ready-halo), inset 0 0 4px var(--lb-ready-halo);
     mask: none;
     transform: none;
     pointer-events: none;
-    animation: lb-menu-ready-pulse 1.5s ease-in-out infinite;
+    animation: lb-ready-ambient 7s ease-in-out infinite alternate;
 }
-@keyframes lb-menu-ready-pulse {
-    50% { opacity: .55; box-shadow: 0 0 0 3px color-mix(in srgb, var(--lb-ready-ink, var(--lb-utility)) 35%, transparent); }
+@keyframes lb-ready-ambient {
+    to { box-shadow: var(--lb-ready-line), 0 0 7px var(--lb-ready-halo), inset 0 0 5px var(--lb-ready-halo); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .lb-game-root :is(#menu-overlay, #inventory-overlay) :is(.lb-menu-art-tile[data-ready], [data-invtab][data-ready], .lb43-gift-button[data-status='available'])::after {
+        animation: none;
+        box-shadow: var(--lb-ready-line);
+    }
 }
 @media (max-width: 360px) {
     .lb-game-root #menu-overlay .lb-menu-nav .lb-ledger-action {
@@ -894,7 +907,7 @@
     --lb-button-border: var(--lb-border) dashed var(--lb-control-edge);
 }
 .lb43-gift-receipt { display: none; }
-#menu-overlay #lb43-daily-gift[data-status='claimed'] > :is(svg, .lb43-gift-marker) { display: none; }
+#menu-overlay #lb43-daily-gift[data-status='claimed'] > svg { display: none; }
 #lb43-daily-gift[data-status='claimed'] .lb43-gift-receipt {
     display: grid;
     justify-items: center;
@@ -912,11 +925,6 @@
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
-}
-#menu-overlay .lb43-gift-marker { border-color: var(--lb-rule); color: var(--lb-panel); }
-#menu-overlay #lb43-daily-gift[data-status='available']::before { animation-name: lb-menu-gift-pulse; }
-@keyframes lb-menu-gift-pulse {
-    50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--lb-utility) 55%, transparent); }
 }
 @media (orientation: landscape) {
     #menu-overlay .lb-menu-banner { min-height: min(clamp(196px, 32dvh, 282px), var(--lb-menu-banner-limit)); }
@@ -998,11 +1006,6 @@
     #menu-overlay :is(.lb-menu-nav, .lb-menu-utilities) { align-self: start; }
 }
 @media (prefers-reduced-motion: reduce) {
-    #menu-overlay .lb-menu-art-tile[data-ready]::after { animation: none; }
-    #menu-overlay #lb43-daily-gift[data-status='available']::before {
-        animation: none;
-        box-shadow: 0 0 0 2px var(--lb-utility);
-    }
     .lb-xp-fill, #ls-bar { transition: none; }
 }
 

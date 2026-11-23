@@ -117,6 +117,32 @@ it('shows the same nonempty daily quote during loading and on the menu banner', 
   } finally { close(); }
 });
 
+it('hides and restores menu tips with a saved, default-on Display switch', async () => {
+  const { w, close } = await loadGame();
+  let savedSettings;
+  try {
+    const toggle = w.document.getElementById('setting-menu-tips');
+    expect(toggle.checked).toBe(true);
+    expect(w.document.getElementById('splash-quote').hidden).toBe(false);
+    toggle.click();
+    expect(w.document.getElementById('splash-quote').hidden).toBe(true);
+    expect(w.document.getElementById('loading-quote').hidden).toBe(false);
+    savedSettings = JSON.parse(w.localStorage.getItem('linebreaker_settings'));
+    expect(savedSettings.showMenuTips).toBe(false);
+  } finally { close(); }
+
+  const restored = await loadGame(true, null, null, null, savedSettings);
+  try {
+    const toggle = restored.w.document.getElementById('setting-menu-tips');
+    const tip = restored.w.document.getElementById('splash-quote');
+    expect(toggle.checked).toBe(false);
+    expect(tip.hidden).toBe(true);
+    toggle.click();
+    expect(tip.hidden).toBe(false);
+    expect(JSON.parse(restored.w.localStorage.getItem('linebreaker_settings')).showMenuTips).toBe(true);
+  } finally { restored.close(); }
+});
+
 it('restores the saved wallpaper preference and shares the settings icon', async () => {
   let motion;
   const { w, close } = await loadGame(true, null, null, { movingBackground: false }, null, window => {

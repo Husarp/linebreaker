@@ -477,14 +477,16 @@
                     row.removeAttribute('data-ready');
                     const idle = !row.querySelector('.lb-ledger-chevron') && getComputedStyle(row, '::after').content !== '""';
                     row.setAttribute('data-ready', '');
-                    const dot = getComputedStyle(row, '::after');
+                    const frame = getComputedStyle(row, '::after');
                     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-                    const ready = dot.content === '""' && parseFloat(dot.width) > 0
-                        && dot.animationName === (reducedMotion ? 'none' : 'lb-menu-ready-pulse');
+                    const ready = frame.content === '""' && frame.position === 'absolute' && frame.boxShadow.includes('inset')
+                        && Math.abs(parseFloat(frame.width) - row.offsetWidth) <= 2
+                        && frame.maskImage === 'none' && frame.transform === 'none'
+                        && frame.animationName === (reducedMotion ? 'none' : 'lb-ready-ambient');
                     row.toggleAttribute('data-ready', hadNotification);
                     return idle && ready;
                 }));
-                if (!navigationFits) fail('Menu tiles must have no chevrons and retain a motion-aware readiness dot');
+                if (!navigationFits) fail('Menu tiles must have no chevrons and show a full-width, motion-aware readiness frame');
                 const menuDesign = await page.evaluate(() => {
                     const box = selector => document.querySelector(selector).getBoundingClientRect();
                     const clipped = selector => getComputedStyle(document.querySelector(selector)).clipPath.startsWith('polygon(');

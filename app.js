@@ -726,6 +726,7 @@
     defaultSettings.themeBackground = 'image';
     defaultSettings.uiTheme = 'dark';
     defaultSettings.movingBackground = true;
+    defaultSettings.showMenuTips = true;
     defaultSettings.lineClearEffect = 'default';
     let settings = { ...defaultSettings };
     let closeDropdown;
@@ -860,6 +861,13 @@
     else systemUiTheme?.addListener?.(onSystemUiThemeChange);
     for (const button of uiThemeButtons) button.onclick = () => onSettingChange('uiTheme', button.dataset.uiTheme);
     const _movingBackgroundToggle = document.getElementById('setting-moving-background');
+    const menuTipsToggle = document.getElementById('setting-menu-tips');
+    const menuTip = document.getElementById('splash-quote');
+    function syncMenuTips() {
+        menuTipsToggle.checked = settings.showMenuTips !== false;
+        menuTip.hidden = !menuTipsToggle.checked;
+    }
+    menuTipsToggle.addEventListener('change', () => onSettingChange('showMenuTips', menuTipsToggle.checked));
     const wallpaper = document.querySelector('.lb-wallpaper');
     let wallpaperAnimation;
     function driftWallpaper(from) {
@@ -2580,6 +2588,7 @@
                 Object.assign(settings, defaultSettings, fileSettings);
                 settings.lineClearEffect = LBLineClear.normalizeMode(settings.lineClearEffect);
                 syncUiTheme();
+                syncMenuTips();
                 syncMusicGain();
             }
             if (data.stats) saveData.stats = { ...defaultSaveData.stats, ...data.stats };
@@ -3842,7 +3851,7 @@
     const settingsKicker = document.querySelector('#settings-overlay .lb-topbar-kicker');
     const settingsCategories = new Map([
         ['controls', 'Controls', 'Touch, gestures, vibration', 'game', '<path d="M2 7h20v10H2zm4 5h6m-3-3v6m7-2v.1m3-2v.1"/>', 'key bindings gameplay assistance timing'],
-        ['display', 'Display', 'Background, effects, contrast', 'game', '<path d="M3 4h18v13H3zm5 16h8m-4-3v3"/>', 'wallpaper theme palette accent cyan green motion screen'],
+        ['display', 'Display', 'Background, effects, contrast', 'game', '<path d="M3 4h18v13H3zm5 16h8m-4-3v3"/>', 'wallpaper theme palette accent cyan green motion screen main menu tips'],
         ['audio', 'Audio', 'Music, effects, tempo', 'game', '<path d="M3 9h4l5-4v14l-5-4H3zm13-1a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>', 'sound volume mute sfx'],
         ['notifications', 'Notifications', 'Reminders, updates', 'app', '<path d="M7 10a5 5 0 0 1 10 0v3l2 3H5l2-3zm3 9h4"/>', 'daily weekly missions'],
         ['updates', 'Data & updates', 'Save data and app version', 'app', '<path d="M4 5l8-3 8 3v7c0 5-8 10-8 10s-8-5-8-10z"/>', 'install release notes help credits transfer reset'],
@@ -4534,7 +4543,7 @@
         document.querySelectorAll('[data-invtab]').forEach(btn => {
             const tab = btn.dataset.invtab;
             const hasReady = (tab === 'blocks' && skinReady) || (tab === 'colors' && themeReady) || (tab === 'other' && otherReady);
-            btn.classList.toggle('glow-notify', hasReady);
+            btn.toggleAttribute('data-ready', hasReady);
         });
         // Inventory button glow in main menu
         const invReady = readyItems.length > 0 || Boolean(saveData.storedCrates?.length);
@@ -4887,6 +4896,9 @@
         } else if (key === 'movingBackground') {
             settings.movingBackground = value === true;
             syncWallpaper();
+        } else if (key === 'showMenuTips') {
+            settings.showMenuTips = value === true;
+            syncMenuTips();
         } else if (key === 'showRunMissions') {
             settings.showRunMissions = value === true;
             _syncRunMissions(true);
@@ -11256,6 +11268,7 @@
     _setLoadProgress(5, 'Initializing…');
     loadSettings();
     syncUiTheme();
+    syncMenuTips();
     if (BADGE_LEVEL_LABEL !== 'none') document.fonts?.load('52px Silkscreen').then(_syncBadgeLoop, () => {});
     const controlsEditor = LBControls.createEditor(document.getElementById('controls-settings'),
         () => settings.keyBindings, bindings => { settings.keyBindings = bindings; saveSettings(); });

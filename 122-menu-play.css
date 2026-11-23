@@ -75,41 +75,6 @@
     font: 500 9px/1.3 var(--font-body);
 }
 #lb43-daily-gift[data-status="clock-blocked"] .lb43-gift-status { color: var(--warning); }
-.lb43-gift-marker {
-    display: none;
-    place-items: center;
-    position: absolute;
-    top: -4px;
-    right: -3px;
-    width: 16px;
-    height: 16px;
-    border: 1px solid #fff5;
-    border-radius: var(--bb-badge-radius);
-    background: var(--gift-tone);
-    color: #171b17;
-    font: 900 10px/1 var(--font-body);
-}
-.lb43-gift-marker svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
-#lb43-daily-gift:is([data-status="available"], [data-status="claimed"]) .lb43-gift-marker { display: grid; }
-#lb43-daily-gift[data-status="available"] .lb43-gift-marker svg,
-#lb43-daily-gift[data-status="claimed"] .lb43-gift-marker span { display: none; }
-#lb43-daily-gift[data-status="available"]::before {
-    content: "";
-    position: absolute;
-    inset: calc(-1 * var(--bb-stroke));
-    border-radius: inherit;
-    pointer-events: none;
-    animation: lb43-ready-ring 2.8s ease-in-out infinite;
-}
-@keyframes lb43-ready-ring {
-    50% { box-shadow: 0 0 0 3px #ffd68675, 0 0 14px #ffd6866e; }
-}
-@media (prefers-reduced-motion: reduce) {
-    #lb43-daily-gift[data-status="available"]::before {
-        animation: none;
-        box-shadow: 0 0 0 2px #ffd68675;
-    }
-}
 @media (orientation: portrait) and (max-width: 600px) {
     #menu-overlay {
         padding-bottom: calc(var(--lb-safe-bottom) + 14px);
