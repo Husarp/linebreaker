@@ -17,12 +17,7 @@ window.LBArtPack = (() => {
         stats: ['stats-archive', 'stats-archive-calm'],
     };
     const menuElements = Object.freeze(Object.keys(menuArt));
-    const menuSets = menuElements.flatMap((first, index) => menuElements.slice(index + 1)
-        .flatMap((second, offset) => menuElements.slice(index + offset + 2).map(third => [first, second, third])));
-    const dailyMenuSets = [0, 1].map(parity => menuSets.filter((_, index) => index % 2 === parity));
-    const wallpaperId = name => backgrounds.has(name) ? `wallpaper-${name}` : null;
-    const seenArtIds = Object.freeze([...new Set([...wallpapers.map(wallpaperId), ...Object.values(menuArt).flat(), 'season-pass'])]);
-    const knownArt = new Set(seenArtIds);
+    const menuTileArt = new Set(menuElements.filter(key => key !== 'play').flatMap(key => menuArt[key]));
     const menuArtDay = date => Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000);
 
     function dailyIndex(day, key, count) {
@@ -33,9 +28,7 @@ window.LBArtPack = (() => {
     }
 
     function pickMenuArt(day) {
-        const choices = dailyMenuSets[day & 1];
-        const selected = choices[dailyIndex(day, 'menu', choices.length)];
-        return Object.fromEntries(selected.map(key => [key, menuArt[key][dailyIndex(day, key, menuArt[key].length)]]));
+        return Object.fromEntries(menuElements.map(key => [key, menuArt[key][dailyIndex(day, key, menuArt[key].length)]]));
     }
 
     function pickDailyFeatureArt(day, first, second) {
@@ -43,12 +36,7 @@ window.LBArtPack = (() => {
     }
 
     function menuArtPath(id) {
-        if (id === 'season-pass') return 'assets/ui/41-season-pass-banner.webp';
-        return knownArt.has(id) && !id.startsWith('wallpaper-') ? `assets/ui/tiles/${id}.webp` : null;
-    }
-
-    function cleanSeenArt(value) {
-        return Array.isArray(value) ? [...new Set(value.slice(0, 2000).filter(id => knownArt.has(id)))] : [];
+        return menuTileArt.has(id) ? `assets/ui/tiles/${id}.webp` : null;
     }
 
     function boosterRarity(multiplier) {
@@ -89,6 +77,6 @@ window.LBArtPack = (() => {
         }
     }
 
-    return { itemPart, universalPart, boosterRarity, boosterToken, boosterIcon, wallpapers, wallpaperName, wallpaperId, backgroundMode, themeBackground, applyThemeBackground,
-        menuElements, menuArtDay, pickMenuArt, pickDailyFeatureArt, menuArtPath, seenArtIds, cleanSeenArt };
+    return { itemPart, universalPart, boosterRarity, boosterToken, boosterIcon, wallpapers, backgroundMode, themeBackground, applyThemeBackground,
+        menuElements, menuArtDay, pickMenuArt, pickDailyFeatureArt, menuArtPath };
 })();

@@ -542,7 +542,6 @@
     let _gameInProgress = false; // true between startGame and gameOver — blocks mid-game file saves
     const defaultSaveData = { schemaVersion: LBSave.version, totalXP: 0, parts: {}, universalParts: {}, ownedSkins: [DEFAULT_BLOCK_SKIN], skinCatalogVersion: SKIN_CATALOG_VERSION, ownedThemes: [], ownedBtnStyles: [], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, pendingLevelBox: null, missions: null, season: seasonPass.emptySeason(), lastSeenTime: 0, seasonBlockedUntil: 0, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
 
-    Object.assign(defaultSaveData, { lastSeenTime: 0, seenArt: [] });
 
     // --- FILE SYSTEM ACCESS API ---
     const _nativeAdapter = _qaDemo ? null : window.Capacitor?.isNativePlatform()
@@ -918,45 +917,26 @@
     const menuArtOverlay = document.getElementById('menu-overlay');
     const menuArtDestinations = [...document.querySelectorAll('#file-setup-overlay, #mode-select-overlay, #settings-overlay, #missions-overlay, #inventory-overlay, #achievements-overlay, #stats-overlay, #playlist-overlay, #rules-overlay, #tutorial-overlay, #credits-overlay')];
     const menuArtTiles = LBArtPack.menuElements.map(key => [key, document.getElementById(`btn-${key}`)]);
-    const gameArtBoard = document.getElementById('app');
-    const gameArtIntro = document.getElementById('start-animation-overlay');
-    const missionsArtPanel = document.getElementById('missions-overlay');
     const seasonArtPanel = document.getElementById('season-pass-overlay');
     let menuArtReady = false;
     let menuArtDay;
     function syncMenuArt() {
         if (!menuArtReady || !menuArtOverlay.isConnected || document.hidden) return;
-        const coversMenu = !seasonArtPanel.hidden || menuArtDestinations.some(screen => !screen.classList.contains('hidden'));
-        const open = !coversMenu && !menuArtOverlay.classList.contains('hidden');
         const day = LBArtPack.menuArtDay(new Date());
-        if (open && day !== menuArtDay) {
-            menuArtDay = day;
-            const menuArtSelection = LBArtPack.pickMenuArt(day);
-            for (const [key, tile] of menuArtTiles) {
-                const id = menuArtSelection[key];
-                if (id) tile.dataset.menuArt = id;
-                else tile.removeAttribute('data-menu-art');
-                const path = LBArtPack.menuArtPath(id);
-                if (path) tile.style.setProperty('--lb-tile-art', `url("${path}")`);
-                else tile.style.removeProperty('--lb-tile-art');
-                if (key === 'play') LBArtPack.applyThemeBackground(tile, id?.slice('wallpaper-'.length));
-            }
+        if (day === menuArtDay || menuArtOverlay.classList.contains('hidden') || !seasonArtPanel.hidden
+            || menuArtDestinations.some(screen => !screen.classList.contains('hidden'))) return;
+        menuArtDay = day;
+        const menuArtSelection = LBArtPack.pickMenuArt(day);
+        for (const [key, tile] of menuArtTiles) {
+            const id = menuArtSelection[key];
+            tile.dataset.menuArt = id;
+            const path = LBArtPack.menuArtPath(id);
+            if (path) tile.style.setProperty('--lb-tile-art', `url("${path}")`);
+            if (key === 'play') LBArtPack.applyThemeBackground(tile, id.slice('wallpaper-'.length));
         }
-        const visibleArt = [];
-        if (open || !gameArtIntro.classList.contains('hidden') || (!coversMenu && gameArtBoard.classList.contains('active-game'))) {
-            visibleArt.push(LBArtPack.wallpaperId(LBArtPack.wallpaperName(settings.theme, settings.themeBackground)));
-        }
-        if (open) visibleArt.push(...menuArtTiles.map(([, tile]) => tile.dataset.menuArt));
-        if (!missionsArtPanel.classList.contains('hidden') || !seasonArtPanel.hidden) visibleArt.push('season-pass');
-        const previous = saveData.seenArt || [];
-        const seen = LBArtPack.cleanSeenArt([...previous, ...visibleArt]);
-        if (seen.length === previous.length) return;
-        saveData.seenArt = seen;
-        checkProgressAchievements();
-        saveDataToFile();
     }
     const menuArtObserver = new MutationObserver(syncMenuArt);
-    for (const surface of [menuArtOverlay, ...menuArtDestinations, gameArtBoard, gameArtIntro, seasonArtPanel]) {
+    for (const surface of [menuArtOverlay, ...menuArtDestinations, seasonArtPanel]) {
         menuArtObserver.observe(surface, { attributes: true, attributeFilter: ['class', 'hidden'] });
     }
     document.addEventListener('visibilitychange', syncMenuArt);
@@ -5433,7 +5413,6 @@
         gift_ignore: 'M5 3h5v2h4V3h5v2h2v4h2v5h-2v8H3v-8H1V9h2V5h2zm0 2v4h5V7H8V5zm11 2h-2v2h5V5h-3zM5 14v6h5v-6zm9 0v6h5v-6z',
         back_to_back: 'M2 3h20v7H2zm2 2v3h16V5zm-2 9h20v7H2zm2 2v3h16v-3zm4-5h8v2H8zM6 6h4v1H6zm8 0h4v1h-4zM6 17h4v1H6zm8 0h4v1h-4z',
         afk: 'M2 3h20v14H2zm2 2v10h16V5zm4 13h8v2h3v2H5v-2h3zM9 7h7v2h-2v2h-2v1h4v2H9v-2h1v-2h2V9H9z',
-        art_collector: 'M2 4h20v16H2zm2 2v12h16V6zm2 9 4-4 3 3 3-4 2 4v2H6zm9-8h2v2h-2z',
         collector: 'M2 5h14v3h6v12H2zm2 4v9h16v-7H13V8H4zm3 3h3v3H7zm6 1h3v3h-3z',
         pause_spam: ACH_PAUSE + 'M2 8h2v8H2zm18 0h2v8h-2z',
         leaning_tower: 'M12 2h7v5h-7zm-2 6h7v5h-7zm-3 6h7v5H7zm-4 6h18v2H3z',
@@ -5786,15 +5765,6 @@
         check: () => false,
     },
     {
-        id: 'art_collector', cat: 'basic', name: 'Art collector', type: 'tiered',
-        counter: { path: '_computed.artSeen', label: 'Artworks seen' },
-        tiers: [
-            { rarity: 'common', name: 'Art collector I', desc: 'See 10 different artworks', progress: { path: '_computed.artSeen', target: 10 } },
-            { rarity: 'rare', name: 'Art collector II', desc: 'See 18 different artworks', progress: { path: '_computed.artSeen', target: 18 } },
-            { rarity: 'epic', name: 'Art collector III', desc: 'See every artwork', progress: { path: '_computed.artSeen', target: LBArtPack.seenArtIds.length } },
-        ],
-    },
-    {
         id: 'music_listener', cat: 'basic', name: 'In the Zone', type: 'tiered',
         counter: { path:'_computed.musicTracksListened', label:'Tracks Listened' },
         tiers: [
@@ -6132,7 +6102,6 @@
     })();
 
     function _getProgressVal(path) {
-        if (path === '_computed.artSeen') return saveData.seenArt?.length || 0;
         if (path === '_computed.musicTracksListened') return LBSave.musicCounts(saveData.stats.songPlayCounts).total;
         if (path === '_computed.itemsCollected') {
             const _os = (saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).length;

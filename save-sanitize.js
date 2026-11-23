@@ -26,7 +26,7 @@
     const keyGroups = [
         ['schemaVersion', 'skinCatalogVersion', 'totalXP', '_settings', 'seenFunRules', 'lastDailyGift', 'pendingDailyGift', 'lastSeenTime', 'levelRewardsThrough', 'pendingRankRewards', 'pendingLevelBox', 'pendingLevelBoxes', 'pendingMilestoneBoxes', 'pendingMilestoneReward'],
         ['parts', 'universalParts', 'boosters', 'boxes', 'storedCrates', 'ghostColorUnlocked', 'ownedSkins', 'ownedThemes', 'ownedBtnStyles', 'ownedGridStyles', 'ownedSfxPacks', 'ownedPalettes', 'customPaletteOverrides', 'customPickerColors', 'customThemeColor', '_cpmBaseColor', '_cpmMode', 'menuPlaylist', 'gamePlaylist', 'actionPlaylist'],
-        ['missions'], ['season', 'lastSeenTime', 'seasonBlockedUntil'], ['achievements', 'pendingAchievementClaims', 'seenArt'], ['stats'], scoreKeys,
+        ['missions'], ['season', 'lastSeenTime', 'seasonBlockedUntil'], ['achievements', 'pendingAchievementClaims'], ['stats'], scoreKeys,
     ];
     const saveKeys = keyGroups.flat();
     const day = v => String(v).padStart(2, '0');
@@ -108,8 +108,9 @@
         if (savedClock) score.clock = savedClock;
         return score;
     }
+    const discardedAchievementIds = new Set(['parachute_catcher', 'art_collector']);
     function cleanAchievements(value) {
-        return Object.fromEntries(entries(value).filter(([key]) => key !== 'parachute_catcher' && !retiredDayAchievements.has(key)
+        return Object.fromEntries(entries(value).filter(([key]) => !discardedAchievementIds.has(key) && !retiredDayAchievements.has(key)
             && (key !== '\u0074etris_lines' || !Object.hasOwn(value, 'i_piece_lines'))).map(([key, entry]) => {
             const achievement = { unlocked: entry?.unlocked === true, unlockedAt: date(entry?.unlockedAt) };
             if (typeof entry?.tier === 'number') achievement.tier = Math.floor(number(entry.tier, 0, 100));
@@ -167,9 +168,12 @@
     function serializeSave(data, weeklyDefinitions = []) {
         const out = { ...data, schemaVersion: version };
         if (object(data.stats)) out.stats = withoutDayStreakStats(data.stats);
-        if (Object.hasOwn(data, 'seenArt')) out.seenArt = window.LBArtPack.cleanSeenArt(data.seenArt);
+        delete out.seenArt;
         if (object(data._settings)) out._settings = cleanSettings(data._settings);
         if (object(data.achievements)) out.achievements = cleanAchievements(data.achievements);
+        if (Array.isArray(data.pendingAchievementClaims)) {
+            out.pendingAchievementClaims = data.pendingAchievementClaims.filter(claim => !discardedAchievementIds.has(claim?.id));
+        }
         for (const key of scoreKeys) if (Array.isArray(data[key])) out[key] = data[key].filter(object).map(cleanScore);
         if (object(data.missions)) {
             const { daily, weekly, streaks, ...missionState } = data.missions;
@@ -274,9 +278,8 @@
             else if (k === 'blockTypeUsage') out.stats[k] = numericMap(v);
             else out.stats[k] = number(v);
         }
-        out.seenArt = window.LBArtPack.cleanSeenArt(data.seenArt);
         out.achievements = cleanAchievements(data.achievements);
-        out.pendingAchievementClaims = list(data.pendingAchievementClaims).filter(claim => object(claim) && typeof claim.id === 'string' && safeKey(claim.id) && claim.id !== 'parachute_catcher').map(claim => ({
+        out.pendingAchievementClaims = list(data.pendingAchievementClaims).filter(claim => object(claim) && typeof claim.id === 'string' && safeKey(claim.id) && !discardedAchievementIds.has(claim.id)).map(claim => ({
             id: achievementId(claim.id), name: retiredDayAchievements.has(claim.id) ? 'Legacy achievement' : string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common',
             ...(claim.tierNum ? { tierNum: Math.floor(number(claim.tierNum, 0, 100)) } : {}),
             ...(sourceVersion >= 2 && [2, 3].includes(claim.tierNum) && ['common', 'rare', 'epic', 'legendary'].includes(claim.crateRarity)

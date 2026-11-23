@@ -24,17 +24,17 @@ describe('achievement screen', () => {
   it('counts each achievement once and excludes secrets from public completion', () => {
     game.w.openAchievements();
     expect(query('#ach-counter').textContent).toBe('0% complete');
-    expect(sectionCount('BASIC')).toBe('0 of 31');
+    expect(sectionCount('BASIC')).toBe('0 of 30');
     expect(sectionCount('SECRET')).toBe('0 of 55');
 
     game.api.setup({ save: { achievements: { collector: { tier: 2 }, sec_nice: { unlocked: true } } } });
     game.w.openAchievements();
     expect(query('#ach-counter').textContent).toBe('3% complete');
-    expect(query('#ach-milestone-count').textContent).toBe('1 of 31 unlocked');
-    expect(query('#ach-milestone-progress').position).toBeCloseTo(1 / 31);
+    expect(query('#ach-milestone-count').textContent).toBe('1 of 30 unlocked');
+    expect(query('#ach-milestone-progress').position).toBeCloseTo(1 / 30);
     expect(query('#achievements-overlay .lb-collection-feature img')).toBeNull();
     expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 55');
-    expect(sectionCount('BASIC')).toBe('1 of 31');
+    expect(sectionCount('BASIC')).toBe('1 of 30');
     expect(sectionCount('SECRET')).toBe('1 of 55');
 
     game.api.setup({ save: { achievements: { collector: { tier: 2 } } } });
@@ -58,7 +58,7 @@ describe('achievement screen', () => {
 
     select('#ach-category', 'basic');
     expect(sectionNamed('SECRET')).toBeUndefined();
-    expect(sectionCount('BASIC')).toBe('1 of 31');
+    expect(sectionCount('BASIC')).toBe('1 of 30');
     expect(query('#ach-counter').textContent).toBe('3% complete');
     expect(query('#ach-secret-counter').textContent).toBe('Secrets 1 of 55');
   });
@@ -112,7 +112,7 @@ describe('achievement screen', () => {
     game.w.devUnlockAllAchievements();
     game.w.openAchievements('unlocked');
     const earned = [...badges('BASIC'), ...badges('SECRET')];
-    expect(earned).toHaveLength(86);
+    expect(earned).toHaveLength(85);
     for (const badge of earned) {
       const icon = badge.querySelector('.ach-card-icon');
       expect(icon.querySelector('path[d], use[href]')).not.toBeNull();
@@ -308,13 +308,12 @@ describe('achievement screen', () => {
 
   it('queues escalating tier rewards, restores pending crates, and pays each tier once across reloads', () => {
     const { api, w } = game;
-    api.setup({ save: { stats: { gamesPlayed: 1000, bestDailyXP: 10000 }, seenArt: [...w.LBArtPack.seenArtIds] } });
+    api.setup({ save: { stats: { gamesPlayed: 1000, bestDailyXP: 10000 } } });
     api.checkAchievementsOnLoad();
     const claimsFor = id => api.save.pendingAchievementClaims.filter(claim => claim.id === id);
     const rewardValues = id => claimsFor(id).map(claim => claim.crateRarity || claim.xp);
     expect(rewardValues('games')).toEqual([200, 'rare', 'legendary']);
     expect(rewardValues('daily_xp')).toEqual([200, 'rare', 'epic']);
-    expect(rewardValues('art_collector')).toEqual([200, 'common', 'rare']);
     const save = w.LBSave.serializeSave(api.save);
     save.pendingAchievementClaims.push({ ...claimsFor('games')[1] });
     api.applyLoadedData(save, false);

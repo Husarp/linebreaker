@@ -864,14 +864,14 @@
     width: 100%;
     max-width: none;
     margin: 0;
-    padding: 0 10px;
+    padding: 0 10px 4px;
     gap: 0;
     background: var(--lb-panel);
     border-color: var(--lb-rule);
     box-shadow: var(--lb-card-shadow);
 }
 #menu-overlay #music-widget::after { display: none; }
-#menu-overlay .lb110-track { min-height: 53px; padding: 5px; border: 0; }
+#menu-overlay .lb110-track { min-height: 49px; padding: 5px; border: 0; }
 #menu-overlay .lb110-track #mw-title { font-size: var(--lb-type-small); }
 #menu-overlay #mw-info .lb-block-kicker { color: var(--lb-muted); }
 #menu-overlay .lb110-signal { display: none; }
@@ -932,7 +932,7 @@
 @container lb-menu (height < 880px) {
     #menu-overlay #music-widget {
         grid-template-columns: minmax(0, 1fr) min(222px, 62%);
-        grid-template-rows: 37px 23px;
+        grid-template-rows: 34px 26px;
         column-gap: 6px;
         padding: 0;
         background: none !important;
@@ -959,7 +959,7 @@
         grid-area: 2 / 1;
         grid-template-columns: auto minmax(0, 1fr) auto;
         gap: 3px;
-        padding-inline: 5px;
+        padding: 0 5px 3px;
         border-top: 0;
         border-start-start-radius: 0;
         border-start-end-radius: 0;
@@ -970,6 +970,7 @@
     #menu-overlay #music-widget #mw-controls {
         grid-area: 1 / 2 / span 2;
         align-content: center;
+        padding-bottom: 4px;
         box-shadow: var(--lb-card-shadow);
     }
 }

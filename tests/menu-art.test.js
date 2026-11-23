@@ -12,18 +12,20 @@ const setClock = date => window => {
   };
 };
 
-it('holds three artworks across same-day visits and adds only artwork actually shown after rollover', async () => {
+it('keeps every tile illustrated across same-day visits and refreshes variants at rollover', async () => {
   const date = new Date(2026, 10, 23, 23, 50);
-  const { w, api, close } = await loadGame(true, null, null, undefined, null, setClock(date));
+  const { w, close } = await loadGame(true, null, null, undefined, null, setClock(date));
   try {
     const { document } = w;
     const tiles = () => selectedArt(document);
     const ids = () => artIds(document);
     const first = tiles().map(tile => tile.id);
     const firstArt = ids();
-    expect(first).toHaveLength(3);
-    expect(first).not.toContain('lb43-daily-gift');
-    expect(api.save.seenArt.toSorted()).toEqual([...new Set(['wallpaper-default', ...firstArt])].sort());
+    expect(first.sort()).toEqual(['btn-achievements', 'btn-inventory', 'btn-missions', 'btn-play', 'btn-player-rank', 'btn-settings', 'btn-stats']);
+    for (const tile of tiles()) {
+      const property = tile.id === 'btn-play' ? '--lb-theme-art-portrait' : '--lb-tile-art';
+      expect(tile.style.getPropertyValue(property)).toMatch(/^url\(/);
+    }
     document.dispatchEvent(new w.Event('visibilitychange'));
     expect(ids()).toEqual(firstArt);
 
@@ -38,41 +40,18 @@ it('holds three artworks across same-day visits and adds only artwork actually s
     w.closeSettings();
     await nextTurn();
     expect(ids()).toEqual(firstArt);
-    const seenToday = [...new Set(['wallpaper-default', ...firstArt])].sort();
-    expect(api.save.seenArt.toSorted()).toEqual(seenToday);
 
     w.openSettings();
     await nextTurn();
     date.setMinutes(date.getMinutes() + 15);
     document.dispatchEvent(new w.Event('visibilitychange'));
     expect(ids()).toEqual(firstArt);
-    expect(api.save.seenArt.toSorted()).toEqual(seenToday);
     w.closeSettings();
     await nextTurn();
-    expect(tiles().map(tile => tile.id)).not.toEqual(first);
-    expect(ids()).toHaveLength(3);
-    expect(ids().some(id => !seenToday.includes(id))).toBe(true);
-    expect(api.save.seenArt.toSorted()).toEqual([...new Set([...seenToday, ...ids()])].sort());
-    expect(w.LBSave.serializeSave(api.save).seenArt).toEqual(api.save.seenArt);
-  } finally { close(); }
-});
-
-it('counts Season Pass art once across Missions and the reward track', async () => {
-  const { w, api, close } = await loadGame();
-  try {
-    const { document } = w;
-    const first = artIds(document);
-    api.setup();
-    await w.openMissions();
-    expect(api.save.seenArt).toEqual(['season-pass']);
-    document.getElementById('btn-season-pass').click();
-    await nextTurn();
-    expect(api.save.seenArt).toEqual(['season-pass']);
-    w.closeMissions();
-    w.closeMissions();
-    await nextTurn();
-    expect(artIds(document)).toEqual(first);
-    expect(api.save.seenArt.filter(id => id === 'season-pass')).toHaveLength(1);
+    expect(tiles().map(tile => tile.id).sort()).toEqual(first);
+    expect(ids()).not.toEqual(firstArt);
+    const next = w.LBArtPack.pickMenuArt(w.LBArtPack.menuArtDay(date));
+    expect(tiles().map(tile => tile.dataset.menuArt)).toEqual(tiles().map(tile => next[tile.id.slice(4)]));
   } finally { close(); }
 });
 
@@ -89,35 +68,6 @@ it('restores the same daily art after relaunch independent of random state and l
   });
   try {
     expect(artIds(w.document)).toEqual(firstArt);
-  } finally { close(); }
-});
-
-it('records the game wallpaper even when the menu was covered before it could be seen', async () => {
-  const { w, api, close } = await loadGame();
-  try {
-    const { document } = w;
-    w.openModeSelect();
-    await nextTurn();
-    api.setup();
-    document.getElementById('play-start').click();
-    document.getElementById('mode-select-overlay').dispatchEvent(new w.Event('animationend'));
-    await nextTurn();
-    expect(api.save.seenArt).toEqual(['wallpaper-default']);
-    expect(document.getElementById('menu-overlay').classList.contains('hidden')).toBe(true);
-  } finally { close(); }
-});
-
-it('migrates missing art history and sanitizes incoming and outgoing entries', async () => {
-  const { w, api, close } = await loadGame();
-  try {
-    for (const save of [{}, { schemaVersion: 1 }, { seenArt: 'season-pass' }]) {
-      api.applyLoadedData(save, false);
-      expect(api.save.seenArt).toEqual([]);
-    }
-    const seenArt = ['wallpaper-forest', 'wallpaper-forest', 'season-pass', 'wallpaper-forest-portrait', '__proto__', {}, 0];
-    expect(w.LBSave.serializeSave({ seenArt }).seenArt).toEqual(['wallpaper-forest', 'season-pass']);
-    api.applyLoadedData({ seenArt }, false);
-    expect(api.save.seenArt).toEqual(['wallpaper-forest', 'season-pass']);
   } finally { close(); }
 });
 
@@ -147,26 +97,33 @@ it('keeps Mission Log and Locker illustrations through tab changes and reopening
   } finally { close(); }
 });
 
-it('shows Art collector progress and unlocks the tiers at 10, 18 and the complete catalog', async () => {
+it('drops retired art progress and every pending tier without affecting other rewards or counts', async () => {
   const { w, api, close } = await loadGame();
   try {
-    const ids = w.LBArtPack.seenArtIds;
-    for (const [count, tier] of [[9, 0], [10, 1], [17, 1], [18, 2], [ids.length - 1, 2], [ids.length, 3]]) {
-      api.applyLoadedData({ seenArt: ids.slice(0, count) }, false);
+    const claim = { id: 'games', name: 'Games', rarity: 'common', tierNum: 1, xp: 200 };
+    const current = { schemaVersion: 3, totalXP: 123, achievements: { games: { tier: 1 } }, pendingAchievementClaims: [claim] };
+    const legacy = {
+      ...current,
+      seenArt: ['missions-outpost', 'season-pass'],
+      achievements: { ...current.achievements, art_collector: { tier: 3 } },
+      pendingAchievementClaims: [claim, ...[1, 2, 3].map(tierNum => ({ id: 'art_collector', tierNum }))],
+    };
+    expect(w.LBSave.serializeSave(legacy)).toEqual(w.LBSave.serializeSave(current));
+    const { document } = w;
+    const counts = () => [...document.querySelectorAll('#ach-counter, #ach-list .ach-count-label')].map(node => node.textContent);
+    api.applyLoadedData(current, false);
+    w.openAchievements();
+    const expectedCounts = counts();
+    expect(expectedCounts.length).toBeGreaterThan(1);
+    for (const schemaVersion of [1, 2, 3]) {
+      api.applyLoadedData({ ...legacy, schemaVersion }, false);
       w.openAchievements();
-      const list = w.document.getElementById('ach-list');
-      expect(list.textContent).toContain('Art collector');
-      const card = list.querySelector(`[data-ach-id="art_collector"][data-state="${tier ? 'unlocked' : 'locked'}"]`);
-      if (tier === 3) {
-        card.click();
-        expect(w.document.getElementById('ach-tip').textContent).toContain('See every artwork');
-        expect(card.querySelector('progress')).toBeNull();
-      } else {
-        expect(card.textContent).toContain(`${count} / ${[10, 18, ids.length][tier]}`);
-      }
-      expect(api.save.achievements.art_collector?.tier || 0).toBe(tier);
-      expect(api.save.pendingAchievementClaims.filter(claim => claim.id === 'art_collector').map(claim => claim.tierNum))
-        .toEqual(Array.from({ length: tier }, (_, index) => index + 1));
+      expect(document.querySelector('[data-ach-id="art_collector"]')).toBeNull();
+      expect(counts()).toEqual(expectedCounts);
+      expect(api.save).not.toHaveProperty('seenArt');
+      expect(api.save.achievements).not.toHaveProperty('art_collector');
+      expect(api.save.pendingAchievementClaims).toEqual([claim]);
+      expect(api.save.totalXP).toBe(123);
     }
   } finally { close(); }
 });

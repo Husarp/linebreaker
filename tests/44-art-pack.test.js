@@ -16,33 +16,24 @@ it('keys menu art to the local calendar date, not the time or UTC date', () => {
   expect(day).toBe(Date.UTC(2026, 11, 31) / 86400000);
   expect(art.pickMenuArt(art.menuArtDay(evening))).toEqual(art.pickMenuArt(day));
   expect(art.menuArtDay(tomorrow)).toBe(day + 1);
-  expect(Object.keys(art.pickMenuArt(day + 1))).not.toEqual(Object.keys(art.pickMenuArt(day)));
+  expect(art.pickMenuArt(day + 1)).not.toEqual(art.pickMenuArt(day));
 });
 
-it('rotates through all 35 sets of three eligible tiles without repeating on adjacent days', () => {
-  const sets = new Set();
+it('selects art for every illustrated tile and reaches every shipped variant', () => {
+  const idsByTile = Object.fromEntries(art.menuElements.map(key => [key, new Set()]));
   for (let day = 20_000; day < 20_730; day++) {
-    const keys = Object.keys(art.pickMenuArt(day));
-    expect(keys).toHaveLength(3);
-    expect(keys).not.toContain('season-pass');
-    expect(keys.every(key => art.menuElements.includes(key))).toBe(true);
-    expect(Object.keys(art.pickMenuArt(day + 1))).not.toEqual(keys);
-    sets.add(keys.join(','));
+    const selection = art.pickMenuArt(day);
+    expect(Object.keys(selection)).toEqual([...art.menuElements]);
+    for (const [key, id] of Object.entries(selection)) idsByTile[key].add(id);
   }
-  expect(sets.size).toBe(35);
-});
-
-it('picks both variants for paired elements and keeps Season Pass in the collectible catalog', () => {
-  const ids = new Set(['season-pass']);
-  for (let day = 20_000; day < 20_730; day++) {
-    for (const id of Object.values(art.pickMenuArt(day))) ids.add(id);
-  }
-  expect(art.seenArtIds).toHaveLength(21);
-  expect([...ids].sort()).toEqual([...art.seenArtIds].sort());
-  for (const id of ids) {
-    const path = art.menuArtPath(id);
-    if (id.startsWith('wallpaper-')) expect(path).toBeNull();
-    else expect(statSync(projectFile(path)).size).toBeLessThan(150_000);
+  expect(Object.fromEntries(Object.entries(idsByTile).map(([key, ids]) => [key, ids.size])))
+    .toEqual({ 'player-rank': 2, play: 10, missions: 1, inventory: 1, achievements: 2, settings: 2, stats: 2 });
+  for (const [key, ids] of Object.entries(idsByTile)) {
+    for (const id of ids) {
+      const path = art.menuArtPath(id);
+      if (key === 'play') expect(path).toBeNull();
+      else expect(statSync(projectFile(path)).size).toBeLessThan(150_000);
+    }
   }
 });
 
