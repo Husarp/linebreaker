@@ -890,10 +890,6 @@
         LBArtPack.applyThemeBackground(wallpaper.parentElement, theme, settings.themeBackground);
         const banner = document.querySelector('.lb-menu-banner');
         LBArtPack.applyThemeBackground(banner, theme, settings.themeBackground);
-        const play = document.getElementById('btn-play');
-        const playWallpaper = LBArtPack.nextWallpaper(theme, settings.themeBackground);
-        LBArtPack.applyThemeBackground(play, playWallpaper);
-        if (play.hasAttribute('data-menu-art')) play.dataset.menuArt = LBArtPack.wallpaperId(playWallpaper);
         const featureTheme = theme === 'default' ? 'forest' : theme;
         for (const element of document.querySelectorAll('.go-score-card, #inventory-overlay, #achievements-overlay')) {
             LBArtPack.applyThemeBackground(element, featureTheme, settings.themeBackground);
@@ -926,21 +922,16 @@
     const gameArtIntro = document.getElementById('start-animation-overlay');
     const missionsArtPanel = document.getElementById('missions-overlay');
     const seasonArtPanel = document.getElementById('season-pass-overlay');
-    const menuArtStorageKey = 'linebreaker_menu_art';
     let menuArtReady = false;
-    let menuArtOpen = false;
-    let menuArtSelection = {};
-    if (!_qaDemo) {
-        try { menuArtSelection = JSON.parse(localStorage.getItem(menuArtStorageKey)) || {}; } catch {}
-    }
+    let menuArtDay;
     function syncMenuArt() {
-        if (!menuArtReady || !menuArtOverlay.isConnected) return;
+        if (!menuArtReady || !menuArtOverlay.isConnected || document.hidden) return;
         const coversMenu = !seasonArtPanel.hidden || menuArtDestinations.some(screen => !screen.classList.contains('hidden'));
         const open = !coversMenu && !menuArtOverlay.classList.contains('hidden');
-        if (!open) menuArtOpen = false;
-        if (document.hidden) return;
-        if (open && !menuArtOpen) {
-            menuArtSelection = LBArtPack.pickMenuArt(menuArtSelection, settings.theme, settings.themeBackground);
+        const day = LBArtPack.menuArtDay(new Date());
+        if (open && day !== menuArtDay) {
+            menuArtDay = day;
+            const menuArtSelection = LBArtPack.pickMenuArt(day);
             for (const [key, tile] of menuArtTiles) {
                 const id = menuArtSelection[key];
                 if (id) tile.dataset.menuArt = id;
@@ -948,12 +939,9 @@
                 const path = LBArtPack.menuArtPath(id);
                 if (path) tile.style.setProperty('--lb-tile-art', `url("${path}")`);
                 else tile.style.removeProperty('--lb-tile-art');
-            }
-            if (!_qaDemo) {
-                try { localStorage.setItem(menuArtStorageKey, JSON.stringify(menuArtSelection)); } catch {}
+                if (key === 'play') LBArtPack.applyThemeBackground(tile, id?.slice('wallpaper-'.length));
             }
         }
-        menuArtOpen = open;
         const visibleArt = [];
         if (open || !gameArtIntro.classList.contains('hidden') || (!coversMenu && gameArtBoard.classList.contains('active-game'))) {
             visibleArt.push(LBArtPack.wallpaperId(LBArtPack.wallpaperName(settings.theme, settings.themeBackground)));
@@ -4591,7 +4579,9 @@
 
     function pickFeatureArt(overlay, first, second) {
         const feature = overlay.querySelector('.lb-r17-feature');
-        if (feature && overlay.classList.contains('hidden')) feature.dataset.featureArt = Math.random() < 0.5 ? first : second;
+        if (feature && overlay.classList.contains('hidden')) {
+            feature.dataset.featureArt = LBArtPack.pickDailyFeatureArt(LBArtPack.menuArtDay(new Date()), first, second);
+        }
     }
 
     function openInventory(tab = 'blocks') {
@@ -7420,6 +7410,7 @@
     let _prevGameScore = -1;
     // afk achievement: 15 minutes in menu without playing
     _menuIdleInterval = setInterval(() => {
+        if (menuArtDay !== LBArtPack.menuArtDay(new Date())) syncMenuArt();
         if (!document.getElementById('menu-overlay')?.classList.contains('hidden') && !saveData.achievements?.['afk']?.unlocked) {
             const _idleMs = Date.now() - _menuIdleStart;
             saveData.stats.menuIdleTime = Math.max(saveData.stats.menuIdleTime || 0, Math.floor(_idleMs / 1000));

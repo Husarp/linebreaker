@@ -9,7 +9,7 @@ window.LBArtPack = (() => {
     const wallpapers = Object.freeze([...backgrounds]);
     const menuArt = {
         'player-rank': ['player-training', 'player-heraldry'],
-        play: [],
+        play: wallpapers.map(name => `wallpaper-${name}`),
         missions: ['missions-outpost'],
         inventory: ['inventory-caravan'],
         achievements: ['achievements-hall', 'achievements-summit'],
@@ -19,19 +19,27 @@ window.LBArtPack = (() => {
     const menuElements = Object.freeze(Object.keys(menuArt));
     const menuSets = menuElements.flatMap((first, index) => menuElements.slice(index + 1)
         .flatMap((second, offset) => menuElements.slice(index + offset + 2).map(third => [first, second, third])));
+    const dailyMenuSets = [0, 1].map(parity => menuSets.filter((_, index) => index % 2 === parity));
     const wallpaperId = name => backgrounds.has(name) ? `wallpaper-${name}` : null;
-    const seenArtIds = Object.freeze([...wallpapers.map(wallpaperId), ...Object.values(menuArt).flat(), 'season-pass']);
+    const seenArtIds = Object.freeze([...new Set([...wallpapers.map(wallpaperId), ...Object.values(menuArt).flat(), 'season-pass'])]);
     const knownArt = new Set(seenArtIds);
+    const menuArtDay = date => Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000);
 
-    function pickMenuArt(previous, theme, mode, random = Math.random) {
-        const previousSet = menuElements.filter(key => Object.hasOwn(previous, key));
-        const choices = previousSet.length === 3 ? menuSets.filter(set => !set.every(key => previousSet.includes(key))) : menuSets;
-        const selected = choices[Math.floor(random() * choices.length)];
-        return Object.fromEntries(selected.map(key => {
-            const variants = menuArt[key];
-            return [key, key === 'play' ? wallpaperId(nextWallpaper(theme, mode))
-                : variants[variants.length === 1 ? 0 : Math.floor(random() * variants.length)]];
-        }));
+    function dailyIndex(day, key, count) {
+        let hash = day;
+        for (const char of key) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+        hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
+        return ((hash ^ (hash >>> 16)) >>> 0) % count;
+    }
+
+    function pickMenuArt(day) {
+        const choices = dailyMenuSets[day & 1];
+        const selected = choices[dailyIndex(day, 'menu', choices.length)];
+        return Object.fromEntries(selected.map(key => [key, menuArt[key][dailyIndex(day, key, menuArt[key].length)]]));
+    }
+
+    function pickDailyFeatureArt(day, first, second) {
+        return ((day + dailyIndex(0, first, 2)) & 1) === 0 ? first : second;
     }
 
     function menuArtPath(id) {
@@ -66,10 +74,6 @@ window.LBArtPack = (() => {
         return choice === 'image' ? theme : choice;
     }
 
-    function nextWallpaper(theme, mode) {
-        return wallpapers[(wallpapers.indexOf(wallpaperName(theme, mode)) + 1) % wallpapers.length];
-    }
-
     function themeBackground(theme, mode, orientation = 'landscape') {
         const variant = orientation === 'portrait' ? 'portrait' : 'landscape';
         const wallpaper = wallpaperName(theme, mode);
@@ -85,6 +89,6 @@ window.LBArtPack = (() => {
         }
     }
 
-    return { itemPart, universalPart, boosterRarity, boosterToken, boosterIcon, wallpapers, wallpaperName, wallpaperId, nextWallpaper, backgroundMode, themeBackground, applyThemeBackground,
-        menuElements, pickMenuArt, menuArtPath, seenArtIds, cleanSeenArt };
+    return { itemPart, universalPart, boosterRarity, boosterToken, boosterIcon, wallpapers, wallpaperName, wallpaperId, backgroundMode, themeBackground, applyThemeBackground,
+        menuElements, menuArtDay, pickMenuArt, pickDailyFeatureArt, menuArtPath, seenArtIds, cleanSeenArt };
 })();

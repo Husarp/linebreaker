@@ -8,37 +8,37 @@ const scope = { window: {} };
 runInNewContext(readFileSync(projectFile('44-art-pack.js'), 'utf8'), scope);
 const art = scope.window.LBArtPack;
 
-it('offers all 35 sets of three eligible menu elements and excludes the previous set', () => {
-  const sets = Array.from({ length: 35 }, (_, index) => art.pickMenuArt({}, 'ocean', 'image', () => (index + 0.5) / 35));
-  expect(new Set(sets.map(set => Object.keys(set).join(','))).size).toBe(35);
-  for (const [index, set] of sets.entries()) {
-    const keys = Object.keys(set);
+it('keys menu art to the local calendar date, not the time or UTC date', () => {
+  const morning = new Date(2026, 11, 31, 0, 1);
+  const evening = new Date(2026, 11, 31, 23, 59);
+  const tomorrow = new Date(2027, 0, 1, 0, 1);
+  const day = art.menuArtDay(morning);
+  expect(day).toBe(Date.UTC(2026, 11, 31) / 86400000);
+  expect(art.pickMenuArt(art.menuArtDay(evening))).toEqual(art.pickMenuArt(day));
+  expect(art.menuArtDay(tomorrow)).toBe(day + 1);
+  expect(Object.keys(art.pickMenuArt(day + 1))).not.toEqual(Object.keys(art.pickMenuArt(day)));
+});
+
+it('rotates through all 35 sets of three eligible tiles without repeating on adjacent days', () => {
+  const sets = new Set();
+  for (let day = 20_000; day < 20_730; day++) {
+    const keys = Object.keys(art.pickMenuArt(day));
     expect(keys).toHaveLength(3);
     expect(keys).not.toContain('season-pass');
     expect(keys.every(key => art.menuElements.includes(key))).toBe(true);
-    expect(Object.keys(art.pickMenuArt(set, 'ocean', 'image', () => (index + 0.5) / 35))).not.toEqual(keys);
-    if (set.play) expect(set.play).toBe('wallpaper-forest');
+    expect(Object.keys(art.pickMenuArt(day + 1))).not.toEqual(keys);
+    sets.add(keys.join(','));
   }
-  expect(Object.keys(art.pickMenuArt(art.pickMenuArt({}, 'default', 'plain', () => 0), 'default', 'plain', () => 0)))
-    .not.toEqual(Object.keys(sets[0]));
+  expect(sets.size).toBe(35);
 });
 
 it('picks both variants for paired elements and keeps Season Pass in the collectible catalog', () => {
   const ids = new Set(['season-pass']);
-  for (let index = 0; index < 35; index++) {
-    for (const variant of [0, 0.99]) {
-      let firstRoll = true;
-      const pick = art.pickMenuArt({}, 'default', 'plain', () => {
-        if (!firstRoll) return variant;
-        firstRoll = false;
-        return (index + 0.5) / 35;
-      });
-      if (pick.play) expect(pick.play).toBe('wallpaper-default');
-      for (const id of Object.values(pick)) ids.add(id);
-    }
+  for (let day = 20_000; day < 20_730; day++) {
+    for (const id of Object.values(art.pickMenuArt(day))) ids.add(id);
   }
   expect(art.seenArtIds).toHaveLength(21);
-  expect([...ids].filter(id => !id.startsWith('wallpaper-')).sort()).toEqual(art.seenArtIds.filter(id => !id.startsWith('wallpaper-')).sort());
+  expect([...ids].sort()).toEqual([...art.seenArtIds].sort());
   for (const id of ids) {
     const path = art.menuArtPath(id);
     if (id.startsWith('wallpaper-')) expect(path).toBeNull();
@@ -112,18 +112,27 @@ it('keeps the existing gradient when switching art modes', async () => {
   } finally { close(); }
 });
 
-it('puts a different wallpaper on PLAY for every explicit and equipped wallpaper, including wraparound', async () => {
-  const { api, w, close } = await loadGame();
+it('keeps daily PLAY artwork while the banner follows explicit and equipped wallpapers', async () => {
+  const date = new Date(2026, 0, 1, 12);
+  while (!art.pickMenuArt(art.menuArtDay(date)).play) date.setDate(date.getDate() + 1);
+  const { api, w, close } = await loadGame(true, null, null, undefined, null, window => {
+    const NativeDate = window.Date;
+    window.Date = class extends NativeDate {
+      constructor(...args) { super(...(args.length ? args : [date.getTime()])); }
+    };
+  });
   try {
     api.setup({ save: { ownedThemes: ['forest', 'sakura'] } });
     const banner = w.document.querySelector('.lb-menu-banner');
     const play = w.document.getElementById('btn-play');
+    const playName = art.pickMenuArt(art.menuArtDay(date)).play.slice('wallpaper-'.length);
+    expect(play.dataset.menuArt).toBe(`wallpaper-${playName}`);
     const select = w.document.getElementById('setting-theme-background');
     const choose = value => {
       select.value = value;
       select.dispatchEvent(new w.Event('change'));
     };
-    const checkArt = (bannerName, playName) => {
+    const checkArt = bannerName => {
       for (const crop of ['portrait', 'landscape']) {
         const property = `--lb-theme-art-${crop}`;
         expect(banner.style.getPropertyValue(property)).toBe(bannerName ? `url("assets/ui/bg/${bannerName}-${crop}.jpg")` : '');
@@ -131,18 +140,17 @@ it('puts a different wallpaper on PLAY for every explicit and equipped wallpaper
       }
     };
     w.openSettings();
-    for (const [index, choice] of art.wallpapers.entries()) {
+    for (const choice of art.wallpapers) {
       choose(choice);
-      checkArt(choice, art.wallpapers[(index + 1) % art.wallpapers.length]);
+      checkArt(choice);
     }
     choose('image');
     w.applyTheme('forest');
-    checkArt('forest', 'fire');
+    checkArt('forest');
     w.applyTheme('sakura');
-    checkArt('sakura', 'default');
+    checkArt('sakura');
     choose('plain');
-    checkArt(null, 'default');
-    expect(art.nextWallpaper('custom', 'image')).toBe('default');
+    checkArt(null);
     expect(play.querySelector('.lb-ledger-chevron')).toBeNull();
   } finally { close(); }
 });

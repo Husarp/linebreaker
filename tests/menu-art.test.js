@@ -3,13 +3,22 @@ import { loadGame } from './loader.js';
 
 const nextTurn = () => new Promise(resolve => setImmediate(resolve));
 const selectedArt = document => [...document.querySelectorAll('#menu-overlay [data-menu-art]')];
+const artIds = document => selectedArt(document).map(tile => tile.dataset.menuArt);
+const setClock = date => window => {
+  const NativeDate = window.Date;
+  window.Date = class extends NativeDate {
+    constructor(...args) { super(...(args.length ? args : [date.getTime()])); }
+    static now() { return date.getTime(); }
+  };
+};
 
-it('holds three artworks for a visit, then rotates to a different set and saves only artwork shown', async () => {
-  const { w, api, close } = await loadGame();
+it('holds three artworks across same-day visits and adds only artwork actually shown after rollover', async () => {
+  const date = new Date(2026, 10, 23, 23, 50);
+  const { w, api, close } = await loadGame(true, null, null, undefined, null, setClock(date));
   try {
     const { document } = w;
     const tiles = () => selectedArt(document);
-    const ids = () => tiles().map(tile => tile.dataset.menuArt);
+    const ids = () => artIds(document);
     const first = tiles().map(tile => tile.id);
     const firstArt = ids();
     expect(first).toHaveLength(3);
@@ -26,21 +35,33 @@ it('holds three artworks for a visit, then rotates to a different set and saves 
       wallpaper.dispatchEvent(new w.Event('change'));
       await nextTurn();
     }
-    expect(api.save.seenArt).not.toContain('wallpaper-arctic');
     w.closeSettings();
     await nextTurn();
-    expect(tiles()).toHaveLength(3);
+    expect(ids()).toEqual(firstArt);
+    const seenToday = [...new Set(['wallpaper-default', ...firstArt])].sort();
+    expect(api.save.seenArt.toSorted()).toEqual(seenToday);
+
+    w.openSettings();
+    await nextTurn();
+    date.setMinutes(date.getMinutes() + 15);
+    document.dispatchEvent(new w.Event('visibilitychange'));
+    expect(ids()).toEqual(firstArt);
+    expect(api.save.seenArt.toSorted()).toEqual(seenToday);
+    w.closeSettings();
+    await nextTurn();
     expect(tiles().map(tile => tile.id)).not.toEqual(first);
-    expect(api.save.seenArt.toSorted()).toEqual([...new Set(['wallpaper-default', ...firstArt, ...ids()])].sort());
+    expect(ids()).toHaveLength(3);
+    expect(ids().some(id => !seenToday.includes(id))).toBe(true);
+    expect(api.save.seenArt.toSorted()).toEqual([...new Set([...seenToday, ...ids()])].sort());
     expect(w.LBSave.serializeSave(api.save).seenArt).toEqual(api.save.seenArt);
   } finally { close(); }
 });
 
-it('counts Season Pass art once across Missions and the reward track, then rotates the menu art', async () => {
+it('counts Season Pass art once across Missions and the reward track', async () => {
   const { w, api, close } = await loadGame();
   try {
     const { document } = w;
-    const first = selectedArt(document).map(tile => tile.id);
+    const first = artIds(document);
     api.setup();
     await w.openMissions();
     expect(api.save.seenArt).toEqual(['season-pass']);
@@ -50,23 +71,24 @@ it('counts Season Pass art once across Missions and the reward track, then rotat
     w.closeMissions();
     w.closeMissions();
     await nextTurn();
-    expect(selectedArt(document)).toHaveLength(3);
-    expect(selectedArt(document).map(tile => tile.id)).not.toEqual(first);
+    expect(artIds(document)).toEqual(first);
     expect(api.save.seenArt.filter(id => id === 'season-pass')).toHaveLength(1);
   } finally { close(); }
 });
 
-it('excludes the previous visit after relaunching with the same random seed', async () => {
-  const storageKey = 'linebreaker_menu_art';
-  const first = await loadGame();
-  const previous = first.w.localStorage.getItem(storageKey);
-  const firstSet = selectedArt(first.w.document).map(tile => tile.id);
+it('restores the same daily art after relaunch independent of random state and legacy storage', async () => {
+  const date = new Date(2026, 10, 23, 9);
+  const first = await loadGame(true, null, null, undefined, null, setClock(date));
+  const firstArt = artIds(first.w.document);
   first.close();
-  const { w, close } = await loadGame(true, null, null, undefined, null, window => window.localStorage.setItem(storageKey, previous));
+  date.setHours(22);
+  const { w, close } = await loadGame(true, null, null, undefined, null, window => {
+    setClock(date)(window);
+    window.Math.random();
+    window.localStorage.setItem('linebreaker_menu_art', '{"missions":"missions-outpost"}');
+  });
   try {
-    const secondSet = selectedArt(w.document).map(tile => tile.id);
-    expect(secondSet).toHaveLength(3);
-    expect(secondSet).not.toEqual(firstSet);
+    expect(artIds(w.document)).toEqual(firstArt);
   } finally { close(); }
 });
 
@@ -99,23 +121,27 @@ it('migrates missing art history and sanitizes incoming and outgoing entries', a
   } finally { close(); }
 });
 
-it('picks one illustration per Mission Log or Locker opening and keeps it through tab changes', async () => {
-  const { w, close } = await loadGame();
+it('keeps Mission Log and Locker illustrations through tab changes and reopening until the next day', async () => {
+  const date = new Date(2026, 10, 23, 12);
+  const { w, close } = await loadGame(true, null, null, undefined, null, setClock(date));
   try {
     for (const [selector, open, switchTab, hide, first, second] of [
       ['.mq-board', () => w.openMissions('daily'), () => w.renderMissionsOverlay('weekly'), () => w.closeMissions(), 'mission-forest-outpost', 'mission-map-room'],
       ['#inventory-crates .lb-collection-feature', () => w.openInventory('crates'), () => w.inventoryTab('boosters'), () => w.closeInventory(), 'locker-quartermaster', 'locker-vault-corridor'],
     ]) {
       const selected = () => w.document.querySelector(selector).dataset.featureArt;
-      w.Math.random = () => 0.2;
       await open();
-      expect(selected()).toBe(first);
-      w.Math.random = () => 0.8;
+      const today = selected();
+      expect([first, second]).toContain(today);
       switchTab();
-      expect(selected()).toBe(first);
+      expect(selected()).toBe(today);
       hide();
       await open();
-      expect(selected()).toBe(second);
+      expect(selected()).toBe(today);
+      hide();
+      date.setDate(date.getDate() + 1);
+      await open();
+      expect(selected()).toBe(today === first ? second : first);
       hide();
     }
   } finally { close(); }
