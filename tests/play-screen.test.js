@@ -107,6 +107,24 @@ it('keeps Start and Cancel between the mode cards and the options in both modes'
     }
 });
 
+it('explains the Fun rules before the first run and then starts the game', async () => {
+    game = await loadGame();
+    setXP(10_000);
+    game.w.openModeSelect();
+    mode('fun').click();
+    expect(get('play-fun-desc').textContent).toContain('Separate leaderboard');
+
+    get('play-start').click();
+    expect(get('custom-alert').classList.contains('hidden')).toBe(false);
+    expect(get('alert-title').innerText).toBe('Fun mode');
+    expect(get('alert-text').textContent).toContain('Some achievements and missions still count');
+    game.w.closeAlert();
+    get('alert-box').dispatchEvent(new game.w.Event('animationend'));
+    game.advance(500);
+    expect(get('app').classList.contains('active-game')).toBe(true);
+    expect(game.api.save.seenFunRules).toBe(true);
+});
+
 it('plays a custom Fun board with functional modifiers but no score modifier', async () => {
     game = await loadGame(true, null, null, { optGhost: false });
     game.api.setSave({ ...game.api.save, totalXP: 65_000, seenFunRules: true });
@@ -183,7 +201,7 @@ it('flashes the approved wordmark for half a second on start and restart', async
     expect(started).toEqual(['start', 'restart']);
 });
 
-it('preserves the existing Fun selection fallback until Gold I and closes with Escape', async () => {
+it('closes Play with Escape and keeps Fun selected while it is unlocked', async () => {
     game = await loadGame();
     game.w.HTMLElement.prototype.getClientRects = () => [{}];
     get('mode-select-overlay').style.zIndex = '1005';
@@ -196,6 +214,11 @@ it('preserves the existing Fun selection fallback until Gold I and closes with E
     expect(get('mode-select-overlay').classList.contains('anim-out-down')).toBe(true);
     finishClose();
     expect(get('mode-select-overlay').classList.contains('hidden')).toBe(true);
+    game.w.openModeSelect();
+    expect(mode('fun').getAttribute('aria-pressed')).toBe('true');
+    get('play-back').click();
+    finishClose();
+    setXP(9_999);
     game.w.openModeSelect();
     expect(mode('normal').getAttribute('aria-pressed')).toBe('true');
 });

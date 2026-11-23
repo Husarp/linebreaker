@@ -1149,16 +1149,26 @@
         return c.toDataURL();
     }
 
-    // --- Floating "Copied!" feedback ---
-    function _showCopyFeedback(x, y) {
-        const el = document.createElement('div');
-        el.textContent = 'Copied!';
-        el.style.cssText = `position:fixed;left:${x}px;top:${y}px;transform:translateX(-50%);z-index:99999;font-size:0.7rem;font-weight:bold;color:#22cc55;text-shadow:0 0 8px rgba(34,204,85,0.5);pointer-events:none;transition:all 0.8s ease-out;opacity:1;`;
-        document.body.appendChild(el);
-        requestAnimationFrame(() => { el.style.top = (y - 30) + 'px'; el.style.opacity = '0'; });
-        setTimeout(() => el.remove(), 900);
-    }
-    window._showCopyFeedback = _showCopyFeedback;
+    window._copyColour = async function(anchor, colour) {
+        let message = 'Copied!';
+        try {
+            await navigator.clipboard.writeText(colour);
+        } catch {
+            message = 'Could not copy colour';
+        }
+        if (!anchor.isConnected) return;
+        closeInfo();
+        const panel = infoPanel('colour-copy-status');
+        panel.setAttribute('role', 'status');
+        panel.textContent = '';
+        const timeout = setTimeout(() => closeInfo(anchor), 1500);
+        showInfo(panel, anchor, { dismiss: () => {
+            clearTimeout(timeout);
+            panel.hidden = true;
+        } });
+        panel.textContent = message;
+        positionInfo(panel, anchor);
+    };
 
     // --- Block hover preview tooltip ---
     function _swatchHtml(i, color, showHex) {
@@ -1221,7 +1231,7 @@
                 </div>
                 <input type="text" id="pe-c${i}-hex" aria-label="${lbl} piece hex color" value="${c}" maxlength="7" autocomplete="off" spellcheck="false" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))window._palEditChange(${i},this.value)">
                 <button type="button" class="lb-block-btn lb-block-btn--icon lb-palette-tool" onclick="window._palEditEyedrop(${i})" aria-label="Eyedropper for ${lbl}" data-control-tip="Eyedropper">${_SVG_EYEDROPPER}</button>
-                <button type="button" class="lb-block-btn lb-block-btn--icon lb-palette-tool" onclick="navigator.clipboard?.writeText(document.getElementById('pe-c${i}-hex').value);_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" data-control-tip="Copy hex">${_SVG_COPY}</button>
+                <button type="button" class="lb-block-btn lb-block-btn--icon lb-palette-tool" onclick="window._copyColour(this,document.getElementById('pe-c${i}-hex').value)" aria-label="Copy ${lbl} hex" data-control-tip="Copy hex">${_SVG_COPY}</button>
             </div>`;
         });
 
@@ -1313,7 +1323,7 @@
             const c = displayColors[i] || '#ffffff';
             rowsHtml += `<div class="lb-palette-view-row">
                 ${_swatchHtml(i, c, true)}
-                <button class="lb-block-btn lb-block-btn--icon" onclick="navigator.clipboard?.writeText('${c}');_showCopyFeedback(event.clientX,event.clientY)" aria-label="Copy ${lbl} hex" data-control-tip="Copy hex">${_SVG_COPY}</button>
+                <button class="lb-block-btn lb-block-btn--icon" onclick="window._copyColour(this,'${c}')" aria-label="Copy ${lbl} hex" data-control-tip="Copy hex">${_SVG_COPY}</button>
             </div>`;
         });
 
@@ -4169,7 +4179,7 @@
                 const equipped = settings.theme === key;
                 const color = THEMES[key].primary;
                 return _colorInventoryCard({ key, label, owned, equipped,
-                    preview: `<div class="lb-inventory-theme-swatch"><span class="lb-colors-chip" aria-hidden="true" style="--swatch:${color}"></span>${owned ? `<button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Copy ${label} colour" onclick="navigator.clipboard?.writeText('${color}').catch(() => {});_showCopyFeedback(event.clientX,event.clientY)"><span aria-hidden="true">${_SVG_COPY}</span></button>` : ''}</div>`,
+                    preview: `<div class="lb-inventory-theme-swatch"><span class="lb-colors-chip" aria-hidden="true" style="--swatch:${color}"></span>${owned ? `<button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Copy ${label} colour" onclick="window._copyColour(this,'${color}')"><span aria-hidden="true">${_SVG_COPY}</span></button>` : ''}</div>`,
                     equip: ['theme', key],
                     unlock: `window.playerUnlockItem('theme','${key}')` });
             }).join('');
@@ -8318,7 +8328,7 @@
         updateNowPlaying('');
         setTimeout(()=>playSFX('gameover'), 200);
 
-        // Fun mode: no XP, no leaderboard — but still check score-based achievements
+        // Fun mode: no run XP, separate leaderboard, and some achievements still count
         if (currentGameMode === 'fun') {
             // fun_squared tracking (only count games where at least 1 line was cleared)
             if (linesClearedThisGame >= 1) saveData.stats.funGamesPlayed = (saveData.stats.funGamesPlayed || 0) + 1;
@@ -8545,8 +8555,8 @@
             saveData.seenFunRules = true;
             saveDataToFile();
             customAlert(
-                `<b style="color:#ffcc00;">FUN MODE</b><br><br>Grasz w trybie Fun:<br>• Stała prędkość — szybka przez cały czas<br>• Wyższe mnożniki score<br>• Idealne do zabawy<br>• Osobny ranking wyników<br><br><span style="color:#f88;font-size:0.75em;font-weight:bold;">OSIĄGNIĘCIA</span><br><span style="color:#aaa;font-size:0.73em;">Większość osiągnięć jest niedostępna. Można zdobyć:<br>• Score, Czas, Linie per grę, Klocki per grę<br>• Fun Run (score w Fun Mode)<br>• Ukryte osiągnięcia per-growe<br>Nie liczą się: Łączne statystyki, Ilość gier, Prędkość</span>`,
-                'ZASADY TRYBU FUN', false, startGame
+                'Choose your board size and starting speed. Fun runs have their own leaderboard and do not award run XP. Some achievements and missions still count.',
+                'Fun mode', false, () => startGame(onStarted)
             );
             return;
         }
@@ -10445,7 +10455,7 @@
         document.getElementById('fun-speed').value = Number.isInteger(speed) && speed >= 1 && speed <= 15 ? speed : 1;
         updateFunConfigDisplay();
         updatePlayModifiers(playerLevel);
-        if (currentGameMode === 'advanced' || (currentGameMode === 'fun' && playerLevel < 21)) currentGameMode = 'normal';
+        if (currentGameMode === 'advanced' || (currentGameMode === 'fun' && funCard.disabled)) currentGameMode = 'normal';
         selectMode(currentGameMode || 'normal');
 
         playOverlay.classList.remove('hidden');

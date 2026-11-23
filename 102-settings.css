@@ -129,9 +129,10 @@
 .lb102-tutorial-card p { margin: 0; color: var(--bb-muted); }
 
 .lb-color-dialog { overflow: hidden; }
-.lb-color-dialog .lb-color-content {
-    box-sizing: border-box;
-    max-height: calc(100dvh - 26px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+.lb-color-dialog[open] { display: flex; flex-direction: column; }
+.lb-color-dialog .lb-color-footer {
+    flex: none;
+    padding: var(--lb-space-xs) var(--space-3) var(--space-3);
 }
 .lb-color-dialog .lb102-picker-close { align-self: center; flex: 0 0 var(--target); }
 .lb-color-dialog .lb-color-apply.lb-block-btn,

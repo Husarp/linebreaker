@@ -1,10 +1,15 @@
 .lb-color-dialog {
+    --lb-picker-start: calc(var(--lb-band-height) + var(--lb-space-md));
+    --lb-picker-end: calc(var(--lb-safe-bottom) + var(--lb-space-md));
+    --lb-picker-left: max(var(--lb-space-md), var(--lb-safe-left));
+    --lb-picker-right: max(var(--lb-space-md), var(--lb-safe-right));
+    --lb-picker-height: calc(100dvh - var(--lb-picker-start) - var(--lb-picker-end));
     position: fixed;
-    inset: 0;
+    inset: var(--lb-picker-start) var(--lb-picker-right) var(--lb-picker-end) var(--lb-picker-left);
     margin: auto;
-    width: calc(100% - 24px);
+    width: calc(100% - var(--lb-picker-left) - var(--lb-picker-right));
     max-width: 440px;
-    max-height: min(calc(100% - 24px), calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+    max-height: var(--lb-picker-height);
     padding: 0;
     overflow: auto;
     overscroll-behavior: contain;

@@ -26,12 +26,15 @@
 .lb-color-dialog .lb-color-presets { gap: var(--space-1); }
 #custom-palette-modal .lb-color-plane { width: min(100%, 224px, 23dvh); }
 
-.lb-palette-window { padding: 12px; }
+.lb-palette-window {
+    padding: calc(var(--lb-band-height) + var(--lb-space-md)) max(var(--lb-space-md), var(--lb-safe-right))
+        calc(var(--lb-safe-bottom) + var(--lb-space-md)) max(var(--lb-space-md), var(--lb-safe-left));
+}
 .lb-palette-window > .lb-block-dialog {
     display: grid;
     gap: 6px;
     width: min(100%, 420px);
-    max-height: calc(100dvh - 24px);
+    max-height: 100%;
     overflow: auto;
     overscroll-behavior: contain;
     padding: clamp(12px, 4vw, 20px);

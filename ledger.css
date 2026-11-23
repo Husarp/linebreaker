@@ -982,9 +982,17 @@
     }
 }
 @container lb-menu (height < 760px) {
-    #menu-overlay .lb-menu-banner { padding-block-start: var(--lb-space-sm); }
-    #menu-overlay .lb-menu-logo-lockup { width: min(88%, 280px); }
-    #menu-overlay #splash-quote { inset-block-end: var(--lb-space-sm); max-width: min(90%, 290px); }
+    #menu-overlay .lb-menu-banner {
+        height: var(--lb-menu-banner-limit);
+        grid-template-rows: minmax(0, 1fr) auto;
+        row-gap: var(--lb-space-xs);
+        padding-block: var(--lb-space-sm);
+    }
+    #menu-overlay .lb-menu-logo-lockup { width: min(88%, 280px); min-height: 0; }
+    #menu-overlay :is(#main-title, #lb122-logo-button, #main-title .lb122-logo) { height: 100%; }
+    #menu-overlay #main-title .lb122-logo { object-fit: contain; object-position: center top; }
+    #menu-overlay #splash-quote { position: static; justify-self: end; max-width: min(90%, 290px); }
+    #menu-overlay:has(#splash-quote[hidden]) .lb-menu-banner { grid-template-rows: minmax(0, 1fr); }
 }
 @container lb-menu (height < 570px) {
     #menu-overlay .menu-scale-wrapper { --lb-menu-banner-limit: clamp(128px, calc(100cqh - 426px), 144px); }
@@ -1624,7 +1632,7 @@ svg.lb-ledger-chevron {
     color: var(--lb-ink);
     font: inherit;
 }
-#settings-overlay :is(.settings-row small, .settings-tip) {
+#settings-overlay .settings-row small {
     display: block;
     color: var(--lb-muted);
     font: 400 12px/1.35 var(--lb-font-body);

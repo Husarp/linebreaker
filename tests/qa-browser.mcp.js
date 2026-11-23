@@ -133,6 +133,21 @@
                 const heading = page.locator(`${selector} > .lb-block-topbar > .lb-topbar-crumb > .lb-topbar-title`);
                 if (await heading.count() !== 1 || await heading.textContent() !== "What's new") fail('What’s new must use the shared header');
             }
+            if (['color-picker', 'custom-palette', 'palette-preview', 'palette-editor'].includes(name)) {
+                const fits = await page.locator('.lb-color-dialog[open], .lb-palette-window > .lb-block-dialog').evaluate(dialog => {
+                    const band = document.querySelector('.lb-top-band').getBoundingClientRect();
+                    const box = dialog.getBoundingClientRect();
+                    const apply = dialog.querySelector('.lb-color-apply')?.getBoundingClientRect();
+                    return box.top >= band.bottom + 8 && box.bottom <= innerHeight - 8
+                        && (!apply || (apply.top > box.top && apply.bottom < box.bottom));
+                });
+                if (!fits) fail('Colour dialog must fit below the status band and keep Apply visible');
+            }
+            if (name === 'settings' || name === 'settings-audio') {
+                if (await page.locator('#settings-overlay .settings-tip:visible').count()) {
+                    fail('Settings help sources must not cover neighbouring controls');
+                }
+            }
             const textLayoutFailures = await page.evaluate(isMenu => {
                 const issues = new Set();
                 const labelSelector = 'button, [role="button"], [role="tab"], nav a, [role="navigation"] a, h1, h2, h3, h4, h5, h6, [role="heading"]';
@@ -300,22 +315,20 @@
                 const crop = viewport.width < viewport.height ? 'portrait' : 'landscape';
                 const playArt = () => play.evaluate((element, orientation) =>
                     element.style.getPropertyValue(`--lb-theme-art-${orientation}`), crop);
+                const originalPlayArt = await playArt();
+                const playWallpaper = (await play.getAttribute('data-menu-art')).replace(/^wallpaper-/, '');
                 await chooseWallpaper('plain');
                 if (await preview.evaluate(element => getComputedStyle(element).backgroundImage) !== 'none') fail('Plain wallpaper still shows artwork');
                 if ((await banner.evaluate(element => getComputedStyle(element).backgroundImage)).includes('/bg/')) fail('Plain wallpaper still shows banner art');
-                if (!(await playArt()).includes(`default-${crop}.jpg`)) fail('PLAY must still show art with a plain banner');
+                if (!(await playArt()).includes(`${playWallpaper}-${crop}.jpg`)) fail('PLAY must still show its daily art with a plain banner');
                 const wallpapers = ['default', 'ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura'];
-                for (const [index, choice] of wallpapers.entries()) {
+                for (const choice of wallpapers) {
                     await chooseWallpaper(choice);
                     if (!(await preview.evaluate(element => getComputedStyle(element).backgroundImage)).includes(`${choice}-landscape.jpg`) ||
                         !(await banner.evaluate(element => getComputedStyle(element).backgroundImage)).includes(`${choice}-${crop}.jpg`)) {
                         fail(`Wallpaper ${choice} did not update the preview and ${crop} banner`);
                     }
-                    const next = wallpapers[(index + 1) % wallpapers.length];
-                    const playBackground = await playArt();
-                    if (!playBackground.includes(`${next}-${crop}.jpg`) || playBackground.includes(`${choice}-${crop}.jpg`)) {
-                        fail(`PLAY must use the next ${crop} wallpaper when the banner shows ${choice}`);
-                    }
+                    if (await playArt() !== originalPlayArt) fail(`Changing the banner to ${choice} also changed PLAY's daily art`);
                 }
                 if (await page.locator('html').getAttribute('data-lb-ui-theme') !== resolved) fail('Changing wallpaper also changed the theme');
                 const otherTheme = resolved === 'dark' ? 'light' : 'dark';
@@ -449,29 +462,27 @@
                 }
                 const forestEdge = await page.getByRole('button', { name: 'Play', exact: true }).evaluate(button => {
                     const style = getComputedStyle(button);
-                    return !button.querySelector('.lb-ledger-chevron') && (button.hasAttribute('data-menu-art')
-                        ? style.backgroundImage.startsWith('linear-gradient(') && style.backgroundImage.includes('/bg/') && style.boxShadow.includes('inset')
-                        : style.backgroundImage === 'none');
+                    return !button.querySelector('.lb-ledger-chevron') && style.backgroundImage.startsWith('linear-gradient(')
+                        && style.backgroundImage.includes('/bg/') && style.boxShadow.includes('inset');
                 });
-                if (!forestEdge) fail('PLAY must have a plain face when unselected and scrimmed Forest Edge art when selected, without a chevron');
+                if (!forestEdge) fail('PLAY must show scrimmed Forest Edge art without a chevron');
                 const menuArt = await page.evaluate(() => {
                     const allowed = ['player-rank', 'play', 'missions', 'inventory', 'achievements', 'settings', 'stats'];
                     const elements = allowed.map(key => document.getElementById(`btn-${key}`));
                     const selected = [...document.querySelectorAll('#menu-overlay [data-menu-art]')];
-                    return selected.length === 3 && selected.every(tile => elements.includes(tile)) && elements.every(tile => {
+                    return selected.length === elements.length && selected.every(tile => elements.includes(tile)) && elements.every(tile => {
                         const id = tile.dataset.menuArt;
                         const face = getComputedStyle(tile).backgroundImage;
-                        if (!id) return face === 'none';
+                        if (!id) return false;
                         if (tile.id === 'btn-play') {
                             const crop = matchMedia('(min-aspect-ratio: 1/1)').matches ? 'landscape' : 'portrait';
-                            const bannerBackground = getComputedStyle(document.querySelector('.lb-menu-banner')).backgroundImage;
                             const filename = `${id.slice('wallpaper-'.length)}-${crop}.jpg`;
-                            return face.includes(filename) && !bannerBackground.includes(filename);
+                            return id.startsWith('wallpaper-') && face.includes(filename);
                         }
                         return face.includes(`/tiles/${id}.webp`);
                     });
                 });
-                if (!menuArt) fail('Exactly three eligible menu elements must show their assigned art, with all other faces plain');
+                if (!menuArt) fail('Every illustrated menu element must show its assigned artwork');
                 const navigationFits = await page.locator('#menu-overlay .lb-menu-art-tile').evaluateAll(rows => rows.length === 5 && rows.every(row => {
                     const hadNotification = row.hasAttribute('data-ready');
                     row.removeAttribute('data-ready');

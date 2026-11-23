@@ -8,6 +8,30 @@ const themes = ['ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic',
 let game;
 afterEach(() => game?.close());
 
+it('reports clipboard success only after the write, and handles a denied write', async () => {
+  game = await loadGame();
+  game.api.setup();
+  const { document, navigator } = game.w;
+  let finishWrite;
+  const writeText = vi.fn().mockImplementationOnce(() => new Promise(resolve => { finishWrite = resolve; }))
+    .mockRejectedValueOnce(new Error('Clipboard permission denied'));
+  Object.defineProperty(navigator, 'clipboard', { value: { writeText } });
+  game.w._openPaletteViewModal('ice');
+  const copy = document.querySelector('#palette-view-modal [aria-label="Copy I hex"]');
+  const activate = new game.w.Function(copy.getAttribute('onclick')).bind(copy);
+  const status = () => document.getElementById('colour-copy-status');
+  activate();
+  expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/^#[0-9a-f]{6}$/i));
+  expect(status()).toBeNull();
+  finishWrite();
+  await vi.waitFor(() => expect(status()?.textContent).toBe('Copied!'));
+  expect(status().getAttribute('role')).toBe('status');
+  activate();
+  await vi.waitFor(() => expect(status()?.textContent).toBe('Could not copy colour'));
+  document.dispatchEvent(new game.w.Event('scroll'));
+  expect(status().hidden).toBe(true);
+});
+
 async function startGame(invoke) {
   game = await loadGame(true, invoke);
   const { w } = game;

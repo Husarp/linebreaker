@@ -165,8 +165,8 @@ it('only renders valid hex colors in palette inputs, previews and copy handlers'
   expect(preview.children[1].style.getPropertyValue('--piece-color')).toBe('#A1b2C3');
   window._openPaletteViewModal('classic');
   const copy = [...document.querySelectorAll('#palette-view-modal [data-control-tip="Copy hex"]')];
-  expect(copy[0].getAttribute('onclick')).toContain("writeText('#00ffff')");
-  expect(copy[1].getAttribute('onclick')).toContain("writeText('#A1b2C3')");
+  expect(copy[0].getAttribute('onclick')).toBe("window._copyColour(this,'#00ffff')");
+  expect(copy[1].getAttribute('onclick')).toBe("window._copyColour(this,'#A1b2C3')");
   window._openPaletteEditor('classic');
   expect(document.getElementById('pe-c0-hex').value).toBe('#00ffff');
   const editorPieces = [...document.querySelectorAll('#pe-preview-row .lb83-piece')];

@@ -119,6 +119,8 @@
                 <p id="${id}-presets" class="lb-color-label">Curated colours</p>
                 <div class="lb-color-swatches" role="group" aria-labelledby="${id}-presets">${swatches(presets)}</div>
             </div>
+        </div>
+        <div class="lb-color-footer">
             <button type="button" class="lb-block-btn lb-block-btn--primary lb-color-apply">${pieces ? 'Apply palette' : 'Apply colour'}</button>
         </div>`;
 
