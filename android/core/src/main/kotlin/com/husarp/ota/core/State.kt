@@ -83,7 +83,7 @@ class Engine(val root: File, val embedded: Manifest, private val shellApi: Int, 
         File(root, "staging").deleteRecursively()
         log.add("New APK: selected newer compatible web; embedded ${embedded.version}, current ${state.current}, pending ${state.pending}; lists retained", (System.nanoTime()-started)/1_000_000)
     }
-    @Synchronized fun coldStart(): Launch {
+    @Synchronized fun coldStart(onApplying: (String) -> Unit = {}): Launch {
         val started = System.nanoTime(); var notice: String? = null; var activated = false
         try {
         reconcileShell()
@@ -94,6 +94,7 @@ class Engine(val root: File, val embedded: Manifest, private val shellApi: Int, 
             if (next in state.failed || next in state.blocked || runCatching { manifest(next) }.isFailure) {
                 log.add("Pending bundle unavailable/blocked; discard $next"); state.pending = null
             } else if (!state.trial) {
+                onApplying(next)
                 state.previous = state.current; state.current = next; state.pending = null
                 state.trial = true; state.trialStarts = 0
                 activated = true

@@ -15,7 +15,8 @@ import com.husarp.linebreaker.R
 
 internal data class UpdateBannerItem(
     val key: String, val title: String, val text: String, val actionLabel: String? = null,
-    val action: (() -> Unit)? = null, val percent: Int? = null, val downloading: Boolean = false
+    val action: (() -> Unit)? = null, val percent: Int? = null, val downloading: Boolean = false,
+    val keepOnAction: Boolean = false, val installing: Boolean = false, val brief: Boolean = false
 )
 
 internal class NativeUpdateBanner(private val host: FrameLayout, private val dismiss: (String) -> Unit) {
@@ -60,7 +61,7 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
         row.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> { down = event.rawY; true }
-                MotionEvent.ACTION_UP -> { if (down - event.rawY > 36.dp) dismissItem(); true }
+                MotionEvent.ACTION_UP -> { if (!item.installing && down - event.rawY > 36.dp) dismissItem(); true }
                 else -> true
             }
         }
@@ -88,9 +89,9 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
         }
         if (item.actionLabel != null) copy.addView(Button(context).apply {
             text = item.actionLabel
-            setOnClickListener { dismissItem(); item.action?.invoke() }
+            setOnClickListener { if (!item.keepOnAction) dismissItem(); item.action?.invoke() }
         })
-        row.addView(Button(context).apply {
+        if (!item.installing) row.addView(Button(context).apply {
             text = "✕"; contentDescription = "Dismiss update notice"
             setPadding(0, 0, 0, 0)
             setOnClickListener { dismissItem() }
@@ -98,11 +99,12 @@ internal class NativeUpdateBanner(private val host: FrameLayout, private val dis
         host.addView(row, layout)
         panel = row
         row.post {
-            if (panel === row) {
+            if (panel === row && !item.installing) {
                 row.translationY = -row.height.toFloat()
                 row.alpha = 0f
                 row.animate().translationY(0f).alpha(1f).setDuration(220).start()
             }
         }
+        if (item.brief) row.postDelayed({ if (panel === row) dismissItem() }, 5000)
     }
 }

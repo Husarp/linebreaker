@@ -11,11 +11,13 @@ const windows = [];
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const defaults = { setupAnswered: true, smallFixes: true, majorUpdates: false, shellUpdates: true, wifiLimitMb: 20, mobileLimitMb: 5, checkFrequency: '6h' };
 
-async function boot({ platform = 'android', native = {}, version = '0.1.1', safe = true, saved = {}, plugins = {}, startup = false } = {}) {
+async function boot({ platform = 'android', native = {}, version = '0.1.1', safe = true, saved = {}, plugins = {}, startup = false, briefTimers = [] } = {}) {
   const { window } = new JSDOM('<main id="menu-overlay"></main><div id="settings-updates"><section id="settings-whats-new"></section></div><span data-update-version></span>', {
     url: 'https://localhost/', runScripts: 'outside-only', pretendToBeVisual: true,
   });
   windows.push(window);
+  const schedule = window.setTimeout.bind(window);
+  window.setTimeout = (action, ms) => ms === 5000 ? briefTimers.push(action) : schedule(action, ms);
   Object.entries(saved).forEach(([key, value]) => window.localStorage.setItem(key, value));
   window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   window.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new window.Event('close')); };
@@ -31,7 +33,7 @@ async function boot({ platform = 'android', native = {}, version = '0.1.1', safe
     info: vi.fn(async () => state), getState: vi.fn(async () => state),
     setSafeToInterrupt: vi.fn(async () => {}), appReady: vi.fn(async () => ({ accepted: true })),
     setUpdateSettings: vi.fn(async partial => Object.assign(state.updateSettings, partial)),
-    download: vi.fn(async () => {}), restart: vi.fn(async () => {}), check: vi.fn(async () => {}),
+    download: vi.fn(async () => {}), restart: vi.fn(async () => {}), installShell: vi.fn(async () => {}), check: vi.fn(async () => {}),
     claimCheckNotice: vi.fn(async () => ({})),
   };
   window.Capacitor = { getPlatform: () => platform, Plugins: { Ota: ota, ...plugins } };
@@ -47,7 +49,8 @@ async function boot({ platform = 'android', native = {}, version = '0.1.1', safe
   return { window, ota, frames, state, setSafe: value => { safe = value; },
     get: selector => window.document.querySelector(selector),
     click: text => Array.from(window.document.querySelectorAll('button')).find(button => button.textContent === text).click(),
-    async redraw() { callbacks.get('updateAvailable')?.(); await flush(); },
+    emit: (type, data) => callbacks.get(type)?.(data),
+    async redraw() { callbacks.get('updateStateChanged')?.(); await flush(); },
     async restoreSave() { window.dispatchEvent(new window.Event('linebreaker-update-ready')); await flush(); },
     async ready() { frames.shift()?.(); frames.shift()?.(); await flush(); },
   };
@@ -82,7 +85,7 @@ it('acknowledges the actual bundle and native token only after save restoration 
   const game = await boot();
   expect(game.ota.info).not.toHaveBeenCalled();
   await game.restoreSave();
-  expect(game.ota.addListener).toHaveBeenCalledTimes(6);
+  expect(game.ota.addListener).toHaveBeenCalledTimes(7);
   game.frames.shift()();
   expect(game.ota.appReady).not.toHaveBeenCalled();
   expect(game.window.resumeLinebreakerOtaWrites).not.toHaveBeenCalled();
@@ -182,7 +185,7 @@ it('acknowledges readiness and retains notes when Preferences never replies', as
   expect(game.window.resumeLinebreakerOtaWrites).toHaveBeenCalledOnce();
   expect(preferences.get).toHaveBeenCalledOnce();
   expect(game.get('dialog[open]')).toBeNull();
-  expect(game.get('.lb184-banner [data-title]').textContent).toBe('Update installed');
+  expect(game.get('.lb184-banner [data-title]').textContent).toBe('Updated to 0.1.1');
 });
 
 it('exposes Android policy and shell actions directly in the Updates section', async () => {
@@ -240,7 +243,7 @@ it('opts into background notices without scheduling any in the foreground and cl
 it('never restarts automatically and guards the versioned install action during play', async () => {
   const game = await boot({ safe: false, native: { staged: { version: '0.2.0' }, autoRestart: true } });
   await game.restoreSave(); await game.ready();
-  expect(game.get('.lb184-banner [data-actions] button').textContent).toBe('Restart to apply');
+  expect(game.get('.lb184-banner [data-actions] button').textContent).toBe('Install update 0.2.0');
   game.get('.lb149-settings [data-get]').click();
   await flush();
   expect(game.ota.restart).not.toHaveBeenCalled();
@@ -272,23 +275,24 @@ it('queues the installed banner with an offer and shows literal release notes on
   const game = await boot({ native: { updated, available: { version: '0.2.0', size: 12 } } });
   await game.restoreSave(); await game.ready();
   const banner = game.get('.lb184-banner');
-  expect(banner.querySelector('[data-title]').textContent).toBe('Update available');
-  banner.querySelector('[data-dismiss]').click();
-  expect(banner.querySelector('[data-title]').textContent).toBe('Update installed');
+  expect(banner.querySelector('[data-title]').textContent).toBe('Updated to 0.1.1');
   banner.querySelector('[data-actions] button').click();
   expect(game.get('[data-notes]').textContent).toBe(updated.notes);
   expect(game.get('[data-notes] img')).toBeNull();
+  expect(banner.querySelector('[data-title]').textContent).toBe('Update available');
   const reopened = await boot({ native: { updated }, saved: Object.fromEntries(Object.entries(game.window.localStorage)) });
   await reopened.restoreSave(); await reopened.ready();
   expect(reopened.get('.lb184-banner').hidden).toBe(true);
   expect(reopened.get('#settings-whats-new').textContent).toContain(updated.notes);
 });
 
-it('keeps progress in the same slot and switches Download to Restart when ready', async () => {
+it('keeps progress in the same slot and switches Download to Install when ready', async () => {
   const game = await boot({ native: { available: { version: '0.2.0', size: 100 } } });
   await game.restoreSave(); await game.ready();
   const button = game.get('.lb149-settings [data-get]');
   expect(button.textContent).toBe('Download update 0.2.0');
+  button.click(); await flush();
+  expect(game.ota.download).toHaveBeenCalledWith({ downloadOnly: true });
   Object.assign(game.state, { available: null, webDownloadVersion: '0.2.0', busy: true, webTransfer: { done: 42, total: 100 } });
   await game.redraw();
   const progress = game.get('.lb149-settings progress');
@@ -298,6 +302,60 @@ it('keeps progress in the same slot and switches Download to Restart when ready'
   Object.assign(game.state, { busy: false, staged: { version: '0.2.0' } });
   await game.redraw();
   expect(progress.hidden).toBe(true);
-  expect(button.textContent).toBe('Restart to apply');
+  expect(button.textContent).toBe('Install update 0.2.0');
   expect(game.get('.lb184-banner [data-actions] button').textContent).toBe(button.textContent);
+});
+
+it.each(['bundle', 'apk'])('keeps the %s install banner visible through duplicate events and the handoff', async kind => {
+  const version = '1.4.0';
+  const offer = kind === 'apk' ? { shellReady: { version, versionCode: 1400 } } : { staged: { version } };
+  const game = await boot({ native: offer });
+  await game.restoreSave(); await game.ready();
+  const banner = game.get('.lb184-banner');
+  banner.querySelector('[data-actions] button').click();
+  expect(banner.hidden).toBe(false);
+  await flush();
+  expect(kind === 'apk' ? game.ota.installShell : game.ota.restart).toHaveBeenCalledOnce();
+  Object.assign(game.state, { installingVersion: version, shellDownloading: true, available: { version } });
+  await game.redraw();
+  expect(banner.querySelector('[data-title]').textContent).toBe('Installing…');
+  expect(banner.querySelector('[data-dismiss]').hidden).toBe(true);
+  const title = banner.querySelector('[data-title]').firstChild;
+  game.emit('updateAvailable', { version });
+  game.emit('shellUpdateReady', { version });
+  await flush();
+  expect(banner.querySelector('[data-title]').firstChild).toBe(title);
+  game.ota.getState.mockResolvedValue({ token: 'next-launch', available: { version } });
+  await game.redraw();
+  expect(banner.querySelector('[data-title]').textContent).toBe('Installing…');
+});
+
+it('reads a new snapshot if the install event arrives during an older state read', async () => {
+  const game = await boot({ native: { shellReady: { version: '1.4.0', versionCode: 1400 } } });
+  await game.restoreSave(); await game.ready();
+  let resolve;
+  game.ota.getState.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  game.emit('updateStateChanged');
+  game.emit('updateStateChanged');
+  resolve({ ...game.state });
+  game.state.installingVersion = '1.4.0';
+  await flush();
+  expect(game.get('.lb184-banner [data-title]').textContent).toBe('Installing…');
+});
+
+it('expires the completion notice and does not reopen it or offer the installed version after restart', async () => {
+  const briefTimers = [], version = '1.4.0';
+  const native = { updated: { to: version }, available: { version }, staged: { version } };
+  const game = await boot({ version, native, briefTimers });
+  await game.restoreSave(); await game.ready();
+  const banner = game.get('.lb184-banner');
+  expect(banner.querySelector('[data-title]').textContent).toBe(`Updated to ${version}`);
+  await game.redraw();
+  expect(briefTimers).toHaveLength(1);
+  const saved = Object.fromEntries(Object.entries(game.window.localStorage));
+  briefTimers[0]();
+  expect(banner.hidden).toBe(true);
+  const restarted = await boot({ version, native: { ...native, token: 'second-start' }, saved });
+  await restarted.restoreSave(); await restarted.ready();
+  expect(restarted.get('.lb184-banner').hidden).toBe(true);
 });

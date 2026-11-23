@@ -6,7 +6,7 @@ import com.getcapacitor.annotation.CapacitorPlugin
 @CapacitorPlugin(name = "Ota")
 class OtaPlugin : Plugin() {
     private val updater get() = (context.applicationContext as OtaApplication).updater
-    private val eventSink: (String, JSObject) -> Unit = { name,data -> notifyListeners(name,data,true) }
+    private val eventSink: (String, JSObject) -> Unit = { name,data -> notifyListeners(name,data,name != "updateStateChanged") }
     override fun load() { updater.subscribe(eventSink) }
     override fun handleOnDestroy() { updater.eventListeners.remove(eventSink) }
     @PluginMethod fun setCircuitAccent(call: PluginCall) { call.resolve() }
@@ -48,7 +48,7 @@ class OtaPlugin : Plugin() {
         call.resolve(JSObject().put("message", notice?.failure?.message))
     }
     @PluginMethod fun check(call: PluginCall) { updater.retryChecks(); call.resolve() }
-    @PluginMethod fun download(call: PluginCall) { updater.download(); call.resolve() }
+    @PluginMethod fun download(call: PluginCall) { updater.download(installAfterDownload = call.getBoolean("downloadOnly") != true); call.resolve() }
     @PluginMethod fun restart(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).restartBundle() }; call.resolve() }
     @PluginMethod fun settings(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).showSettings() }; call.resolve() }
     @PluginMethod fun logs(call: PluginCall) { activity.runOnUiThread { (activity as MainActivity).showLogs() }; call.resolve() }

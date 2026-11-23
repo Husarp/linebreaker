@@ -53,7 +53,8 @@ class MainActivity : BridgeActivity() {
     private val transientBanners = mutableListOf<UpdateBannerItem>()
     private var applyingStartupFix = false
     private lateinit var activityLaunchToken: String
-    private var loadingOverlay: View? = null
+    private var loadingOverlay: StartupScreen? = null
+    private var webCommitted = false
     private var safeArea = Insets.NONE
     private var systemTop = 0
     private var cutoutRects = emptyList<Rect>()
@@ -63,13 +64,17 @@ class MainActivity : BridgeActivity() {
     }
     private fun refreshRecovery() {
         handler.removeCallbacks(recoveryTick)
+        if (updater.launching && updater.activation.current != null && updater.watchdog.reason == null) {
+            renderStartup()
+            return
+        }
         if (activityLaunchToken != updater.launch.token) return
         val trial = updater.engine.snapshot().trial
         val awake = (getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive &&
             !(getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
         val delay = updater.watchdog.update(SystemClock.elapsedRealtime(), resumed && awake)
         val reason = updater.watchdog.reason
-        loadingOverlay?.visibility = if (trial && updater.watchdog.showLoading) View.VISIBLE else View.GONE
+        renderStartup(trial)
         if (reason == null && !applyingStartupFix) recoveryDialog?.dismiss()
         if (resumed && awake && reason != null && recoveryDialog == null && debugDialog == null &&
             logDialog == null && !isFinishing && !isDestroyed) showStartupRecovery(reason)
@@ -77,6 +82,19 @@ class MainActivity : BridgeActivity() {
             refreshRecoveryCheck?.invoke()
         }
         if (delay != null) handler.postDelayed(recoveryTick, delay.coerceAtLeast(1))
+    }
+    private fun renderStartup(trial: Boolean = false) {
+        val phase = updater.activation.current
+        val light = NativeLedger.light(this)
+        when {
+            !updater.watchdog.showLoading && !updater.launching -> loadingOverlay?.visibility = View.GONE
+            updater.launching && phase != null -> loadingOverlay?.show(phase.version,
+                if (phase.step == UpdateActivation.Step.CHECKING_FILES) "Checking files…" else "Installing update ${phase.version}…", light)
+            trial -> loadingOverlay?.show(updater.launch.version, if (webCommitted) "Starting…" else "Loading app…", light)
+            else -> loadingOverlay?.visibility = View.GONE
+        }
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars =
+            light && loadingOverlay?.visibility == View.VISIBLE
     }
     private fun showStartupRecovery(reason: String) {
         updater.engine.log.add("Startup watchdog: ${updater.launch.version} ($reason)")
@@ -206,6 +224,8 @@ class MainActivity : BridgeActivity() {
         bridge.setWebViewClient(object : BridgeWebViewClient(bridge) {
             override fun onPageCommitVisible(view: WebView, url: String) {
                 super.onPageCommitVisible(view, url)
+                webCommitted = true
+                refreshRecovery()
                 injectSafeArea(view)
             }
             private fun required(request: WebResourceRequest) = request.isForMainFrame ||
@@ -224,19 +244,10 @@ class MainActivity : BridgeActivity() {
         })
         val webFrame = findViewById<FrameLayout>(android.R.id.content)
         updateBanner = NativeUpdateBanner(webFrame, ::dismissUpdateBanner)
-        val startupTheme = ledger
-        loadingOverlay = LinearLayout(startupTheme).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(16.dp,12.dp,16.dp,12.dp); background = NativeLedger.panel(startupTheme)
-            elevation = 8.dp.toFloat()
-            addView(ProgressBar(startupTheme), LinearLayout.LayoutParams(24.dp,24.dp))
-            addView(TextView(startupTheme).apply {
-                text = "Starting ${updater.launch.version}…"; textSize = 14f; setTextColor(startupTheme.getColor(R.color.lb_ledger_ink))
-                setPadding(12.dp,0,0,0)
-            })
-            visibility = if (updater.engine.snapshot().trial && updater.watchdog.showLoading) View.VISIBLE else View.GONE
+        loadingOverlay = StartupScreen(this, getString(R.string.app_name), NativeLedger.heading(ledger)).also {
+            webFrame.addView(it, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
-        webFrame.addView(loadingOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        renderStartup(updater.engine.snapshot().trial)
         updater.onChange = { if (!isFinishing) { refreshRecovery(); refreshDebugSettings?.invoke(); if (resumed) updater.shell.presentRequestedAndroidUi(this); showNativeMessages() } }
         updater.onToast = { text ->
             if (!isFinishing) {
@@ -305,7 +316,7 @@ class MainActivity : BridgeActivity() {
     }
     private fun configureSystemBars() {
         val controller = WindowCompat.getInsetsController(window, window.decorView)
-        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightStatusBars = NativeLedger.light(this) && loadingOverlay?.visibility == View.VISIBLE
         controller.isAppearanceLightNavigationBars = false
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller.show(WindowInsetsCompat.Type.statusBars())
@@ -517,6 +528,7 @@ class MainActivity : BridgeActivity() {
     internal fun setUiTheme(light: Boolean) {
         if (NativeLedger.light(this) == light) return
         NativeLedger.setLight(this, light)
+        refreshRecovery()
         showNativeMessages()
     }
 
@@ -530,6 +542,7 @@ class MainActivity : BridgeActivity() {
     private fun showNativeMessages() {
         val maintenance = maintenanceBanner
         val banner = maintenance ?: updateBanner ?: return
+        if (loadingOverlay?.visibility == View.VISIBLE && maintenance == null) return
         if (maintenance != null) updateBanner?.clear()
         val webNotices = updater.gameCheckNotices()
         if (!resumed || isFinishing || isDestroyed || logDialog != null ||
@@ -546,12 +559,12 @@ class MainActivity : BridgeActivity() {
             items.add(UpdateBannerItem("rollback:${it.optString("from")}:${it.optString("to")}", "Previous version restored",
                 "Version ${it.optString("from")} could not start. You’re back on ${it.optString("to")}.", "Details", ::showLogs))
         }
-        state.optJSONObject("updated")?.let {
-            items.add(UpdateBannerItem("updated:${it.optString("to")}", "Update installed", "You’re now on version ${it.optString("to")}."))
-        }
         val installedKey = "app-installed:${BuildConfig.VERSION_CODE}"
-        if (updater.shell.installedNotes() != null && !getSharedPreferences("native-update-messages", Context.MODE_PRIVATE).getBoolean(installedKey, false)) {
-            items.add(UpdateBannerItem(installedKey, "App update installed", "You’re now on version ${BuildConfig.VERSION_NAME}."))
+        val appUpdated = updater.shell.installedNotes() != null
+        val webUpdated = state.optJSONObject("updated")?.optString("to")
+        if (if (appUpdated) !getSharedPreferences("native-update-messages", Context.MODE_PRIVATE).getBoolean(installedKey, false) else webUpdated != null) {
+            val version = webUpdated ?: BuildConfig.VERSION_NAME
+            items.add(UpdateBannerItem(if (appUpdated) installedKey else "updated:$version", "Updated to $version", "", brief = true))
         }
         val webDownload = state.optJSONObject("webTransfer").takeIf { state.optBoolean("busy") && state.optString("webDownloadVersion").isNotBlank() }
         val appDownloading = state.optBoolean("shellDownloading")
@@ -566,7 +579,7 @@ class MainActivity : BridgeActivity() {
         if (!appDownloading) (appReady ?: state.optJSONObject("shellAvailable"))?.let {
             val version = it.optString("version")
             items.add(if (appReady != null) UpdateBannerItem("app-ready:$version", "App update ready", "Version $version is ready to install.",
-                "Install update $version", { installWithNotificationPermission { updater.shell.installFromWeb(this) } })
+                "Install update $version", { installWithNotificationPermission { updater.shell.installFromWeb(this) } }, keepOnAction = true)
             else UpdateBannerItem("app-offer:$version", "App update available", "Version $version · ${updater.formatSize(it.optLong("size"))}",
                 "Download update $version", { updater.shell.check(consent = true, downloadOnly = true) }))
         }
@@ -574,15 +587,17 @@ class MainActivity : BridgeActivity() {
         if (!state.optBoolean("busy")) (staged ?: state.optJSONObject("available"))?.let {
             val version = it.optString("version")
             items.add(when {
-                staged != null -> UpdateBannerItem("ready:$version", "Update ready", "Restart Linebreaker to finish updating.", "Restart to apply", { restartBundle(startupRecovery = updater.watchdog.reason != null) })
+                staged != null -> UpdateBannerItem("ready:$version", "Update ready", "Restart Linebreaker to finish updating.", "Install update $version", { restartBundle(startupRecovery = updater.watchdog.reason != null) }, keepOnAction = true)
                 it.optBoolean("needsShell") -> UpdateBannerItem("app-first:$version", "Update available", "Install the app update first to get version $version.")
-                else -> UpdateBannerItem("offer:$version", "Update available", "Version $version · ${updater.formatSize(it.optLong("size"))}", "Download update $version", updater::download)
+                else -> UpdateBannerItem("offer:$version", "Update available", "Version $version · ${updater.formatSize(it.optLong("size"))}", "Download update $version", { updater.download(installAfterDownload = false) })
             })
         }
         val error = updateFailure(updater.status, updater.shell.status)
         if (error != null) items.add(UpdateBannerItem("error:$error", "Could not update", "Check your connection or try again later.", "Details", ::showLogs))
         val queue = items.filter { it.key !in nativeSeen }
-        val next = queue.firstOrNull { it.key == activeBannerKey } ?: queue.firstOrNull()
+        val installing = state.optString("installingVersion").takeIf { it.isNotBlank() }
+        val next = installing?.let { UpdateBannerItem("installing:$it", "Installing…", "Update $it", installing = true) }
+            ?: queue.firstOrNull { it.key == activeBannerKey } ?: queue.firstOrNull()
         activeBannerKey = next?.key
         val bandInset = maxOf(safeArea.top, systemTop)
         val bandHeight = if (bandInset > 0) bandInset + 14.dp else 0

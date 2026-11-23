@@ -56,11 +56,14 @@ class Updater(private val context: Context, val engine: Engine, private val veri
     private var updated: JSObject? = null
     private var rolledBack: JSObject? = null
     val watchdog = StartupWatchdog()
+    internal val activation = UpdateActivation()
 
     fun simulateBrokenStart() = prefs.edit().putBoolean("simulateBrokenStart", true).commit()
 
     private fun selectLaunch() {
-        val next = engine.coldStart()
+        val next = engine.coldStart { version ->
+            if (activation.advance(version)) changed()
+        }
         val simulate = prefs.getBoolean("simulateBrokenStart", false) &&
             prefs.edit().remove("simulateBrokenStart").commit()
         watchdog.launch(next.token, SystemClock.elapsedRealtime(), simulate)
@@ -150,6 +153,7 @@ class Updater(private val context: Context, val engine: Engine, private val veri
     }
     private fun changed() { main.post {
         onChange?.invoke()
+        eventListeners.forEach { it("updateStateChanged", JSObject()) }
         val m = shell.manifest()?.takeIf { shell.isReady() }
         if (m == null) shellEventVersion = null
         else if (shellEventVersion != m.versionCode) {
@@ -216,6 +220,7 @@ class Updater(private val context: Context, val engine: Engine, private val veri
         put("needsShell", offer?.decision?.action == Action.FULL_APP)
         put("webDownloadVersion", webDownloadVersion); put("pending", engine.snapshot().pending); put("trial", engine.snapshot().trial)
         put("safeToInterrupt", safeToInterrupt); put("shellStatus", shell.status)
+        put("installingVersion", activation.current?.version ?: shell.installingVersion())
         put("available",availableState()); put("staged",stagedState()); put("updated",updated); put("rolledBack",rolledBack)
         put("shellUpdateReady",shell.isReady()); put("shellVersionCode",shell.manifest()?.versionCode)
         put("shellReady",shell.manifest()?.takeIf { shell.isReady() }?.let {
@@ -228,7 +233,8 @@ class Updater(private val context: Context, val engine: Engine, private val veri
         put("updateSettings",settingsJson()); put("shellAvailable",shell.availableState())
     }
     private fun availableState(): JSObject? = offer?.takeIf {
-        it.decision.action in listOf(Action.PROMPT,Action.FULL_APP) && it.manifest.version != laterVersion
+        it.decision.action in listOf(Action.PROMPT,Action.FULL_APP) && it.manifest.version != laterVersion &&
+            compareVersions(it.manifest.version, launch.version) > 0 && it.manifest.version != activation.current?.version
     }?.let {
         webState(it.manifest).put("version",it.manifest.version).put("kind",it.manifest.kind)
             .put("size",it.decision.delta).put("needsShell",it.decision.action==Action.FULL_APP)
@@ -291,12 +297,12 @@ class Updater(private val context: Context, val engine: Engine, private val veri
         currentCheck = task
         return task
     }
-    fun download() {
+    fun download(installAfterDownload: Boolean = true) {
         val selected = offer ?: return
         if (selected.decision.action != Action.PROMPT || !busy.compareAndSet(false, true)) return
         consentDownloading = true; progressPercent = 0; changed()
         worker.execute {
-            try { install(selected, true) } catch (e: Exception) {
+            try { install(selected, true, installAfterDownload = installAfterDownload) } catch (e: Exception) {
                 engine.log.add("Error downloading: ${e.message}"); message("Download failed; retry Check now. See Logs.")
             } finally { webDownloadVersion = null; transfer = null; busy.set(false); consentDownloading = false; changed() }
         }
@@ -362,7 +368,7 @@ class Updater(private val context: Context, val engine: Engine, private val veri
         }
     }
 
-    private fun install(selected: Offer, consent: Boolean, recoveryToken: String? = null): Boolean {
+    private fun install(selected: Offer, consent: Boolean, recoveryToken: String? = null, installAfterDownload: Boolean = true): Boolean {
         val m = verifier.verify(selected.source.bytes, System.currentTimeMillis())
         val s = engine.snapshot()
         val d = decide(m, engine.currentManifest(), engine.embedded, BuildConfig.SHELL_API, settings, unmetered(),
@@ -395,7 +401,7 @@ class Updater(private val context: Context, val engine: Engine, private val veri
         if (staged == null) { message("${m.version}: Not enough storage; skipped"); return false }
         engine.commit(m, staged, recoveryToken)
         waitingWeb.delete()
-        autoRestartPending = consent && recoveryToken == null
+        autoRestartPending = consent && recoveryToken == null && installAfterDownload
         message("Fixes downloaded (${m.version}) · Restart")
         engine.log.add("Update staged ${m.version}; consent=$consent, foreground=$foreground, safe=$safeToInterrupt", (System.nanoTime()-started)/1_000_000)
         transfer?.let { engine.log.add("Web transfer ${it.done}/${it.total} bytes at ${it.speed} B/s") }
@@ -406,6 +412,8 @@ class Updater(private val context: Context, val engine: Engine, private val veri
         if (!startupRecovery && !safeToInterrupt) { toast("Finish the current activity before restarting"); return }
         if (!busy.compareAndSet(false, true)) { toast("Please wait for the current download"); return }
         launching = true
+        if (!reset) engine.snapshot().pending?.let(activation::begin)
+        changed()
         worker.execute {
             try {
                 if (reset) {
@@ -414,12 +422,13 @@ class Updater(private val context: Context, val engine: Engine, private val veri
                 }
                 restartLaunch()
                 main.post { complete() }
-            } catch (e: Exception) { engine.log.add("Restart error: ${e.message}"); message("Restart failed; see Logs") }
+            } catch (e: Exception) { activation.clear(); engine.log.add("Restart error: ${e.message}"); message("Restart failed; see Logs") }
             finally { busy.set(false); launching = false; changed() }
         }
     }
     private fun restartLaunch() {
         selectLaunch(); offer = null; laterVersion = null
+        activation.current?.let { if (it.version != launch.version) activation.clear() }
         status = "Ready · ${launch.version}"; autoRestartPending = false; safeToInterrupt = true
         updated = null; rolledBack = null
     }
@@ -427,8 +436,8 @@ class Updater(private val context: Context, val engine: Engine, private val veri
     @Synchronized fun ready(version: String, token: String, checkNotices: Boolean = false): Boolean {
         if (!watchdog.acceptsReady(token) || !engine.ready(version, token)) return false
         watchdog.markReady(token)
+        activation.finish(version)
         readyGame = token to checkNotices
-        changed()
         engine.takeRollbackNotice(version,token)?.let { notice ->
             rolledBack = JSObject().put("from",notice.from).put("to",notice.to).put("reason",notice.reason)
             event("rolledBack",rolledBack!!)
@@ -437,6 +446,7 @@ class Updater(private val context: Context, val engine: Engine, private val veri
             updated = JSObject().put("from",notice.from).put("to",notice.to).put("notes",notice.notes)
             event("updated",updated!!)
         }
+        changed()
         if (waitingWeb.exists()) check()
         return true
     }

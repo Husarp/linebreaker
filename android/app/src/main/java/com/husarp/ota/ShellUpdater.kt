@@ -39,6 +39,8 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
         private set
     @Volatile private var confirmation: Intent? = null
     @Volatile private var ready: ShellManifest? = null
+    @Volatile private var preparingInstall: ShellManifest? = null
+    @Volatile private var completedInstall: ShellManifest? = null
     fun canInstallPackages() = context.packageManager.canRequestPackageInstalls()
     @Volatile private var installRequested = false
     @Volatile private var explicitInstallRequested = false
@@ -55,7 +57,13 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
     @Volatile private var available: ShellManifest? = null
     fun state(m: ShellManifest): JSObject = JSObject(json.toJson(engine.dates.get("shell", m.versionCode.toString())))
         .put("releasedAt",m.releasedAt).put("version",m.versionName).put("size",m.size).put("versionCode",m.versionCode)
-    fun availableState(): JSObject? = available?.let { state(it) }
+    private fun installedCode() = maxOf(BuildConfig.VERSION_CODE.toLong(), completedInstall?.versionCode ?: 0)
+    fun installingVersion(): String? = (completedInstall ?: preparingInstall ?: ready?.takeIf {
+        installing && (confirmation == null || explicitInstallRequested || prefs.getBoolean("confirmationShown", false))
+    })?.versionName
+    fun availableState(): JSObject? = available?.takeIf {
+        isUpdateOffer(it.versionCode, installedCode(), ready?.versionCode, preparingInstall?.versionCode)
+    }?.let { state(it) }
     fun check(consent: Boolean = false, manual: Boolean = false, downloadOnly: Boolean = false): Future<*> = executor.submit {
         if (!consent && !manual && !settings().automaticChecks) return@submit
         val start = System.nanoTime()
@@ -104,7 +112,8 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
             engine.dates.record("shell",m.versionCode.toString(),m.releasedAt,
                 available=m.versionCode>BuildConfig.VERSION_CODE)
             lastCheckSucceeded=true
-            if(m.versionCode<=BuildConfig.VERSION_CODE) {
+            if(m.versionCode<=installedCode()) {
+                available = null
                 log("decision: equal/older shell ${m.versionCode}; skip")
                 if(ready==null) status="Shell is current"
                 return@submit
@@ -204,6 +213,11 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
         if (prefs.getBoolean("failed",false)) return
         if (installing || confirmation!=null) { changed(); return }
         if (!canInstallPackages()) { status="App update ${m.versionName} ready · allow Install unknown apps"; log("unknown-app permission needed"); return }
+        preparingInstall = m
+        changed()
+        try { commitInstall(m) } finally { preparingInstall = null; changed() }
+    }
+    private fun commitInstall(m: ShellManifest) {
         val start=System.nanoTime()
         verifier.verifyShell(envelope.readBytes(),System.currentTimeMillis(),BuildConfig.VERSION_CODE.toLong())
         val apk=File(dir,m.apk); verifyApk(apk,m)
@@ -256,7 +270,7 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
         } else confirmation?.let {
             prefs.edit().putBoolean("confirmationShown",true).apply()
             log("user confirmation: launching Android installer once")
-            try { activity.startActivity(it) } catch(e: Exception) { log("failed opening confirmation: ${e.message}") }
+            try { activity.startActivity(it) } catch(e: Exception) { failInstall("Could not open Android installer: ${e.message}") }
         } ?: maybeInstall()
     }
     private fun recordInstalledIfNeeded(): Boolean {
@@ -283,19 +297,32 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
         when(val code=intent.getIntExtra(PackageInstaller.EXTRA_STATUS,PackageInstaller.STATUS_FAILURE)) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 @Suppress("DEPRECATION") val next=intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
-                if(next==null) { log("failed: confirmation Intent missing"); return }
+                if(next==null) { failInstall("Android did not provide an install confirmation"); return }
                 confirmation=next
                 prefs.edit().putBoolean("awaitingConfirmation",true).apply()
                 status="App update ${ready?.versionName ?: BuildConfig.VERSION_NAME} ready · Install"; log("user confirmation required by Android; wait for web Install action or next start")
             }
             PackageInstaller.STATUS_SUCCESS -> {
                 val path=if(prefs.getBoolean("confirmationShown",false)) "user confirmation" else "silent"
-                status="App updated (${ready?.versionName ?: BuildConfig.VERSION_NAME})"; log("install success ($path)"); clearSession()
-                ready=null; envelope.delete()
+                val code = prefs.getInt("targetCode", -1).toLong()
+                val signed = ready ?: runCatching { verifier.verifyShell(envelope.readBytes(), System.currentTimeMillis(), -1) }.getOrNull()
+                signed?.takeIf { it.versionCode == code }?.let { target ->
+                    if (target.versionCode > BuildConfig.VERSION_CODE) completedInstall = target
+                    prefs.edit().putInt("notesCode", target.versionCode.toInt()).putString("notes", target.notes).commit()
+                }
+                available = null; ready = null
+                status="App updated (${signed?.versionName ?: BuildConfig.VERSION_NAME})"
+                clearSession(); envelope.delete(); log("install success ($path)")
             }
-            else -> { prefs.edit().remove("notifyTarget").putBoolean("failed",true).apply(); status="App install failed ($code)"; log("failed ($code): ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}"); clearSession() }
+            else -> failInstall("$code: ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}")
         }
         changed()
+    }
+    private fun failInstall(reason: String) {
+        prefs.edit().remove("notifyTarget").putBoolean("failed",true).apply()
+        installRequested = false; explicitInstallRequested = false
+        status = "App install failed: $reason"
+        clearSession(); log(status)
     }
     private fun clearSession() { installing=false; confirmation=null; prefs.edit().remove("session").remove("targetCode").putBoolean("awaitingConfirmation",false).apply() }
 }

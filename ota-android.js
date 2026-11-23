@@ -49,7 +49,7 @@
     <label for="lb149-android-log">Update log</label><textarea id="lb149-android-log" readonly></textarea>
     <div class="lb149-actions" data-log-actions><button class="lb-block-btn" data-close>Close</button></div><p data-feedback role="status"></p>`);
   const preferences = dialog('Update settings', '<div data-form></div><p data-feedback role="status"></p><div class="lb149-actions"></div>');
-  let state, ready = false, safety, refreshing, notice, shellUpgrade, settingsBusy = false;
+  let state, ready = false, safety, refreshing, refreshAgain = false, notice, shellUpgrade, settingsBusy = false;
   const canInterrupt = () => ready && window.linebreakerCanInterrupt?.() === true && !settingsBusy;
   const syncSafety = () => {
     if (!ready) return Promise.resolve();
@@ -245,14 +245,16 @@
 
   function offers(current) {
     if (current.trial) return [];
-    const web = current.available, shell = current.shellReady || current.shellAvailable;
+    const web = newer(current.available?.version, bundle.version) ? current.available : null;
+    const staged = newer(current.staged?.version, bundle.version) ? current.staged : null;
+    const shell = current.shellReady || current.shellAvailable;
     const rollback = current.rolledBack;
     return [
       rollback && { key: `rollback:${rollback.from}:${rollback.to}`, title: 'Previous version restored', text: `Version ${rollback.from} could not start. You’re back on ${rollback.to}.` },
-      current.shellReady && { key: `shell-ready:${shell.versionCode}`, title: 'App update ready', text: `Version ${shell.version} is ready to install.`, label: getLabel(shell.version, true), action: () => guarded(() => ota.installShell()) },
-      current.staged && { key: `staged:${current.staged.version}`, title: 'Update ready', text: 'Restart Linebreaker to finish updating.', label: 'Restart to apply', action: restart },
+      current.shellReady && { key: `shell-ready:${shell.versionCode}`, title: 'App update ready', text: `Version ${shell.version} is ready to install.`, label: getLabel(shell.version, true), action: () => guarded(() => ota.installShell()), keepOnAction: true },
+      staged && { key: `staged:${staged.version}`, title: 'Update ready', text: 'Restart Linebreaker to finish updating.', label: getLabel(staged.version, true), action: restart, keepOnAction: true },
       !current.shellReady && shell && { key: `shell:${shell.versionCode}`, title: 'App update available', text: `Version ${shell.version} · ${size(shell.size)}`, label: getLabel(shell.version), action: () => ota.downloadShell({ downloadOnly: true }) },
-      !current.staged && web && { key: `web:${web.version}`, title: 'Update available', text: web.needsShell ? `Install the app update first to get version ${web.version}.` : `Version ${web.version} · ${size(web.size)}`, label: getLabel(web.version), action: web.needsShell ? undefined : () => ota.download() },
+      !staged && web && { key: `web:${web.version}`, title: 'Update available', text: web.needsShell ? `Install the app update first to get version ${web.version}.` : `Version ${web.version} · ${size(web.size)}`, label: getLabel(web.version), action: web.needsShell ? undefined : () => ota.download({ downloadOnly: true }) },
     ].filter(Boolean);
   }
 
@@ -301,14 +303,15 @@
   }
 
   function render(current) {
+    const installing = current.installingVersion;
     const webDownloading = current.webDownloadVersion && current.busy !== false;
     const busy = webDownloading || current.shellDownloading;
     const transfer = webDownloading ? current.webTransfer : current.shellTransfer;
-    const percent = busy ? (transfer?.total ? 100 * transfer.done / transfer.total : null) : undefined;
+    const percent = !installing && busy ? (transfer?.total ? 100 * transfer.done / transfer.total : null) : undefined;
     const items = offers(current);
     const action = items.find(item => item.action);
     const failure = [current.status, current.shellStatus].find(value => /^(Download failed|(?:Shell )?Update processing failed|Install failed|App install failed|Restart failed|Could not apply)|Not enough storage/i.test(value));
-    status(busy ? 'Downloading' : failure ? 'Could not update' : current.shellReady ? 'Ready to install' : current.staged ? 'Ready to apply on restart'
+    status(installing ? 'Installing…' : busy ? 'Downloading' : failure ? 'Could not update' : current.shellReady ? 'Ready to install' : items.some(item => item.key.startsWith('staged:')) ? 'Ready to apply on restart'
       : current.updateChecks?.failed ? 'Could not check for updates' : items.some(item => item.label) ? 'Update available'
       : current.busy ? 'Checking for updates…' : 'No update ready', percent);
     diagnostics.querySelector('[data-state]').textContent = [current.status, current.shellStatus, current.updateChecks?.summary].filter(Boolean).join(' · ');
@@ -332,23 +335,25 @@
       ? current.updated?.to === bundle.version && current.updated.notes || bundle.message : current.shellNotes);
     setReleaseNotes(releaseVersion, releaseText, openGitHub);
     releaseInfo = [releaseVersion, releaseText];
-    currentAction = !busy && action?.action;
+    currentAction = !installing && !busy && action?.action;
     getUpdate.hidden = !currentAction;
     getUpdate.textContent = action?.label || '';
-    notices('android-state', !ready ? [] : busy ? [{
+    notices('android-state', !ready ? [] : installing ? [{ key: `installing:${installing}`, title: 'Installing…', text: `Update ${installing}`, locked: true }] : busy ? [{
       key: `download:${current.webDownloadVersion || 'app'}`, title: 'Downloading update', text: 'You can keep playing.', percent,
     }] : [failure && { key: `android-error:${failure}`, title: 'Could not update', text: 'Try again from Settings → Updates.', actions: [['Details', openShell]] },
       ...items.filter(item => !localStorage.getItem(`lb149:${item.key}`)).map(item => ({ ...item,
         actions: item.action ? [[item.label, () => run(item.action)]] : [['Details', openShell]],
         dismiss: () => localStorage.setItem(`lb149:${item.key}`, '1'),
       }))]);
-    if (ready) showReleaseNotice(releaseVersion, releaseText, {
-      upgraded: notice?.to === releaseVersion,
-      fallback: openGitHub,
+    if (ready) showReleaseNotice(notice?.to || releaseVersion, notice?.notes || releaseText, {
+      upgraded: Boolean(notice),
+      suppressed: Boolean(installing), fallback: openGitHub, brief: true,
     });
   }
   function refresh() {
-    if (!refreshing) refreshing = bounded('Reading Android update state', () => ota.getState()).then(current => {
+    if (refreshing) { refreshAgain = true; return refreshing; }
+    refreshing = bounded('Reading Android update state', () => ota.getState()).then(current => {
+      if (current.token !== state.token) return;
       state = current;
       if (current.updated?.to === bundle.version && localStorage.getItem('lb149:lastNoticeToken') !== current.token) {
         notice = current.updated;
@@ -358,7 +363,10 @@
       shellUpgrade = null;
       render(current);
       return Promise.all([reloadLog(), showCheckNotice(current)]);
-    }).finally(() => { refreshing = null; });
+    }).finally(() => {
+      refreshing = null;
+      if (refreshAgain) { refreshAgain = false; void refresh().catch(() => {}); }
+    });
     return refreshing;
   }
   async function initialize() {
@@ -374,7 +382,6 @@
     startup?.step('Android WebView readiness accepted');
     void window.resumeLinebreakerOtaWrites?.()?.catch(error => console.warn('Could not resume save writes:', error));
     ready = true;
-    render(initial);
     shellUpgrade = startupUpgrade(localStorage, 'lb149:shell', initial.shellVersion);
     if (Number.isSafeInteger(initial.runningShellVersionCode)) {
       const previousCode = Number(localStorage.getItem('lb149:shellCode'));
@@ -388,7 +395,7 @@
   }
   attachVersion(bundle.version, openShell);
   const start = () => {
-    void Promise.all(['updateAvailable', 'updateStaged', 'updated', 'rolledBack', 'shellUpdateReady', 'updateSettingsChanged']
+    void Promise.all(['updateStateChanged', 'updateAvailable', 'updateStaged', 'updated', 'rolledBack', 'shellUpdateReady', 'updateSettingsChanged']
       .map(event => bounded('Listening for ' + event, () => ota.addListener(event, () => { if (ready) void refresh().catch(() => {}); })))).catch(() => {});
     return initialize().catch(unavailable);
   };

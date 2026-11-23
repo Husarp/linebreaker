@@ -94,7 +94,7 @@
     if (value === null) progress.removeAttribute('value'); else if (progress.value !== value || !progress.hasAttribute('value')) progress.value = value;
   }
   function closeNotice() {
-    if (!showing) return;
+    if (!showing || showing.locked) return;
     dismissed.add(showing.key);
     showing.dismiss?.();
     showing = null;
@@ -126,25 +126,34 @@
       document.body.append(banner);
     }
     const queue = [...sources.values()].flat().filter(item => !dismissed.has(item.key));
-    const item = queue.find(entry => entry.key === showing?.key) || queue[0];
+    const item = queue.find(entry => entry.locked) || queue.find(entry => entry.brief) || queue.find(entry => entry.key === showing?.key) || queue[0];
     banner.hidden = !item;
     if (!item) { showing = null; return; }
     if (showing?.key !== item.key) {
       banner.dataset.notice = item.key;
       banner.getAnimations?.().forEach(animation => animation.cancel());
-      if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      if (!item.locked && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
         banner.animate?.([{ transform: 'translateY(-110%)', opacity: 0 }, { transform: 'none', opacity: 1 }], 220);
       }
       banner.querySelector('[data-title]').textContent = item.title;
       banner.querySelector('[data-detail]').textContent = item.text || '';
+      banner.querySelector('[data-dismiss]').hidden = Boolean(item.locked);
       banner.querySelector('[data-actions]').replaceChildren(...(item.actions || []).map(([label, action], index) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = `lb-block-btn${index === 0 ? ' lb-block-btn--primary' : ''}`;
         button.textContent = label;
-        button.onclick = () => { closeNotice(); action(); };
+        button.onclick = async () => {
+          if (!item.keepOnAction) { closeNotice(); action(); return; }
+          button.disabled = true;
+          try { await action(); } finally { button.disabled = false; }
+        };
         return button;
       }));
+      if (item.brief) {
+        item.onShow?.();
+        setTimeout(() => { if (showing?.key === item.key) closeNotice(); }, 5000);
+      }
     }
     setStatus(banner, '', item.percent);
     showing = item;
@@ -182,11 +191,13 @@
     }
   }
 
-  function showReleaseNotice(version, notes, { upgraded = false, suppressed = false, fallback, preview = false } = {}) {
+  const briefShownHere = new Set();
+  function showReleaseNotice(version, notes, { upgraded = false, suppressed = false, fallback, preview = false, brief = false } = {}) {
     const key = `lb149:release-notice:${version}`;
     if (upgraded && !localStorage.getItem(key)) localStorage.setItem(key, 'pending');
-    notices('installed', suppressed || (!preview && localStorage.getItem(key) !== 'pending') ? [] : [{
-      key, title: 'Update installed', text: `You’re now playing version ${version}.`,
+    notices('installed', suppressed || (!preview && localStorage.getItem(key) !== 'pending' && !briefShownHere.has(key)) ? [] : [{
+      key, brief, title: brief ? `Updated to ${version}` : 'Update installed', text: brief ? '' : `You’re now playing version ${version}.`,
+      onShow: () => { briefShownHere.add(key); localStorage.setItem(key, 'shown'); },
       actions: [["What's new", () => showNotes(version, releaseNotes[version] || notes, fallback)]],
       dismiss: () => { if (!preview) localStorage.setItem(key, 'dismissed'); },
     }]);
