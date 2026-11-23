@@ -30,50 +30,118 @@
 
 .lb43-crate {
     margin: 0 auto 12px;
+    flex: none;
+    width: min(100%, clamp(104px, 21dvh, 168px));
     color: var(--lb43-tone, var(--rarity-common));
     font: 600 14px / 1.5 var(--font-body);
     text-transform: capitalize;
-    --lb43-seam: 0% 43%, 62% 54%, 100% 36%;
 }
-.lb43-crate[data-rarity="rare"] { --lb43-seam: 0% 49%, 61% 59%, 100% 44%; }
-.lb43-crate[data-rarity="epic"] { --lb43-seam: 0% 51%, 61% 63%, 100% 48%; }
-.lb43-crate[data-rarity="legendary"] { --lb43-seam: 0% 55%, 62% 67%, 100% 52%; }
-.lb43-crate[data-rarity="mythic"] { --lb43-seam: 0% 59%, 58% 70%, 100% 56%; }
 .lb43-crate[data-rarity="common"], .lb43-gift-card[data-rarity="common"] { --lb43-tone: var(--rarity-common); }
 .lb43-crate[data-rarity="rare"], .lb43-gift-card[data-rarity="rare"] { --lb43-tone: var(--rarity-rare); }
 .lb43-crate[data-rarity="epic"], .lb43-gift-card[data-rarity="epic"] { --lb43-tone: var(--rarity-epic); }
 .lb43-crate[data-rarity="legendary"] { --lb43-tone: var(--rarity-legendary); }
 .lb43-crate[data-rarity="mythic"] { --lb43-tone: var(--rarity-mythic); }
-.lb43-crate-sprite { position: relative; display: inline-block; vertical-align: top; }
-.lb43-crate-body { display: block; height: clamp(100px, 22vh, 158px); width: auto; }
-.lb43-crate-lid { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
-.lb43-crate figcaption { margin-top: 4px; }
+.lb43-crate-sprite { position: relative; aspect-ratio: 1; }
+.lb43-crate-frame { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+.lb43-crate[data-frame="closed"] [data-frame="closed"],
+.lb43-crate[data-frame="ajar"] [data-frame="ajar"],
+.lb43-crate[data-frame="open"] [data-frame="open"] { opacity: 1; }
+.lb43-crate figcaption { margin-top: 4px; white-space: nowrap; }
 .lb43-gift-progress { color: var(--lb-ink); font: 400 var(--lb-type-small)/1.5 var(--lb-font-pixel); }
 .lb43-crate-shaking .lb43-crate-sprite { animation: lb43-shake 230ms ease-in-out; }
-.lb43-crate-opening .lb43-crate-body { clip-path: polygon(var(--lb43-seam), 100% 100%, 0% 100%); }
-.lb43-crate-opening .lb43-crate-lid {
-    clip-path: polygon(0% 0%, var(--lb43-seam), 100% 0%);
-    animation: lb43-lid-pop 490ms ease-out both;
+
+.lb43-crate-mouth, .lb43-crate-shine { position: absolute; left: 50%; top: 47%; pointer-events: none; }
+.lb43-crate-shine {
+    width: 110%;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    opacity: 0;
+    --lb43-shine: rgb(234 243 255 / 48%);
 }
-.lb43-crate-cards > .lb-reward-card { animation: lb43-card-flight 280ms ease-out var(--lb43-card-delay, 0ms) both; }
+.lb43-crate[data-rarity="rare"] .lb43-crate-shine { --lb43-shine: rgb(162 223 255 / 85%); }
+.lb43-crate[data-rarity="epic"] .lb43-crate-shine { --lb43-shine: #edb5ff; }
+.lb43-crate[data-rarity="legendary"] .lb43-crate-shine { --lb43-shine: #ffe27e; }
+.lb43-crate[data-rarity="mythic"] .lb43-crate-shine { --lb43-shine: #fff3da; }
+.lb43-crate-shine::before, .lb43-crate-shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+}
+.lb43-crate-shine::before { background: radial-gradient(ellipse 44% 27%, var(--lb43-shine), transparent 78%); }
+.lb43-crate[data-rarity="legendary"] .lb43-crate-shine::after {
+    background: repeating-conic-gradient(from 8deg, transparent 0 18deg, #ffcf5966 23deg, transparent 30deg);
+    mask-image: radial-gradient(black, transparent 70%);
+}
+.lb43-crate[data-rarity="mythic"] .lb43-crate-shine::after {
+    background: conic-gradient(#ff778b, #ffdf81, #a1ef9e, #86e4ff, #a3a2ff, #eaa4ff, #ff778b);
+    mask-image: radial-gradient(#000b, transparent 70%),
+        repeating-conic-gradient(from 4deg, transparent 0 11deg, black 15deg, transparent 22.5deg);
+    mask-composite: intersect;
+}
+.lb43-crate-sparkle {
+    position: absolute;
+    left: calc(50% + var(--lb43-x));
+    top: calc(50% + var(--lb43-y));
+    width: var(--lb43-sparkle-size);
+    aspect-ratio: 1;
+    background: var(--lb43-shine);
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+}
+.lb64-crate-overlay[data-reveal="opening"] .lb43-crate[data-frame="open"] .lb43-crate-shine {
+    animation: lb43-shine 690ms ease-out both;
+}
+.lb64-crate-overlay[data-reveal="opening"] .lb43-crate[data-frame="open"] .lb43-crate-sparkle {
+    animation: lb43-sparkle 440ms ease-out var(--lb43-sparkle-delay) both;
+}
+
+.lb64-crate-overlay > .lb64-crate-panel { display: flex; flex-direction: column; align-items: center; }
+.lb43-crate-result:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    min-height: 0;
+}
+.lb43-crate-result > .lb64-rewards {
+    width: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable both-edges;
+}
+.lb64-crate-overlay[data-reveal="opening"] .lb43-crate-result > .lb64-rewards { overflow: hidden; }
+.lb43-reward-pending, .lb43-crate-result [aria-hidden="true"] > p { visibility: hidden; }
+.lb43-crate-result > button { flex: none; }
+.lb43-crate-flight {
+    position: fixed;
+    z-index: 1;
+    object-fit: contain;
+    pointer-events: none;
+    animation: lb43-card-flight ease-out both;
+}
 
 @keyframes lb43-shake {
     0%, 100% { transform: translateX(0) rotate(0); }
     25%, 75% { transform: translateX(-4px) rotate(-4deg); }
     50% { transform: translateX(4px) rotate(4deg); }
 }
-@keyframes lb43-lid-pop {
-    0%, 40% { transform: translateY(0); opacity: 1; }
-    75% { transform: translateY(-30px) rotate(-9deg); opacity: 1; }
-    100% { transform: translateY(-48px) rotate(-14deg); opacity: 0; }
+@keyframes lb43-shine {
+    0% { opacity: 0; scale: .2; }
+    25% { opacity: 1; }
+    100% { opacity: 0; scale: 1.15; }
+}
+@keyframes lb43-sparkle {
+    0% { opacity: 0; scale: .2; }
+    40% { opacity: 1; scale: 1.1; }
+    100% { opacity: 0; scale: .5; }
 }
 @keyframes lb43-card-flight {
-    from { transform: translateY(22px) scale(.76); opacity: 0; }
-    to { transform: translateY(0) scale(1); opacity: 1; }
+    0% { transform: translate(var(--lb43-x), var(--lb43-y)) scale(.08); }
+    38% { transform: translate(calc(var(--lb43-x) * .48), calc(var(--lb43-y) * .58 - 14px)) scale(.55); }
+    80%, 100% { transform: none; }
+    90% { transform: scale(1.14); }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .lb43-crate-shaking .lb43-crate-sprite,
-    .lb43-crate-opening .lb43-crate-lid,
-    .lb43-crate-cards > .lb-reward-card { animation: none; }
+    .lb64-crate-overlay .lb43-crate-flight { animation: none; }
 }

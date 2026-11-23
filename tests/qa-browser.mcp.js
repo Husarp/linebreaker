@@ -25,10 +25,12 @@
     page.on('console', onConsole);
     page.on('response', onResponse);
     const originalViewport = page.viewportSize();
+    let reducedMotion;
     try {
         await page.setViewportSize(viewport);
         await page.goto(url.href);
         await page.waitForFunction(() => window.__LB_QA && document.querySelector('#loading-screen').style.display === 'none');
+        reducedMotion = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
         const matchingQuotes = await page.evaluate(() => {
             const loadingQuote = document.querySelector('#loading-quote')?.textContent.trim();
             return loadingQuote && loadingQuote === document.querySelector('#splash-quote')?.textContent.trim();
@@ -74,6 +76,29 @@
             }
             if (name === 'start-animation') await capture?.(name);
             await page.waitForTimeout(1050);
+            const isCrate = ['daily-gift', 'level-crate', 'mission-crate'].includes(name);
+            if (name === 'daily-gift') {
+                const shake = page.getByRole('button', { name: 'Shake crate' });
+                for (let tap = 0; tap < 3; tap++) await shake.click();
+            }
+            if (isCrate) {
+                const overlay = page.locator('.lb64-crate-overlay[data-reveal="revealed"]');
+                await overlay.waitFor();
+                const framesMatch = await overlay.evaluate(async dialog => {
+                    const frames = [...dialog.querySelectorAll('.lb43-crate-frame')];
+                    await Promise.all(frames.map(frame => frame.decode()));
+                    const [first, ...rest] = frames.map(frame => frame.getBoundingClientRect());
+                    const done = dialog.querySelector('.lb43-crate-result > button');
+                    const button = done.getBoundingClientRect();
+                    return frames.map(frame => frame.dataset.frame).join() === 'closed,ajar,open'
+                        && frames.every(frame => frame.naturalWidth === 400 && frame.naturalHeight === 400)
+                        && rest.every(rect => ['x', 'y', 'width', 'height'].every(key => rect[key] === first[key]))
+                        && dialog.querySelector('.lb43-crate').dataset.frame === 'open'
+                        && dialog.querySelector('.lb43-crate-result .lb-reward-card') && done.textContent === 'Done'
+                        && button.top >= 0 && button.bottom <= innerHeight;
+                });
+                if (!framesMatch) fail('Crate frames must share their canvas and show the final rewards and Done action');
+            }
             if (name !== 'start-animation') await capture?.(name);
             const clearsBand = await page.evaluate(() => {
                 const bandBottom = document.querySelector('.lb-top-band').getBoundingClientRect().bottom;
@@ -170,6 +195,13 @@
                 const locker = await page.locator('#inventory-crates .lb-r17-feature').evaluate(card =>
                     /locker-(quartermaster|vault-corridor)\.webp/.test(getComputedStyle(card).backgroundImage));
                 if (!locker) fail('Locker is missing its selected artwork');
+            }
+            if (name === 'inventory-boosters' || name === 'booster-exchange' || name === 'game-over') {
+                const container = { 'inventory-boosters': '#inventory-boosters', 'booster-exchange': '#exc-modal-overlay', 'game-over': '#go-boost-row' }[name];
+                const scrolls = await page.locator(`${container} .lb-booster-token`).evaluateAll(icons => icons.length > 0
+                    && icons.every(icon => /\/boosters\/scroll-(common|rare|epic|legendary)\.webp$/.test(icon.src)
+                        && icon.src.endsWith(`scroll-${icon.closest('[data-rarity]')?.dataset.rarity ?? 'common'}.webp`)));
+                if (!scrolls) fail('Boosters are missing their rarity-matched scrolls');
             }
             if (['inventory-blocks', 'inventory-colors', 'inventory-other'].includes(name)) {
                 const labels = await page.evaluate(() => [...document.querySelectorAll('#inventory-overlay [role="tabpanel"]:not(.hidden) .lb-inventory-rarity')]
@@ -573,12 +605,33 @@
                 if (!track) fail('Season Pass is missing the next-stage meter or rarity-labelled rewards');
             }
         }
+        screen = 'crate-animation';
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+        await page.evaluate(() => window.__LB_QA.open('level-crate'));
+        const flight = page.locator('#inventory-crate-overlay .lb43-crate-flight').first();
+        await flight.waitFor({ state: 'attached' });
+        const duration = await flight.evaluate(art => getComputedStyle(art).animationDuration);
+        if (duration !== '0.56s') fail('Rewards must fly for 450 ms plus a 110 ms landing pop');
+        const crate = page.locator('#inventory-crate-overlay');
+        await crate.click({ position: { x: 4, y: 4 } });
+        const skipped = await crate.evaluate(dialog => dialog.dataset.reveal === 'revealed'
+            && !dialog.querySelector('.lb43-crate-flight, .lb43-reward-pending')
+            && document.activeElement?.textContent === 'Done');
+        if (!skipped) fail('Tapping the backdrop must finish, not dismiss, the reveal');
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        const instant = await page.evaluate(async () => {
+            await window.__LB_QA.open('level-crate');
+            const dialog = document.getElementById('inventory-crate-overlay');
+            return dialog?.dataset.reveal === 'revealed' && !dialog.querySelector('.lb43-crate-flight, .lb43-reward-pending');
+        });
+        if (!instant) fail('Reduced motion must show the result immediately');
         if (failures.size) throw new Error([...failures].join('\n'));
         return { passed: names.length, viewport: `${viewport.width}×${viewport.height}` };
     } finally {
         page.off('response', onResponse);
         page.off('console', onConsole);
         page.off('pageerror', onError);
+        if (reducedMotion !== undefined) await page.emulateMedia({ reducedMotion: reducedMotion ? 'reduce' : 'no-preference' });
         if (originalViewport) await page.setViewportSize(originalViewport);
     }
 })

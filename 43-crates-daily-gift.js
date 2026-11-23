@@ -7,6 +7,12 @@
     const DAILY_GIFT_UPGRADE_CHANCE = 0.25;
     const DAILY_GIFT_MAX_RARITY = 'epic';
     const DAILY_GIFT_SHAKE_MS = 230;
+    const CRATE_AJAR_MS = 120;
+    const CRATE_OPEN_MS = 280;
+    const REWARD_FLIGHT_MS = 450;
+    const REWARD_POP_MS = 110;
+    const crateFrames = ['closed', 'ajar', 'open'];
+    const crateSparkles = { epic: 6, legendary: 9, mythic: 14 };
     const contents = [
         { parts: 2, universal: 1, booster: '1.25x_game', boosters: 1 },
         { parts: 3, universal: 1, booster: '1.5x_game', boosters: 1 },
@@ -163,7 +169,8 @@
             const isPart = reward.type === 'parts' || reward.type === 'universal_parts';
             image.src = reward.type === 'crate' ? `assets/ui/crates/${reward.rarity}.png`
                 : isPart ? (reward.type === 'parts' ? window.LBArtPack.itemPart(reward.rarity) : window.LBArtPack.universalPart(reward.rarity))
-                : (reward.type === 'booster' && window.LBArtPack.boosterToken(reward.key)) || 'assets/ui/64-item-part.svg';
+                : (reward.type === 'booster' && window.LBArtPack.boosterToken(reward.rarity)) || 'assets/ui/64-item-part.svg';
+            if (reward.type === 'booster') image.className = 'lb-booster-token';
             let art = image;
             if (reward.type === 'parts') {
                 art = element('span', 'lb124-part-art');
@@ -189,43 +196,58 @@
 
     function crateArt(rarity) {
         const art = element('figure', 'lb43-crate');
+        art.dataset.frame = 'closed';
         const sprite = element('div', 'lb43-crate-sprite');
-        for (const layer of ['body', 'lid']) {
-            const image = element('img', `lb43-crate-${layer}`);
+        for (const frame of crateFrames) {
+            const image = element('img', 'lb43-crate-frame');
+            image.dataset.frame = frame;
             image.alt = '';
             sprite.append(image);
         }
+        const shine = element('div', 'lb43-crate-shine');
+        shine.setAttribute('aria-hidden', 'true');
+        sprite.append(element('span', 'lb43-crate-mouth'), shine);
         art.append(sprite, element('figcaption'));
         setCrateArt(art, rarity);
         return art;
     }
 
     function setCrateArt(art, rarity) {
+        if (art.dataset.rarity === rarity) return;
         art.dataset.rarity = rarity;
-        for (const image of art.querySelectorAll('img')) image.src = `assets/ui/crates/${rarity}.png`;
+        for (const image of art.querySelectorAll('img')) image.src = `assets/ui/crates/reveal/${rarity}-${image.dataset.frame}.webp`;
+        const shine = art.querySelector('.lb43-crate-shine');
+        shine.replaceChildren();
+        const count = crateSparkles[rarity] ?? 0;
+        for (let index = 0; index < count; index++) {
+            const sparkle = element('span', 'lb43-crate-sparkle');
+            const angle = (index + .25) * 2 * Math.PI / count;
+            const distance = 34 + (index % 4) * 7;
+            sparkle.style.setProperty('--lb43-x', `${Math.cos(angle) * distance}%`);
+            sparkle.style.setProperty('--lb43-y', `${Math.sin(angle) * distance}%`);
+            sparkle.style.setProperty('--lb43-sparkle-delay', `${(index % 4) * 65}ms`);
+            sparkle.style.setProperty('--lb43-sparkle-size', `${4 + (index % 3) * 2}px`);
+            shine.append(sparkle);
+        }
         art.querySelector('figcaption').textContent = crateLabel(rarity);
     }
 
-    const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-    function animateReveal(art, rewards, grid) {
-        const done = rewards.querySelector('button');
-        grid.classList.add('lb43-crate-cards');
-        for (const [index, card] of Array.from(grid.children).entries()) {
-            card.style.setProperty('--lb43-card-delay', `${Math.min(index, 8) * 36}ms`);
-        }
-        const reveal = () => {
-            if (!art.isConnected) return;
-            art.hidden = true;
-            rewards.hidden = false;
-            done.focus({ preventScroll: true });
-        };
-        if (reducedMotion()) reveal();
-        else {
-            art.classList.remove('lb43-crate-shaking');
-            art.classList.add('lb43-crate-opening');
-            window.setTimeout(reveal, 490);
-        }
+    function flyReward(overlay, card, mouth) {
+        const image = card.querySelector('img');
+        const target = image.getBoundingClientRect();
+        const flight = element('img', 'lb43-crate-flight');
+        flight.alt = '';
+        flight.setAttribute('aria-hidden', 'true');
+        flight.src = image.src;
+        flight.style.left = `${target.left}px`;
+        flight.style.top = `${target.top}px`;
+        flight.style.width = `${target.width}px`;
+        flight.style.height = `${target.height}px`;
+        flight.style.setProperty('--lb43-x', `${mouth.left - target.left - target.width / 2}px`);
+        flight.style.setProperty('--lb43-y', `${mouth.top - target.top - target.height / 2}px`);
+        flight.style.animationDuration = `${REWARD_FLIGHT_MS + REWARD_POP_MS}ms`;
+        overlay.append(flight);
+        return flight;
     }
 
     const crateLabel = rarity => `${rarity[0].toUpperCase()}${rarity.slice(1)} crate`;
@@ -267,23 +289,87 @@
         const title = element('h2', 'lb64-crate-title', gift ? 'Daily Gift' : count > 1 ? `${count} crates opened` : crateLabel(rarity));
         title.id = 'lb43-crate-title';
         const art = crateArt(rarity);
-        const rewards = element('div');
+        const rewards = element('div', 'lb43-crate-result');
         rewards.hidden = true;
         const done = action('Done');
         rewards.append(done);
         panel.append(title, art, rewards);
         overlay.append(panel);
         document.body.append(overlay);
+        const motion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+        const timers = new Set();
         let shake;
-        const reveal = result => {
+        let skip;
+        const skipReducedMotion = event => { if (event.matches) skip?.(); };
+        const clearAnimation = () => {
+            for (const timer of timers) window.clearTimeout(timer);
+            timers.clear();
+            motion?.removeEventListener?.('change', skipReducedMotion);
+            overlay.querySelectorAll('.lb43-crate-flight').forEach(flight => flight.remove());
+        };
+        const wait = (delay, next) => {
+            const timer = window.setTimeout(() => {
+                timers.delete(timer);
+                if (overlay.isConnected) next();
+                else clearAnimation();
+            }, delay);
+            timers.add(timer);
+        };
+        const reveal = (result, immediate = false) => {
+            clearAnimation();
             if (!result.childElementCount) result.append(element('p', '', 'These rewards were already added to your inventory.'));
             rewards.prepend(result);
-            animateReveal(art, rewards, result);
+            art.classList.remove('lb43-crate-shaking');
+            rewards.hidden = false;
+            const cards = [...result.querySelectorAll('.lb-reward-card')];
+            const finish = () => {
+                clearAnimation();
+                skip = null;
+                art.dataset.frame = 'open';
+                overlay.dataset.reveal = 'revealed';
+                result.removeAttribute('aria-hidden');
+                cards.forEach(card => card.classList.remove('lb43-reward-pending'));
+                done.textContent = 'Done';
+                done.focus({ preventScroll: true });
+            };
+            if (immediate || motion?.matches) return finish();
+            skip = finish;
+            motion?.addEventListener?.('change', skipReducedMotion);
+            overlay.dataset.reveal = 'opening';
+            result.setAttribute('aria-hidden', 'true');
+            cards.forEach(card => card.classList.add('lb43-reward-pending'));
+            done.textContent = 'Skip animation';
+            done.focus({ preventScroll: true });
+            wait(CRATE_AJAR_MS, () => { art.dataset.frame = 'ajar'; });
+            wait(CRATE_OPEN_MS, () => {
+                art.dataset.frame = 'open';
+                if (!cards.length) {
+                    wait(REWARD_FLIGHT_MS, finish);
+                    return;
+                }
+                const mouth = art.querySelector('.lb43-crate-mouth');
+                const stagger = Math.min(80, 720 / Math.max(1, cards.length - 1));
+                cards.forEach((card, index) => wait(index * stagger, () => {
+                    const flight = flyReward(overlay, card, mouth.getBoundingClientRect());
+                    wait(REWARD_FLIGHT_MS + REWARD_POP_MS, () => {
+                        flight.remove();
+                        card.classList.remove('lb43-reward-pending');
+                        if (index === cards.length - 1) finish();
+                    });
+                }));
+            });
         };
         const close = () => {
+            clearAnimation();
             overlay.remove();
             onClose();
         };
+        overlay.addEventListener('click', event => {
+            if (!skip) return;
+            event.preventDefault();
+            event.stopPropagation();
+            skip();
+        }, true);
         done.addEventListener('click', close);
         overlay.addEventListener('keydown', event => {
             if (event.key === 'Tab') {
@@ -313,7 +399,7 @@
             if (!result) return close();
             setCrateArt(art, result.state.rarity);
             updateStatus(result.state);
-            if (!reducedMotion()) {
+            if (!motion?.matches) {
                 art.classList.remove('lb43-crate-shaking');
                 void art.offsetWidth;
                 art.classList.add('lb43-crate-shaking');
@@ -321,15 +407,18 @@
             if (!result.grid) return;
             shake.disabled = true;
             overlay.focus({ preventScroll: true });
-            const finish = () => {
-                if (!overlay.isConnected) return;
+            const finish = immediate => {
                 status.remove();
                 shake.remove();
                 title.textContent = crateLabel(result.state.rarity);
-                reveal(result.grid);
+                reveal(result.grid, immediate);
             };
-            if (reducedMotion()) finish();
-            else window.setTimeout(finish, DAILY_GIFT_SHAKE_MS);
+            if (motion?.matches) finish(true);
+            else {
+                skip = () => finish(true);
+                motion?.addEventListener?.('change', skipReducedMotion);
+                wait(DAILY_GIFT_SHAKE_MS, () => finish(false));
+            }
         });
         shake.focus({ preventScroll: true });
     }

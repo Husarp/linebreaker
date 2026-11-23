@@ -399,7 +399,7 @@ it('shows plain booster balances and puts the cost inside the exchange dialog', 
   expect(dialog.querySelector('.lb-exchange-item-balance').textContent).toBe('You have 7');
   expect(dialog.querySelector('.lb-block-reward-amount')).toBeNull();
   expect([...dialog.querySelectorAll('img')].map(img => img.getAttribute('src'))).toEqual([
-    'assets/ui/boosters/common-1.25x.png', 'assets/ui/boosters/rare-1.5x.png',
+    'assets/ui/boosters/scroll-common.webp', 'assets/ui/boosters/scroll-rare.webp',
   ]);
   expect(dialog.querySelector('#exc-spend').textContent).toBe('3');
   expect(dialog.querySelector('#exc-receive').textContent).toBe('+1');

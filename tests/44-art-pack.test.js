@@ -46,13 +46,18 @@ it('picks both variants for paired elements and ships every collectible image', 
 });
 
 const tokens = {
-  '1.25x_game': 'assets/ui/boosters/common-1.25x.png',
-  '1.5x_game': 'assets/ui/boosters/rare-1.5x.png',
-  '2xp_game': 'assets/ui/boosters/epic-2x.png',
+  '1.25x_game': 'assets/ui/boosters/scroll-common.webp',
+  '1.5x_game': 'assets/ui/boosters/scroll-rare.webp',
+  '2xp_game': 'assets/ui/boosters/scroll-epic.webp',
 };
 
-it('maps each current booster key to the right rarity and multiplier', () => {
-  for (const [key, path] of Object.entries(tokens)) expect(art.boosterToken(key)).toBe(path);
+it('maps the supported multipliers to shipped scrolls and reserves legendary art for higher boosters', () => {
+  expect([1.25, 1.5, 2, 2.5, 3].map(art.boosterRarity)).toEqual(['common', 'rare', 'epic', 'legendary', 'legendary']);
+  expect(art.boosterRarity(Infinity)).toBeNull();
+  expect([1.25, 1.5, 2].map(mult => art.boosterToken(art.boosterRarity(mult)))).toEqual(Object.values(tokens));
+  for (const rarity of ['common', 'rare', 'epic', 'legendary']) {
+    expect(statSync(projectFile(art.boosterToken(rarity))).size).toBeLessThan(25_000);
+  }
   expect(art.boosterToken('constructor')).toBeNull();
   expect(art.boosterIcon('unknown')).toBe('');
 });
@@ -141,7 +146,7 @@ it('puts a different wallpaper on PLAY for every explicit and equipped wallpaper
   } finally { close(); }
 });
 
-it('uses the same tokens in the inventory and for eligible game-over boosters', async () => {
+it('uses the same scrolls in the inventory and for eligible game-over boosters', async () => {
   const { api, w, advance, close } = await loadGame();
   try {
     const boosters = Object.fromEntries(Object.keys(tokens).map(key => [key, 1]));

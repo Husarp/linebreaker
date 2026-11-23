@@ -2,11 +2,7 @@ window.LBArtPack = (() => {
     const partMaterial = { common: 'scroll', rare: 'rune', epic: 'thread', legendary: 'ore', mythic: 'crystal' };
     const itemPart = rarity => `assets/ui/parts/part-${Object.hasOwn(partMaterial, rarity) ? partMaterial[rarity] : partMaterial.common}.webp`;
     const universalPart = rarity => `assets/ui/parts/universal-${Object.hasOwn(partMaterial, rarity) ? rarity : 'common'}.webp`;
-    const boosterTokens = {
-        '1.25x_game': 'common-1.25x',
-        '1.5x_game': 'rare-1.5x',
-        '2xp_game': 'epic-2x',
-    };
+    const boosterRarities = new Map([[1.25, 'common'], [1.5, 'rare'], [2, 'epic']]);
     const backgrounds = new Set([
         'default', 'ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura',
     ]);
@@ -48,12 +44,17 @@ window.LBArtPack = (() => {
         return Array.isArray(value) ? [...new Set(value.slice(0, 2000).filter(id => knownArt.has(id)))] : [];
     }
 
-    function boosterToken(key) {
-        return Object.hasOwn(boosterTokens, key) ? `assets/ui/boosters/${boosterTokens[key]}.png` : null;
+    function boosterRarity(multiplier) {
+        if (!Number.isFinite(multiplier)) return null;
+        return multiplier > 2 ? 'legendary' : boosterRarities.get(multiplier) ?? null;
     }
 
-    function boosterIcon(key) {
-        const path = boosterToken(key);
+    function boosterToken(rarity) {
+        return ['common', 'rare', 'epic', 'legendary'].includes(rarity) ? `assets/ui/boosters/scroll-${rarity}.webp` : null;
+    }
+
+    function boosterIcon(rarity) {
+        const path = boosterToken(rarity);
         return path ? `<img class="lb-booster-token" src="${path}" alt="">` : '';
     }
 
@@ -85,6 +86,6 @@ window.LBArtPack = (() => {
         }
     }
 
-    return { itemPart, universalPart, boosterToken, boosterIcon, wallpapers, wallpaperName, wallpaperId, nextWallpaper, backgroundMode, themeBackground, applyThemeBackground,
+    return { itemPart, universalPart, boosterRarity, boosterToken, boosterIcon, wallpapers, wallpaperName, wallpaperId, nextWallpaper, backgroundMode, themeBackground, applyThemeBackground,
         menuElements, pickMenuArt, menuArtPath, seenArtIds, cleanSeenArt };
 })();

@@ -2866,11 +2866,11 @@
         });
     }
 
-    const BOOSTER_INFO = {
-        '1.25x_game': { label:'1.25x Score Booster', icon:'⚡', rarity:'common',   mult:1.25 },
-        '1.5x_game':  { label:'1.5x Score Booster',  icon:'⚡', rarity:'rare',     mult:1.5  },
-        '2xp_game':   { label:'2x Score Booster',     icon:'⚡', rarity:'rare',     mult:2.0  },
-    };
+    const BOOSTER_INFO = Object.fromEntries([
+        ['1.25x_game', '1.25x Score Booster', 1.25],
+        ['1.5x_game', '1.5x Score Booster', 1.5],
+        ['2xp_game', '2x Score Booster', 2],
+    ].map(([key, label, mult]) => [key, { label, mult, rarity: LBArtPack.boosterRarity(mult) }]));
 
     function getBoosterMult() { return 1; }
     function updateBoosterHUD() {
@@ -4350,9 +4350,9 @@
     }
     const BOOSTER_KEYS = ['1.25x_game', '1.5x_game', '2xp_game'];
     const BOOSTER_META = {
-        '1.25x_game': { label: '1.25× Booster', color: '#aaaaaa', tier: 0, rarity: 'common'   },
-        '1.5x_game':  { label: '1.5× Booster',  color: '#4499ff', tier: 1, rarity: 'rare'      },
-        '2xp_game':   { label: '2× Booster',     color: '#cc44ff', tier: 2, rarity: 'epic'      }
+        '1.25x_game': { label: '1.25× Booster', color: '#aaaaaa', tier: 0, rarity: BOOSTER_INFO['1.25x_game'].rarity },
+        '1.5x_game':  { label: '1.5× Booster',  color: '#4499ff', tier: 1, rarity: BOOSTER_INFO['1.5x_game'].rarity },
+        '2xp_game':   { label: '2× Booster',    color: '#cc44ff', tier: 2, rarity: BOOSTER_INFO['2xp_game'].rarity },
     };
     function _openExchangeModal(fromKey, toKey, type) {
         const meta   = BOOSTER_META[fromKey];
@@ -4371,7 +4371,7 @@
                 <div class="lb-exchange-pair">
                     ${[fromKey, toKey].map((key, index) => {
                         const item = BOOSTER_META[key];
-                        return _exchangeItemCard({ name: item.label, art: LBArtPack.boosterIcon(key), rarity: item.rarity,
+                        return _exchangeItemCard({ name: item.label, art: LBArtPack.boosterIcon(item.rarity), rarity: item.rarity,
                             count: saveData.boosters?.[key] || 0, detail: `${index === 0 ? 'Spend' : 'Receive'} · ${item.rarity}`,
                             amountId: index === 0 ? 'exc-spend' : 'exc-receive', amount: index === 0 ? '3' : '+1' });
                     }).join('<span class="lb-exchange-arrow" aria-hidden="true">→</span>')}
@@ -4440,7 +4440,7 @@
             const count = boosters[key] || 0;
             const nextKey = BOOSTER_KEYS[i + 1];
             return `<div class="lb-block-card lb-inventory-booster" data-rarity="${meta.rarity}">
-                <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(key)}</div>
+                <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(meta.rarity)}</div>
                 <div class="lb-inventory-booster-copy"><strong>${meta.label}</strong><span class="lb-exchange-rarity">${meta.rarity}</span></div>
                 <span class="lb-collection-quantity lb-ledger-tag">×${count}</span>
                 ${nextKey ? `<button type="button" class="lb-block-btn lb-block-btn--primary" aria-label="Exchange ${meta.label}" data-exchange-booster="${i}" ${count < 3 ? 'disabled' : ''}>Exchange</button>` : ''}
@@ -4470,7 +4470,7 @@
         partsPanel.innerHTML = locker('Parts', 'Use parts on matching rarities, or trade 4 for 1 of the next rarity.', _exchangePartsIcon('common'),
             '<button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" data-control-tip="About universal parts"></button>') + uniRows;
         boosterPanel.innerHTML = locker('Boosters', `${boosterTypes} ${boosterTypes === 1 ? 'type' : 'types'} in your collection`,
-            LBArtPack.boosterIcon(BOOSTER_KEYS.find(key => boosters[key] > 0) || BOOSTER_KEYS[0]),
+            LBArtPack.boosterIcon(BOOSTER_INFO[BOOSTER_KEYS.find(key => boosters[key] > 0) || BOOSTER_KEYS[0]].rarity),
             '<button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" data-control-tip="About boosters"></button>') +
             `<div class="lb-inventory-boosters">${boosterHtml}</div>`;
         container.innerHTML = `
@@ -8540,7 +8540,7 @@
             <ul class="go-reward-list go-boost-list">${available.map(key => {
                 const { label, rarity } = BOOSTER_META[key];
                 return `<li><button type="button" class="lb-block-btn" data-rarity="${rarity}" onclick="window.useScoreBooster('${key}')" aria-label="Use ${label}, ${escapeHtml(saveData.boosters[key])} available">
-                    ${LBArtPack.boosterIcon(key)}
+                    ${LBArtPack.boosterIcon(rarity)}
                     <strong>${label.replace(' Booster', ' XP')}</strong>
                     <small>${rarity}</small>
                     <span class="lb-block-reward-amount">×${escapeHtml(saveData.boosters[key])}</span>

@@ -141,9 +141,16 @@ it('saves shake progress and pays a daily crate once, on the spot after the thir
   await window.flushLinebreakerSave();
   expect(writes.at(-1)).toMatchObject({ lastDailyGift: today, pendingDailyGift: null, storedCrates: [], universalParts: { epic: 2 } });
   advance(230);
-  expect(art().classList.contains('lb43-crate-opening')).toBe(true);
-  advance(490);
-  expect(art().hidden).toBe(true);
+  expect(dialog().dataset.reveal).toBe('opening');
+  expect(art().dataset.frame).toBe('closed');
+  advance(120);
+  expect(art().dataset.frame).toBe('ajar');
+  advance(160);
+  expect(art().dataset.frame).toBe('open');
+  expect(dialog().querySelector('.lb43-crate-flight')).not.toBeNull();
+  dialog().click();
+  expect(dialog().dataset.reveal).toBe('revealed');
+  expect(dialog().querySelector('.lb43-crate-flight')).toBeNull();
   expect(document.activeElement.textContent).toBe('Done');
   expect(dialog().querySelector('h2').textContent).toBe('Epic crate');
   document.activeElement.click();
@@ -204,14 +211,16 @@ it('persists the high-water timestamp even if the clock rolls back before the fi
   gift.click();
   expect(api.save.lastDailyGift).toBeNull();
   window.Date = originalDate;
+  window.matchMedia = () => ({ matches: true });
   gift.click();
   game.advance(16);
   game.advance(16);
-  window.matchMedia = () => ({ matches: true });
   const dialog = window.document.querySelector('#daily-gift-crate-overlay');
   const shake = dialog.querySelector('button');
   for (let tap = 0; tap < 3; tap++) shake.click();
-  expect(dialog.querySelector('.lb43-crate').hidden).toBe(true);
+  expect(dialog.dataset.reveal).toBe('revealed');
+  expect(dialog.querySelector('.lb43-crate').dataset.frame).toBe('open');
+  expect(dialog.querySelector('.lb43-crate-flight')).toBeNull();
   expect(window.document.activeElement.textContent).toBe('Done');
   expect(gift.dataset.status).toBe('claimed');
 });
@@ -284,7 +293,9 @@ it('opens daily and weekly milestones on the spot with three tiers each and neve
       expect(dialog.textContent).not.toContain('Shake');
       expect(api.save.missions[tab].claimedMilestones).toEqual(thresholds.slice(0, index + 1));
       expect(api.save.storedCrates).toEqual([]);
-      advance(490);
+      expect(dialog.dataset.reveal).toBe('opening');
+      dialog.querySelector('button').click();
+      expect(dialog.dataset.reveal).toBe('revealed');
       expect(dialog.querySelector('.lb-reward-card')).not.toBeNull();
       dialog.querySelector('button').click();
     }
@@ -295,6 +306,48 @@ it('opens daily and weekly milestones on the spot with three tiers each and neve
   window._claimMissionMilestone(150, true);
   expect(api.save.parts).toEqual(paid.parts);
   expect(document.querySelector('.lb64-crate-overlay')).toBeNull();
+});
+
+it('flies each reward from the crate mouth, staggers landings, and cleans up when finished', async () => {
+  game = await loadGame();
+  const { w: window, advance } = game;
+  const { document, LBCrates } = window;
+  const grid = LBCrates.rewardGrid([
+    { type: 'universal_parts', label: 'Common Universal Part', rarity: 'common', amount: 1 },
+    { type: 'booster', key: '2xp_game', label: '2× Booster', rarity: 'epic', amount: 1 },
+  ]);
+  let closed = 0;
+  LBCrates.showCrateReveal('mythic', 1, grid, () => closed++);
+  const dialog = document.getElementById('inventory-crate-overlay');
+  const art = dialog.querySelector('.lb43-crate');
+  const [first, second] = grid.children;
+  art.querySelector('.lb43-crate-mouth').getBoundingClientRect = () => ({ left: 200, top: 150 });
+  first.querySelector('img').getBoundingClientRect = () => ({ left: 45, top: 250, width: 50, height: 40 });
+  expect([...art.querySelectorAll('img')].map(image => image.getAttribute('src'))).toEqual(
+    ['closed', 'ajar', 'open'].map(frame => `assets/ui/crates/reveal/mythic-${frame}.webp`));
+  expect(art.querySelectorAll('.lb43-crate-sparkle')).toHaveLength(14);
+  expect(grid.getAttribute('aria-hidden')).toBe('true');
+  advance(120);
+  expect(art.dataset.frame).toBe('ajar');
+  advance(160);
+  expect(art.dataset.frame).toBe('open');
+  const flights = () => [...dialog.querySelectorAll('.lb43-crate-flight')];
+  expect(flights()).toHaveLength(1);
+  expect(flights()[0].style.getPropertyValue('--lb43-x')).toBe('130px');
+  expect(flights()[0].style.getPropertyValue('--lb43-y')).toBe('-120px');
+  expect(flights()[0].style.animationDuration).toBe('560ms');
+  advance(80);
+  expect(flights()).toHaveLength(2);
+  advance(480);
+  expect(first.classList.contains('lb43-reward-pending')).toBe(false);
+  expect(second.classList.contains('lb43-reward-pending')).toBe(true);
+  advance(80);
+  expect(flights()).toHaveLength(0);
+  expect(grid.hasAttribute('aria-hidden')).toBe(false);
+  expect(second.querySelector('img').getAttribute('src')).toBe('assets/ui/boosters/scroll-epic.webp');
+  expect(document.activeElement.textContent).toBe('Done');
+  document.activeElement.click();
+  expect(closed).toBe(1);
 });
 
 it('migrates paid reveals and unpaid level boxes once without reissuing a claimed gift', async () => {
