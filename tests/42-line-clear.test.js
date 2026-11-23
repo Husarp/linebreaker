@@ -12,6 +12,7 @@ const skinNames = {
   'aztec-gold': 'Stepped Gold Dust',
   'aztec': 'Temple Steps',
   'brushed-metal': 'Grinder Sparks',
+  'forged-iron': 'Anvil Embers',
   'gem-gloss': 'Facet Scatter',
   'jelly-candy': 'Candy Splat',
   'lava-glass': 'Molten Fracture',
@@ -23,7 +24,7 @@ const skinNames = {
   'season-prism': 'Prism Split',
 };
 const newShapes = {
-  aztec: 'step', 'brushed-metal': 'spark', 'gem-gloss': 'facet', 'jelly-candy': 'drop', 'lava-glass': 'shard',
+  aztec: 'step', 'brushed-metal': 'spark', 'forged-iron': 'spark', 'gem-gloss': 'facet', 'jelly-candy': 'drop', 'lava-glass': 'shard',
   'neon-pixel': 'dash', 'pixel-16bit': 'square', porcelain: 'shard', 'soft-clay': 'crumb', bubble: 'ring', 'season-prism': 'prism',
 };
 const manifest = JSON.parse(readFileSync(new URL('../assets/skins/skins.json', import.meta.url), 'utf8'));

@@ -79,6 +79,11 @@
             lift: -1.7, gravity: 8.5, drift: 4.2, size: .27, life: 325, span: 380, shape: 'spark',
             detail: leafGrain, detailColor: '#effaff',
         },
+        'forged-iron': {
+            name: 'Anvil Embers', tint: '#c6a18a', bits: ['#ffd395', '#fa8c56', '#918b8a'],
+            lift: -1.1, gravity: 10, drift: 2.9, size: .18, life: 310, span: 365, shape: 'spark',
+            fleck: '#ffe8bc',
+        },
         'gem-gloss': {
             name: 'Facet Scatter', tint: '#c29feb', bits: ['#f6d1ff', '#a995ef', '#8bf6e6'],
             lift: -1.2, gravity: 5, drift: 2.6, size: .25, life: 360, span: 415, shape: 'facet',

@@ -8472,6 +8472,7 @@
         } finally {
             _reminders?.refresh();
             const results = document.getElementById('go-overlay');
+            results.dataset.scene = Math.random() < .5 ? 'a' : 'b';
             results.classList.remove('hidden');
             results.querySelector('.go-dialog-body').scrollTop = 0;
             _gameOverProtect = true;
@@ -8929,6 +8930,8 @@
     function _updateMusicWidget() {
         const titleEl = document.getElementById('mw-title');
         if (!titleEl) return;
+        document.getElementById('music-widget').toggleAttribute('data-empty', !_nowPlayingName);
+        document.getElementById('pl-mini-widget').toggleAttribute('data-empty', !_nowPlayingName);
         const titleText = _nowPlayingName || 'Nothing playing';
         const playlistStatus = document.getElementById('pl-mw-status');
         if (playlistStatus) {

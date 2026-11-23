@@ -155,11 +155,34 @@ it('offers Bubble and every packaged image skin as rewards at the price of their
   expect(rewardKeys).toEqual(['glass', 'shadow', 'outline', 'holo', 'journey', 'bubble', ...manifest.map(skin => skin.key)]);
   const prices = { rare: 15, epic: 12, legendary: 10 };
   expect(new Set(manifest.map(skin => skin.rarity))).toEqual(new Set(Object.keys(prices)));
+  expect(manifest.find(skin => skin.key === 'forged-iron')).toMatchObject({ name: 'Forged Iron', rarity: 'rare' });
   for (const { key, file, rarity, cell } of manifest) {
     expect(game.api.partCost(key)).toBe(prices[rarity]);
-    const png = readFileSync(new URL(`../assets/skins/${file}`, import.meta.url));
-    expect([cell, png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([64, 576, 64]);
+    const atlas = readFileSync(new URL(`../assets/skins/${file}`, import.meta.url));
+    let dimensions;
+    if (file.endsWith('.webp')) {
+      expect(atlas.toString('ascii', 8, 16)).toBe('WEBPVP8L');
+      expect(atlas[20]).toBe(0x2f);
+      const size = atlas.readUInt32LE(21);
+      dimensions = [(size & 0x3fff) + 1, ((size >>> 14) & 0x3fff) + 1];
+    } else {
+      dimensions = [atlas.readUInt32BE(16), atlas.readUInt32BE(20)];
+    }
+    expect([cell, ...dimensions]).toEqual([64, 576, 64]);
   }
+});
+
+it('unlocks Forged Iron with rare parts and offers it as an equip choice', async () => {
+  game = await loadGame();
+  const { api, w } = game;
+  api.setup({ save: { parts: { 'forged-iron': 15 } } });
+  expect(api.save.ownedSkins).not.toContain('forged-iron');
+  w.playerUnlockItem('skin', 'forged-iron');
+  expect(api.save.ownedSkins).toContain('forged-iron');
+  expect(api.save.parts['forged-iron']).toBeUndefined();
+  w.openInventory();
+  const equip = w.document.querySelector('[data-inventory-equip="skin"][data-equip-value="forged-iron"]');
+  expect(equip).not.toBeNull();
 });
 
 it('prices every available part unlock and keeps the Mythic season skin out of the parts pool', async () => {

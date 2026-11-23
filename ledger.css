@@ -871,7 +871,7 @@
     box-shadow: var(--lb-card-shadow);
 }
 #menu-overlay #music-widget::after { display: none; }
-#menu-overlay .lb110-track { min-height: 49px; padding: 5px; border: 0; }
+#menu-overlay .lb110-track { min-height: 49px; padding: 5px; border: 0; background: var(--lb-track-face, transparent); }
 #menu-overlay .lb110-track #mw-title { font-size: var(--lb-type-small); }
 #menu-overlay #mw-info .lb-block-kicker { color: var(--lb-muted); }
 #menu-overlay .lb110-signal { display: none; }
@@ -884,6 +884,10 @@
     padding: 0;
 }
 #menu-overlay #mw-time-row { margin: 0; }
+#menu-overlay #music-widget[data-empty] .lb110-track {
+    --lb-track-face: linear-gradient(to left, transparent, var(--lb-panel) 70%) right / 70px 100% no-repeat,
+        url('assets/ui/scenes/music-empty.webp') right center / 70px auto no-repeat, var(--lb-panel);
+}
 #menu-overlay .lb43-gift-corner { position: relative; display: grid; align-self: stretch; inset: auto; margin: 0; }
 #menu-overlay #lb43-daily-gift {
     --gift-tone: var(--lb-utility);
@@ -940,7 +944,7 @@
         box-shadow: none !important;
     }
     #menu-overlay #music-widget :is(.lb110-track, #mw-controls, #mw-time-row) {
-        background: var(--lb-panel);
+        background: var(--lb-track-face, var(--lb-panel));
         border: var(--lb-border) solid var(--lb-rule);
         border-radius: var(--lb-radius);
     }
@@ -1028,8 +1032,16 @@
     justify-content: flex-start;
     padding: calc(var(--lb-band-height) + 20px) max(18px, var(--lb-safe-right))
         max(var(--lb-space-md), var(--lb-safe-bottom)) max(18px, var(--lb-safe-left));
-    background: var(--lb-paper) !important;
+    background: var(--lb-go-scene, none) var(--lb-go-scene-position, center) / cover no-repeat, var(--lb-paper) !important;
     overflow: hidden;
+}
+#go-overlay[data-scene="a"] {
+    --lb-go-scene: url('assets/ui/scenes/gameover-a.webp');
+    --lb-go-scene-position: 79% center;
+}
+#go-overlay[data-scene="b"] {
+    --lb-go-scene: url('assets/ui/scenes/gameover-b.webp');
+    --lb-go-scene-position: 27% center;
 }
 #go-overlay .go-dialog {
     display: grid;
@@ -1044,8 +1056,8 @@
     align-items: center;
     gap: var(--lb-space-sm);
     min-height: 56px;
-    padding: 0 0 10px;
-    background: transparent;
+    padding: var(--lb-space-xs) var(--lb-space-sm) 10px;
+    background: color-mix(in srgb, var(--lb-page) 96%, transparent);
     border-bottom: var(--lb-border) dashed var(--lb-rule);
     box-shadow: none;
 }
@@ -1063,8 +1075,7 @@
     min-height: 180px;
     padding: var(--lb-space-lg);
     border-color: var(--lb-action-rim) !important;
-    background: linear-gradient(96deg, var(--lb-art) 25%, color-mix(in srgb, var(--lb-art) 65%, transparent)),
-        var(--lb-theme-art-portrait, none) center / cover no-repeat, var(--lb-art) !important;
+    background: linear-gradient(96deg, var(--lb-art) 35%, transparent) !important;
     color: var(--lb-art-ink);
 }
 .go-score-card dl, .go-score-card dd, .go-run-stats, .go-run-stats dd, .go-reward-ledger, .go-reward-ledger dd { margin: 0; }
@@ -1099,7 +1110,7 @@
 .go-run-stats div + div { border-inline-start: var(--lb-border) solid var(--lb-rule); }
 .go-run-stats dt { color: var(--lb-muted); font-size: var(--lb-type-micro); font-weight: 700; text-transform: uppercase; letter-spacing: .065em; }
 .go-run-stats dd { color: var(--lb-ink); font: 400 1.25rem/1.4 var(--lb-font-heading); }
-.go-rewards-heading { display: flex; justify-content: space-between; padding-block-end: 6px; margin-block-end: var(--lb-space-sm); border-bottom: var(--lb-border) dashed var(--lb-rule); }
+.go-rewards-heading { display: flex; justify-content: space-between; padding: var(--lb-space-xs) var(--lb-space-sm) 6px; margin-block-end: var(--lb-space-sm); border-bottom: var(--lb-border) dashed var(--lb-rule); background: color-mix(in srgb, var(--lb-page) 96%, transparent); }
 .go-rewards-heading h2 { margin: 0; }
 .go-rewards-heading > span { color: var(--lb-utility); }
 .go-reward-ledger { display: grid; gap: var(--lb-space-sm); }
@@ -1120,7 +1131,10 @@
 .go-reward-ledger dt { display: flex; align-items: center; gap: 11px; font: 700 .9375rem/1.25 var(--lb-font-body); }
 #go-overlay .go-reward-ledger dd { color: var(--lb-utility); }
 .go-reward-ledger small { display: block; color: var(--lb-muted); font: 400 .6875rem/1.32 var(--lb-font-body); }
-#go-overlay .go-panel { padding: var(--lb-space-sm) 0 0; }
+#go-overlay .go-panel {
+    padding: var(--lb-space-sm);
+    background: color-mix(in srgb, var(--lb-page) 96%, transparent) !important;
+}
 #go-overlay .go-actions, #go-overlay .go-actions:has(.result-pin[hidden]) {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -1173,8 +1187,37 @@
 .lb105-level-value { color: var(--lb-muted); font: 700 var(--lb-type-small)/1.3 var(--lb-font-body); }
 .lb-reward-overlay .lb-block-dialog { max-height: 100% !important; }
 .lb-reward-overlay .lb-block-dialog > .lb-block-dialog-actions { flex-shrink: 0; }
-#level-up-popup-overlay .lb105-level-header { border-bottom-style: dashed; }
+#level-up-popup-overlay .lb105-level-header {
+    padding: var(--lb-space-sm);
+    border-bottom-style: dashed;
+    background: radial-gradient(ellipse at center, var(--lb-art) 20%, transparent 72%),
+        linear-gradient(transparent 55%, var(--lb-art)),
+        url('assets/ui/scenes/levelup.webp') center / cover no-repeat, var(--lb-art);
+}
+#level-up-popup-overlay :is(#lb105-level-title, .lb105-level-value) { color: var(--lb-art-ink); }
+#level-up-popup-overlay .lb105-level-rank { color: color-mix(in srgb, var(--lb105-rank), var(--lb-art-ink) 30%); }
 #level-up-popup-overlay .lb105-level-rewards { scrollbar-gutter: stable both-edges; }
+.lb-game-root :is(#inventory-crate-overlay, #daily-gift-crate-overlay) > .lb64-crate-panel {
+    background: url('assets/ui/scenes/crate-vault.webp') center / cover no-repeat, var(--lb-panel) !important;
+}
+:is(#inventory-crate-overlay, #daily-gift-crate-overlay) :is(.lb64-crate-title, .lb43-gift-progress) {
+    padding: var(--lb-space-xs) var(--lb-space-sm);
+    background: var(--lb-panel);
+    border-radius: var(--lb-radius);
+}
+.lb64-crate-overlay .lb43-crate figcaption {
+    width: fit-content;
+    margin-inline: auto;
+    padding-inline: var(--lb-space-sm);
+    background: var(--lb-panel);
+    border-radius: var(--lb-radius);
+    color: color-mix(in srgb, var(--lb43-tone), var(--lb-ink) var(--lb-tier-ink-mix));
+}
+:is(#inventory-crate-overlay, #daily-gift-crate-overlay) .lb43-crate-result {
+    padding: var(--lb-space-xs) var(--lb-space-sm) var(--lb-space-sm);
+    background: var(--lb-panel);
+    border-radius: var(--lb-radius);
+}
 .lb-reward-overlay .lb64-crate-panel .lb64-rewards { border-top-style: dashed; }
 .lb-reward-overlay .lb64-rewards .lb-reward-rarity {
     color: color-mix(in srgb, var(--bb-frame-edge, var(--lb-muted)), var(--lb-ink) var(--lb-tier-ink-mix));
@@ -1475,6 +1518,12 @@ svg.lb-ledger-chevron {
     font-size: var(--lb-type-body);
     font-weight: 650;
     white-space: normal;
+}
+#playlist-overlay #pl-mini-widget[data-empty] .lb-playlist-now {
+    background: linear-gradient(to left, transparent, var(--lb-player-face) 70%) right / 70px 100% no-repeat,
+        url('assets/ui/scenes/music-empty.webp') right center / 70px auto no-repeat;
+    min-height: 36px;
+    align-content: center;
 }
 .lb-playlist-timing {
     display: grid;

@@ -139,6 +139,15 @@ it.each([1,2,5,10,15])('gravity at speed %i uses a strict interval boundary', sp
 });
 // Existing regression: checkAchievements calls a missing tier.check before displaying the overlay.
 it('game over shows the overlay', () => {a.gameOver();game.advance(1000);expect(a.state.isGameOver).toBe(true);expect(game.w.document.getElementById('go-overlay').classList.contains('hidden')).toBe(false);});
+it('picks a new results scene when a run ends', () => {
+  const results = game.w.document.getElementById('go-overlay');
+  for (const [roll, scene] of [[.49, 'a'], [.5, 'b']]) {
+    a.setup();
+    game.w.Math.random = () => roll;
+    a.gameOver();
+    expect(results.dataset.scene).toBe(scene);
+  }
+});
 it('shows the best score without recording or awarding XP for a non-record Fun run', () => {
   const { w } = game;
   const get = id => w.document.getElementById(id);

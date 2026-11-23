@@ -42,6 +42,13 @@ window.LBImageSkins = [
     "cell": 64
   },
   {
+    "key": "forged-iron",
+    "name": "Forged Iron",
+    "rarity": "rare",
+    "file": "forged-iron.webp",
+    "cell": 64
+  },
+  {
     "key": "golden-dragon",
     "name": "Golden Dragon",
     "rarity": "legendary",
