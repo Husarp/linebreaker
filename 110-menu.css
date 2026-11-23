@@ -100,7 +100,7 @@ body:not([data-pack="pixel"]) #menu-overlay .lb110-key.glow-notify {
 
 .lb110-track > svg, .lb110-signal { flex: none; color: var(--accent-bright); }
 .lb110-track #mw-info { min-width: 0; text-align: start; }
-.lb110-track small { display: block; color: var(--bb-muted); font-size: .61rem; line-height: 1; letter-spacing: .1em; }
+.lb110-track small:not([hidden]) { display: block; color: var(--bb-muted); font-size: .61rem; line-height: 1; letter-spacing: .1em; text-transform: uppercase; }
 .lb110-track #mw-title { display: block; max-width: none; color: var(--bb-ink); font-size: .94rem; line-height: 1.15; }
 .lb110-track #mw-artist { min-height: 0; color: var(--bb-muted); }
 .lb110-track #mw-artist:empty { display: none; }

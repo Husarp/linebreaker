@@ -164,33 +164,18 @@ it('keeps the curved Celestite shield area-proportional', () => {
   }
 });
 
-it('shows XP on activation for three seconds and refreshes the timeout on another tap', () => {
+it('keeps the rank and XP display visible without opening an info box on tap or hover', () => {
   readBadgeCut(17272);
-  const doc = game.w.document;
-  const trigger = doc.getElementById('lb122-xp-trigger');
-  const tooltip = doc.getElementById('lb122-xp-tooltip');
-  expect(tooltip.hidden).toBe(true);
-  trigger.click();
-  expect(tooltip.hidden).toBe(false);
-  expect(tooltip.querySelector('strong').textContent).toBe('63.6% · 1,272 / 2,000 XP');
-  game.advance(2000);
-  trigger.click();
-  game.advance(2999);
-  expect(tooltip.hidden).toBe(false);
-  game.advance(1);
-  expect(tooltip.hidden).toBe(true);
-});
-
-it('clears tapped XP help on scrolling and when navigating to another screen', () => {
   const { document, Event } = game.w;
-  const trigger = document.getElementById('lb122-xp-trigger');
-  const tooltip = document.getElementById('lb122-xp-tooltip');
-  trigger.click();
-  document.getElementById('menu-overlay').dispatchEvent(new Event('scroll'));
-  expect(tooltip.hidden).toBe(true);
-  trigger.click();
-  game.w.openAchievements();
-  expect(tooltip.hidden).toBe(true);
+  const card = document.getElementById('btn-player-rank');
+  const xp = document.getElementById('menu-xp-bar-wrap');
+  const badge = badgeText();
+  xp.dispatchEvent(new Event('pointerenter'));
+  xp.querySelector('#menu-xp-bar-fill').click();
+  card.click();
+  expect(card.querySelector('button, [aria-describedby], [role="tooltip"], [data-help-section]')).toBeNull();
+  expect(document.querySelector('[role="tooltip"]:not([hidden])')).toBeNull();
+  expect(badgeText()).toEqual(badge);
 });
 
 it.each([

@@ -704,8 +704,7 @@
     letter-spacing: -.045em;
 }
 #menu-overlay #menu-xp-bar-wrap { width: 100%; max-width: none; margin: 0; }
-#menu-overlay #lb122-xp-trigger {
-    position: static;
+#menu-overlay .lb-menu-xp-display {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     gap: 4px 8px;
@@ -718,10 +717,8 @@
     text-align: start;
     font-variant-numeric: tabular-nums;
 }
-#menu-overlay :is(#lb122-xp-trigger, #lb122-logo-button):focus-visible { outline-color: var(--lb-focus); }
+#menu-overlay #lb122-logo-button:focus-visible { outline-color: var(--lb-focus); }
 #menu-overlay #badge-level-num { color: var(--lb-ink); font: inherit; font-weight: 700; }
-#menu-overlay #lb122-xp-tooltip { inset-inline: auto 0; transform: none; }
-#menu-overlay #lb122-xp-progress { color: var(--lb-label); }
 .lb-xp-track {
     grid-column: 1 / -1;
     height: 8px;

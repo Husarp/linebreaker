@@ -64,6 +64,32 @@ it('updates the menu music widget on its interval only while music is playing', 
   } finally { close(); }
 });
 
+it('shows idle, playing, and paused states with a title in both music widgets', async () => {
+  const { w, api, close } = await loadGame(true, null, null, synthCatalog);
+  try {
+    await resetMusicAfterBoot(w, api);
+    observeMusic(w);
+    const statuses = ['mw-status', 'pl-mw-status'].map(id => w.document.getElementById(id));
+    const titles = ['mw-title', 'pl-mw-title'].map(id => w.document.getElementById(id));
+    const expectWidgets = (title, status) => {
+      expect(titles.map(el => el.textContent)).toEqual([title, title]);
+      expect(statuses.map(el => el.hidden ? '' : el.textContent)).toEqual([status, status]);
+    };
+    expectWidgets('Nothing playing', '');
+    await api.startMusic();
+    const track = titles[0].textContent;
+    expect(api._getPlaylist('menu')).toContain(track);
+    expectWidgets(track, 'Now playing');
+    w.musicWidgetPause();
+    expectWidgets(track, 'Paused');
+    w.musicWidgetPause();
+    expectWidgets(track, 'Now playing');
+    api.stopMusic();
+    expectWidgets('Nothing playing', '');
+    expect(w.document.getElementById('mw-artist').textContent).toBe('');
+  } finally { close(); }
+});
+
 it('lets only the latest catalog request or source completion start music', async () => {
   let sendCatalog;
   const catalog = new Promise(resolve => { sendCatalog = resolve; });

@@ -362,40 +362,6 @@
         });
     }
 
-    const xpTrigger = document.getElementById('lb122-xp-trigger');
-    const xpTooltip = document.getElementById('lb122-xp-tooltip');
-    const xpProgress = document.getElementById('lb122-xp-progress');
-    const xpHelp = document.getElementById('lb122-xp-help');
-    const xpBar = document.getElementById('menu-xp-bar-wrap');
-    let xpTooltipTimer;
-    function showXpTooltip(showHelp) {
-        const info = getLevelInfo(saveData.totalXP);
-        xpProgress.textContent = `${(info.percent * 100).toFixed(1)}% · ${Math.floor(info.currentXP).toLocaleString()} / ${info.neededXP.toLocaleString()} XP`;
-        xpHelp.hidden = !showHelp;
-        keepInfo(xpBar, xpTooltip, hideXpTooltip);
-        xpTooltip.hidden = false;
-    }
-    function hideXpTooltip() {
-        clearTimeout(xpTooltipTimer);
-        xpTooltipTimer = undefined;
-        xpTooltip.hidden = true;
-    }
-    xpBar.addEventListener('pointerenter', event => {
-        if (event.pointerType !== 'touch' && (!infoPointer || !infoDragged) && xpTooltipTimer === undefined) showXpTooltip(true);
-    });
-    xpBar.addEventListener('pointerleave', () => {
-        if (xpTooltipTimer === undefined && !xpTrigger.matches(':focus-visible')) closeInfo(xpBar);
-    });
-    xpTrigger.addEventListener('focus', () => {
-        if (xpTrigger.matches(':focus-visible')) showXpTooltip(true);
-    });
-    xpTrigger.addEventListener('blur', () => closeInfo(xpBar));
-    xpTrigger.addEventListener('click', event => {
-        if (infoDragged && event.detail) return;
-        clearTimeout(xpTooltipTimer);
-        showXpTooltip(false);
-        xpTooltipTimer = setTimeout(() => closeInfo(xpBar), 3000);
-    });
     // afk achievement setup is deferred (see after variable declarations)
 
     function _animateOut(el, animClass, onDone) {
@@ -9056,7 +9022,7 @@
             _currentTrackDuration30s = 0;
         }
         _nowPlayingName = name || '';
-        _nowPlayingArtist = (artist !== undefined ? artist : _nowPlayingArtist) || '';
+        _nowPlayingArtist = name ? (artist ?? _nowPlayingArtist) || '' : '';
         _updateMusicWidget();
         if (!document.getElementById('playlist-overlay')?.classList.contains('hidden')) _renderPlaylistPanel();
     }
@@ -9070,7 +9036,14 @@
     function _updateMusicWidget() {
         const titleEl = document.getElementById('mw-title');
         if (!titleEl) return;
-        const titleText = _nowPlayingName || '—';
+        const titleText = _nowPlayingName || 'Nothing playing';
+        const statusText = settings.musicPaused ? 'Paused' : 'Now playing';
+        for (const id of ['mw-status', 'pl-mw-status']) {
+            const status = document.getElementById(id);
+            if (!status) continue;
+            status.hidden = !_nowPlayingName;
+            status.textContent = statusText;
+        }
         titleEl.innerHTML = `<span class="mw-title-inner">${escapeHtml(titleText)}</span>`;
         const inner = titleEl.querySelector('.mw-title-inner');
         requestAnimationFrame(() => {
@@ -9102,7 +9075,7 @@
         const plEl = document.getElementById('pl-mw-elapsed');
         const plTot = document.getElementById('pl-mw-total');
         const plFill = document.getElementById('pl-mw-progress-fill');
-        if (plTitle) plTitle.textContent = _nowPlayingName || '—';
+        if (plTitle) plTitle.textContent = titleText;
         if (plEl) plEl.textContent = _fmtTime(elapsed);
         if (plTot) plTot.textContent = dur > 0 ? _fmtTime(dur) : '0:00';
         if (plFill) plFill.style.width = (dur > 0 ? Math.min(100, elapsed / dur * 100) : 0) + '%';

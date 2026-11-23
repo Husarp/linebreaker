@@ -39,39 +39,10 @@
     max-width: 200px;
     margin: 0 auto 12px;
 }
-#lb122-xp-trigger {
-    position: absolute;
-    inset: -12px 0;
-    z-index: 4;
-    width: 100%;
-    padding: 0;
-    border: 0;
-    border-radius: var(--bb-cap);
-    background: none;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-}
-:is(#lb122-xp-trigger, #lb122-logo-button):focus-visible {
+#lb122-logo-button:focus-visible {
     outline: 2px solid var(--accent-bright);
     outline-offset: 3px;
 }
-#lb122-xp-tooltip {
-    position: absolute;
-    z-index: 6;
-    bottom: calc(100% + 10px);
-    left: 50%;
-    transform: translateX(-50%);
-    display: grid;
-    gap: 4px;
-    width: max-content;
-    max-width: min(250px, 80vw);
-    padding: 5px 8px;
-    pointer-events: none;
-    color: var(--bb-muted);
-    font: 650 12px/1.4 var(--font-body);
-}
-#lb122-xp-tooltip[hidden] { display: none; }
-#lb122-xp-progress { color: var(--accent-bright); }
 
 .lb43-gift-corner {
     position: absolute;

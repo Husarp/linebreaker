@@ -73,32 +73,6 @@ it('organizes each chapter into headed blocks and illustrates pieces and scores'
   ]);
 });
 
-it('uses the XP bar itself for hover help, keyboard dismissal and compact tap details', () => {
-  const { document } = game.w;
-  game.api.drawRankBadge();
-  const bar = document.getElementById('menu-xp-bar-wrap');
-  const trigger = bar.querySelector('button');
-  const detail = document.getElementById(trigger.getAttribute('aria-describedby'));
-  const help = detail.querySelector('span');
-  expect(document.querySelector('#menu-overlay [data-help-section="ranks"]')).toBeNull();
-  expect(detail.hidden).toBe(true);
-  bar.dispatchEvent(new game.w.Event('pointerenter'));
-  expect(detail.hidden).toBe(false);
-  expect(help.hidden).toBe(false);
-  expect(help.textContent).toContain('Earn XP by playing or completing missions');
-  bar.dispatchEvent(new game.w.Event('pointerleave'));
-  expect(detail.hidden).toBe(true);
-  trigger.focus();
-  expect(detail.hidden).toBe(false);
-  trigger.dispatchEvent(new game.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  expect(detail.hidden).toBe(true);
-  trigger.click();
-  expect(detail.hidden).toBe(false);
-  expect(help.hidden).toBe(true);
-  document.body.dispatchEvent(new game.w.Event('pointerdown', { bubbles: true }));
-  expect(detail.hidden).toBe(true);
-});
-
 it('explains run XP without a daily streak multiplier', () => {
   game.w.openHelp('ranks');
   const help = game.w.document.getElementById('rules-overlay');
