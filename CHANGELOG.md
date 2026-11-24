@@ -1,16 +1,8 @@
-## [1.4.3]
+## [1.4.3] [2026-11-24] Clearer Missions, Daily Gifts, and run results
 
-- Daily and Weekly Missions show one objective at a time. Each step shows a progress percentage, Ready, Done, or Hidden. Tap a step to switch objectives and claim completed goals in place.
-- The Daily Gift floats below the logo and adds a crate to Inventory when claimed. The next-gift countdown is in Inventory → Crates, and the Stats tile spans the menu.
-- Removed the Bonus Box. Previously earned crates are still available in Inventory.
-- Moved the Mission Milestones info icon next to its title. Simplified the View board action and Run rewards divider.
-
-- Removed the daily tip from the loading screen.
-- Crate openings fade the vault artwork into a two-column reward grid.
-- Run summaries show a fading score card, a crown for personal bests, and simpler actions. Tap a reward row to open its destination.
-- Player XP shows the base and booster bonus separately, and applied boosters carry a Used stamp.
-- Simultaneous clear, combo, and level-up messages stack on the board. Speed and Pause sit flush on phones.
-- Removed corner artwork from the main-menu music player. Simplified the theme switch and size steppers, and aligned info icons across screens.
+- **Missions and Daily Gift:** Daily and Weekly Missions show one objective at a time. Tap a step to see its progress or claim its reward. Each step shows progress, Ready, Done, or Hidden. The Milestones info button is beside its title. Claim your Daily Gift below the logo to send the crate to Inventory, where you can check when the next gift is due. Stats now spans the main menu. The Bonus Box has been removed. Any crates you already earned stay in Inventory.
+- **Crates and run results:** Crate artwork fades into a two-column reward grid. The run summary highlights your score and shows a crown for a personal best. The actions, including View board, and the reward list are easier to scan. Tap a reward to go straight to where you can use it. Base XP and bonus XP are shown separately when a booster applies, and applied boosters are marked Used.
+- **Play and settings:** Line-clear, combo, and level-up messages stack so you can read each one. On phones, the speed indicator sits flush with Pause, and Select Mode fits on narrow screens. The loading screen no longer shows tips, and the main-menu music player drops its corner artwork. The theme switch and font and game size controls are simpler, and info buttons line up consistently.
 
 ## [1.4.2] [2026-11-24] Run rewards, inventory filters, and a steadier Season Pass
 

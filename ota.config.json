@@ -5,7 +5,7 @@
   "channels": { "bundle": "channel", "shell": "shell-channel" },
   "artifacts": { "manifest": "manifest.json", "shellManifest": "shell.json", "apk": "LinebreakerShell-{code}.apk", "asset": "f-{sha256}.bin" },
   "updateUrls": { "bundle": null, "shell": null, "releases": null },
-  "build": { "shellApi": 1, "versionCode": 1402, "versionName": "1.4.2", "webVersion": "1.4.2", "minShellApi": 1, "message": "Open rewards straight from your run summary, revisit your final board, and filter your Inventory. The Season Pass, Daily Gift, and crate rewards have been rebalanced. Android updates now show their download size before you start." },
+  "build": {"shellApi": 1, "versionCode": 1403, "versionName": "1.4.3", "webVersion": "1.4.3", "minShellApi": 1, "message": "See Daily and Weekly Mission progress at a glance, claim your Daily Gift below the logo, and see base and bonus XP separately after each run."},
   "signing": {
     "privateKey": "~/.keystores/linebreaker/ota-private.pem",
     "publicKey": "keys/public-key.b64",

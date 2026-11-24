@@ -251,6 +251,11 @@
 @media (max-width: 360px) {
     .lb-game-root .lb-block-topbar .lb-topbar-crumb > .lb-topbar-title { font-size: 1.125rem !important; }
 }
+@media (max-width: 340px) {
+    .lb-game-root .lb-block-topbar .lb-topbar-crumb > #play-title {
+        font-size: .875rem !important;
+    }
+}
 .lb-topbar-meta { flex: none; margin: 0; color: var(--lb-utility); font: 700 var(--lb-type-micro)/1.2 var(--lb-font-body); letter-spacing: .035em; text-transform: uppercase; white-space: nowrap; }
 .lb-unlock-requirement { display: inline-flex; align-items: center; gap: var(--lb-space-xs); color: var(--lb-muted); font-size: var(--lb-type-small); line-height: 1.25; }
 .lb-unlock-requirement svg { flex: none; }
