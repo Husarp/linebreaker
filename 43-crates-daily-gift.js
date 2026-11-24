@@ -12,7 +12,7 @@
     const crateFrames = ['closed', 'ajar', 'open'];
     const crateSparkles = { epic: 6, legendary: 9, mythic: 14 };
     const contents = [
-        { parts: 2, universal: [], booster: '1.25x_game', boosters: 1 },
+        { parts: 2, minParts: 1, universal: [], booster: '1.25x_game', boosters: 1 },
         { parts: 3, universal: ['rare'], booster: '1.5x_game', boosters: 1 },
         { parts: 5, universal: ['epic'], booster: '1.5x_game', boosters: 2 },
         { parts: 7, universal: ['epic', 'legendary'], booster: '2xp_game', boosters: 2 },
@@ -76,14 +76,26 @@
     }
 
     function grantPartDrops(crateRarity, { eligibleParts, addPart, partName, partCount, partCost, partRarity, addUniversal }, random = Math.random) {
-        const plan = contents[rarities.indexOf(crateRarity)] || contents[0];
-        const count = crateRarity === 'common' && random() < 0.5 ? 1 : plan.parts;
+        const crateTier = Math.max(0, rarities.indexOf(crateRarity));
+        const plan = contents[crateTier];
+        const count = plan.minParts === undefined ? plan.parts
+            : plan.minParts + Math.floor(random() * (plan.parts - plan.minParts + 1));
         const cards = new Map();
+        const universals = new Map(plan.universal.map(rarity => [rarity, 1]));
         const pools = Object.fromEntries(rarities.map(rarity => [rarity, []]));
         for (const { key } of eligibleParts()) pools[partRarity(key)]?.push(key);
-        function grantItemPart(rarity, bundle) {
+        function grantItemPart(rolledRarity, bundle) {
+            const rolledTier = rarities.indexOf(rolledRarity);
+            let tier = rolledTier;
+            while (tier >= 0 && !pools[rarities[tier]].length) tier--;
+            if (tier < 0) {
+                const rarity = rarities[Math.min(rolledTier, crateTier)];
+                const amount = universals.get(rarity) || 0;
+                if (amount === 0 || (rarity !== 'legendary' && rarity !== 'mythic')) universals.set(rarity, amount + 1);
+                return;
+            }
+            const rarity = rarities[tier];
             const pool = pools[rarity];
-            if (!pool.length) return;
             const fullBundle = bundle > 1 ? pool.filter(key => partCost(key) - partCount(key) >= bundle) : pool;
             const candidates = fullBundle.length ? fullBundle : pool;
             const key = candidates[Math.floor(random() * candidates.length)];
@@ -98,9 +110,9 @@
         if (crateRarity === 'mythic') grantItemPart('mythic', 8);
         for (let slot = 0; slot < count; slot++) grantItemPart(rollPartRarity(crateRarity, random()), 1);
         const rewards = [...cards.values()];
-        for (const rarity of plan.universal) {
-            addUniversal(1, rarity);
-            rewards.push({ type: 'universal_parts', label: universalPartName(rarity), amount: 1, rarity });
+        for (const [rarity, amount] of universals) {
+            addUniversal(amount, rarity);
+            rewards.push({ type: 'universal_parts', label: universalPartName(rarity), amount, rarity });
         }
         return rewards;
     }

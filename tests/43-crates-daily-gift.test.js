@@ -69,7 +69,13 @@ it.each([
   expect(cards.filter(card => card.type === 'universal_parts').every(card => crates.rarities.indexOf(card.rarity) <= crates.rarities.indexOf(tier))).toBe(true);
 });
 
-it('groups parts, stops at 100 in the same crate, and never converts missing drops into extra universal parts', () => {
+it.each([[0.49, 1], [0.5, 2]])('awards the planned Common item-part count for roll %s', (roll, amount) => {
+  const { hooks, universal } = dropFixture({ common: 0 });
+  expect(crates.grantPartDrops('common', hooks, () => roll)).toEqual([expect.objectContaining({ type: 'parts', amount })]);
+  expect(universal).toEqual({});
+});
+
+it('groups parts, stops at 100, and converts only the drop with no eligible item', () => {
   const counts = { common: 97, 'common-next': 99, 'common-done': 100 };
   const { hooks, universal } = dropFixture(counts);
   expect(crates.grantPartDrops('common', hooks, () => 0.6).map(({ key, amount, desc }) => [key, amount, desc]))
@@ -77,10 +83,28 @@ it('groups parts, stops at 100 in the same crate, and never converts missing dro
   const cards = crates.grantPartDrops('rare', hooks, () => 0);
   expect(counts).toEqual({ common: 100, 'common-next': 100, 'common-done': 100 });
   expect(cards[0]).toMatchObject({ key: 'common', amount: 2, desc: '100/100 parts' });
+  expect(universal).toEqual({ common: 1, rare: 1 });
+});
+
+it('falls back to the closest lower pool and never rerolls upward', () => {
+  const counts = { common: 0, rare: 99, epic: 100, legendary: 0 };
+  const { hooks, universal } = dropFixture(counts);
+  const cards = crates.grantPartDrops('rare', hooks, () => 0.99);
+  expect(cards.filter(card => card.type === 'parts').map(({ key, amount }) => [key, amount])).toEqual([['rare', 1], ['common', 2]]);
+  expect(counts.legendary).toBe(0);
   expect(universal).toEqual({ rare: 1 });
 });
 
-it('grants one 8-part mythic bundle when possible and only one mythic universal when there is no eligible mythic item', () => {
+it('converts an empty roll into one universal capped at the crate rarity', () => {
+  const { hooks, universal } = dropFixture({ legendary: 0 });
+  const rolls = [0.49, 0.99];
+  expect(crates.grantPartDrops('common', hooks, () => rolls.shift())).toEqual([
+    expect.objectContaining({ type: 'universal_parts', rarity: 'common', amount: 1 }),
+  ]);
+  expect(universal).toEqual({ common: 1 });
+});
+
+it('rerolls the 8-part mythic bundle and caps legendary and mythic universal grants', () => {
   const counts = { common: 0, 'mythic-near': 99, 'mythic-new': 0 };
   const { hooks } = dropFixture(counts);
   const cards = crates.grantPartDrops('mythic', hooks, () => 0);
@@ -90,7 +114,13 @@ it('grants one 8-part mythic bundle when possible and only one mythic universal 
   expect(crates.grantPartDrops('mythic', near.hooks, () => 0.99).map(({ amount }) => amount)).toEqual([1, 1]);
   const withoutMythic = dropFixture({ common: 0 });
   expect(crates.grantPartDrops('mythic', withoutMythic.hooks, () => 0.99))
-    .toEqual([expect.objectContaining({ type: 'universal_parts', rarity: 'mythic', amount: 1 })]);
+    .toEqual([expect.objectContaining({ type: 'parts', key: 'common', amount: 17 }),
+      expect.objectContaining({ type: 'universal_parts', rarity: 'mythic', amount: 1 })]);
+  for (const tier of ['legendary', 'mythic']) {
+    const empty = dropFixture({});
+    crates.grantPartDrops(tier, empty.hooks, () => 0.99);
+    expect(empty.universal[tier]).toBe(1);
+  }
 });
 
 it('claims once per local calendar day without consulting legacy streaks', () => {
@@ -270,13 +300,13 @@ it('merges pending level-ups across reload and opens stored rank crates only thr
   expect(popup.querySelector('h2').textContent).toBe('You reached level 12');
   expect(popup.querySelector('.lb105-level-value').textContent).toBe('Level 12');
   const quantities = [...popup.querySelectorAll('.lb-block-reward')].map(row => [row.querySelector('strong').textContent, row.querySelector('.lb-block-reward-amount').textContent]);
-  expect(quantities).toEqual([['Common crate', '×8'], ['Rare crate', '×3'], ['Epic crate', '×1'], ['Rare Universal Part', '×3'], ['1.5x Score Booster', '×1']]);
+  expect(quantities).toEqual([['Common crate', '×8'], ['Rare crate', '×3'], ['Epic crate', '×1'], ['1.5x Score Booster', '×1']]);
   expect(popup.querySelector('img[src$="/crates/epic.png"]')).not.toBeNull();
   const collect = popup.querySelector('button');
   expect(collect.textContent).toBe('Collect');
   collect.click();
   collect.click();
-  expect(api.save).toMatchObject({ pendingRankRewards: null, universalParts: { rare: 3 }, boosters: { '1.5x_game': 1 }, parts: {} });
+  expect(api.save).toMatchObject({ pendingRankRewards: null, universalParts: {}, boosters: { '1.5x_game': 1 }, parts: {} });
   expect(api.save.storedCrates).toEqual(['common', 'rare', 'epic'].flatMap((rarity, index) => Array.from({ length: [8, 3, 1][index] }, () => ({ rarity, source: 'rank' }))));
   api.applyLoadedData(window.LBSave.serializeSave(api.save));
   advance(2500);
@@ -293,7 +323,7 @@ it('merges pending level-ups across reload and opens stored rank crates only thr
   expect(document.querySelector('#inventory-crate-overlay')).toBeNull();
   common.click();
   expect(api.save.storedCrates).toHaveLength(11);
-  expect(api.save.universalParts).toEqual({ rare: 3 });
+  expect(api.save.universalParts).toEqual({});
   document.querySelector('#inventory-crate-overlay button').click();
   expect(Array.from(document.querySelectorAll('#inventory-crates button:enabled'), button => button.textContent)).toEqual(['Open', 'Open', 'Open']);
   for (let remaining = 11; remaining > 0; remaining--) {
@@ -303,7 +333,7 @@ it('merges pending level-ups across reload and opens stored rank crates only thr
     document.querySelector('#inventory-crate-overlay button').click();
   }
   expect(api.save.storedCrates).toEqual([]);
-  expect(api.save.universalParts).toEqual({ rare: 6, epic: 1 });
+  expect(api.save.universalParts).toEqual({ rare: 3, epic: 1 });
   expect(api.save.stats.rareItemsFromDailyBox).toBe(0);
   expect(document.querySelector('.lb43-locker-total').textContent).toBe('0 stored');
   const emptyCards = [...document.querySelectorAll('.lb43-locker-list [data-empty="true"]')];

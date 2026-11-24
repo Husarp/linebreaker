@@ -21,6 +21,7 @@ try {
   api.seed(seed);
   let finishedDay;
   let bonusCrates = 0;
+  let bonusBoxCrates = 0;
 
   for (let day = 1; day <= period.days; day++) {
     date = new Date(2026, 5, day, 12);
@@ -40,6 +41,10 @@ try {
     rewards.push(gift.rarity);
 
     const profile = api.save;
+    const stored = profile.storedCrates || [];
+    const bonusBoxRewards = stored.filter(crate => crate.source === 'bonus');
+    profile.storedCrates = stored.filter(crate => crate.source !== 'bonus');
+    bonusBoxCrates += bonusBoxRewards.length;
     for (const { number } of config.stages) {
       const result = season.claimStage(profile, config, number, +date);
       if (!result.reward) continue;
@@ -58,6 +63,7 @@ try {
     }
     for (const rarity of rewards) crates.recordCrate(profile, rarity);
     api.setSave(profile);
+    for (const { rarity } of bonusBoxRewards) api.generateLevelBoxRewards(rarity);
     for (const rarity of rewards) api.generateLevelBoxRewards(rarity);
   }
 
@@ -67,8 +73,8 @@ try {
   const itemParts = Object.fromEntries(crates.rarities.map(rarity => [rarity, 0]));
   for (const [key, count] of Object.entries(save.parts)) itemParts[api.partRarity(key)] += count;
   console.log(`June 2026, seed ${seed}: top-rank player with no starting parts, all daily quests and gifts, one weekly quest per day until complete.`);
-  console.log('Includes mission milestones, Bonus Box, Golden Zone, and the Season Pass. Excludes XP-dependent level-ups, one-time achievement rewards, and spending.');
-  console.log(`${total} crates (proposal ~208); ${save.season.points} SP; track completed on day ${finishedDay ?? 'not reached'} (proposal ~28); ${bonusCrates} bonus chest(s).`);
+  console.log('Includes mission milestones, Bonus Box, and the Season Pass. Excludes XP-dependent level-ups, one-time achievement rewards, and spending.');
+  console.log(`${total} crates (proposal ~208), including ${bonusBoxCrates} Bonus Box crate(s); ${save.season.points} SP; track completed on day ${finishedDay ?? 'not reached'} (proposal ~28); ${bonusCrates} Season Pass bonus chest(s).`);
   console.table(crates.rarities.map((rarity, index) => ({
     rarity,
     crates: byRarity[rarity] || 0,

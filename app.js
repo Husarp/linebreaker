@@ -3412,7 +3412,6 @@
         return [
             ...Object.entries({ common: through - from + 1 - fifths + 2 * rankChanges, rare: fifths + rankChanges, epic: rankChanges })
                 .map(([rarity, amount]) => ({ type: 'crate', label: LBCrates.crateLabel(rarity), rarity, amount })),
-            { type: 'universal_parts', label: LBCrates.universalPartName('rare'), rarity: 'rare', amount: 3 * rankChanges },
             { type: 'booster', key: RANK_REWARD_BOOSTER, ...BOOSTER_INFO[RANK_REWARD_BOOSTER], amount: rankChanges },
         ].filter(reward => reward.amount > 0);
     }
@@ -3435,8 +3434,7 @@
             for (const { type, key, rarity, amount } of _rankRewards(pending.from, pending.through)) {
                 if (type === 'crate') {
                     for (let index = 0; index < amount; index++) LBCrates.grantCrate(profile, rarity, { source: 'rank' });
-                } else if (type === 'universal_parts') addUniversalParts(amount, rarity);
-                else addBoosterToSave(key, amount);
+                } else addBoosterToSave(key, amount);
             }
             saveDataToFile();
             if (!document.getElementById('inventory-overlay').classList.contains('hidden')) _populateInventoryOther();
@@ -4706,7 +4704,7 @@
         if (index < 0) return;
         const [crate] = stock.splice(index, 1);
         const cards = crate.source === 'legacy' ? crate.rewards
-            : crate.source === 'level' || crate.source === 'mission' ? LBCrates.grantPartDrops(rarity, _partDropHooks())
+            : ['level', 'mission', 'bonus'].includes(crate.source) ? LBCrates.grantPartDrops(rarity, _partDropHooks())
             : _grantRarityCrate(rarity, crate.source === 'daily');
         saveDataToFile();
         _populateInventoryOther();
@@ -9789,14 +9787,25 @@
     }
     const MQ_DAILY_MILESTONES = [6, 9, 12].map(pts => ({ pts }));
     const MQ_WEEKLY_MILESTONES = [60, 90, 120].map(pts => ({ pts }));
-    const MQ_WEEKLY_GOLDEN_THRESHOLD = 180; // pts above this earn 1 universal part each
-
     const MQ_SPECIAL_BOX_CAP = 30;
-    const MQ_SPECIAL_BOX_PARTS = 5;
+    function _advanceBonusBox(missions, silent = false) {
+        const box = (missions.specialBox ??= { pts: 0 });
+        const excess = Math.max(0, (missions.daily.pointsToday || 0) - MQ_DAILY_MILESTONES.at(-1).pts);
+        const delta = excess - (box.excessTracked || 0);
+        if (delta <= 0) return 0;
+        box.excessTracked = excess;
+        box.pts = (box.pts || 0) + delta;
+        if (box.pts >= MQ_SPECIAL_BOX_CAP) {
+            box.pts -= MQ_SPECIAL_BOX_CAP;
+            LBCrates.grantCrate(saveData, 'common', { source: 'bonus' });
+            if (!silent) _showMissionReward('Common crate added to Inventory — Bonus Box!');
+        }
+        return delta;
+    }
     function _defaultMissions() {
         return {
             daily:   { quests: [], secret: null, lastRefreshDate: '', swapDate: '', pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: false },
-            weekly:  { missions: [], weekKey: '', swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: false, pendingUniversalParts: 0, universalPtsTracked: 0 },
+            weekly:  { missions: [], weekKey: '', swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: false, pendingUniversalParts: 0 },
             stats:   { totalCompleted: 0, byTier: { easy: 0, normal: 0, hard: 0, secret: 0 }, weeklyCompleted: 0, totalPts: 0, completionHistory: {} },
             specialBox: { pts: 0 },
         };
@@ -9957,9 +9966,7 @@
         if (!m.specialBox) m.specialBox = { pts: 0 };
         if (m.stats.totalPts === undefined) m.stats.totalPts = 0;
         if (!m.stats.completionHistory) m.stats.completionHistory = {};
-        // Migration: add golden zone tracking fields
         if (m.weekly.pendingUniversalParts === undefined) m.weekly.pendingUniversalParts = 0;
-        if (m.weekly.universalPtsTracked === undefined) m.weekly.universalPtsTracked = 0;
         const today = _missionDateKey();
         const thisWeek = _missionWeekKey();
         let changed = false;
@@ -10000,7 +10007,7 @@
               if (_hardDone >= 1 && _nonHardDone === 0 && wm.length > 0) _tryU('mq_hard_they_said');
             }
             const missions = _generateWeeklyMissions();
-            m.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
+            m.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0 };
             changed = true;
         }
         if (changed) saveDataToFile();
@@ -10029,7 +10036,6 @@
             const period = destination === 'daily' ? 'Daily' : 'Weekly';
             appendGoReward({ label: `${period} mission progress`, amount: `${count} advanced`, destination, place: `${period} Missions`, icon: 'lb-icon-missions' });
         }
-        if (progress.parts) appendGoReward({ label: LBCrates.universalPartName('common', progress.parts), amount: `×${progress.parts}`, destination: 'parts', place: 'Inventory, Parts', art: _exchangePartsIcon('common') });
     }
 
     function _gamePersonalBestBonusPercent(previousBest = _bestScore()) {
@@ -10159,7 +10165,7 @@
         if (!saveData.missions || linesClearedThisGame === 0) return;
         _checkMissionsRefresh();
         const m = saveData.missions;
-        const advanced = { daily: 0, weekly: 0, parts: 0 };
+        const advanced = { daily: 0, weekly: 0 };
         let _completedThisCall = 0;
         // Daily quests — best single-game OR cumulative across games today
         m.daily.quests.forEach(q => {
@@ -10216,31 +10222,7 @@
               m.weekly.points = (m.weekly.points || 0) + _dailyDelta;
               m.weekly.dailyPtsLog[today] = (m.weekly.dailyPtsLog[today] || 0) + _dailyDelta;
           } }
-        // Golden zone: 1 universal part per pt above MQ_WEEKLY_GOLDEN_THRESHOLD
-        { const _wPts = m.weekly.points || 0;
-          const _above = Math.max(0, _wPts - MQ_WEEKLY_GOLDEN_THRESHOLD);
-          const _tracked = m.weekly.universalPtsTracked || 0;
-          const _newParts = _above - _tracked;
-          if (_newParts > 0) {
-              m.weekly.universalPtsTracked = _above;
-              m.weekly.pendingUniversalParts = (m.weekly.pendingUniversalParts || 0) + _newParts;
-          } }
-        // Excess daily pts (above last milestone) → special bonus box
-        { const _lastMS = MQ_DAILY_MILESTONES[MQ_DAILY_MILESTONES.length - 1].pts;
-          const _curDPts = m.daily.pointsToday || 0;
-          const _newExcess = Math.max(0, _curDPts - _lastMS);
-          const _excessTracked = m.specialBox.excessTracked || 0;
-          const _excessDelta = _newExcess - _excessTracked;
-          if (_excessDelta > 0) {
-              m.specialBox.excessTracked = _newExcess;
-              m.specialBox.pts = (m.specialBox.pts || 0) + _excessDelta;
-              if (m.specialBox.pts >= MQ_SPECIAL_BOX_CAP) {
-                  m.specialBox.pts -= MQ_SPECIAL_BOX_CAP;
-                  addUniversalParts(MQ_SPECIAL_BOX_PARTS);
-                  advanced.parts += MQ_SPECIAL_BOX_PARTS;
-                  _showMissionReward(`+${MQ_SPECIAL_BOX_PARTS} ${LBCrates.universalPartName('common', MQ_SPECIAL_BOX_PARTS)} — Bonus Box!`);
-              }
-          } }
+        _advanceBonusBox(m);
         // Track completions per day and total pts for stats
         if (_completedThisCall > 0) {
             const _n = new Date(); const _histKey = _n.getFullYear()+'-'+String(_n.getMonth()+1).padStart(2,'0')+'-'+String(_n.getDate()).padStart(2,'0');
@@ -10306,7 +10288,8 @@
 
     function _missionProgressBar(points, milestones, claimed, isWeekly) {
         const lastThreshold = milestones[milestones.length - 1].pts;
-        const goal = isWeekly ? MQ_WEEKLY_GOLDEN_THRESHOLD : lastThreshold;
+        const pending = isWeekly ? saveData.missions?.weekly?.pendingUniversalParts || 0 : 0;
+        const goal = pending > 0 ? 180 : lastThreshold;
         const start = milestones[0].pts;
         const range = goal - start;
         const markers = milestones.map(({ pts }) => {
@@ -10322,13 +10305,9 @@
             }
             return `<span class="mq-ms-marker" role="img" ${position} aria-label="${label}${isClaimed ? ', claimed' : ''}" title="${label}${isClaimed ? ' (claimed)' : ''}">${content}${isClaimed ? '<span class="mq-ms-claimed" aria-hidden="true">✓</span>' : ''}</span>`;
         });
-        if (isWeekly) {
-            const pending = saveData.missions?.weekly?.pendingUniversalParts || 0;
-            const content = `<img class="mq-ms-crate${points <= goal && !pending ? ' mq-ms-crate--locked' : ''}" src="${LBArtPack.universalPart('common')}" alt=""><span class="mq-ms-amount" aria-hidden="true">${pending ? `+${pending.toLocaleString()}` : `${goal}+`}</span>`;
-            const label = `${goal}+ points: earn +1 Common Universal Part per extra point`;
-            markers.push(pending > 0
-                ? `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" style="--mq-stop:100%" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} ${LBCrates.universalPartName('common', pending)}">${content}</button>`
-                : `<span class="mq-ms-marker" role="img" style="--mq-stop:100%" aria-label="${label}" data-mqctip="${label}">${content}</span>`);
+        if (pending > 0) {
+            const content = `<img class="mq-ms-crate" src="${LBArtPack.universalPart('common')}" alt=""><span class="mq-ms-amount" aria-hidden="true">+${pending.toLocaleString()}</span>`;
+            markers.push(`<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" style="--mq-stop:100%" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} ${LBCrates.universalPartName('common', pending)}">${content}</button>`);
         }
         return `<span class="mq-pb-points" data-value="${escapeHtml(points)}">${escapeHtml(points)} pts</span>
         <div class="mq-milestone-meter">
@@ -10403,13 +10382,6 @@
         const body = el.querySelector('#missions-body');
         body.innerHTML = `<div class="mq-cards">${_sortQuests(entries).map(quest =>
             _missionQuestCard(quest, quest === period.secret ? 'secret' : quests.indexOf(quest), weekly)).join('')}</div>`;
-        for (const star of milestones.querySelectorAll('[data-mqctip]')) {
-            bindInfoPreview(star, () => {
-                const panel = infoPanel('mq-body-tip');
-                panel.textContent = star.dataset.mqctip;
-                showInfo(panel, star);
-            }, { tap: true });
-        }
         if (tab === 'daily' && m.daily.newVisit) { m.daily.newVisit = false; saveDataToFile(); }
         if (tab === 'weekly' && m.weekly.newVisit) { m.weekly.newVisit = false; saveDataToFile(); }
         _updateMissionCountdown();
@@ -10675,31 +10647,7 @@
                 m.weekly.dailyPtsLog[today] = (m.weekly.dailyPtsLog[today] || 0) + _delta;
             }
         }
-        // Golden zone check
-        { const _wPts = m.weekly.points || 0;
-          const _above = Math.max(0, _wPts - MQ_WEEKLY_GOLDEN_THRESHOLD);
-          const _newParts = _above - (m.weekly.universalPtsTracked || 0);
-          if (_newParts > 0) {
-              m.weekly.universalPtsTracked = _above;
-              m.weekly.pendingUniversalParts = (m.weekly.pendingUniversalParts || 0) + _newParts;
-          } }
-        // Excess daily pts → bonus box
-        let _bonusBoxDelta = 0;
-        if (!isWeekly) {
-            if (!m.specialBox) m.specialBox = { pts: 0, excessTracked: 0 };
-            const _lastMS = MQ_DAILY_MILESTONES[MQ_DAILY_MILESTONES.length - 1].pts;
-            const _newExcess = Math.max(0, (m.daily.pointsToday || 0) - _lastMS);
-            _bonusBoxDelta = _newExcess - (m.specialBox.excessTracked || 0);
-            if (_bonusBoxDelta > 0) {
-                m.specialBox.excessTracked = _newExcess;
-                m.specialBox.pts = (m.specialBox.pts || 0) + _bonusBoxDelta;
-                if (m.specialBox.pts >= MQ_SPECIAL_BOX_CAP) {
-                    m.specialBox.pts -= MQ_SPECIAL_BOX_CAP;
-                    addUniversalParts(MQ_SPECIAL_BOX_PARTS);
-                    if (!silent) _showMissionReward(`+${MQ_SPECIAL_BOX_PARTS} ${LBCrates.universalPartName('common', MQ_SPECIAL_BOX_PARTS)} — Bonus Box!`);
-                }
-            }
-        }
+        const _bonusBoxDelta = isWeekly ? 0 : _advanceBonusBox(m, silent);
         m.stats.totalPts = (m.stats.totalPts || 0) + pts;
         // Capture button position BEFORE re-render destroys it
         const _fromRect = btnEl ? btnEl.getBoundingClientRect() : null;
@@ -11336,7 +11284,7 @@
         if (!saveData.missions) saveData.missions = _defaultMissions();
         const missions = _generateWeeklyMissions();
         const thisWeek = _missionWeekKey();
-        saveData.missions.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0, universalPtsTracked: 0 };
+        saveData.missions.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0 };
         saveDataToFile();
         if (!document.getElementById('missions-overlay').classList.contains('hidden')) renderMissionsOverlay('weekly');
         customAlert('Weekly missions reset!', 'DEV MODE');
@@ -11364,18 +11312,7 @@
             saveData.missions.weekly.points = (saveData.missions.weekly.points || 0) + amt;
         } else {
             saveData.missions.daily.pointsToday = (saveData.missions.daily.pointsToday || 0) + amt;
-            const _dm = saveData.missions;
-            const _lastMS2 = MQ_DAILY_MILESTONES[MQ_DAILY_MILESTONES.length - 1].pts;
-            const _newExcess2 = Math.max(0, (_dm.daily.pointsToday || 0) - _lastMS2);
-            const _excessDelta2 = _newExcess2 - (_dm.specialBox.excessTracked || 0);
-            if (_excessDelta2 > 0) {
-                _dm.specialBox.excessTracked = _newExcess2;
-                _dm.specialBox.pts = (_dm.specialBox.pts || 0) + _excessDelta2;
-                if (_dm.specialBox.pts >= MQ_SPECIAL_BOX_CAP) {
-                    _dm.specialBox.pts -= MQ_SPECIAL_BOX_CAP;
-                    addUniversalParts(MQ_SPECIAL_BOX_PARTS);
-                }
-            }
+            _advanceBonusBox(saveData.missions, true);
         }
         saveDataToFile();
         const tab = which === 'weekly' ? 'weekly' : 'daily';
@@ -11460,7 +11397,7 @@
                 ${block('Play & claim', '<p>Play <strong>Normal</strong> to progress most missions, or <strong>Fun</strong> for objectives that ask for it. Daily points count toward weekly milestones. Daily quests refresh each day and weekly missions reset on Monday.</p><p>Claim rewards in <strong>Missions</strong>. Each day you can swap one eligible daily mission and one eligible weekly mission. Secret quests cannot be swapped.</p>')}
                 ${block('Daily milestones', milestones(MQ_DAILY_MILESTONES))}
                 ${block('Weekly milestones', milestones(MQ_WEEKLY_MILESTONES, true))}
-                ${block('Extra rewards', `<p><strong>Bonus Box:</strong> Earn ${MQ_SPECIAL_BOX_PARTS} common universal parts for every ${MQ_SPECIAL_BOX_CAP} points past the last daily milestone.</p><p><strong>Golden Zone:</strong> Claim one common universal part per weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD}.</p>`)}`],
+                ${block('Extra rewards', `<p><strong>Bonus Box:</strong> Earn a Common crate for every ${MQ_SPECIAL_BOX_CAP} points past the last daily milestone. Open it in Inventory.</p>`)}`],
             ['boxes', 'Boxes & parts', `
                 ${block('Find & use parts', `<p>Earn parts from <strong>crates and milestones</strong>. Collect ${LBSave.itemPartCost} parts for a cosmetic to unlock and equip it in Inventory.</p>`)}
                 ${block('Universal parts', '<p>In <strong>Inventory → Parts</strong>, use a universal part on an item of the same or a lower rarity. Once you own every item of a rarity, trade four universal parts of that rarity for one of the next rarity.</p>')}`],

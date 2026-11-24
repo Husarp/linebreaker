@@ -24,18 +24,19 @@ it('shows grouped legacy conversions in Inventory while escaping reward text', a
   expect(card.querySelector('b')).toBeNull();
 });
 
-it('skips capped item parts and pays only the fixed universal parts in milestone and level crates', () => {
+it('converts unavailable item drops into one universal each in milestone and level crates', () => {
   const missions = api.defaultMissions();
   missions.daily.pointsToday = 6;
   api.setup({ save: { parts: cappedParts(), missions } });
   window.Math.random = () => 0;
   window._claimMissionMilestone(6, false);
-  expect(document.querySelector('#inventory-crate-overlay .lb-block-reward')).toBeNull();
-  expect(api.save.universalParts).toEqual({});
+  expect(document.querySelector('#inventory-crate-overlay .lb-block-reward strong').textContent).toBe('Common Universal Part');
+  expect(api.save.universalParts).toEqual({ common: 1 });
   const rewards = api.generateLevelBoxRewards('legendary');
   expect(rewards).toEqual([
     { type: 'universal_parts', label: 'Epic Universal Part', amount: 1, rarity: 'epic' },
     { type: 'universal_parts', label: 'Legendary Universal Part', amount: 1, rarity: 'legendary' },
+    { type: 'universal_parts', label: 'Common Universal Part', amount: 7, rarity: 'common' },
   ]);
 });
 

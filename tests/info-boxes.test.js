@@ -23,7 +23,7 @@ it('dismisses playlist disclosure on scroll or outside activation without closin
   expect(document.getElementById('playlist-overlay').classList.contains('hidden')).toBe(false);
 });
 
-it('dismisses settings help and milestone info on navigation', () => {
+it('dismisses settings help on navigation', () => {
   const { document, MouseEvent } = game.w;
   game.w.openSettings();
   const setting = document.querySelector('.settings-tip').closest('.settings-row');
@@ -33,12 +33,6 @@ it('dismisses settings help and milestone info on navigation', () => {
   game.w.closeSettings();
   expect(settingsTip.hidden).toBe(true);
 
-  game.w.openMissions('weekly');
-  document.querySelector('[data-mqctip]').click();
-  const missionTip = document.getElementById('mq-body-tip');
-  expect(missionTip.hidden).toBe(false);
-  game.w.renderMissionsOverlay('daily');
-  expect(missionTip.hidden).toBe(true);
 });
 
 it('anchors formerly native hover labels and dismisses them on scroll', () => {

@@ -1,6 +1,7 @@
 ## [1.4.2]
 - Pace the 30-stage Season Pass at 30 SP per stage, with a bonus chest every 60 SP after the track. Season Prism is now Epic.
 - Rebalance Daily Gifts, mission milestone crates, and crate drops. Every part-unlocked cosmetic now requires 100 parts; existing progress carries over proportionally.
+- The Bonus Box awards a Common crate instead of universal parts. Weekly rewards end at the final crate milestone, and rank-ups no longer award universal parts directly. Unavailable item drops reroll to the same or a lower rarity before converting to a universal part.
 - Use universal parts on items of the same rarity or lower. Exchange up once you own every item of the rarity you’re trading in.
 - Align control bindings and use frameless volume mute icons in Settings.
 - Keep the next-piece preview larger and move the pause key next to the level indicator on phones.

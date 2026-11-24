@@ -309,7 +309,7 @@
         if (object(data.missions)) {
             const missionDefaults = definitions.missionDefaults || {
                 daily:{quests:[],secret:null,lastRefreshDate:'',swapDate:'',pointsToday:0,claimedMilestones:[],completedToday:false,newVisit:false,rawXPToday:0},
-                weekly:{missions:[],weekKey:'',swapDate:'',points:0,claimedMilestones:[],anyCompleted:false,dailyPtsLog:{},newVisit:false,pendingUniversalParts:0,universalPtsTracked:0,hitAnyMilestone:false,dailyAllCompleteCount:0,dailyAllCompleteDate:''},
+                weekly:{missions:[],weekKey:'',swapDate:'',points:0,claimedMilestones:[],anyCompleted:false,dailyPtsLog:{},newVisit:false,pendingUniversalParts:0,hitAnyMilestone:false,dailyAllCompleteCount:0,dailyAllCompleteDate:''},
                 stats:{totalCompleted:0,byTier:{easy:0,normal:0,hard:0,secret:0},weeklyCompleted:0,totalPts:0,completionHistory:{}},specialBox:{pts:0}
             };
             out.missions = structured(data.missions, missionDefaults);
@@ -408,7 +408,7 @@
             const { rarity, source } = crate;
             if (source === 'legacy') return [{ rarity, source, rewards: list(crate.rewards).slice(0, 50).map(reward).filter(Boolean) }];
             if (source === 'mission') return [{ rarity, source, amount: Math.floor(number(crate.amount, 0, 1000)) }];
-            return [{ rarity, ...(['daily', 'level', 'rank', 'achievement'].includes(source) ? { source } : {}) }];
+            return [{ rarity, ...(['daily', 'level', 'rank', 'achievement', 'bonus'].includes(source) ? { source } : {}) }];
         });
         return out;
     }

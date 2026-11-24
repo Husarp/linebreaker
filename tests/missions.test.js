@@ -159,24 +159,52 @@ it('allows one free weekly and one free daily swap on each of the seven local da
   }
 });
 
-it('shows the golden-zone Universal Part, not a crate, and keeps the claim above 180 points', () => {
+it('ends weekly rewards at 120 points without minting Golden Zone parts', () => {
+  api.refreshMissions();
+  const save = api.save;
+  const weekly = save.missions.weekly;
+  weekly.points = 180;
+  weekly.claimedMilestones = [60, 90, 120];
+  weekly.missions[0].completed = true;
+  api.setSave(save);
+  api.autoClaimMissions(true);
+  expect(api.save.missions.weekly.points).toBeGreaterThan(180);
+  expect(api.save.missions.weekly.pendingUniversalParts).toBe(0);
+  expect(api.save.universalParts).toEqual({});
+  game.w.renderMissionsOverlay('weekly');
+  const { document } = game.w;
+  expect(document.querySelector('.mq-milestone-meter progress').getAttribute('aria-valuetext')).toMatch(/of 120 points$/);
+  expect(document.querySelector('.mq-ms-claim-btn')).toBeNull();
+});
+
+it('preserves an already-earned Golden Zone claim without advertising new rewards', () => {
   api.refreshMissions();
   const save = api.save;
   const weekly = save.missions.weekly;
   const { document } = game.w;
   weekly.points = 180;
-  weekly.pendingUniversalParts = 0;
-  api.setSave(save);
-  game.w.renderMissionsOverlay('weekly');
-  const locked = document.querySelector('[data-mqctip]');
-  expect(locked.getAttribute('aria-label')).toContain('180+ points');
-  expect(locked.querySelector('.mq-ms-crate--locked').src).toContain('/parts/universal-common.webp');
-  weekly.points++;
   weekly.pendingUniversalParts = 1;
   api.setSave(save);
   game.w.renderMissionsOverlay('weekly');
   const claim = [...document.querySelectorAll('.mq-ms-claim-btn')].find(button => button.getAttribute('aria-label').startsWith('Collect +1 Common Universal Part'));
   expect(claim.querySelector('img').src).toContain('/parts/universal-common.webp');
+});
+
+it('stores and counts a Common Bonus Box crate without directly granting parts', () => {
+  api.refreshMissions();
+  const save = api.save;
+  const { daily } = save.missions;
+  daily.pointsToday = 12;
+  daily.claimedMilestones = [6, 9, 12];
+  daily.quests[0].completed = true;
+  save.missions.specialBox.pts = 29;
+  api.setSave(save);
+  api.autoClaimMissions(false);
+  api.autoClaimMissions(false);
+  const paid = game.w.LBSave.serializeSave(api.save);
+  expect(paid.storedCrates).toEqual([{ rarity: 'common', source: 'bonus' }]);
+  expect(paid.stats.cratesCollected).toEqual({ common: 1 });
+  expect(paid.universalParts).toEqual({});
 });
 
 it('rolls full daily and weekly sets without repeated objectives', () => {
