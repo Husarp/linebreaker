@@ -107,6 +107,23 @@
                     !control.getClientRects().length || control.getBoundingClientRect().top >= bandBottom - 1);
             });
             if (!clearsBand) fail('Header or menu content overlaps the top band');
+            const dividerIntersects = await page.evaluate(() => [...document.querySelectorAll('.lb-block-topbar')].some(header => {
+                const style = getComputedStyle(header);
+                if (!header.checkVisibility() || style.borderBottomStyle !== 'dashed' || !parseFloat(style.borderBottomWidth)) return false;
+                const divider = header.getBoundingClientRect().bottom - parseFloat(style.borderBottomWidth);
+                return [...header.querySelectorAll('button, .lb-topbar-crumb, .lb-topbar-meta')].some(control =>
+                    control.checkVisibility() && control.getBoundingClientRect().bottom > divider + .5);
+            }));
+            if (dividerIntersects) fail('Header divider intersects the row');
+            if (name === 'play' || name === 'play-fun') {
+                const headerAligned = await page.evaluate(() => {
+                    const rect = selector => document.querySelector(selector).getBoundingClientRect();
+                    const back = rect('#mode-select-overlay .lb-block-back');
+                    const rules = rect('#play-rules');
+                    return Math.abs(back.height - rules.height) < 1 && Math.abs(back.top - rules.top) < 1;
+                });
+                if (!headerAligned) fail('Select Mode back and Rules keys must share a height and baseline');
+            }
             const squeezedTitles = await page.evaluate(() => {
                 const titles = document.querySelectorAll('.lb-topbar-title, .lb-block-topbar > h1');
                 return [...titles].filter(title => {
@@ -435,6 +452,7 @@
                     const games = rows.find(row => row.dataset.achId === 'games');
                     return new Set(rows.map(row => row.dataset.achId)).size === rows.length
                         && games?.querySelector('svg[aria-label="Bronze earned"]')
+                        && games.querySelectorAll('.ach-register-pips svg').length === 5
                         && rows.every(row => /^assets\/ui\/achievements\/ach-.*\.webp$/.test(row.querySelector('img.ach-voxel')?.getAttribute('src')))
                         && games.querySelectorAll('progress').length === 1;
                 });
@@ -451,7 +469,8 @@
                     && tip.textContent.includes('Play 10 games') && tip.textContent.includes('100')
                     && tip.querySelector('.ach-detail-icon')?.naturalWidth > 0 && tip.querySelectorAll('progress').length === 1
                     && [...tip.querySelectorAll('.ach-tip-reward')].map(line => line.textContent).join() === 'Reward: +200 XP'
-                    && tip.querySelectorAll('svg[data-locked="true"]').length === 2);
+                    && tip.querySelectorAll('svg[data-locked="true"]').length === 4
+                    && tip.querySelector('svg[aria-label="Platinum locked"]') && tip.querySelector('svg[aria-label="Diamond locked"]'));
                 if (!tiers) fail('Achievement detail must show the tier ladder, next-tier progress, and earned rewards');
                 await games.click();
                 await page.locator('#achievements-overlay .lb-scroll-fade').evaluate(content => { content.scrollTop = 0; });
@@ -652,25 +671,49 @@
                 if (!board) fail('Mission board is missing its timer, active period, or single-column cards');
                 const cardDesign = await page.evaluate(() => {
                     const cards = [...document.querySelectorAll('#missions-body .mq-card')];
-                    const colors = { easy: 'rgb(54, 122, 50)', normal: 'rgb(160, 92, 21)', hard: 'rgb(179, 38, 46)', secret: 'rgb(110, 58, 154)' };
-                    const luminance = rgb => rgb.match(/[\d.]+/g).map(Number).slice(0, 3)
+                    const colors = { easy: '#367a32', normal: '#a05c15', hard: '#b3262e', secret: '#6e3a9a' };
+                    const canvas = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+                    const luminance = rgb => rgb
                         .map(channel => channel / 255)
                         .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4)
                         .reduce((sum, channel, index) => sum + channel * [.2126, .7152, .0722][index], 0);
                     return cards.length > 0 && cards.every(card => {
-                        const art = card.querySelector('.mq-card-icon .mq-patch[viewBox="0 0 16 16"]')?.getBoundingClientRect();
+                        const icon = card.querySelector('.mq-card-icon img.mq-patch');
+                        const art = icon?.getBoundingClientRect();
                         const square = card.querySelector('.mq-card-icon');
                         const patch = square.getBoundingClientRect();
-                        const dye = getComputedStyle(square).backgroundColor;
+                        const patchStyle = getComputedStyle(square);
                         const points = card.querySelector('.mq-card-icon .mq-pts');
+                        canvas.clearRect(0, 0, 1, 1);
+                        canvas.fillStyle = patchStyle.backgroundColor;
+                        canvas.fillRect(0, 0, 1, 1);
+                        const alpha = canvas.getImageData(0, 0, 1, 1).data[3];
+                        canvas.globalCompositeOperation = 'destination-over';
+                        canvas.fillStyle = card.dataset.tier === 'secret' ? '#413824' : '#353e3e';
+                        canvas.fillRect(0, 0, 1, 1);
+                        canvas.globalCompositeOperation = 'source-over';
+                        const background = luminance([...canvas.getImageData(0, 0, 1, 1).data].slice(0, 3));
+                        const ink = luminance(getComputedStyle(points).color.match(/[\d.]+/g).map(Number).slice(0, 3));
                         return patch.width === patch.height && card.querySelector('.mq-card-text').getBoundingClientRect().left > patch.right
-                            && art?.width === 32 && art.height === 32 && points
+                            && art?.width === 40 && art.height === 40 && icon.naturalWidth > 0
+                            && /\/achievements\/ach-[a-z]+\.webp$/.test(icon.src)
                             && points.getBoundingClientRect().top >= art.bottom && /\+\d+ SP/.test(points.textContent)
-                            && dye === colors[card.dataset.tier]
-                            && (luminance(getComputedStyle(points).color) + .05) / (luminance(dye) + .05) >= 4.5;
+                            && patchStyle.getPropertyValue('--mq-patch-dye').trim() === colors[card.dataset.tier]
+                            && alpha >= 180 && alpha < 255 && (ink + .05) / (background + .05) >= 4.5;
                     });
                 });
                 if (!cardDesign) fail('Mission cards must use square difficulty patches, with the text beside them and SP below the icon');
+                const markersAligned = await page.evaluate(() => {
+                    const meter = document.querySelector('.mq-milestone-meter');
+                    const track = meter.querySelector('progress').getBoundingClientRect();
+                    return [...meter.querySelectorAll('.mq-ms-crate')].every(crate => {
+                        const bounds = crate.getBoundingClientRect();
+                        const stop = parseFloat(crate.parentElement.style.getPropertyValue('--mq-stop')) / 100;
+                        return Math.abs(bounds.top + bounds.height / 2 - track.top - track.height / 2) < 1
+                            && Math.abs(bounds.left + bounds.width / 2 - track.left - stop * track.width) < 1;
+                    });
+                });
+                if (!markersAligned) fail('Milestone chests must be centred on the progress line at their threshold stops');
             }
             if (name === 'season-pass') {
                 const track = await page.evaluate(() => {

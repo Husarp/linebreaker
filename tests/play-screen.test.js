@@ -16,10 +16,10 @@ it('keeps locked modifiers off and unlocks each at its previous rank', async () 
     game = await loadGame(true, null, null, {
         optMirror: true, optNoNext: true, optGhost: true, optHold: true, opt3Next: true
     });
-    setXP(9_999);
+    setXP(3_999);
     game.w.openModeSelect();
     expect(mode('fun').disabled).toBe(true);
-    expect(mode('fun').querySelector('.lb-rank-unlock-name').textContent).toBe('Silver I');
+    expect(get('play-fun-lock').textContent).toBe('Unlocks at Level 5');
     mode('fun').click();
     expect(mode('normal').getAttribute('aria-pressed')).toBe('true');
 
@@ -38,7 +38,7 @@ it('keeps locked modifiers off and unlocks each at its previous rank', async () 
     }
     expect(score()).toBe('100%');
 
-    for (const [xp, unlocked] of [[10_000, 2], [29_999, 2], [30_000, 3], [64_999, 3], [65_000, 5]]) {
+    for (const [xp, unlocked] of [[4_000, 0], [9_999, 0], [10_000, 2], [29_999, 2], [30_000, 3], [64_999, 3], [65_000, 5]]) {
         setXP(xp);
         game.w.openModeSelect();
         expect(mode('fun').disabled).toBe(false);
@@ -218,7 +218,7 @@ it('closes Play with Escape and keeps Fun selected while it is unlocked', async 
     expect(mode('fun').getAttribute('aria-pressed')).toBe('true');
     get('play-back').click();
     finishClose();
-    setXP(9_999);
+    setXP(3_999);
     game.w.openModeSelect();
     expect(mode('normal').getAttribute('aria-pressed')).toBe('true');
 });

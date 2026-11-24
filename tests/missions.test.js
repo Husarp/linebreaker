@@ -16,7 +16,7 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
 
   const card = () => game.w.document.querySelector('[data-mission-slot="0"]');
   const art = card().querySelector('.mq-card-icon .mq-patch');
-  expect(art.outerHTML).toContain(game.w.LBMissionArt.forMetric(mission.metric).match(/data-patch="[a-z]+"/)[0]);
+  expect(art.getAttribute('src')).toBe(game.w.LBMissionArt.forMetric(mission.metric));
   expect(art.nextElementSibling.textContent).toBe(`+${mission.pts} SP`);
   const claim = card().querySelector('.mq-card-action--claim > button.lb-block-btn--primary');
   expect(claim.textContent).toBe('Claim');

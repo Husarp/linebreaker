@@ -45,13 +45,12 @@
 .lb69-panel { padding: var(--space-4); }
 .lb69-header {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
     margin-bottom: var(--space-3);
 }
-.lb69-header > #play-title { font-size: 14px !important; }
+#play-rules { block-size: var(--lb-header-key-size); flex: none; }
 #mode-select-overlay button.lb-block-btn { font-size: 14px; }
 .lb69-modes, .lb69-actions, #mode-options-panel {
     display: grid;
@@ -119,8 +118,8 @@ label.lb69-modifier:hover { background: var(--bb-pressed); }
 .lb69-modifier-score[data-effect="penalty"], #mode-xp-mult-val[data-effect="penalty"] { color: var(--lb-danger); }
 #mode-select-overlay .lb69-modifier.lb69-locked-row {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    justify-items: start;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     padding-inline: var(--space-2) !important;
     opacity: 1;
     text-align: start;

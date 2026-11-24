@@ -325,7 +325,7 @@ it('equips owned inventory cards without separate Equip buttons', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w } = game;
   const query = selector => w.document.querySelector(selector);
-  const activeSkin = () => query('#owned-skin-btns > :first-child[data-equipped="true"]');
+  const activeSkin = () => query('#owned-skin-btns > [data-equipped="true"]');
   await w.__LB_QA.open('inventory');
   expect(activeSkin()?.dataset.itemKey).toBe('aztec');
   expect(activeSkin().querySelector('[aria-label="Equipped"]')).not.toBeNull();

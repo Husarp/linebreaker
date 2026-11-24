@@ -278,12 +278,14 @@
             else if (k === 'blockTypeUsage') out.stats[k] = numericMap(v);
             else out.stats[k] = number(v);
         }
+        if (Object.hasOwn(data.stats || {}, 'bestNormalLines')) out.stats.bestNormalLines = number(data.stats.bestNormalLines);
         out.achievements = cleanAchievements(data.achievements);
         out.pendingAchievementClaims = list(data.pendingAchievementClaims).filter(claim => object(claim) && typeof claim.id === 'string' && safeKey(claim.id) && !discardedAchievementIds.has(claim.id)).map(claim => ({
             id: achievementId(claim.id), name: retiredDayAchievements.has(claim.id) ? 'Legacy achievement' : string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common',
             ...(claim.tierNum ? { tierNum: Math.floor(number(claim.tierNum, 0, 100)) } : {}),
-            ...(sourceVersion >= 2 && [2, 3].includes(claim.tierNum) && ['common', 'rare', 'epic', 'legendary'].includes(claim.crateRarity)
-                ? { crateRarity: claim.crateRarity } : { xp: number(claim.xp, 0, 100000) }),
+            ...(sourceVersion >= 2 && [2, 3, 4, 5].includes(claim.tierNum) && ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.crateRarity)
+                ? { crateRarity: claim.crateRarity, ...(claim.tierNum === 5 && claim.crateRarity === 'mythic' && claim.crateCount === 2 ? { crateCount: 2 } : {}) }
+                : { xp: number(claim.xp, 0, 100000) }),
         }));
         if (sourceVersion < 2) migrateAchievementTiers(out);
         const pendingTiers = new Set();

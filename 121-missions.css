@@ -92,11 +92,13 @@
 #mq-countdown[data-urgency='urgent'] { color: var(--lb-danger); }
 
 .mq-milestone-meter {
+    --mq-axis: 26px;
     position: relative;
 }
 .mq-milestone-meter > progress {
     position: absolute;
-    inset: 24px 22px auto;
+    inset: var(--mq-axis) 22px auto;
+    translate: 0 -50%;
     width: calc(100% - 44px);
     height: 4px;
 }
@@ -110,27 +112,30 @@
 }
 .mq-shell .mq-pb-icons {
     position: relative;
-    min-block-size: 44px;
+    min-block-size: 54px;
     margin-inline: 22px;
-    margin-block-start: var(--lb-space-xs);
 }
 #missions-overlay .mq-pb-icons :is(.mq-ms-marker, .mq-ms-claim-btn) {
     position: absolute;
-    inset-block-start: 0;
+    inset-block-start: calc(var(--mq-axis) - var(--lb-space-2xl) / 2);
     left: var(--mq-stop);
     translate: -50% 0;
     display: grid;
     justify-items: center;
-    align-content: center;
+    align-content: start;
     box-sizing: border-box;
     inline-size: 44px;
     block-size: 44px;
     gap: 0;
-    padding: 0;
+    padding: 0 !important;
     color: var(--lb-muted);
     font: 650 var(--lb-type-micro)/1.1 var(--lb-font-body);
 }
-#missions-overlay .mq-ms-claim-btn { --lb-control-edge: var(--lb-label); --lb-control-ink: var(--lb-label); }
+#missions-overlay .mq-pb-icons .mq-ms-claim-btn {
+    --lb-control-edge: var(--lb-label);
+    --lb-control-ink: var(--lb-label);
+    inset-block-start: calc(var(--mq-axis) - var(--lb-space-2xl) / 2 - var(--lb-border));
+}
 .mq-ms-crate { inline-size: var(--lb-space-2xl); block-size: var(--lb-space-2xl); object-fit: contain; }
 .mq-ms-crate--locked { filter: grayscale(1); opacity: .58; }
 .mq-ms-claimed { position: absolute; top: 0; inset-inline-end: 0; color: var(--lb-label); }
@@ -212,9 +217,9 @@
     gap: 4px;
     inline-size: var(--mq-patch-size);
     block-size: var(--mq-patch-size);
-    background: var(--mq-patch-dye);
+    background: color-mix(in srgb, var(--mq-patch-dye) 82%, transparent);
 }
-.mq-patch { display: block; }
+.mq-patch { display: block; inline-size: 40px; block-size: 40px; object-fit: contain; }
 .mq-card-icon .mq-pts { margin: 0; color: var(--mq-patch-ink); font: var(--lb-type-micro)/1.3 var(--lb-font-pixel); }
 .mq-card-text { padding-block: 8px; }
 .mq-card .mq-card-title { color: var(--mq-iron-ink); font: 750 .9375rem/1.2 var(--lb-font-body); }

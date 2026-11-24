@@ -261,7 +261,12 @@ it('marks equipped and locked inventory cards without adding owned tags', () => 
   const owned = row('bubble');
   const locked = row('shadow');
   const ready = row('glass');
-  expect(document.getElementById('skin-owned-count').innerText).toBe(`(2/${builtInSkinCount + manifest.length})`);
+  expect(document.getElementById('skin-owned-count').innerText).toBe(`(2/${builtInSkinCount + manifest.length + 1})`);
+  expect(row('season-prism').textContent).toContain('Earn from the Season Pass');
+  const rarities = ['common', 'rare', 'epic', 'legendary', 'mythic'];
+  const ranks = [...document.querySelectorAll('#owned-skin-btns > [data-item-key]')]
+    .map(card => rarities.indexOf(card.querySelector('.lb-inventory-rarity')?.dataset.rarity ?? 'common'));
+  expect(ranks).toEqual([...ranks].sort((first, second) => first - second));
   expect(row('neon')).toBeNull();
   for (const [card, status] of [[equipped, 'Equipped'], [owned, null], [locked, 'Locked'], [ready, 'Locked']]) {
     expect(card.querySelector('.lb-item-state')).toBeNull();
@@ -272,7 +277,8 @@ it('marks equipped and locked inventory cards without adding owned tags', () => 
   expect(owned.querySelector('.lb-inventory-equip-target').getAttribute('aria-label')).toBe('Equip Bubble');
   expect(owned.querySelector('progress')).toBeNull();
   expect(locked.querySelector('progress').value).toBe(2);
-  expect(locked.textContent).toContain('2/15 parts');
+  expect(locked.querySelector('.lb-item-part-count').textContent).toBe('2/15');
+  expect(locked.querySelector('.lb-item-part-count img').getAttribute('src')).toBe('assets/ui/parts/part-rune.webp');
   expect(locked.querySelector('button')).toBeNull();
   expect(ready.querySelector('progress').value).toBe(15);
   expect(ready.querySelector('button').textContent).toBe('Unlock');

@@ -437,7 +437,7 @@ it('claims the rare overflow row repeatedly and retains count and remainder on r
   w.closeMissions();
   await w.openInventory('crates');
   for (let remaining = storedCrates.length + 2; remaining > 0; remaining--) {
-    w.document.querySelector('[data-crate-rarity]').click();
+    w.document.querySelector('[data-crate-rarity]:enabled').click();
     expect(api.save.storedCrates).toHaveLength(remaining - 1);
     const reveal = w.document.querySelector('#inventory-crate-overlay');
     if (reveal.dataset.reveal === 'opening') reveal.click();

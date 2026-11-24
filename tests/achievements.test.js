@@ -127,7 +127,7 @@ describe('achievement screen', () => {
     const badge = badges('BASIC')[0];
     const tip = query('#ach-tip');
     const icon = badge.querySelector('.ach-card-icon');
-    Object.defineProperties(tip, { offsetWidth: { value: 284 }, offsetHeight: { value: 140 } });
+    Object.defineProperties(tip, { offsetWidth: { value: 284 }, offsetHeight: { value: 140, configurable: true } });
     icon.getBoundingClientRect = () => ({ left: 16, width: 30, top: 415, bottom: 445 });
     const tap = (clientX, clientY) => badge.dispatchEvent(new game.w.MouseEvent('click', { bubbles: true, detail: 1, clientX, clientY }));
     tap(9, 411);
@@ -144,6 +144,12 @@ describe('achievement screen', () => {
     icon.getBoundingClientRect = () => ({ left: game.w.innerWidth - 43, width: 30, top: 100, bottom: 130 });
     tap(8, 8);
     expect([tip.style.left, tip.style.top]).toEqual([`${game.w.innerWidth - 294}px`, '138px']);
+    tap(8, 8);
+    query('.lb-top-band').getBoundingClientRect = () => ({ bottom: 55 });
+    icon.getBoundingClientRect = () => ({ left: 16, width: 30, top: game.w.innerHeight - 200, bottom: game.w.innerHeight - 170 });
+    Object.defineProperty(tip, 'offsetHeight', { value: game.w.innerHeight - 75 });
+    tap(8, 8);
+    expect(tip.style.top).toBe('65px');
   });
 
   it('uses one trailing slot and toggles the info box even after a hover preview', () => {
@@ -236,7 +242,7 @@ describe('achievement screen', () => {
     expect(tip.querySelectorAll('progress')).toHaveLength(1);
     expect(tip.querySelector('progress').position).toBe(0.4);
     expect([...tip.querySelectorAll('svg[data-locked="true"]')].map(shape => shape.getAttribute('aria-label')))
-      .toEqual(['Silver locked', 'Gold locked']);
+      .toEqual(['Silver locked', 'Gold locked', 'Platinum locked', 'Diamond locked']);
     expect(tip.querySelector('svg[data-tier="bronze"] circle').getAttribute('r')).toBe('5.2');
     score().click();
     expect(tip.hidden).toBe(true);
@@ -375,7 +381,7 @@ describe('achievement screen', () => {
     query('[data-ach-id="games"]').click();
     expect([...query('#ach-tip').querySelectorAll('.ach-tip-reward')].map(line => line.textContent))
       .toEqual(['Reward: +200 XP', 'Reward: Rare crate', 'Reward: Legendary crate']);
-    expect(query('.ach-pending-row[data-rarity="rare"] small').textContent).toBe('Rare crate');
+    expect(query('.ach-pending-row[data-rarity="rare"] small').textContent).toBe('Silver · Rare crate');
     for (const [name, rarity] of [['Newbie', 'common'], ['Committed', 'rare'], ['No Life', 'legendary']]) {
       const button = query(`.ach-pending-row[data-rarity="${rarity}"] button[aria-label="Claim ${name}"]`);
       button.click();
@@ -389,5 +395,50 @@ describe('achievement screen', () => {
     expect(api.save.storedCrates).toEqual([
       { rarity: 'rare', source: 'achievement' }, { rarity: 'legendary', source: 'achievement' },
     ]);
+  });
+
+  it('preserves Gold, advances through both prestige tiers, and restores Diamond crates after reload', () => {
+    const { api, w } = game;
+    const goldDate = '2026-01-01';
+    const progress = { ...api.save.stats, gamesPlayed: 1999 };
+    api.setup({ save: { achievements: { games: { tier: 3, tierDates: { 3: goldDate } } }, stats: progress } });
+    api.checkAchievementsOnLoad();
+    expect(api.save.achievements.games.tier).toBe(3);
+    api.setSave({ ...api.save, stats: { ...progress, gamesPlayed: 2000 } });
+    api.checkAchievementsOnLoad();
+    expect(api.save.achievements.games.tier).toBe(4);
+    api.setSave({ ...api.save, stats: { ...progress, gamesPlayed: 4000 } });
+    api.checkAchievementsOnLoad();
+    api.applyLoadedData(w.LBSave.serializeSave(api.save), false);
+    expect(api.save.achievements.games).toMatchObject({ tier: 5, tierDates: { 3: goldDate } });
+    expect(api.save.pendingAchievementClaims.filter(claim => claim.id === 'games')).toMatchObject([
+      { tierNum: 4, crateRarity: 'mythic' }, { tierNum: 5, crateRarity: 'mythic', crateCount: 2 },
+    ]);
+    w.openAchievements();
+    expect(query('[data-ach-id="games"]').querySelectorAll('.ach-register-pips [data-locked="false"]')).toHaveLength(5);
+    const claim = query('[aria-label="Claim Games Played Diamond"]');
+    claim.click();
+    claim.click();
+    game.advance(100);
+    expect(api.save.storedCrates).toEqual(Array.from({ length: 2 }, () => ({ rarity: 'mythic', source: 'achievement' })));
+    api.checkAchievementsOnLoad();
+    expect(api.save.pendingAchievementClaims.some(reward => reward.id === 'games' && reward.tierNum === 5)).toBe(false);
+  });
+
+  it('uses prior Normal run lines above the speed cap and never counts the Fun leaderboard', () => {
+    const { api } = game;
+    api.setup({ save: { achievements: { speed: { tier: 3 } }, leaderboard: [{ lines: 170 }], funLeaderboard: [{ lines: 200 }] } });
+    api.checkAchievementsOnLoad();
+    expect(api.save.achievements.speed.tier).toBe(4);
+    api.setSave({ ...api.save, stats: { ...api.save.stats, bestNormalLines: 200 } });
+    api.checkAchievementsOnLoad();
+    expect(api.save.achievements.speed.tier).toBe(5);
+  });
+
+  it('recognizes prestige score thresholds from an existing leaderboard', () => {
+    const { api } = game;
+    api.setup({ save: { achievements: { score: { tier: 3 } }, leaderboard: [{ score: 20000 }] } });
+    api.checkAchievementsOnLoad();
+    expect(api.save.achievements.score.tier).toBe(4);
   });
 });

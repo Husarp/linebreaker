@@ -234,14 +234,15 @@
     function positionInfo(panel, anchor) {
         const bounds = anchor.getBoundingClientRect();
         const margin = 10, gap = 8;
+        const minTop = margin + (document.querySelector('.lb-top-band')?.getBoundingClientRect().bottom || 0);
         const width = panel.offsetWidth, height = panel.offsetHeight;
-        const spaceAbove = bounds.top - gap - margin;
+        const spaceAbove = bounds.top - gap - minTop;
         const spaceBelow = window.innerHeight - bounds.bottom - gap - margin;
         const above = height <= spaceAbove || (height > spaceBelow && spaceAbove >= spaceBelow);
         const left = bounds.left + (bounds.width - width) / 2;
         const top = above ? bounds.top - height - gap : bounds.bottom + gap;
         panel.style.left = `${Math.max(margin, Math.min(left, window.innerWidth - width - margin))}px`;
-        panel.style.top = `${Math.max(margin, Math.min(top, window.innerHeight - height - margin))}px`;
+        panel.style.top = `${Math.max(minTop, Math.min(top, window.innerHeight - height - margin))}px`;
     }
 
     function infoPanel(id) {
@@ -491,6 +492,7 @@
     let ROWS = 22; const VISIBLE_ROWS = 20; const COLS_NORMAL = 10; let COLS = COLS_NORMAL; let BLOCK = 30;
     const SPEED_MULTIPLIERS =[1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8];
     const LINES_PER_SPEED = 10;
+    const FUN_MODE_UNLOCK_LEVEL = 5;
 
     let floatingTexts =[], shakeIntensity = 0;
     const lineClear = LBLineClear.create();
@@ -2945,6 +2947,9 @@
     function _exchangePartsIcon(rarity, item = false) {
         return `<img class="lb-exchange-parts-icon" src="${item ? LBArtPack.itemPart(rarity) : LBArtPack.universalPart(rarity)}" width="28" height="28" alt="">`;
     }
+    function _partPrice(value, cost, rarity) {
+        return `<span class="lb-item-part-count" role="img" aria-label="${value} of ${cost} parts">${_exchangePartsIcon(rarity, true)}${value}/${cost}</span>`;
+    }
     function openUseUniversalPart(rarity = 'common') {
         if (!LBCrates.rarities.includes(rarity) || _universalBalance(rarity) < 1) return;
         const matches = item => _getItemRarity(item.key) === rarity;
@@ -2979,7 +2984,7 @@
                 bar.style.width = actualPct + '%';
                 bar.style.removeProperty('--lb-exchange-owned-stop');
             }
-            if (lbl) lbl.textContent = pending > 0 ? `${parts}+${pending}/${cost} parts` : `${parts}/${cost} parts`;
+            if (lbl) lbl.innerHTML = _partPrice(pending > 0 ? `${parts}+${pending}` : parts, cost, rarity);
         }
         function _updateApplyBtn() {
             const btn = document.getElementById('uni-apply-btn');
@@ -3021,7 +3026,7 @@
                                 <div class="lb-exchange-meter" aria-hidden="true">
                                     <div id="uni-bar-${item.key}" style="width:${pct}%"></div>
                                 </div>
-                                <span id="uni-lbl-${item.key}">${escapeHtml(parts)}/${cost} parts</span>
+                                <span id="uni-lbl-${item.key}">${_partPrice(parts, cost, rarity)}</span>
                             </div>
                         </div>
                         ${parts < cost ? `<div class="lb-exchange-stepper">
@@ -3143,7 +3148,7 @@
                     setTimeout(() => { bar.style.width = newPct + '%'; }, 50);
                 }
                 const lbl = document.getElementById(`uni-lbl-${key}`);
-                if (lbl) lbl.textContent = `${saveData.parts?.[key] || 0}/${_getItemCost(key)} parts`;
+                if (lbl) lbl.innerHTML = _partPrice(saveData.parts?.[key] || 0, _getItemCost(key), rarity);
             });
             setTimeout(() => _rebuildContent(), 700);
         };
@@ -4059,21 +4064,22 @@
         return rarity ? `<span class="lb-inventory-rarity lb-ledger-rarity-label" data-rarity="${rarity}">${rarity}</span>` : '';
     }
 
-    function _makeInventoryRow(label, isActive, isOwned, partCount, equip, onUnlockJs, extraHtml, itemKey, previewPack = '') {
+    function _makeInventoryRow(label, isActive, isOwned, partCount, equip, onUnlockJs, extraHtml, itemKey, previewPack = '', requirement = '') {
         const equipped = isOwned && isActive;
         const cost = !isOwned && itemKey ? _getItemCost(itemKey) : 0;
         const parts = Math.max(0, Number(partCount) || 0);
         const safeLabel = escapeHtml(label);
         const progress = cost > 0 ? `<div class="lb-inventory-progress">
             <progress class="lb-block-progress" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
-            <span class="lb-item-part-count">${_exchangePartsIcon(_getItemRarity(itemKey), true)}${Math.min(parts, cost)}/${cost} parts</span>
+            ${_partPrice(Math.min(parts, cost), cost, _getItemRarity(itemKey))}
         </div>` : '';
-        const unlock = cost > 0 && parts >= cost ? `<div class="lb-inventory-controls"><button type="button" class="lb-inventory-action lb-block-btn lb-block-btn--primary" onclick="${onUnlockJs}">Unlock</button></div>` : '';
+        const unlock = onUnlockJs && cost > 0 && parts >= cost ? `<div class="lb-inventory-controls"><button type="button" class="lb-inventory-action lb-block-btn lb-block-btn--primary" onclick="${onUnlockJs}">Unlock</button></div>` : '';
         return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" class="inv-row lb-inventory-card lb-inventory-item lb-block-card"${equipped ? ' tabindex="-1"' : ''}>
             ${isOwned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
             <div class="lb-inventory-heading">
                 <div><div class="lb-inventory-name">${safeLabel}</div>${_itemRarityLabel(itemKey)}</div>
-                ${equipped || !isOwned ? _inventoryState(equipped) : ''}
+                ${requirement ? `<span class="lb-unlock-requirement">${_inventoryState(false, true)}<span>${rankUnlockText(requirement)}</span></span>`
+                    : equipped || !isOwned ? _inventoryState(equipped) : ''}
             </div>
             ${extraHtml ? `<div class="lb-inventory-detail">${extraHtml}</div>` : ''}
             ${progress}${unlock}
@@ -4088,7 +4094,7 @@
             ${owned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
             <header><div><h3>${label}</h3>${_itemRarityLabel(key)}</div>${!owned ? `<span class="lb-colors-state">${_inventoryState(false)}</span>` : ''}</header>
             ${preview}${detail ? `<p>${detail}</p>` : ''}
-            ${cost ? `<div class="lb-colors-parts"><progress class="lb-block-progress" aria-label="${label} parts" value="${parts}" max="${cost}"></progress><span class="lb-item-part-count">${_exchangePartsIcon(_getItemRarity(key), true)}${parts}/${cost} parts</span></div>` : ''}
+            ${cost ? `<div class="lb-colors-parts"><progress class="lb-block-progress" aria-label="${label} parts" value="${parts}" max="${cost}"></progress>${_partPrice(parts, cost, _getItemRarity(key))}</div>` : ''}
             ${equipped ? `<div class="lb-colors-state lb-inventory-equipped-label">${_inventoryState(true, true)} Equipped</div>` : ''}
             ${cost && parts === cost ? `<div class="lb-colors-actions"><button type="button" class="lb-block-btn lb-block-btn--primary" onclick="${unlock}">Unlock</button></div>` : ''}
         </article>`;
@@ -4115,34 +4121,31 @@
 
         if (settings.stylePack === 'pixel') { settings.stylePack = 'modern'; saveSettings(); applyStylePack('modern'); }
 
-        // Ghost section (in Blocks tab) — fully hidden until Silver I
         const ghostWrap = document.getElementById('ghost-section-wrap');
         if (ghostWrap) {
-            const _ghostLevel = getLevelInfo(saveData.totalXP).level;
-            if (_ghostLevel < 11) {
-                ghostWrap.innerHTML = _makeInventoryRow('Ghost Piece', false, false, 0, '', '', rankUnlockText('Unlocks at Silver I'), '');
-            } else {
-                const gc = settings.ghostColor || 'white';
-                const parts = saveData.parts?.['ghostColor'] || 0;
-                const whiteRow = _makeInventoryRow('White Ghost', gc === 'white', true, 0, ['ghostColor', 'white'], '', '', '');
-                const coloredOwned = saveData.ghostColorUnlocked;
-                const coloredRow = _makeInventoryRow('Colored Ghost', gc === 'colored', Boolean(coloredOwned), parts, ['ghostColor', 'colored'], "window.playerUnlockItem('ghostColor','ghostColor')", 'Ghost matches piece color', 'ghostColor');
-                ghostWrap.innerHTML = `<h3 class="lb-inventory-subtitle">Ghost Piece</h3>${whiteRow}${coloredRow}`;
-            }
+            const ghostAvailable = getLevelInfo(saveData.totalXP).level >= 11;
+            const ghostColor = settings.ghostColor || 'white';
+            const parts = saveData.parts?.ghostColor || 0;
+            const requirement = ghostAvailable ? '' : 'Unlocks at Silver I';
+            const whiteRow = _makeInventoryRow(ghostAvailable ? 'White Ghost' : 'Ghost Piece', ghostColor === 'white', ghostAvailable,
+                0, ['ghostColor', 'white'], '', '', '', '', requirement);
+            const coloredRow = _makeInventoryRow('Colored Ghost', ghostAvailable && ghostColor === 'colored', Boolean(saveData.ghostColorUnlocked), parts,
+                ghostAvailable ? ['ghostColor', 'colored'] : '', ghostAvailable ? "window.playerUnlockItem('ghostColor','ghostColor')" : '',
+                'Ghost matches piece color', 'ghostColor', '', requirement);
+            ghostWrap.innerHTML = `${ghostAvailable ? '<h3 class="lb-inventory-subtitle">Ghost Piece</h3>' : ''}${whiteRow}${coloredRow}`;
         }
 
         // Owned skins (in Blocks tab)
         const ownedSkinContainer = document.getElementById('owned-skin-btns');
         if (ownedSkinContainer) {
             const skinNames = SKIN_NAMES;
-            const allSkinKeys = Object.keys(skinNames).filter(key => !IMAGE_SKINS.get(key)?.exclusive || saveData.ownedSkins?.includes(key));
+            const allSkinKeys = Object.keys(skinNames).sort((first, second) =>
+                LBCrates.rarities.indexOf(_getItemRarity(first) || 'common') - LBCrates.rarities.indexOf(_getItemRarity(second) || 'common'));
             const ownedSkins = allSkinKeys.filter(key => (saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).includes(key));
             const activeSkin = _renderSkin();
-            const displayKeys = ownedSkins.includes(activeSkin)
-                ? [activeSkin, ...allSkinKeys.filter(key => key !== activeSkin)] : allSkinKeys;
             const skinCountEl = document.getElementById('skin-owned-count');
             if (skinCountEl) skinCountEl.innerText = `(${ownedSkins.length}/${allSkinKeys.length})`;
-            const rows = displayKeys.map(s => {
+            const rows = allSkinKeys.map(s => {
                 const isOwned = ownedSkins.includes(s);
                 const isActive = activeSkin === s;
                 const parts = saveData.parts?.[s] || 0;
@@ -4151,7 +4154,7 @@
                     isActive, isOwned, parts,
                     ['skin', s],
                     `window.playerUnlockItem('skin','${s}')`,
-                    escapeHtml(LBLineClear.description(s)), s
+                    !isOwned && IMAGE_SKINS.get(s)?.exclusive ? 'Earn from the Season Pass' : escapeHtml(LBLineClear.description(s)), s
                 );
             }).join('');
             const previewPalette = [COLORS.join(','), settings.colorPalette, Boolean(saveData.customPaletteOverrides?.classic), window.devicePixelRatio].join('|');
@@ -4368,7 +4371,7 @@
             const count = _universalBalance(rarity);
             const nextRarity = _nextPartRarity(rarity);
             const name = LBCrates.universalPartName(rarity, 2);
-            return `<div class="lb-block-card lb-exchange-row lb-inventory-parts" data-rarity="${rarity}">
+            return `<div class="lb-block-card lb-exchange-row lb-inventory-parts" data-rarity="${rarity}" data-empty="${count === 0}">
             <div class="lb-exchange-row-art">${_exchangePartsIcon(rarity)}</div>
             <div class="lb-exchange-row-detail">
                 <strong>${name}</strong>
@@ -4386,7 +4389,7 @@
             const meta = BOOSTER_META[key];
             const count = boosters[key] || 0;
             const nextKey = BOOSTER_KEYS[i + 1];
-            return `<div class="lb-block-card lb-inventory-booster" data-rarity="${meta.rarity}">
+            return `<div class="lb-block-card lb-inventory-booster" data-rarity="${meta.rarity}" data-empty="${count === 0}">
                 <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(meta.rarity)}</div>
                 <div class="lb-inventory-booster-copy"><strong>${meta.label}</strong><span class="lb-exchange-rarity">${meta.rarity}</span></div>
                 <span class="lb-collection-quantity lb-ledger-tag">×${count}</span>
@@ -5332,19 +5335,20 @@
     const _ACH_XP = { common: 500, rare: 1000, epic: 2500, legendary: 5000, mythic: 10000 };
     const ACHIEVEMENT_TIER_REWARDS = {
         bronze: { xp: 200 },
-        standard: [{ crateRarity: 'common' }, { crateRarity: 'rare' }],
-        legendary: [{ crateRarity: 'rare' }, { crateRarity: 'epic' }],
-        mythic: [{ crateRarity: 'rare' }, { crateRarity: 'legendary' }],
+        standard: [{ crateRarity: 'common' }, { crateRarity: 'rare' }, { crateRarity: 'epic' }, { crateRarity: 'mythic' }],
+        legendary: [{ crateRarity: 'rare' }, { crateRarity: 'epic' }, { crateRarity: 'legendary' }, { crateRarity: 'mythic' }],
+        mythic: [{ crateRarity: 'rare' }, { crateRarity: 'legendary' }, { crateRarity: 'mythic' }, { crateRarity: 'mythic', crateCount: 2 }],
     };
 
     function achievementTierReward(achievement, index) {
-        const difficulty = achievement.tiers.at(-1).rarity;
+        const difficulty = achievement.tiers[2].rarity;
         return index === 0 ? ACHIEVEMENT_TIER_REWARDS.bronze
             : (ACHIEVEMENT_TIER_REWARDS[difficulty] || ACHIEVEMENT_TIER_REWARDS.standard)[index - 1];
     }
 
-    function achievementRewardLabel({ xp, crateRarity }) {
-        return crateRarity ? LBCrates.crateLabel(crateRarity) : `+${(xp ?? 0).toLocaleString('en-US')} XP`;
+    function achievementRewardLabel({ xp, crateRarity, crateCount = 1 }) {
+        if (!crateRarity) return `+${(xp ?? 0).toLocaleString('en-US')} XP`;
+        return crateCount > 1 ? `${crateCount} × ${LBCrates.crateLabel(crateRarity)}` : LBCrates.crateLabel(crateRarity);
     }
 
     function queueAchievementTier(achievement, index) {
@@ -5492,6 +5496,37 @@
             ? `<img class="${className} ach-voxel" src="assets/ui/achievements/ach-${art}.webp" alt="" width="48" height="48" draggable="false">`
             : `<span class="${className} ach-mystery" aria-hidden="true">?</span>`;
     }
+
+    const achievementPrestige = {
+        score: [20000, 40000, 'Reach a score of {n}', run => run.score],
+        games: [2000, 4000, 'Play {n} games'],
+        speed: [170, 200, 'Clear {n} lines in one Normal run', run => run.mode === 'normal' ? run.lines : 0, 'stats.bestNormalLines'],
+        survival: [780, 900, 'Survive for {n} minutes', run => run.time],
+        speed_placer: [125, 150, 'Place {n} pieces in 60 seconds', run => run.maxBlocksIn60s],
+        total_blocks: [250000, 500000, 'Place {n} pieces total'],
+        total_lines: [75000, 150000, 'Clear {n} lines total'],
+        speedrunner: [20, 15, 'Clear 10 lines in {n} seconds or less', run => run.speedrunner],
+        quad_count: [500, 1000, 'Clear 4 lines at once {n} times total'],
+        combo_master: [13, 15, 'Reach combo ×{n}'],
+        high_placer: [400, 800, 'Place {n} pieces fully in the bottom half (one game)', run => run.highPlacer],
+        booster_user: [48, 96, 'Use {n} score boosters'],
+        fun_score: [10000, 25000, 'Reach {n} score in Fun Mode', run => run.mode === 'fun' ? run.score : 0],
+        i_piece_lines: [20, 40, 'Clear {n} lines using I-pieces in one game', run => run.iPieceLines],
+        daily_rare: [50, 80, 'Find {n} rare+ items in Daily Gift crates'],
+        surgeon: [1000, 2000, 'Clear {n} single or double lines'],
+        daily_xp: [25000, 50000, 'Earn {n} raw XP in one day (from games only)'],
+        music_listener: [200, 400, 'Listen to {n} music tracks'],
+        mirror_score: [5000, 10000, 'Score {n} in Mirror Mode', run => run.mode === 'normal' && run.mirror ? run.score : 0],
+        fun_squared: [200, 400, 'Play {n} Fun games clearing at least 1 line each'],
+        collector: [150, 350, 'Earn Gold and find {n} rare+ items in Daily Gift crates', null, 'stats.rareItemsFromDailyBox'],
+        one_at_a_time: [1000, 2000, 'Clear {n} single lines'],
+        spinner: [100000, 250000, 'Rotate {n} times'],
+        mq_easy_quests: [80, 120, 'Complete {n} Easy quests (daily or weekly)'],
+        mq_normal_quests: [80, 120, 'Complete {n} Normal quests (daily or weekly)'],
+        mq_hard_quests: [40, 60, 'Complete {n} Hard quests (daily or weekly)'],
+        mq_total_quests: [350, 600, 'Complete {n} quests total'],
+        mq_secret_quests: [20, 40, 'Complete {n} Secret daily quests'],
+    };
 
     const ACHIEVEMENTS_DEF = [
         // ── TIERED ────────────────────────────────────────────────
@@ -6126,20 +6161,33 @@
     ].map(ach => {
         const retained = LBSave.retainedAchievementTiers[ach.id];
         if (retained) ach.tiers = retained.map(tier => ach.tiers[tier - 1]);
+        if (ach.type === 'tiered') {
+            const [platinum, diamond, description, runValue, path = ach.counter.path] = achievementPrestige[ach.id];
+            ach.tiers.push(...[platinum, diamond].map((target, index) => {
+                const name = `${ach.name} ${index === 0 ? 'Platinum' : 'Diamond'}`;
+                const desc = description.replace('{n}', (ach.id === 'survival' ? target / 60 : target).toLocaleString('en-US'));
+                const progress = { path, target };
+                return { name, desc, rarity: index === 0 ? 'legendary' : 'mythic', ...(runValue ? {
+                    progressDisplay: progress,
+                    check: run => ach.id === 'speedrunner' ? runValue(run) > 0 && runValue(run) <= target : runValue(run) >= target,
+                } : { progress }) };
+            }));
+        }
         return { ...ach, svgIcon: achievementIcon(ach.id) };
     });
 
-    // Patch collector badge — set final tier target to total buyable items
     (function() {
         const coll = ACHIEVEMENTS_DEF.find(a => a.id === 'collector');
         if (!coll || !coll.tiers) return;
         // Count buyable items (exclude defaults: Retro skin, default theme, lines grid, classic palette, default sfx)
         const _buyable = 7 + (Object.keys(THEMES).length - 1) + (Object.keys(GRID_STYLES).length - 1) + (Object.keys(BLOCK_PALETTES).length - 1) + 4 + 1;
-        const finalTier = coll.tiers[coll.tiers.length - 1];
-        if (finalTier) finalTier.progress = { path: '_computed.itemsBought', target: _buyable };
+        coll.tiers[2].progress = { path: '_computed.itemsBought', target: _buyable };
     })();
 
     function _getProgressVal(path) {
+        if (path === 'highscore') return Math.max(_bestScore(), saveData.highscore || 0);
+        if (path === 'stats.bestNormalLines') return (saveData.leaderboard || []).reduce(
+            (best, run) => Math.max(best, run.lines || 0), saveData.stats.bestNormalLines || 0);
         if (path === '_computed.musicTracksListened') return LBSave.musicCounts(saveData.stats.songPlayCounts).total;
         if (path === '_computed.itemsCollected') {
             const _os = (saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).length;
@@ -6482,6 +6530,8 @@
         ['Bronze', '<circle cx="8" cy="8" r="5.2"/>'],
         ['Silver', '<path d="M8 1.6 14.4 8 8 14.4 1.6 8Z"/>'],
         ['Gold', '<path d="M8 1.4 13.7 4.7v6.6L8 14.6 2.3 11.3V4.7Z"/>'],
+        ['Platinum', '<path d="M5 1.5h6L14.5 5v6L11 14.5H5L1.5 11V5Z"/>'],
+        ['Diamond', '<path d="M8 1 11 5l4 3-4 3-3 4-3-4-4-3 4-3Z"/>'],
     ];
     function achievementTierShape(index, locked, extraClass = '') {
         const [name, shape] = achievementTiers[index];
@@ -6566,7 +6616,8 @@
                 card.dataset.rarity = rarity;
                 const name = retiredStreakAchievements.has(claim.id) ? 'Legacy achievement' : claim.name;
                 const rewardLabel = achievementRewardLabel(claim);
-                const nameHtml = `<div class="ach-row-copy"><strong>${escapeHtml(name)}</strong><small class="lb-ledger-rarity-label">${claim.tierNum ? rewardLabel : rc.label}</small></div>`;
+                const tierName = achievementTiers[claim.tierNum - 1]?.[0];
+                const nameHtml = `<div class="ach-row-copy"><strong>${escapeHtml(name)}</strong><small class="lb-ledger-rarity-label">${tierName ? `${tierName} · ` : ''}${claim.tierNum ? rewardLabel : rc.label}</small></div>`;
                 const claimBtn = document.createElement('button');
                 claimBtn.className = 'lb-block-btn lb-block-btn--primary lb-ledger-claim';
                 claimBtn.textContent = 'Claim';
@@ -6576,7 +6627,9 @@
                     if (idx < 0) return;
                     saveData.pendingAchievementClaims.splice(idx, 1);
                     if (claim.crateRarity) {
-                        (saveData.storedCrates ??= []).push({ rarity: claim.crateRarity, source: 'achievement' });
+                        for (let count = 0; count < (claim.crateCount ?? 1); count++) {
+                            (saveData.storedCrates ??= []).push({ rarity: claim.crateRarity, source: 'achievement' });
+                        }
                         _checkGlowNotifications();
                     } else _grantXP(claim.xp);
                     playSFX('unlock');
@@ -6745,7 +6798,7 @@
                         const reward = pending.find(claim => claim.id === ach.id && claim.tierNum === index + 1)
                             || achievementTierReward(ach, index);
                         html += `<div class="ach-tip-milestone">${achievementTierShape(index, locked)}
-                            <div><strong>${achievementTiers[index][0]} — ${escapeHtml(tier.name)}</strong>
+                            <div><strong>${index < 3 ? `${achievementTiers[index][0]} — ` : ''}${escapeHtml(tier.name)}</strong>
                             <div>${escapeHtml(tier.desc)}</div>${locked
                                 ? (index === curTier && progressInfo ? `${meter}<div>${escapeHtml(progressText)}</div>` : '')
                                 : `<div class="ach-tip-reward">Reward: ${achievementRewardLabel(reward)}</div>${dateLine(tierDates[index + 1])}`}</div></div>`;
@@ -8463,6 +8516,7 @@
         if (_maxComboThisGame > (saveData.stats.maxCombo || 0)) saveData.stats.maxCombo = _maxComboThisGame;
         // Track best-ever stats for achievement progress bars
         if (speedLevel > (saveData.stats.bestMaxSpeed || 0)) saveData.stats.bestMaxSpeed = speedLevel;
+        if (linesClearedThisGame > (saveData.stats.bestNormalLines || 0)) saveData.stats.bestNormalLines = linesClearedThisGame;
         if (gameTime > (saveData.stats.bestSurvivalTime || 0)) saveData.stats.bestSurvivalTime = gameTime;
         if (_maxLineStreakThisGame > (saveData.stats.bestLineStreak || 0)) saveData.stats.bestLineStreak = _maxLineStreakThisGame;
         if (_maxBlocksIn60sThisGame > (saveData.stats.bestBlocksIn60s || 0)) saveData.stats.bestBlocksIn60s = _maxBlocksIn60sThisGame;
@@ -8615,6 +8669,7 @@
 
     function startGame(onStarted){
         if (_gameOverProtect || startFlashTimer !== null) return;
+        if (currentGameMode === 'fun' && getLevelInfo(saveData.totalXP).level < FUN_MODE_UNLOCK_LEVEL) currentGameMode = 'normal';
         // Show rules on first fun/master play
         if (currentGameMode === 'fun' && !saveData.seenFunRules) {
             saveData.seenFunRules = true;
@@ -9329,7 +9384,7 @@
     const DAILY_MODE_QUESTS = [
         { id: 'ghost_lines', tier: 'easy', title: 'Ghost Guide', desc: 'Clear {n} lines with Ghost Piece on in Normal', metric: 'ghostLines', target: 5, pts: 2, minLevel: 11 },
         { id: 'mirror_lines', tier: 'easy', title: 'Mirror Match', desc: 'Clear {n} lines with Mirror on in Normal', metric: 'mirrorLines', target: 5, pts: 2, minLevel: 11 },
-        { id: 'fun_run', tier: 'easy', title: 'Just for Fun', desc: 'Finish a Fun run with at least 1 line cleared', metric: 'funRuns', target: 1, pts: 2, minLevel: 11 },
+        { id: 'fun_run', tier: 'easy', title: 'Just for Fun', desc: 'Finish a Fun run with at least 1 line cleared', metric: 'funRuns', target: 1, pts: 2, minLevel: FUN_MODE_UNLOCK_LEVEL },
     ];
     let DAILY_QUEST_POOL = FALLBACK_DAILY_QUESTS;
     let WEEKLY_MISSION_POOL = FALLBACK_WEEKLY_MISSIONS;
@@ -9871,7 +9926,7 @@
         </div>`;
         return `<div class="mq-card-wrap"${index == null ? '' : ` data-mission-slot="${index}"`}>
             <article class="mq-card lb-block-card" tabindex="-1" data-tier="${escapeHtml(tier)}"${ready && !swapping ? ' data-ready' : ''}>
-                <div class="mq-card-icon">${icon}<span class="mq-pts">${pointLabel}</span></div>
+                <div class="mq-card-icon"><img class="mq-patch" src="${icon}" alt=""><span class="mq-pts">${pointLabel}</span></div>
                 <div class="mq-card-text"><span class="mq-tier-badge">${tier === 'normal' ? 'Medium' : escapeHtml(tier)}</span><h3 class="mq-card-title">${missionTitle}</h3><p class="mq-card-desc">${desc}</p></div>
                 <div class="mq-card-slot">${meter}${reward || swap ? `<div class="mq-card-action${ready && !swapping ? ' mq-card-action--claim' : ''}">${reward}${swap}</div>` : ''}</div>
             </article>
@@ -10476,10 +10531,10 @@
     function openModeSelect() {
         const playerLevel = getLevelInfo(saveData.totalXP).level;
         const funCard = playOverlay.querySelector('[data-mode="fun"]');
-        funCard.disabled = playerLevel < 11;
+        funCard.disabled = playerLevel < FUN_MODE_UNLOCK_LEVEL;
         funCard.classList.toggle('lb-block-btn--locked', funCard.disabled);
         document.getElementById('play-fun-lock').hidden = !funCard.disabled;
-        document.getElementById('play-fun-rank').innerHTML = rankUnlockText('Unlocks at Silver I');
+        document.getElementById('play-fun-level').textContent = `Unlocks at Level ${FUN_MODE_UNLOCK_LEVEL}`;
         document.getElementById('play-fun-desc').hidden = funCard.disabled;
         funCard.setAttribute('aria-describedby', funCard.disabled ? 'play-fun-lock' : 'play-fun-desc');
 
@@ -10588,7 +10643,7 @@
                 row.disabled = true;
                 row.className = 'lb69-modifier lb69-locked-row lb-block-btn lb-block-btn--locked';
                 row.dataset.playModifier = key;
-                row.innerHTML = `${playIcon('lock')}<strong>${name}</strong><span class="lb69-lock">${rankUnlockText(`Unlocks at ${rank}`)}</span>`;
+                row.innerHTML = `<strong>${name}</strong><span class="lb69-lock lb-unlock-requirement">${playIcon('lock')}<span>${rankUnlockText(`Unlocks at ${rank}`)}</span></span>`;
                 return row;
             }
             const row = document.createElement('label');

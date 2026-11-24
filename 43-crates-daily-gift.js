@@ -194,7 +194,14 @@
             if (reward.tag) card.append(element('span', 'lb64-reward-tag', reward.tag));
             if (reward.desc) {
                 const description = element('small', 'lb64-reward-desc', reward.desc);
-                if (formatDescription) description.innerHTML = formatDescription(reward.desc);
+                const price = reward.type === 'parts' && /^(\d+(?:\.\d+)?)\/(\d+) parts$/.exec(reward.desc);
+                if (price) {
+                    const icon = image.cloneNode();
+                    description.classList.add('lb-item-part-count');
+                    description.setAttribute('role', 'img');
+                    description.setAttribute('aria-label', `${price[1]} of ${price[2]} parts`);
+                    description.replaceChildren(icon, `${price[1]}/${price[2]}`);
+                } else if (formatDescription) description.innerHTML = formatDescription(reward.desc);
                 card.append(description);
             }
             card.append(element('span', 'lb-reward-rarity', reward.rarity));
@@ -268,23 +275,23 @@
         const counts = new Map();
         for (const { rarity } of crates) counts.set(rarity, (counts.get(rarity) || 0) + 1);
         for (const rarity of rarities) {
-            const count = counts.get(rarity);
-            if (!count) continue;
+            const count = counts.get(rarity) || 0;
             const card = element('article', 'lb-block-card lb43-locker-card');
             card.dataset.rarity = rarity;
+            card.dataset.empty = String(count === 0);
             const quantity = element('span', 'lb43-locker-count', `×${count.toLocaleString()}`);
             const art = element('img', 'lb-crate-art lb43-locker-art');
             art.src = `assets/ui/crates/${rarity}.png`;
             art.alt = '';
             const open = element('button', 'lb-block-btn', 'Open');
             open.type = 'button';
+            open.disabled = count === 0;
             open.dataset.crateRarity = rarity;
             open.setAttribute('aria-label', `Open ${crateLabel(rarity).toLowerCase()}`);
             open.onclick = () => onOpen(rarity);
             card.append(quantity, art, element('h4', 'lb43-locker-name', crateLabel(rarity)), open);
             list.append(card);
         }
-        if (!crates.length) list.append(element('div', 'lb-block-card lb-collection-empty', 'No crates in storage.'));
     }
 
     function showCrateReveal(rarity, count, grid, onClose, gift) {
