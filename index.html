@@ -474,33 +474,29 @@
                 <img src="assets/ui/crates/rare.png" width="65" height="65" alt="">
                 <span class="lb-ledger-chevron" aria-hidden="true"></span>
             </button>
-            <section class="lb-block-feature mq-board lb-r17-feature" aria-labelledby="mq-board-title" data-feature-art="mission-forest-outpost">
-                <div>
-                    <span class="lb-block-kicker" id="mq-board-period">Daily objectives</span>
-                    <h2 id="mq-board-title">Mission log</h2>
-                    <p>Mission points advance the Season Pass.</p>
-                </div>
-                <div id="mq-countdown"><svg aria-hidden="true"><use href="#lb-metric-clock"/></svg><span><time></time><small>To reset</small></span></div>
-            </section>
-            <section aria-labelledby="mq-board-period">
-                <div id="missions-body"></div>
-            </section>
-            <div class="mq-board-actions" role="group" aria-label="Mission actions">
-                <div class="mq-swap-control">
-                    <button type="button" id="mq-change-toggle" class="lb-block-btn" aria-pressed="false" aria-describedby="mq-swaps-left" onclick="event.stopPropagation();window._toggleChangeMode()">Swap</button>
-                    <span id="mq-swaps-left">1 swap left today</span>
-                </div>
-            </div>
-            <section id="mq-bonus-box" class="lb-block-card" data-ledger-tone="reward">
-                <div class="mq-list-head"><h3 class="lb-block-section-title">Bonus Box</h3><span></span></div>
-                <progress class="lb-block-progress" aria-label="Bonus Box progress"></progress>
-            </section>
-            <section class="lb-block-card" aria-labelledby="mq-milestones-title" data-ledger-tone="reward">
+            <section class="lb-block-card mq-board lb-r17-feature" aria-labelledby="mq-board-title" data-feature-art="mission-forest-outpost">
                 <div class="mq-list-head">
-                    <h2 class="lb-block-section-title" id="mq-milestones-title">Mission milestones</h2>
+                    <div>
+                        <h2 class="lb-block-section-title" id="mq-board-title">Mission milestones</h2>
+                        <div id="mq-countdown"><svg aria-hidden="true"><use href="#lb-metric-clock"/></svg><span>Resets in <time></time></span></div>
+                    </div>
                     <button type="button" class="lb-info-btn" data-help-section="missions" aria-label="About missions" data-control-tip="About missions"></button>
                 </div>
                 <div id="mq-milestones"></div>
+            </section>
+            <section aria-labelledby="mq-board-period">
+                <div class="mq-list-head mq-orders">
+                    <h2 class="lb-block-section-title" id="mq-board-period">Daily objectives</h2>
+                    <div class="mq-swap-control" role="group" aria-label="Mission swaps">
+                        <span id="mq-swaps-left">1 swap left today</span>
+                        <button type="button" id="mq-change-toggle" class="lb-block-btn" aria-pressed="false" aria-describedby="mq-swaps-left" onclick="event.stopPropagation();window._toggleChangeMode()">Swap</button>
+                    </div>
+                </div>
+                <div id="missions-body"></div>
+            </section>
+            <section id="mq-bonus-box" class="lb-block-card" data-ledger-tone="reward">
+                <div class="mq-list-head"><h3 class="lb-block-section-title">Bonus Box</h3><span></span></div>
+                <progress class="lb-block-progress" aria-label="Bonus Box progress"></progress>
             </section>
         </div>
     </div>
@@ -1111,7 +1107,8 @@
     </header>
     <div class="lb-scroll-fade">
       <div class="ach-content">
-        <section class="lb-collection-feature lb-r17-feature" data-ledger-tone="achievement" data-feature-art="summit-shrine">
+        <div id="ach-claims"></div>
+        <section class="lb-collection-feature ach-register-summary">
             <div>
                 <span class="lb-collection-label">Featured milestones</span>
                 <h2 id="ach-milestone-count"></h2>

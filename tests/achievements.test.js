@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { readdirSync } from 'node:fs';
 import { loadGame } from './loader.js';
 
 let game;
@@ -12,7 +13,7 @@ describe('achievement screen', () => {
     query(`${selector} button`).click();
     query(`${selector}-list [data-value="${value}"]`).click();
   };
-  const sections = () => [...query('#ach-list').children].filter(section => section.querySelector('svg'));
+  const sections = () => [...query('#ach-list').querySelectorAll('.ach-group')];
   const sectionNamed = name => sections().find(section => section.firstElementChild.firstElementChild.textContent === name);
   const sectionCount = name => sectionNamed(name).querySelector('.ach-count-label').textContent;
   const badges = name => [...sectionNamed(name).lastElementChild.children];
@@ -84,8 +85,8 @@ describe('achievement screen', () => {
     expect(hover(badges('BASIC')[0])).toContain('Committed');
   });
 
-  it('reuses one question-mark graphic until secrets unlock and marks only the earned achievement', () => {
-    const icon = badge => badge.querySelector('.ach-card-icon').innerHTML;
+  it('reuses one question mark until secrets unlock and marks only the earned achievement', () => {
+    const icon = badge => badge.querySelector('.ach-card-icon').outerHTML;
     game.w.openAchievements('locked');
     const allSecretIcons = new Set(badges('SECRET').map(icon));
     expect(allSecretIcons.size).toBe(1);
@@ -107,18 +108,18 @@ describe('achievement screen', () => {
     game.api.setup();
     game.w.devLockAllAchievements();
     game.w.openAchievements('locked');
-    const mystery = badges('SECRET')[0].querySelector('.ach-card-icon').innerHTML;
+    expect(badges('SECRET')[0].querySelector('.ach-card-icon').textContent).toBe('?');
 
     game.w.devUnlockAllAchievements();
     game.w.openAchievements('unlocked');
     const earned = [...badges('BASIC'), ...badges('SECRET')];
     expect(earned).toHaveLength(85);
-    for (const badge of earned) {
-      const icon = badge.querySelector('.ach-card-icon');
-      expect(icon.querySelector('path[d], use[href]')).not.toBeNull();
-      expect(icon.querySelector('text')).toBeNull();
-      expect(icon.innerHTML).not.toBe(mystery);
-    }
+    const artDirectory = new URL('../assets/ui/achievements/', import.meta.url);
+    const shipped = readdirSync(artDirectory).filter(file => /^ach-.*\.webp$/.test(file));
+    const used = earned.map(badge => badge.querySelector('img.ach-card-icon').getAttribute('src'));
+    expect(new Set(used)).toEqual(new Set(shipped.map(file => `assets/ui/achievements/${file}`)));
+    expect(query('[data-ach-id="games"] img').getAttribute('src')).toBe('assets/ui/achievements/ach-games.webp');
+    expect(query('[data-ach-id="score"] img').getAttribute('src')).toBe('assets/ui/achievements/ach-score.webp');
   });
 
   it('anchors to the glyph instead of the tap, clamps to the screen and flips below near the top', () => {
@@ -150,8 +151,8 @@ describe('achievement screen', () => {
     game.w.openAchievements();
     const rows = [...query('#ach-list').querySelectorAll('.ach-card')];
     expect(rows.some(row => row.querySelector('.ach-card-state small'))).toBe(true);
-    expect(rows.some(row => row.querySelector('.ach-card-state [aria-label="Unlocked"] svg'))).toBe(true);
-    expect(rows.every(row => row.querySelector('.ach-card-state > :is(small, .lb-ledger-tag):only-child'))).toBe(true);
+    expect(rows.some(row => row.querySelector('.ach-card-state [aria-label="Unlocked"]'))).toBe(true);
+    expect(rows.every(row => row.querySelector('.ach-card-state').children.length <= 1)).toBe(true);
     const [badge] = rows;
     hover(badge);
     const tip = query('#ach-tip');
@@ -217,7 +218,7 @@ describe('achievement screen', () => {
     expect(tip.hidden).toBe(true);
   });
 
-  it('renders one row and meter per goal, and reveals only earned tier requirements', () => {
+  it('renders one row and meter per goal and shows the entire tier ladder in detail', () => {
     game.api.setup({ save: { highscore: 800, achievements: { score: { tier: 1 }, games: { tier: 2 } } } });
     game.w.openAchievements();
     const score = () => query('#ach-list [data-ach-id="score"]');
@@ -230,7 +231,10 @@ describe('achievement screen', () => {
     expect(tip.textContent).toContain('Bronze — On the Board');
     expect(tip.textContent).toContain('Reach a score of 500');
     expect(tip.querySelector('.ach-tip-reward').textContent).toBe('Reward: +200 XP');
-    expect(tip.textContent).not.toMatch(/2,000|10,000|Silver|Gold/);
+    expect(tip.querySelector('.ach-detail-icon').getAttribute('src')).toBe('assets/ui/achievements/ach-score.webp');
+    expect(tip.textContent).toContain('Reach a score of 10,000');
+    expect(tip.querySelectorAll('progress')).toHaveLength(1);
+    expect(tip.querySelector('progress').position).toBe(0.4);
     expect([...tip.querySelectorAll('svg[data-locked="true"]')].map(shape => shape.getAttribute('aria-label')))
       .toEqual(['Silver locked', 'Gold locked']);
     expect(tip.querySelector('svg[data-tier="bronze"] circle').getAttribute('r')).toBe('5.2');
@@ -275,11 +279,13 @@ describe('achievement screen', () => {
     game.api.setup({ save: { pendingAchievementClaims: claims } });
     game.w.openAchievements('unlocked');
     expect(query('#ach-list').textContent).toContain('Nothing here yet.');
-    expect(query('#ach-list').textContent).toContain('PENDING REWARDS');
+    expect(query('.ach-content').firstElementChild).toBe(query('#ach-claims'));
+    expect(query('#ach-claims').textContent).toContain('PENDING REWARDS');
     const rareReward = query('.ach-pending-row[data-rarity="rare"]');
     expect(rareReward.querySelector('.lb-ledger-rarity-label').textContent).toBe('RARE');
     expect(rareReward.querySelector('strong').textContent).toBe('Mirror Universe');
-    for (const reward of query('#ach-list').querySelectorAll('.ach-pending-row')) {
+    expect(rareReward.querySelector('img.ach-claim-icon').getAttribute('src')).toBe('assets/ui/achievements/ach-stack.webp');
+    for (const reward of query('#ach-claims').querySelectorAll('.ach-pending-row')) {
       expect(reward.textContent).not.toMatch(/\bXP\b/);
     }
     expect(rareReward.querySelector('button').getAttribute('aria-label')).toBe('Claim Mirror Universe');

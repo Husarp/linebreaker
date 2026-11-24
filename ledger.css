@@ -339,32 +339,10 @@
     --lb-card-face: var(--lb-panel-face);
 }
 
-[data-ledger-tone='reward'], .mq-card[data-tier='secret'] { --lb-tone-face: var(--lb-reward-face); --lb-tone-art: #42331e; }
+[data-ledger-tone='reward'] { --lb-tone-face: var(--lb-reward-face); --lb-tone-art: #42331e; }
 [data-ledger-tone='collection'] { --lb-tone-face: var(--lb-collection-face); --lb-tone-art: #243e51; }
 [data-ledger-tone='achievement'] { --lb-tone-face: var(--lb-achievement-face); --lb-tone-art: #46354e; }
-.mq-card[data-tier='easy'] { --lb-mission-neon: var(--lb-mission-easy); }
-.mq-card[data-tier='normal'] { --lb-mission-neon: var(--lb-mission-medium); }
-.mq-card[data-tier='hard'] { --lb-mission-neon: var(--lb-mission-hard); }
-.mq-card:is([data-tier='easy'], [data-tier='normal'], [data-tier='hard']) {
-    --lb-tone-ink: #212b24;
-    --lb-tone-face: linear-gradient(120deg, color-mix(in srgb, var(--lb-mission-neon) 74%, white), transparent), var(--lb-mission-neon);
-    --lb-mission-edge: color-mix(in srgb, var(--lb-mission-neon) 55%, #202a23);
-    --mq-rail: var(--lb-mission-edge);
-    --mq-patch-outline: var(--lb-tone-ink);
-}
-.lb-game-root .mq-card:is([data-tier='easy'], [data-tier='normal'], [data-tier='hard']) {
-    border-color: var(--lb-mission-edge) !important;
-    box-shadow: inset 0 0 0 1px #ffffff80, 0 0 8px color-mix(in srgb, var(--lb-mission-neon) 48%, transparent) !important;
-}
-.mq-card:is([data-tier='easy'], [data-tier='normal'], [data-tier='hard']) :is(.mq-card-title, .mq-card-desc, .mq-pts, .mq-card-progress-value, .mq-claimed) {
-    color: var(--lb-tone-ink);
-}
-.mq-card:is([data-tier='easy'], [data-tier='normal'], [data-tier='hard']) .lb-block-progress {
-    --lb-track: #fff5df;
-    --lb-meter: var(--lb-tone-ink);
-    border: 1px solid var(--lb-tone-ink);
-}
-.lb-game-root :is(.lb-block-card, .lb-block-panel):is([data-ledger-tone], .mq-card[data-tier]) {
+.lb-game-root :is(.lb-block-card, .lb-block-panel)[data-ledger-tone] {
     --lb-card-face: var(--lb-tone-face, var(--lb-panel-face));
 }
 
@@ -1851,27 +1829,119 @@ svg.lb-ledger-chevron {
 #inventory-overlay #inventory-parts .lb-inventory-parts { margin: 0; min-height: 72px; }
 #inventory-overlay .lb-inventory-parts .lb-exchange-row-art { background: none; }
 
-#achievements-overlay .lb-collection-feature { margin-block-end: var(--lb-space-lg); }
+#achievements-overlay, #ach-tip {
+    --ach-page: linear-gradient(90deg, #34291f, #46382b 5%, #4a3d30 82%, #392d24);
+    --ach-ink: #f5e7cc;
+    --ach-muted: #e0d0b6;
+    --ach-rule: #806a51;
+    --ach-edge: #917455;
+    --ach-back: #32271d;
+    --ach-track: #685443;
+    --ach-meter: #dfba84;
+    --ach-scene: #2a231eeb;
+}
+[data-lb-ui-theme='light'] :is(#achievements-overlay, #ach-tip) {
+    --ach-page: linear-gradient(90deg, #ad926b, #e5d3ae 5%, #ecddc2 80%, #d9c3a2);
+    --ach-ink: #3a3027;
+    --ach-muted: #514537;
+    --ach-rule: #ae9977;
+    --ach-edge: #a58c62;
+    --ach-back: #a79373;
+    --ach-track: #cab38d;
+    --ach-meter: #675236;
+    --ach-scene: #e9dec8ed;
+}
+#achievements-overlay > .lb-scroll-fade {
+    background: linear-gradient(var(--ach-scene), var(--ach-scene)), url('assets/ui/tiles/stats-archive-calm.webp') center / cover;
+}
+#achievements-overlay .lb-collection-feature.ach-register-summary {
+    margin-block-end: var(--lb-space-sm);
+    min-height: 0;
+    padding: var(--lb-space-sm) var(--lb-space-md);
+    background: var(--ach-page);
+    color: var(--ach-ink);
+    border-color: var(--ach-edge);
+    --lb-meter: var(--ach-meter);
+    --lb-track: var(--ach-track);
+}
+#achievements-overlay .ach-register-summary :is(.lb-collection-label, #ach-milestone-count) { color: var(--ach-ink); }
+#achievements-overlay .ach-register-summary progress { --lb-meter: var(--ach-meter); --lb-track: var(--ach-track); }
 #achievements-overlay #ach-milestone-count { font-size: clamp(.8125rem, 4.7vw, 1.3125rem); white-space: nowrap; }
 #achievements-overlay .ach-toolbar { padding: 0; }
 #achievements-overlay .ach-summary { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; width: 100%; }
 #achievements-overlay .ach-count-label { padding: 0; border: 0; background: none; color: var(--lb-muted); }
 #achievements-overlay .ach-summary #ach-counter { color: var(--lb-muted); }
-#achievements-overlay .ach-records { padding: 0; gap: var(--lb-space-sm); }
-#achievements-overlay .ach-group { background: none; border: 0; box-shadow: none; }
-#achievements-overlay .ach-section-head { margin-block-end: var(--lb-space-sm); border-block-end: var(--lb-border) dashed var(--lb-rule); }
-#achievements-overlay button.ach-card {
-    display: grid;
-    justify-content: stretch;
-    grid-template-columns: 44px minmax(0, 1fr) 9ch;
-    min-height: 76px;
-    padding: 10px !important;
-    gap: 11px;
-    --lb-control-face: var(--lb-panel-face);
-    --lb-button-shadow: var(--lb-card-shadow);
+#achievements-overlay .ach-records { padding: 0; gap: 0; }
+#achievements-overlay .ach-group {
+    --lb-ink: var(--ach-ink);
+    --lb-muted: var(--ach-muted);
+    --lb-meter: var(--ach-meter);
+    --lb-track: var(--ach-track);
+    --lb-card-face: var(--ach-page);
+    --bb-frame-edge: var(--ach-edge);
+    --bb-frame-shadow: 2px 2px var(--ach-back);
+    color: var(--ach-ink);
+    padding: 0 var(--lb-space-md) var(--lb-space-xs);
+    border-inline-start-width: 4px !important;
 }
-#achievements-overlay .ach-card-icon { justify-self: center; }
-#achievements-overlay .ach-card .ach-card-icon.ach-tier-shape { width: 24px; height: 24px; color: var(--lb-tier-ink); }
+#achievements-overlay .ach-section-head { border-block-end: 2px solid var(--ach-edge); padding: var(--lb-space-sm) 0; }
+#achievements-overlay .ach-section-head .lb-block-section-title { color: var(--ach-ink); }
+#achievements-overlay button.ach-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    min-height: 68px;
+    text-align: start;
+    padding: 8px 0 !important;
+    gap: 0 9px;
+    --lb-control-face: transparent;
+    --lb-control-edge: transparent;
+    --lb-control-ink: var(--ach-ink);
+    --lb-button-border: 0;
+    --lb-button-shadow: none;
+    --lb-radius: 0;
+}
+#achievements-overlay button.ach-card + .ach-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    border-block-start: 1px solid var(--ach-rule);
+}
+#achievements-overlay button.ach-card:hover { --lb-control-face: color-mix(in srgb, var(--ach-meter) 10%, transparent); }
+#achievements-overlay .ach-card-icon { grid-area: 1 / 1 / span 2; align-self: center; justify-self: center; }
+#achievements-overlay .ach-card .ach-row-copy { grid-area: 1 / 2 / span 2; }
+.ach-voxel { width: 44px; height: 44px; object-fit: contain; }
+.ach-mystery { display: grid; place-items: center; width: 44px; height: 44px; font: 1.5rem var(--lb-font-pixel); }
+.ach-register-pips { grid-area: 1 / 3; display: flex; gap: 2px; align-self: end; justify-self: end; }
+.ach-register-pips .ach-tier-shape { width: 12px; height: 12px; color: var(--lb-tier-ink); }
+#achievements-overlay .ach-card-state { grid-area: 2 / 3; align-self: center; }
+#achievements-overlay .ach-card:not(:has(.ach-register-pips)) .ach-card-state { grid-row: 1 / span 2; }
+#achievements-overlay .ach-pending {
+    --lb-ink: #f4e7d1;
+    --lb-muted: #e3ceb2;
+    --lb-tier-ink-mix: 60%;
+    --lb-card-face: linear-gradient(95deg, #49332a, #382d28);
+    --bb-frame-edge: #977455;
+    --bb-frame-shadow: inset 3px 0 #27221c, 0 2px #191a15;
+    border-inline-start-width: 5px !important;
+}
+#achievements-overlay .ach-pending-head { padding: 8px 12px 0; border: 0; }
+#achievements-overlay .ach-pending-head h2 { color: var(--lb-ink); }
+#achievements-overlay :is(.ach-pending-head, .ach-section-head) h2 { font: 400 .75rem/1.3 var(--lb-font-pixel); }
+#achievements-overlay .ach-pending-list { padding: 0 12px; gap: 0; }
+#achievements-overlay .ach-pending-row {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    background: none;
+    border: 0;
+    border-block-end: 1px solid #80634f;
+    box-shadow: none;
+    padding: 6px 0;
+    min-height: 52px;
+    color: var(--lb-ink);
+}
+#achievements-overlay .ach-pending-row:last-child { border-block-end: 0; }
+.ach-claim-icon { width: 36px; height: 36px; }
 .ach-tier-shape { width: 16px; height: 16px; flex: none; fill: currentColor; }
 .ach-tier-shape[data-tier='bronze'] { --lb-tier-ink: #e8b18c; }
 .ach-tier-shape[data-tier='silver'] { --lb-tier-ink: #c5d9ec; }
@@ -1883,6 +1953,21 @@ svg.lb-ledger-chevron {
 .ach-tip-reward { color: var(--lb-label); }
 .ach-tier-shape[data-locked='true'] { fill: none; stroke: currentColor; stroke-width: 1; }
 .ach-tip-milestone { display: flex; align-items: flex-start; gap: var(--lb-space-sm); margin-block-start: var(--lb-space-sm); }
+#ach-tip {
+    --lb-meter: var(--ach-meter);
+    --lb-track: var(--ach-track);
+    --lb-label: var(--ach-ink);
+    --bb-ink: var(--ach-ink);
+    --bb-muted: var(--ach-muted);
+    --lb-card-face: var(--ach-page);
+    --bb-frame-edge: var(--ach-edge);
+    color: var(--ach-ink);
+}
+.ach-detail-head { display: flex; align-items: center; gap: var(--lb-space-sm); }
+.ach-detail-icon { flex: none; }
+#ach-tip .ach-tip-title { color: var(--ach-ink); }
+.ach-tip-milestone { border-block-start: 1px solid var(--ach-rule); padding-block-start: var(--lb-space-xs); }
+.ach-tip-milestone .lb-block-progress { display: block; height: 5px; margin-block: var(--lb-space-xs); }
 #achievements-overlay .ach-row-copy { gap: 2px; }
 #achievements-overlay .ach-row-copy strong { font: 700 .9375rem/1.25 var(--lb-font-body); }
 #achievements-overlay .ach-row-copy progress { width: min(100%, 12rem); margin-block-start: var(--lb-space-xs); }

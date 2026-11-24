@@ -5465,6 +5465,34 @@
         return `<path d="${art}" fill="currentColor" fill-rule="evenodd" shape-rendering="crispEdges"/>`;
     }
 
+    const achievementVoxels = Object.fromEntries(Object.entries({
+        trophy: 'prosperity pin_record pin_collector mq_double_badge',
+        target: 'surgeon surgeons_streak sec_exact_100 sec_exact_level sec_equal_pieces',
+        lightning: 'speed speed_placer sec_speedgames too_fast booster_user sec_booster_waste',
+        clock: 'speedrunner sec_turtle sec_early_bird afk pause_spam music_listener fav_track',
+        shield: 'loyal_piece clutch save_transfer skin_loyal',
+        crown: 'level_101',
+        chain: 'combo_master back_to_back third_charm deja_vu',
+        lines: 'total_lines i_piece_lines risky_break one_at_a_time double_satisfaction sec_seven',
+        stack: 'total_blocks high_placer sec_symmetric_board leaning_tower staircase dry_spell',
+        quads: 'quad_count',
+        score: 'score fun_score mirror_score fun_squared sec_nice sec_palindrome sec_420 exact_death the_2048',
+        spin: 'spinner dizzy sec_no_rotate indecisive',
+        harddrop: 'sec_no_drop sec_all_drop',
+        survive: 'survival marathon top_line',
+        box: 'daily_rare collector lucky_day gift_ignore',
+        spark: 'daily_xp board_clear logo_click',
+        list: 'rules_reader sec_big_font abort_mission mq_easy_quests mq_normal_quests mq_hard_quests mq_total_quests mq_secret_quests mq_daily_perfect mq_no_easy_epic mq_no_easy_legendary mq_hard_they_said mq_lazy_lucky',
+        games: 'games loser mute_jarvis',
+    }).flatMap(([art, ids]) => ids.split(' ').map(id => [id, art])));
+
+    function achievementRegisterArt(id, className) {
+        const art = Object.hasOwn(achievementVoxels, id) ? achievementVoxels[id] : null;
+        return art
+            ? `<img class="${className} ach-voxel" src="assets/ui/achievements/ach-${art}.webp" alt="" width="48" height="48" draggable="false">`
+            : `<span class="${className} ach-mystery" aria-hidden="true">?</span>`;
+    }
+
     const ACHIEVEMENTS_DEF = [
         // ── TIERED ────────────────────────────────────────────────
         {
@@ -6507,6 +6535,8 @@
 
         closeInfo();
         const tip = infoPanel('ach-tip');
+        const claimsContainer = overlay.querySelector('#ach-claims');
+        claimsContainer.replaceChildren();
 
         if (saveData.pendingAchievementClaims?.length > 0) {
             const pendingSection = document.createElement('section');
@@ -6548,12 +6578,12 @@
                     drawRankBadge();
                     renderAchievementsOverlay(tab);
                 }));
-                card.innerHTML = nameHtml;
+                card.innerHTML = achievementRegisterArt(claim.id, 'ach-claim-icon') + nameHtml;
                 card.appendChild(claimBtn);
                 pendingGrid.appendChild(card);
             });
             pendingSection.appendChild(pendingGrid);
-            container.appendChild(pendingSection);
+            claimsContainer.appendChild(pendingSection);
         }
 
         const sectionCounts = new Map();
@@ -6655,36 +6685,38 @@
             wrap.className = 'ach-card lb-block-btn lb-ledger-row';
             wrap.dataset.state = kind;
             if (!isSecretLocked) wrap.dataset.achId = ach.id;
-            const icon = isSecretLocked ? achievementIcon('question') : ach.svgIcon;
             const state = isUnlocked ? 'Unlocked' : 'Locked';
             const progressInfo = !isSecretLocked && nextTierProgress(item);
-            const detail = isSecretLocked ? state : ach.type === 'tiered'
-                ? (progressInfo ? `${achievementTiers[curTier][0]} progress` : `${achievementTiers[curTier - 1][0]} earned`)
+            const detail = isSecretLocked ? ach.clue || state : ach.type === 'tiered'
+                ? (ach.tiers[curTier]?.desc ?? `${achievementTiers[curTier - 1][0]} earned`)
                 : ach.desc || rc.label;
             const meter = progressInfo ? `<progress class="lb-block-progress" max="1" value="${_progressFrac}" aria-label="Achievement progress"></progress>` : '';
             const progressText = progressInfo && `${_fmtCounter(ach.counter, _getProgressVal(progressInfo.path))} / ${_fmtCounter(ach.counter, progressInfo.target)}`;
-            const art = ach.type === 'tiered' ? achievementTierShape(Math.max(0, curTier - 1), !isUnlocked, 'ach-card-icon')
-                : `<svg class="ach-card-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${icon}</svg>`;
+            const art = achievementRegisterArt(isSecretLocked ? null : ach.id, 'ach-card-icon');
+            const pips = ach.type === 'tiered' ? `<span class="ach-register-pips">${ach.tiers.map((tier, index) =>
+                achievementTierShape(index, index >= curTier)).join('')}</span>` : '';
             wrap.innerHTML = `${art}
-                <span class="ach-row-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small>${meter}</span>
+                <span class="ach-row-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small>${meter}</span>${pips}
                 <span class="ach-card-state">${progressText ? `<small>${escapeHtml(progressText)}</small>`
-                    : `<span class="lb-ledger-tag" role="img" aria-label="${state}">${isUnlocked
-                        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-reward-check"/></svg>' : ''}</span>`}</span>`;
+                    : (ach.type !== 'tiered' ? `<small role="img" aria-label="${state}">${state}</small>` : '')}</span>`;
             const iconEl = wrap.querySelector('.ach-card-icon');
             bindInfoPreview(wrap, () => {
                 const dateLine = value => {
                     const date = showDates && LBSave.displayDate(value);
                     return date ? `<div class="ach-tip-note">${_SVG_CALENDAR}${escapeHtml(date)}</div>` : '';
                 };
-                let html = `<div class="ach-tip-title">${isSecretLocked ? '???' : escapeHtml(ach.name)}</div>`;
+                let html = `<div class="ach-detail-head">${achievementRegisterArt(isSecretLocked ? null : ach.id, 'ach-detail-icon')}<div class="ach-tip-title">${isSecretLocked ? '???' : escapeHtml(title)}</div></div>`;
                 if (ach.type === 'tiered') {
                     const tierDates = saveData.achievements?.[ach.id]?.tierDates || {};
                     for (const [index, tier] of ach.tiers.entries()) {
                         const locked = index >= curTier;
                         const reward = pending.find(claim => claim.id === ach.id && claim.tierNum === index + 1)
                             || achievementTierReward(ach, index);
-                        html += `<div class="ach-tip-milestone">${achievementTierShape(index, locked)}${locked ? ''
-                            : `<div><strong>${achievementTiers[index][0]} — ${escapeHtml(tier.name)}</strong><div>${escapeHtml(tier.desc)}</div><div class="ach-tip-reward">Reward: ${achievementRewardLabel(reward)}</div>${dateLine(tierDates[index + 1])}</div>`}</div>`;
+                        html += `<div class="ach-tip-milestone">${achievementTierShape(index, locked)}
+                            <div><strong>${achievementTiers[index][0]} — ${escapeHtml(tier.name)}</strong>
+                            <div>${escapeHtml(tier.desc)}</div>${locked
+                                ? (index === curTier && progressInfo ? `${meter}<div>${escapeHtml(progressText)}</div>` : '')
+                                : `<div class="ach-tip-reward">Reward: ${achievementRewardLabel(reward)}</div>${dateLine(tierDates[index + 1])}`}</div></div>`;
                     }
                 } else {
                     if (!isSecretLocked) {
@@ -9806,11 +9838,10 @@
             <span class="mq-card-progress-value">${format(progress)} / ${format(target)}</span>
         </div>`;
         return `<div class="mq-card-wrap"${index == null ? '' : ` data-mission-slot="${index}"`}>
-            <article class="mq-card lb-block-card" data-tier="${escapeHtml(tier)}"${ready && !swapping ? ' data-ready' : ''}>
+            <article class="mq-card lb-block-card" tabindex="-1" data-tier="${escapeHtml(tier)}"${ready && !swapping ? ' data-ready' : ''}>
                 <div class="mq-card-icon">${icon}<span class="mq-pts">${pointLabel}</span></div>
-                <div class="mq-card-text"><h3 class="mq-card-title">${missionTitle}</h3><p class="mq-card-desc">${desc}</p></div>
-                <span class="mq-tier-badge">${tier === 'normal' ? 'Medium' : escapeHtml(tier)}</span>
-                ${meter}${reward || swap ? `<div class="mq-card-action${ready && !swapping ? ' mq-card-action--claim' : ''}">${reward}${swap}</div>` : ''}
+                <div class="mq-card-text"><span class="mq-tier-badge">${tier === 'normal' ? 'Medium' : escapeHtml(tier)}</span><h3 class="mq-card-title">${missionTitle}</h3><p class="mq-card-desc">${desc}</p></div>
+                <div class="mq-card-slot">${meter}${reward || swap ? `<div class="mq-card-action${ready && !swapping ? ' mq-card-action--claim' : ''}">${reward}${swap}</div>` : ''}</div>
             </article>
         </div>`;
     }
@@ -9822,6 +9853,8 @@
     function _missionProgressBar(points, milestones, claimed, isWeekly) {
         const lastThreshold = milestones[milestones.length - 1].pts;
         const goal = isWeekly ? MQ_WEEKLY_GOLDEN_THRESHOLD : lastThreshold;
+        const start = milestones[0].pts;
+        const range = goal - start;
         const markers = milestones.map(({ pts }) => {
             const isClaimed = (claimed || []).includes(pts);
             const reached = points >= pts || isClaimed;
@@ -9829,65 +9862,34 @@
             const crate = _missionCrateMarker(rarity, !reached);
             const label = `${pts} points: ${reached ? `${rarity} crate` : 'locked crate'}`;
             const content = `${crate}<span aria-hidden="true">${pts}</span>`;
+            const position = `style="--mq-stop:${100 * (pts - start) / range}%"`;
             if (reached && !isClaimed) {
-                return `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" onclick="window._claimMissionMilestone(${pts},${!!isWeekly},false,this)" aria-label="Claim ${label}" data-control-tip="Claim ${label}">${content}</button>`;
+                return `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" ${position} onclick="window._claimMissionMilestone(${pts},${!!isWeekly},false,this)" aria-label="Claim ${label}" data-control-tip="Claim ${label}">${content}</button>`;
             }
-            return `<span class="mq-ms-marker" role="img" aria-label="${label}${isClaimed ? ', claimed' : ''}" title="${label}${isClaimed ? ' (claimed)' : ''}">${content}${isClaimed ? '<span class="mq-ms-claimed" aria-hidden="true">✓</span>' : ''}</span>`;
+            return `<span class="mq-ms-marker" role="img" ${position} aria-label="${label}${isClaimed ? ', claimed' : ''}" title="${label}${isClaimed ? ' (claimed)' : ''}">${content}${isClaimed ? '<span class="mq-ms-claimed" aria-hidden="true">✓</span>' : ''}</span>`;
         });
         if (isWeekly) {
             const pending = saveData.missions?.weekly?.pendingUniversalParts || 0;
             const content = `<img class="mq-ms-crate${points <= goal && !pending ? ' mq-ms-crate--locked' : ''}" src="${LBArtPack.universalPart('common')}" alt=""><span aria-hidden="true">${goal}+</span>`;
             const label = `${goal}+ points: earn +1 Common Universal Part per extra point`;
             markers.push(pending > 0
-                ? `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} ${LBCrates.universalPartName('common', pending)}">${content}<span class="mq-ms-claimed" aria-hidden="true">+${escapeHtml(pending)}</span></button>`
-                : `<span class="mq-ms-marker" role="img" aria-label="${label}" data-mqctip="${label}">${content}</span>`);
+                ? `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" style="--mq-stop:100%" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} ${LBCrates.universalPartName('common', pending)}">${content}<span class="mq-ms-claimed" aria-hidden="true">+${escapeHtml(pending)}</span></button>`
+                : `<span class="mq-ms-marker" role="img" style="--mq-stop:100%" aria-label="${label}" data-mqctip="${label}">${content}</span>`);
         }
-        return `<div class="mq-milestone-meter">
-            <span class="mq-pb-points">${escapeHtml(points)} pts</span>
-            <progress class="lb-block-progress" aria-label="Crate milestone progress" max="${goal}" value="${Math.min(points, goal)}"></progress>
-        </div><div class="mq-pb-icons">${markers.join('')}</div>`;
+        return `<span class="mq-pb-points">${escapeHtml(points)} pts</span>
+        <div class="mq-milestone-meter">
+            <progress class="lb-block-progress" aria-label="Crate milestone progress" aria-valuetext="${escapeHtml(points)} of ${goal} points"
+                max="${range}" value="${Math.min(range, Math.max(0, points - start))}"></progress>
+            <div class="mq-pb-icons">${markers.join('')}</div>
+        </div>`;
     }
 
     function _sortQuests(quests) {
         const tierOrder = { hard: 0, normal: 1, easy: 2, secret: 3 };
         return [...quests].sort((a, b) => {
             const ta = tierOrder[a.tier] ?? 2, tb = tierOrder[b.tier] ?? 2;
-            if (ta !== tb) return ta - tb;
-            const pa = a.target > 0 ? (a.progress || 0) / a.target : 0;
-            const pb = b.target > 0 ? (b.progress || 0) / b.target : 0;
-            return pb - pa;
+            return ta - tb;
         });
-    }
-
-    function missionCardPositions(body) {
-        const cards = body.querySelectorAll('[data-mission-slot], #mq-bonus-box');
-        return new Map([...cards].map(card => [card.dataset.missionSlot ?? 'bonus', { card, rect: card.getBoundingClientRect() }]));
-    }
-
-    function animateMissionClaims(body, previousCards) {
-        const currentCards = missionCardPositions(body);
-        const removed = [...previousCards].filter(([slot, { rect }]) =>
-            slot !== 'bonus' && rect.height && !currentCards.has(slot));
-        if (!removed.length) return;
-
-        for (const [, { card, rect }] of removed) {
-            card.classList.add('lb138-mission-exit');
-            card.inert = true;
-            Object.assign(card.style, { top: `${rect.top}px`, left: `${rect.left}px`, width: `${rect.width}px`, height: `${rect.height}px` });
-            body.closest('#missions-overlay').append(card);
-            const exit = card.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(-10px) scale(.9)' }],
-                { duration: 220, easing: 'ease-in', fill: 'forwards' });
-            exit.finished.then(() => card.remove(), () => card.remove());
-        }
-
-        for (const [slot, { card, rect }] of currentCards) {
-            const prior = previousCards.get(slot)?.rect;
-            if (!prior || !rect.height) continue;
-            const dx = prior.left - rect.left;
-            const dy = prior.top - rect.top;
-            if (dx || dy) card.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
-                { duration: 260, easing: 'ease-out' });
-        }
     }
 
     function renderMissionsOverlay(tab, opening = false) {
@@ -9929,8 +9931,6 @@
         swap.textContent = swapping ? 'Cancel swap' : 'Swap';
         el.querySelector('#mq-swaps-left').textContent = swapUsed ? '0 swaps left today' : '1 swap left today';
 
-        const active = _sortQuests(entries.filter(quest => !quest.ptsClaimed));
-        const completed = _sortQuests(entries.filter(quest => quest.ptsClaimed));
         const bonus = m.specialBox?.pts || 0;
         const bonusBox = view.querySelector('#mq-bonus-box');
         const bonusProgress = bonusBox.querySelector('progress');
@@ -9938,13 +9938,8 @@
         bonusProgress.max = MQ_SPECIAL_BOX_CAP;
         bonusProgress.value = Math.min(bonus, MQ_SPECIAL_BOX_CAP);
         const body = el.querySelector('#missions-body');
-        const beforeClaim = !opening && previousTab === tab && !el.classList.contains('hidden')
-            && typeof body.animate === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-            ? missionCardPositions(body) : null;
-        body.innerHTML = `<div class="mq-cards">${active.map(quest => _missionQuestCard(quest, quest === period.secret ? 'secret' : quests.indexOf(quest), weekly)).join('')}</div>
-            ${completed.length ? `<h3 class="lb-block-section-title mq-completed">Completed</h3>
-                <div class="mq-cards">${completed.map(quest => _missionQuestCard(quest, null, weekly)).join('')}</div>` : ''}`;
-        if (beforeClaim) animateMissionClaims(body, beforeClaim);
+        body.innerHTML = `<div class="mq-cards">${_sortQuests(entries).map(quest =>
+            _missionQuestCard(quest, quest === period.secret ? 'secret' : quests.indexOf(quest), weekly)).join('')}</div>`;
         for (const star of milestones.querySelectorAll('[data-mqctip]')) {
             bindInfoPreview(star, () => {
                 const panel = infoPanel('mq-body-tip');
@@ -10239,9 +10234,13 @@
         m.stats.totalPts = (m.stats.totalPts || 0) + pts;
         // Capture button position BEFORE re-render destroys it
         const _fromRect = btnEl ? btnEl.getBoundingClientRect() : null;
+        const focusedSlot = btnEl === document.activeElement ? btnEl.closest('[data-mission-slot]')?.dataset.missionSlot : null;
         saveDataToFile();
         if (silent) return;
         renderMissionsOverlay(isWeekly ? 'weekly' : 'daily');
+        if (focusedSlot != null) {
+            document.querySelector(`#missions-body [data-mission-slot="${focusedSlot}"] .mq-card`)?.focus({ preventScroll: true });
+        }
         _checkGlowNotifications();
         // Animations are purely visual (data already committed above)
         const _bonusDeltaCapture = _bonusBoxDelta;

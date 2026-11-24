@@ -397,30 +397,35 @@
                 if (!singleColumn) fail('Achievements must have one record per line');
                 const claims = await page.locator('.ach-pending').evaluate(section =>
                     !section.querySelector('.ach-pending-head button')
-                    && [...section.querySelectorAll('.ach-pending-row')].every(row => row.querySelector('button')?.textContent === 'Claim')
+                    && section.parentElement === document.querySelector('.ach-content').firstElementChild
+                    && [...section.querySelectorAll('.ach-pending-row')].every(row => row.querySelector('button')?.textContent === 'Claim'
+                        && row.querySelector('img.ach-voxel')?.naturalWidth > 0)
                     && section.textContent.includes('Legendary crate'));
                 if (!claims) fail('Pending tier rewards must have individual claims and no bulk claim');
                 const tierRows = await page.locator('#ach-list [data-ach-id]').evaluateAll(rows => {
                     const games = rows.find(row => row.dataset.achId === 'games');
                     return new Set(rows.map(row => row.dataset.achId)).size === rows.length
                         && games?.querySelector('svg[aria-label="Bronze earned"]')
+                        && rows.every(row => /^assets\/ui\/achievements\/ach-.*\.webp$/.test(row.querySelector('img.ach-voxel')?.getAttribute('src')))
                         && games.querySelectorAll('progress').length === 1;
                 });
                 if (!tierRows) fail('Tiered goals must have one row and one next-tier meter');
-                const summit = await page.locator('#achievements-overlay .lb-r17-feature').evaluate(card =>
-                    getComputedStyle(card).backgroundImage.includes('summit-shrine.webp'));
-                if (!summit) fail('Featured Milestones is missing Summit shrine');
+                const register = await page.locator('#achievements-overlay .lb-scroll-fade').evaluate(scroll =>
+                    getComputedStyle(scroll).backgroundImage.includes('stats-archive-calm.webp')
+                    && getComputedStyle(scroll.querySelector('.ach-group')).backgroundImage.startsWith('linear-gradient('));
+                if (!register) fail('The achievement register must use vellum pages over the archive backdrop');
                 const games = page.locator('[data-ach-id="games"]');
                 await games.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
                 await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
                 await games.click();
-                const earnsOnly = await page.locator('#ach-tip').evaluate(tip => !tip.hidden
-                    && tip.textContent.includes('Play 10 games') && !/100|1,000/.test(tip.textContent)
+                const tiers = await page.locator('#ach-tip').evaluate(tip => !tip.hidden
+                    && tip.textContent.includes('Play 10 games') && tip.textContent.includes('100')
+                    && tip.querySelector('.ach-detail-icon')?.naturalWidth > 0 && tip.querySelectorAll('progress').length === 1
                     && [...tip.querySelectorAll('.ach-tip-reward')].map(line => line.textContent).join() === 'Reward: +200 XP'
                     && tip.querySelectorAll('svg[data-locked="true"]').length === 2);
-                if (!earnsOnly) fail('Achievement details must hide locked tier requirements');
+                if (!tiers) fail('Achievement detail must show the tier ladder, next-tier progress, and earned rewards');
                 await games.click();
-                await page.locator('#achievements-overlay .ach-content').evaluate(content => { content.scrollTop = 0; });
+                await page.locator('#achievements-overlay .lb-scroll-fade').evaluate(content => { content.scrollTop = 0; });
             }
             if (name === 'playlist') {
                 const deck = await page.locator('#playlist-overlay').evaluate(overlay => {
@@ -608,6 +613,7 @@
                     const rows = [...document.querySelectorAll('#missions-body .mq-card')].slice(0, 2);
                     const count = document.querySelector('.mq-header #mq-list-meta');
                     return card?.querySelector('time')?.dateTime && selected?.dataset.tab === period
+                        && card.querySelector('#mq-milestones progress')
                         && /mission-(forest-outpost|map-room)\.webp/.test(getComputedStyle(card).backgroundImage)
                         && selected.getBoundingClientRect().bottom <= card.getBoundingClientRect().top
                         && /\d+ \/ \d+ complete/.test(count?.textContent) && !count.hidden
@@ -618,26 +624,27 @@
                 const cardDesign = await page.evaluate(() => {
                     const cards = [...document.querySelectorAll('#missions-body .mq-card')];
                     const regular = cards.filter(card => card.dataset.tier !== 'secret');
-                    const colors = new Set(regular.map(card => getComputedStyle(card).backgroundColor));
+                    const colors = new Set(regular.map(card => getComputedStyle(card.querySelector('.mq-card-icon')).backgroundColor));
                     return colors.size === new Set(regular.map(card => card.dataset.tier)).size
                         && regular.every(card => {
-                            const face = getComputedStyle(card);
-                            const [red, green, blue] = face.backgroundColor.match(/[\d.]+/g).map(Number);
-                            const neon = card.dataset.tier === 'easy' ? green >= 230 && red < 130 && blue < 130
+                            const patch = getComputedStyle(card.querySelector('.mq-card-icon'));
+                            const [red, green, blue] = patch.backgroundColor.match(/[\d.]+/g).map(Number);
+                            const neon = card.dataset.tier === 'easy' ? green >= 220 && red < 130 && blue < 130
                                 : card.dataset.tier === 'normal' ? red >= 250 && green >= 150 && blue < 100
                                 : red >= 250 && green < 130 && blue > green;
                             const ink = getComputedStyle(card.querySelector('.mq-card-title')).color.match(/[\d.]+/g).map(Number);
-                            return neon && face.backgroundImage.startsWith('linear-gradient(') && face.boxShadow !== 'none'
-                                && ink.every(channel => channel < 65);
+                            return neon && ink.every(channel => channel > 200);
                         })
                         && cards.every(card => {
                             const art = card.querySelector('.mq-card-icon .mq-patch[viewBox="0 0 16 16"]')?.getBoundingClientRect();
+                            const patch = card.querySelector('.mq-card-icon').getBoundingClientRect();
                             const points = card.querySelector('.mq-card-icon .mq-pts');
-                            return art?.width === 32 && art.height === 32 && points &&
+                            return patch.width === patch.height && card.querySelector('.mq-card-text').getBoundingClientRect().left > patch.right
+                                && art?.width === 32 && art.height === 32 && points &&
                                 points.getBoundingClientRect().top >= art.bottom && /\+\d+ SP/.test(points.textContent);
                         });
                 });
-                if (!cardDesign) fail('Mission cards must use readable neon difficulty faces and put SP below the icon');
+                if (!cardDesign) fail('Mission cards must use square difficulty patches, with the text beside them and SP below the icon');
             }
             if (name === 'season-pass') {
                 const track = await page.evaluate(() => {

@@ -1,6 +1,10 @@
 #missions-overlay {
     --mq-column: 640px;
-    --mq-inset: 18px;
+    --mq-inset: 14px;
+    --mq-iron-face: #2c3535;
+    --mq-iron-edge: #647370;
+    --mq-iron-ink: #f5eee1;
+    --mq-iron-muted: #d6ded5;
     z-index: 1004;
     flex-direction: column;
     align-items: stretch;
@@ -41,75 +45,88 @@
     overflow-wrap: normal;
     word-break: normal;
 }
+#missions-overlay > #mq-mission-view {
+    padding-block-start: var(--lb-space-sm);
+    background: linear-gradient(#182124e8, #1d2225f5), url('assets/ui/tiles/missions-outpost.webp') center / cover, #1d2225;
+}
+[data-lb-ui-theme='light'] #missions-overlay > #mq-mission-view {
+    background: linear-gradient(#ece1cbe8, #e9dfc9f5), url('assets/ui/tiles/missions-outpost.webp') center / cover, #e9dfc9;
+}
 .mq-shell {
     max-inline-size: var(--mq-column);
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--lb-space-lg);
+    gap: var(--lb-space-sm);
     margin-inline: auto;
 }
 .mq-shell :is(h2, h3, p) { margin: 0; }
-.mq-board {
-    --lb-feature-art: url('assets/ui/bg/forest-portrait.jpg');
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--lb-space-xs);
-    min-block-size: 118px;
-    padding: var(--lb-space-lg);
-    background-position: center;
+.lb-game-root #missions-overlay .mq-board.lb-block-card {
+    --lb-card-face: linear-gradient(90deg, #1e252af7 30%, #22292bd4 63%, #252c29b8),
+        var(--lb-r17-art) center 52% / cover, #252c29;
+    --lb-ink: var(--mq-iron-ink);
+    --lb-muted: var(--mq-iron-muted);
+    --lb-label: #c5dfa3;
+    --lb-utility: #f4cd80;
+    --lb-danger: #ffaca3;
+    --lb-track: #697571;
+    --lb-meter: #e1d3ae;
+    --bb-frame-edge: var(--mq-iron-edge);
+    position: relative;
+    display: block;
+    min-height: 0;
+    padding: 10px 12px;
 }
-.mq-board h2 {
-    margin-block: 5px 4px;
-    color: var(--lb-art-ink);
-    font: 400 1.3125rem/1.18 var(--lb-font-heading);
-    letter-spacing: -.045em;
-}
-.mq-board p { max-inline-size: 34ch; color: var(--lb-art-ink); font: 400 var(--lb-type-small)/1.32 var(--lb-font-body); }
+.mq-board .mq-list-head { margin-block-end: 0; padding-inline-end: 4.75rem; }
+.mq-board .lb-info-btn { margin-inline: 0 auto; }
 #mq-countdown {
     display: inline-flex;
-    flex: none;
     align-items: center;
     gap: 6px;
-    padding: var(--lb-space-sm);
-    border: var(--lb-border) solid var(--lb-art-rule);
-    border-radius: var(--lb-radius);
-    background: var(--lb-scrim);
-    color: var(--lb-art-ink);
-    font: 750 var(--lb-type-small)/1.2 var(--lb-font-body);
+    color: var(--lb-muted);
+    font: 600 var(--lb-type-micro)/1.2 var(--lb-font-body);
     font-variant-numeric: tabular-nums;
 }
-#mq-countdown svg { inline-size: 17px; block-size: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; }
-#mq-countdown small { display: block; margin-block-start: 2px; color: var(--lb-art-label); font-size: .5rem; letter-spacing: .08em; text-transform: uppercase; }
+#mq-countdown svg { inline-size: 13px; block-size: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+#mq-countdown time { white-space: nowrap; }
 #mq-countdown[data-urgency='soon'] { color: var(--lb-utility); }
 #mq-countdown[data-urgency='urgent'] { color: var(--lb-danger); }
 
 .mq-milestone-meter {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: var(--lb-space-sm);
-    border-block-start: var(--lb-border) solid var(--lb-rule);
-    padding-block-start: var(--lb-space-sm);
+    position: relative;
 }
-.mq-pb-points { font-weight: 750; white-space: nowrap; }
+.mq-milestone-meter > progress {
+    position: absolute;
+    inset: 24px 22px auto;
+    width: calc(100% - 44px);
+    height: 4px;
+}
+.mq-pb-points {
+    position: absolute;
+    inset: 13px 12px auto auto;
+    color: var(--lb-ink);
+    font: 750 var(--lb-type-small)/1.2 var(--lb-font-body);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
 .mq-shell .mq-pb-icons {
-    display: flex;
-    justify-content: space-evenly;
-    flex-wrap: wrap;
-    height: auto;
-    gap: var(--lb-space-xs);
+    position: relative;
+    min-block-size: 44px;
+    margin-inline: 22px;
     margin-block-start: var(--lb-space-xs);
 }
-.mq-shell :is(.mq-ms-marker, .mq-ms-claim-btn) {
-    position: relative;
+#missions-overlay .mq-pb-icons :is(.mq-ms-marker, .mq-ms-claim-btn) {
+    position: absolute;
+    inset-block-start: 0;
+    left: var(--mq-stop);
+    translate: -50% 0;
     display: grid;
     justify-items: center;
     align-content: center;
-    min-inline-size: 44px;
-    min-block-size: 44px;
+    box-sizing: border-box;
+    inline-size: 44px;
+    block-size: 44px;
     gap: 0;
-    padding: 0 var(--lb-space-xs);
+    padding: 0;
     color: var(--lb-muted);
     font: 650 var(--lb-type-micro)/1.1 var(--lb-font-body);
 }
@@ -118,7 +135,7 @@
 .mq-ms-crate--locked { filter: grayscale(1); opacity: .58; }
 .mq-ms-claimed { position: absolute; top: 0; inset-inline-end: 0; color: var(--lb-label); }
 
-.mq-board-actions, .mq-list-head {
+.mq-list-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -130,10 +147,9 @@
     --lb-control-face: var(--lb-panel);
     --lb-button-shadow: var(--lb-card-shadow);
 }
-.mq-board-actions { flex-direction: column; align-items: stretch; }
 #missions-overlay .lb-block-btn.mq-season-card {
-    --lb-control-face: linear-gradient(90deg, var(--lb-art) 42%, color-mix(in srgb, var(--lb-art) 57%, transparent)),
-        url('assets/ui/41-season-pass-banner.webp') right center / cover no-repeat, var(--lb-art);
+    --lb-control-face: linear-gradient(90deg, #332c23 42%, #302920aa),
+        url('assets/ui/41-season-pass-banner.webp') right center / cover no-repeat, #332c23;
     --lb-control-edge: var(--lb-action-rim);
     --lb-control-ink: var(--lb-art-ink);
     --lb-button-shadow: var(--lb-card-shadow);
@@ -141,7 +157,7 @@
     grid-template-columns: minmax(0, 1fr) auto 16px;
     align-items: center;
     gap: var(--lb-space-sm);
-    min-height: 100px;
+    min-height: 72px;
     padding: 10px var(--lb-space-md) !important;
     text-align: start;
     letter-spacing: normal;
@@ -152,60 +168,76 @@
 .mq-season-card :is(.lb-menu-kicker, small, .lb-ledger-chevron) { color: var(--lb-art-label); }
 .mq-season-card .lb-menu-kicker { font-size: min(var(--lb-type-micro), 2.6vw); }
 .mq-season-copy small { font: inherit; }
-.mq-season-card img { display: block; width: clamp(52px, calc(100vw - 310px), 65px); height: auto; object-fit: contain; }
+.mq-season-card img { display: block; width: 50px; height: auto; object-fit: contain; }
 .mq-season-card .lb-ledger-chevron { justify-self: center; width: 7px; height: 7px; border-width: 1px; }
 .mq-swap-control { display: flex; align-items: center; gap: var(--lb-space-sm); color: var(--lb-muted); font-size: var(--lb-type-small); }
+.mq-orders { flex-wrap: wrap; }
+.mq-orders .mq-swap-control { margin-inline-start: auto; white-space: nowrap; font-size: var(--lb-type-micro); }
 #missions-overlay #mq-change-toggle { min-inline-size: 76px; white-space: nowrap; }
 #missions-overlay #mq-change-toggle[aria-pressed='true'] { --lb-control-edge: var(--lb-label); --lb-control-face: var(--lb-track); }
 .mq-list-head { color: var(--lb-muted); font-size: var(--lb-type-small); margin-block-end: var(--lb-space-sm); }
 .mq-list-head .lb-block-section-title { color: var(--lb-ink); }
-.mq-shell .mq-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--lb-space-sm); margin: 0; }
-.mq-shell .mq-card, #missions-overlay .lb138-mission-exit > .mq-card {
+.mq-shell :is(.mq-board, .mq-orders) .lb-block-section-title { font: 400 .75rem/1.3 var(--lb-font-pixel); }
+.mq-shell .mq-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--lb-space-xs); margin: 0; }
+.lb-game-root #missions-overlay .mq-card[data-tier] {
+    --lb-card-face: linear-gradient(105deg, #353e3e, var(--mq-iron-face));
+    --mq-patch-size: 78px;
+    --mq-patch-dye: #bfa16b;
+    --mq-patch-outline: #1d2924;
+    --lb-meter: #dee3b3;
+    --lb-track: #697571;
+    --bb-frame-edge: var(--mq-iron-edge);
+    --bb-frame-shadow: none;
     display: grid;
-    height: auto;
-    min-block-size: 94px;
-    grid-template-columns: 48px minmax(0, 1fr) auto;
+    grid-template-columns: var(--mq-patch-size) minmax(0, 1fr) 67px;
     align-items: center;
-    gap: var(--lb-space-sm) 11px;
-    padding: 11px;
-    border-inline-start: 3px solid var(--mq-rail, var(--lb-rule)) !important;
+    gap: 8px;
+    padding: 0 8px 0 0;
+    border-radius: 2px;
 }
-#missions-overlay .mq-card[data-ready] { --mq-rail: var(--lb-meter); }
+.lb-game-root #missions-overlay .mq-card[data-tier='easy'] { --mq-patch-dye: #60e870; }
+.lb-game-root #missions-overlay .mq-card[data-tier='normal'] { --mq-patch-dye: #ffa63e; }
+.lb-game-root #missions-overlay .mq-card[data-tier='hard'] { --mq-patch-dye: #ff618a; }
+.lb-game-root #missions-overlay .mq-card[data-tier='secret'] { --lb-card-face: linear-gradient(105deg, #413824, #322c24); }
 .mq-card-icon {
     display: grid;
-    grid-column: 1;
-    grid-row: 1 / 3;
+    align-content: center;
+    justify-content: center;
     justify-items: center;
+    align-self: start;
+    gap: 4px;
+    inline-size: var(--mq-patch-size);
+    block-size: var(--mq-patch-size);
+    background: var(--mq-patch-dye);
 }
 .mq-patch { display: block; }
-[data-lb-ui-theme='light'] .mq-patch { --mq-patch-outline: #45372d; }
-.mq-card-icon .mq-pts { margin: 0; color: var(--lb-ink); font: var(--lb-type-micro)/1.3 var(--lb-font-pixel); }
-.mq-card .mq-card-title { color: var(--lb-ink); font: 700 .9375rem/1.25 var(--lb-font-body); }
-.mq-card .mq-card-desc { color: var(--lb-muted); font: var(--lb-type-small)/1.32 var(--lb-font-body); margin-block-start: 2px; }
+.mq-card-icon .mq-pts { margin: 0; color: #202920; font: var(--lb-type-micro)/1.3 var(--lb-font-pixel); }
+.mq-card-text { padding-block: 8px; }
+.mq-card .mq-card-title { color: var(--mq-iron-ink); font: 750 .9375rem/1.2 var(--lb-font-body); }
+.mq-card .mq-card-desc { color: var(--mq-iron-muted); font: var(--lb-type-small)/1.25 var(--lb-font-body); margin-block-start: 2px; }
 .mq-card .mq-tier-badge {
-    align-self: start;
+    display: block;
     margin: 0;
     border: 0;
     background: none;
     padding: 0;
-    color: var(--lb-tone-ink, var(--lb-utility));
-    font: 700 var(--lb-type-micro)/1.15 var(--lb-font-body);
+    color: var(--mq-patch-dye);
+    font: 400 var(--lb-type-micro)/1.2 var(--lb-font-pixel);
     text-transform: uppercase;
 }
-.mq-card-progress {
-    display: flex;
-    align-items: center;
-    gap: var(--lb-space-sm);
-    grid-column: 2 / -1;
+.mq-card-slot { display: grid; min-block-size: 44px; align-items: center; }
+.mq-card-slot > * { grid-area: 1 / 1; }
+.mq-card-slot:has(.mq-card-action) .mq-card-progress { visibility: hidden; }
+.mq-card-progress { display: grid; gap: 4px; }
+.mq-card-progress .lb-block-progress { width: 100%; height: 4px; }
+.mq-card-progress-value { grid-row: 1; text-align: end; color: var(--mq-iron-muted); font: var(--lb-type-micro)/1.2 var(--lb-font-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mq-card-action { display: flex; justify-content: end; align-items: center; }
+.mq-card-action .mq-change-overlay { position: static; min-width: 0; }
+.mq-claimed { color: var(--mq-iron-muted); font: 650 var(--lb-type-micro)/1.25 var(--lb-font-body); white-space: nowrap; }
+@media (max-width: 374px) {
+    #missions-overlay { --mq-inset: 10px; }
+    .lb-game-root #missions-overlay .mq-card[data-tier] { --mq-patch-size: 70px; }
 }
-.mq-card-progress .lb-block-progress { min-inline-size: 0; flex: 1; }
-.mq-card-progress-value { min-width: 37px; text-align: end; color: var(--lb-muted); font: var(--lb-type-micro)/1.2 var(--lb-font-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.mq-card-action { display: flex; justify-content: end; align-items: center; grid-column: 2 / -1; }
-.mq-card:has(.mq-card-progress) .mq-card-action--claim { grid-column: 3; }
-.mq-card:has(.mq-card-action--claim) .mq-card-progress { grid-column: 2; }
-.mq-card-action .mq-change-overlay { position: static; }
-.mq-claimed { color: var(--lb-label); font: 650 var(--lb-type-small)/1.25 var(--lb-font-body); }
-#missions-body .mq-completed { margin-block: var(--lb-space-md) var(--lb-space-sm); }
 .mq-board-details { display: grid; gap: var(--lb-space-md); }
 .mq-calendar { display: grid; gap: var(--lb-space-sm); }
 .mq-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--lb-space-xs); }
