@@ -1,6 +1,11 @@
 ## [1.4.3]
 
 - Removed the daily tip from the loading screen.
+- Crate openings fade the vault artwork into a two-column reward grid.
+- Run summaries show a fading score card, a crown for personal bests, and simpler actions. Tap a reward row to open its destination.
+- Player XP shows the base and booster bonus separately, and applied boosters carry a Used stamp.
+- Simultaneous clear, combo, and level-up messages stack on the board. Speed and Pause sit flush on phones.
+- Removed corner artwork from the main-menu music player. Simplified the theme switch and size steppers, and aligned info icons across screens.
 
 ## [1.4.2] [2026-11-24] Run rewards, inventory filters, and a steadier Season Pass
 

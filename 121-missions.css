@@ -76,8 +76,7 @@
     min-height: 0;
     padding: 10px 12px;
 }
-.mq-board .mq-list-head { margin-block-end: 0; padding-inline-end: 4.75rem; }
-.mq-board .lb-info-btn { margin-inline: 0 auto; }
+.mq-board .mq-list-head { margin-block-end: 0; }
 #mq-countdown {
     display: inline-flex;
     align-items: center;
@@ -277,7 +276,6 @@
     .mq-season-card img { width: 34px; }
     .mq-season-copy { gap: 0; }
     .lb-game-root #missions-overlay .mq-board.lb-block-card { padding-block: 4px; }
-    .mq-board .lb-info-btn { height: 30px; }
     .mq-shell .mq-pb-icons { min-block-size: 40px; }
     .mq-milestone-meter { --mq-axis: 17px; }
     .mq-pb-points { inset-block-start: 7px; }
@@ -315,7 +313,6 @@
     .mq-season-copy small { font-size: .62rem; }
     .mq-season-card img { width: 28px; }
     #missions-overlay .mq-board .mq-list-head { min-height: 34px; }
-    #missions-overlay .mq-board .lb-info-btn { min-height: 32px; height: 32px; }
     .mq-shell .mq-pb-icons { min-block-size: 36px; }
     .mq-card .mq-tier-badge { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
     .mq-card .mq-card-title { font-size: .75rem; }

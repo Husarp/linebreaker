@@ -390,8 +390,6 @@ body[data-pack="pixel"] #custom-confirm .modal-text { font-family: var(--bb-font
 #settings-overlay .lb-controls-row .lb-btn[aria-pressed="true"] { --bb-button-edge: var(--accent); --bb-button-face: color-mix(in srgb, var(--accent) 19%, var(--bb-face)); }
 #settings-overlay .lb-controls-reset { justify-self: start; }
 #settings-overlay .c-pill-wrap { gap: 4px; }
-#settings-overlay .e-stepper { min-width: 0; }
-#settings-overlay .e-step-bar { width: clamp(12px, 6vw, 76px); }
 
 #playlist-overlay :is(#pl-mw-title, #pl-mw-elapsed, #pl-mw-total) { color: var(--bb-muted) !important; }
 .lb-playlist-tools { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); position: relative; margin-bottom: var(--space-3); }

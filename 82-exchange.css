@@ -28,9 +28,8 @@
     width: 100%;
     min-width: 0;
     padding: 4px;
-    border: var(--bb-stroke) solid var(--bb-edge);
-    border-radius: var(--bb-cap);
-    background: var(--bb-panel);
+    border: 0;
+    background: transparent;
     color: var(--bb-ink);
     font: inherit;
     font-variant-numeric: tabular-nums;

@@ -701,8 +701,9 @@
                         && tiles[0].top >= box('.lb-top-band').bottom + topBuffer - 1
                         && tiles.every(tile => near(tile.width, tiles[0].width) && near(tile.top, tiles[0].top) && tile.bottom < board.top)
                         && [speed, pause, ...(hold.width > 0 ? [hold] : [])].every(tile =>
-                            near(tile.width, tiles[0].width) && near(tile.top, speed.top) && tile.top >= board.bottom)
-                        && near(speed.left, tiles[2].left) && near(pause.left, tiles[3].left)
+                            near(tile.top, speed.top) && tile.top >= board.bottom)
+                        && near(speed.left, tiles[2].left) && near(speed.right, pause.left)
+                        && near(speed.width, pause.width) && near(pause.right, tiles[3].right)
                         && box('#pc-next-canvas').width >= 40 && box('#pc-next-canvas').bottom <= tiles[0].bottom
                         && (hold.width === 0 || near(hold.left, tiles[1].left));
                 });
@@ -734,8 +735,13 @@
                     return row.top >= top - 1 && row.bottom <= bottom + 1;
                 });
                 if (!boostersFit) fail('XP booster buttons cannot be brought fully into view above the run actions');
-                const earned = page.locator('#go-total-xp');
-                const xpBefore = await earned.textContent();
+                const base = page.locator('#go-xp-amount');
+                const bonus = page.locator('#go-xp-bonus');
+                const xpBefore = await base.textContent();
+                if (await bonus.isVisible()) fail('Bonus XP must only show after using a booster');
+                if (await page.locator('#go-overlay :is(.go-reward-ledger, .go-ach-card, .result-retry, .result-pin, .result-menu) .lb-ledger-chevron').count()) {
+                    fail('Run reward rows and primary actions must have no chevrons');
+                }
                 const boosters = page.locator('.go-boost-list button');
                 await boosters.first().click();
                 if (await boosters.count() !== await page.locator('.go-boost-list button:disabled').count()
@@ -743,8 +749,9 @@
                     fail('Used boosters must stay marked and lock all booster buttons');
                 }
                 if (await page.locator('#go-overlay .lb-scroll-top:visible').count()
-                    && !await page.locator('#go-overlay .go-heading .lb-scroll-top').count()) fail('Results scroll shortcut must not cover run actions');
-                await page.waitForFunction(before => document.getElementById('go-total-xp').textContent !== before, xpBefore);
+                    && !await page.locator('#go-overlay .go-view-actions .lb-scroll-top').count()) fail('Results scroll shortcut must not cover run actions');
+                await page.waitForFunction(() => /^\+[1-9]/.test(document.getElementById('go-xp-bonus').textContent));
+                if (!await bonus.isVisible() || await base.textContent() !== xpBefore) fail('The booster bonus must appear below the base XP');
                 await capture?.('game-over-used');
                 const viewBoard = page.locator('#go-view-board');
                 await viewBoard.click();

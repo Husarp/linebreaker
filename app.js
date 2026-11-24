@@ -500,8 +500,19 @@
     const lineClear = LBLineClear.create();
     
     class FloatingText{
-        constructor(x,y,txt,c,sz,startL){this.x=x+(Math.random()-0.5)*20;this.y=y;this.txt=txt;this.c=c;this.l=startL!==undefined?startL:1.0;this.vy=-1.5;this.sz=sz||22;this.paused=false;this.punchT=1;}
-        update(dt=1000/60){const f=dt*60/1000;if(!this.paused){this.y+=this.vy*f;this.l-=0.0165*f;if(this.punchT<1)this.punchT=Math.min(1,this.punchT+0.14*f);}}
+        constructor(txt, color, size = 22, punch = false) {
+            this.txt = txt;
+            this.c = color;
+            this.sz = size;
+            this.l = 1;
+            this.punchT = punch ? 0 : 1;
+        }
+        update(dt) {
+            const frames = dt * 60 / 1000;
+            this.y += this.vy * frames;
+            this.l -= .0165 * frames;
+            this.punchT = Math.min(1, this.punchT + .14 * frames);
+        }
         draw(ctx){
             ctx.save();
             ctx.globalAlpha=Math.max(0,this.l);
@@ -517,7 +528,7 @@
                 this.spriteWidth=Math.ceil(tc.measureText(this.txt).width+48);
                 this.spriteHeight=this.sz*2+48;
                 tile.width=Math.ceil(this.spriteWidth*dpr); tile.height=Math.ceil(this.spriteHeight*dpr);
-                tc.scale(dpr,dpr); tc.font=font; tc.textAlign='center';
+                tc.scale(dpr,dpr); tc.font=font; tc.textAlign='center'; tc.textBaseline='middle';
                 tc.strokeStyle='#000'; tc.lineWidth=4;
                 tc.strokeText(this.txt,this.spriteWidth/2,this.sz+24);
                 tc.fillStyle=this.c; tc.shadowColor=this.c; tc.shadowBlur=10*dpr;
@@ -528,6 +539,31 @@
             ctx.restore();
         }
     }
+    function showFloatingTexts(texts, boardY) {
+        const height = canvas._logicalHeight;
+        const lineHeight = text => text.sz * 1.5 + 10;
+        const naturalHeight = texts.reduce((sum, text) => sum + lineHeight(text), 0);
+        // Leave room for the group's upward drift and the largest glyphs at full scale.
+        const lift = Math.min(92, height / 4);
+        const fit = Math.min(1, (height - lift) / naturalHeight);
+        const stackHeight = naturalHeight * fit;
+        const boardTop = SPAWN_ROWS * BLOCK;
+        const mirror = settings.optMirror;
+        const center = mirror ? height - (boardY - boardTop) : boardY - boardTop;
+        let top = Math.max(lift, Math.min(height - stackHeight, center - stackHeight / 2));
+        for (const text of texts) {
+            const row = lineHeight(text) * fit;
+            const baseline = top + row / 2;
+            text.x = canvas._logicalWidth / 2;
+            text.y = boardTop + (mirror ? height - baseline : baseline);
+            text.vy = (mirror ? 1 : -1) * lift / 61;
+            text.sz = Math.floor(text.sz * fit);
+            top += row;
+        }
+        // A new clear replaces the previous group as a unit.
+        floatingTexts = texts;
+    }
+
     const _noiseBuffers = new WeakMap();
     function _noiseBuffer(seconds) {
         let buffers=_noiseBuffers.get(audioCtx);
@@ -2916,8 +2952,8 @@
         if (!(target instanceof HTMLElement) || !target.matches('.lb-scroll-fade')) return;
         if (target.scrollTop > 120 && target !== activeScroller) {
             activeScroller = target;
-            const resultsHeader = target.closest('.go-dialog')?.querySelector('.go-heading');
-            (resultsHeader || target.closest('dialog, .overlay, [id$="-overlay"]') || document.body).append(scrollTopButton);
+            const resultsActions = target.closest('.go-dialog')?.querySelector('.go-view-actions');
+            (resultsActions || target.closest('dialog, .overlay, [id$="-overlay"]') || document.body).append(scrollTopButton);
         }
         if (target === activeScroller) scrollTopButton.hidden = target.scrollTop <= 120 && target !== scrollToTopTarget;
     }, true);
@@ -4852,10 +4888,6 @@
         const v = Math.max(parseInt(inp.min), Math.min(parseInt(inp.max), parseInt(inp.value) + delta * parseInt(inp.step || '1')));
         inp.value = v;
         inp.dispatchEvent(new Event('input'));
-        const valEl = document.getElementById(id + '-step-val');
-        if (valEl) valEl.innerText = v;
-        const fillEl = document.getElementById(id + '-step-fill');
-        if (fillEl) fillEl.style.width = ((v - parseInt(inp.min)) / (parseInt(inp.max) - parseInt(inp.min)) * 100).toFixed(1) + '%';
     }
     function _setXpBarFill(pct) {
         const fill = document.getElementById('menu-xp-bar-fill');
@@ -4926,9 +4958,7 @@
         const fsSlider = document.getElementById('slider-fontsize'); if (fsSlider) fsSlider.value = fsV;
         const gsSlider = document.getElementById('slider-gamescale'); if (gsSlider) gsSlider.value = gsV;
         const fsValEl = document.getElementById('fontsize-step-val'); if (fsValEl) fsValEl.innerText = fsV;
-        const fsFill = document.getElementById('fontsize-step-fill'); if (fsFill) fsFill.style.width = ((fsV-1)/9*100).toFixed(1)+'%';
         const gsValEl = document.getElementById('gamescale-step-val'); if (gsValEl) gsValEl.innerText = gsV;
-        const gsFill = document.getElementById('gamescale-step-fill'); if (gsFill) gsFill.style.width = ((gsV-1)/9*100).toFixed(1)+'%';
         // DAS / ARR / Grid D-steps
         const dasSlider = document.getElementById('slider-das');
         if (dasSlider) { dasSlider.value = settings.das || 160; _dStepsSync('das-dtrack','',dasSlider,50,300); }
@@ -5066,7 +5096,6 @@
             applyFontSize(value);
             const fsSl = document.getElementById('slider-fontsize'); if (fsSl) fsSl.value = value;
             const fsVEl = document.getElementById('fontsize-step-val'); if (fsVEl) fsVEl.innerText = value;
-            const fsFEl = document.getElementById('fontsize-step-fill'); if (fsFEl) fsFEl.style.width = ((parseInt(value)-1)/9*100).toFixed(1)+'%';
             saveSettingsDebounced(); return;
         } else if (key === 'gameScale') {
             settings.gameScale = value;
@@ -5074,7 +5103,6 @@
             _syncRunMissions();
             const gsSl = document.getElementById('slider-gamescale'); if (gsSl) gsSl.value = value;
             const gsVEl = document.getElementById('gamescale-step-val'); if (gsVEl) gsVEl.innerText = value;
-            const gsFEl = document.getElementById('gamescale-step-fill'); if (gsFEl) gsFEl.style.width = ((parseInt(value)-1)/9*100).toFixed(1)+'%';
             saveSettingsDebounced(); return;
         } else if (key === 'uiTheme') {
             if (!['dark', 'light', 'system'].includes(value)) return;
@@ -8395,9 +8423,10 @@
             // Dry Spell reset on line clear
             _noLinePlacementCount = 0;
             // Double the Satisfaction: back-to-back quads
-            if (rows.length >= 4 && _lastClearWasQuad && !saveData.achievements?.['double_satisfaction']?.unlocked) { unlockAchievement('double_satisfaction'); }
+            const backToBack = rows.length >= 4 && _lastClearWasQuad;
+            if (backToBack && !saveData.achievements?.['double_satisfaction']?.unlocked) { unlockAchievement('double_satisfaction'); }
             // Mission: quad streak (2 quads in a row)
-            if (rows.length >= 4 && _lastClearWasQuad) _mq_quadStreak = true;
+            if (backToBack) _mq_quadStreak = true;
             _lastClearWasQuad = rows.length >= 4;
             // Surgeon's Streak: 1,2,3,4 in exact order
             if (rows.length === _surgeonStreakStep + 1) { _surgeonStreakStep++; if (_surgeonStreakStep >= 4 && !saveData.achievements?.['surgeons_streak']?.unlocked) { unlockAchievement('surgeons_streak'); } }
@@ -8425,7 +8454,6 @@
             })();
             _lastMoveWasRotation = false;
             // Combo tracking
-            const _comboCountBefore = _comboCount;
             _comboCount += rows.length;
             if (_comboCount > _maxComboThisGame) _maxComboThisGame = _comboCount;
             const clearMs = settings.lineClearMs ?? 150;
@@ -8439,42 +8467,35 @@
                 const basePts = _LINE_PTS[lR] || lR * 10;
                 rawGameplayXPThisGame += Math.floor(basePts * SPEED_MULTIPLIERS[speedLevel-1]);
                 let actualPts = Math.round(Math.floor(basePts * SPEED_MULTIPLIERS[speedLevel-1]) * currentScoreMultiplier);
-                xpFromLinesThisGame += actualPts; score += actualPts; _spawnScoreFly(actualPts); linesClearedThisGame+=lR;
+                xpFromLinesThisGame += actualPts; score += actualPts; linesClearedThisGame+=lR;
                 playSFX('clear');
 
                 const ftColor = COLORS[Math.floor(Math.random() * 7) + 1];
                 const ftCenterY = (rows[0] + rows[rows.length-1]) / 2 * BLOCK;
-                let ftY = ftCenterY - 20; // start position, stack downward
-                // T-spin label
+                const clearTexts = [];
                 if (_isTSpin) {
                     _tSpinsThisGame++;
-                    floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, ftY, 'T-SPIN!', '#ff44ff', 28));
-                    ftY += 24;
+                    clearTexts.push(new FloatingText('T-SPIN!', '#ff44ff', 28));
                     if (lR === 3) { saveData.stats.tSpinTriples = (saveData.stats.tSpinTriples || 0) + 1; if (!saveData.achievements?.['clutch']?.unlocked) unlockAchievement('clutch'); }
                 }
-                // Multi-line label
-                const _label = _CLEAR_LABELS[lR];
-                if (_label) { floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, ftY, _label, ftColor)); ftY += 22; }
-                // Points
-                floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, ftY, `+${actualPts}`, ftColor));
-                ftY += 22;
-                // Combo display (starting at combo 2)
+                const label = _CLEAR_LABELS[lR];
+                if (label) clearTexts.push(new FloatingText(label, ftColor));
+                if (backToBack) clearTexts.push(new FloatingText('BACK-TO-BACK', '#ffcc00'));
+                clearTexts.push(new FloatingText(`+${actualPts}`, ftColor));
+
+                let comboBonus = 0;
                 if (_comboCount >= 2) {
                     const baseComboBonus = (_comboCount - 1) * COMBO_STEP_POINTS;
                     rawGameplayXPThisGame += baseComboBonus;
-                    const comboBonus = Math.round(baseComboBonus * currentScoreMultiplier);
-                    score += comboBonus; xpFromLinesThisGame += comboBonus; _spawnScoreFly(comboBonus);
-                    const cColor = _getComboColor(_comboCount);
-                    const comboSz = Math.min(38, 20 + _comboCount * 2);
-                    const comboY = ftY;
-                    const numSteps = _comboCount - _comboCountBefore; // equals lR
-                    const ft = new FloatingText(canvas._logicalWidth/2, comboY, `COMBO ×${_comboCount}`, cColor, comboSz);
-                    ft.x = canvas._logicalWidth/2;
-                    if (numSteps > 1) ft.punchT = 0;
-                    floatingTexts.push(ft);
-                    ftY += 24;
-                    floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, ftY, `+${comboBonus}`, cColor));
+                    comboBonus = Math.round(baseComboBonus * currentScoreMultiplier);
+                    score += comboBonus;
+                    xpFromLinesThisGame += comboBonus;
+                    const color = _getComboColor(_comboCount);
+                    const size = Math.min(38, 20 + _comboCount * 2);
+                    clearTexts.push(new FloatingText(`COMBO ×${_comboCount}`, color, size, lR > 1));
+                    clearTexts.push(new FloatingText(`+${comboBonus}`, color));
                 }
+                _spawnScoreFly(actualPts + comboBonus);
 
                 const oldSpeed = speedLevel;
                 const _baseSpeed = currentGameMode === 'fun' ? Math.max(1, funModeConfig.startSpeed) : 1;
@@ -8493,10 +8514,11 @@
                     }
                     playSFX('levelup');
                     if (settings.showSpeedUp !== false) {
-                        floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, canvas._logicalHeight / 2 - 20, `LEVEL UP!`, '#ffcc00', 32));
-                        floatingTexts.push(new FloatingText(canvas._logicalWidth / 2, canvas._logicalHeight / 2 + 10, `LV ${speedLevel}`, '#ffcc00', 20));
+                        clearTexts.push(new FloatingText('LEVEL UP!', '#ffcc00', 32));
+                        clearTexts.push(new FloatingText(`LV ${speedLevel}`, '#ffcc00', 20));
                     }
                 }
+                showFloatingTexts(clearTexts, ftCenterY);
                 dropInterval = Math.floor(1000 / speedLevel);
                 // Board clear check (after removing lines)
                 if (board.every(row => row.every(v => v === 0))) _boardClearedThisGame = true;
@@ -8597,6 +8619,7 @@
         else hint.innerHTML = `<span class="label">${fun ? 'Fun record' : 'Personal record'}</span><span class="value">${record.toLocaleString()}</span><small>${(-difference).toLocaleString()} to beat</small>`;
     }
     const _scoreFlyRects = new Map();
+    const _scoreFlyLabels = new Map();
     function _refreshScoreFlyRects() {
         ['pc-score','m-score'].forEach(id => {
             const el=document.getElementById(id);
@@ -8618,7 +8641,9 @@
             if (!rect || rect.width === 0) return;
             el.classList.remove('score-pop'); requestAnimationFrame(() => el.classList.add('score-pop'));
             el.addEventListener('animationend', function _sp(e) { if (e.target !== el) return; el.classList.remove('score-pop'); el.removeEventListener('animationend', _sp); });
+            _scoreFlyLabels.get(id)?.remove();
             const fly = document.createElement('div');
+            _scoreFlyLabels.set(id, fly);
             fly.textContent = '+' + Math.round(pts).toLocaleString();
             fly.style.cssText = `position:fixed;left:${rect.left+rect.width/2}px;top:${rect.bottom+2}px;`+
                 `transform:translateX(-50%);font-family:inherit;font-weight:900;`+
@@ -8627,7 +8652,10 @@
                 `white-space:nowrap;text-shadow:0 0 6px currentColor;`+
                 `animation:scoreFly ${dur}ms ease-out forwards;`;
             document.body.appendChild(fly);
-            setTimeout(()=>fly.remove(), dur+50);
+            setTimeout(() => {
+                fly.remove();
+                if (_scoreFlyLabels.get(id) === fly) _scoreFlyLabels.delete(id);
+            }, dur + 50);
         });
     }
     
@@ -8672,7 +8700,7 @@
     let goSeasonPoints = 0;
 
     function goRewardButton(destination, label) {
-        return `<button type="button" class="lb-block-btn lb-block-btn--icon" data-go-destination="${destination}" aria-label="${escapeHtml(label)}"><span class="lb-ledger-chevron" aria-hidden="true"></span></button>`;
+        return `<button type="button" class="lb-block-btn lb-block-btn--icon" data-go-destination="${destination}" aria-label="${escapeHtml(label)}"></button>`;
     }
 
     function appendGoReward({ label, amount, destination, place, icon, art }) {
@@ -8725,13 +8753,18 @@
 
     function _renderGoXP(xp, totalXP, previousXP = null) {
         const earned = document.getElementById('go-total-xp');
+        const amount = document.getElementById('go-xp-amount');
+        const bonus = document.getElementById('go-xp-bonus');
         const detail = document.getElementById('go-xp-progress');
+        const baseXP = previousXP ?? xp;
+        bonus.hidden = xp <= baseXP;
         if (previousXP == null) valueAnimations.delete(earned);
         animateValue(earned, previousXP ?? 0, xp, value => {
             const shownXP = Math.round(value);
             const shownTotal = totalXP - xp + shownXP;
             const info = getLevelInfo(shownTotal);
-            earned.textContent = `+${shownXP.toLocaleString()} XP`;
+            amount.textContent = `+${Math.min(shownXP, baseXP).toLocaleString()} XP`;
+            bonus.textContent = bonus.hidden ? '' : `+${Math.max(0, shownXP - baseXP).toLocaleString()} bonus XP`;
             detail.textContent = info.isCelestite
                 ? `${Math.floor(shownTotal).toLocaleString()} total XP`
                 : `${Math.floor(info.currentXP).toLocaleString()} / ${info.neededXP.toLocaleString()} XP to next level`;
@@ -8977,8 +9010,8 @@
                 return `<li><button type="button" class="lb-block-btn" data-rarity="${rarity}" ${used ? 'data-used' : ''} ${_boosterUsedThisRound ? 'disabled' : ''} onclick="window.useScoreBooster('${key}')" aria-label="${used ? `${label}: Used` : `Use ${label}, ${escapeHtml(saveData.boosters[key])} available`}">
                     ${LBArtPack.boosterIcon(rarity)}
                     <strong>${label.replace(' Booster', ' XP')}</strong>
-                    <small>${rarity}${used ? ' · <span class="go-booster-used">Used</span>' : ''}</small>
-                    ${used ? '' : `<span class="lb-block-reward-amount">×${escapeHtml(saveData.boosters[key])}</span>`}
+                    ${used ? '<span class="go-booster-used">Used</span>'
+                        : `<small>${rarity}</small><span class="lb-block-reward-amount">×${escapeHtml(saveData.boosters[key])}</span>`}
                 </button></li>`;
             }).join('')}</ul>`;
     }
@@ -11693,6 +11726,7 @@
         window.__lb = {
             get state() { return copy({board, player, score, lines: linesClearedThisGame, level: speedLevel, holdPiece, holdUsed, combo: _comboCount, isGameOver, dropInterval}); },
             get save() { return copy(saveData); },
+            get clearTexts() { return floatingTexts.map(({ txt, y, sz }) => ({ txt, y, sz })); },
             get pieces() { return copy(BASE_PIECES); },
             setup({cells, type = 6, x = 3, y = 0, speed = 1, scoreMultiplier = 1, save} = {}) {
                 board = cells ? copy(cells) : Array.from({length: ROWS}, () => Array(COLS).fill(0));
@@ -11704,6 +11738,7 @@
                 dropCounter = 0; lastTime = performance.now(); currentScoreMultiplier = scoreMultiplier;
                 isPaused = false; isGameOver = false; isAnimating = false; _hardDropAnimating = false;
                 lineClear.reset();
+                floatingTexts = []; _lastClearWasQuad = false;
                 holdPiece = null; holdUsed = false; _comboCount = 0; _lastMoveWasRotation = false;
                 settings.optHold = true; settings.hardDropLock = false;
                 document.getElementById('go-overlay').classList.add('hidden');

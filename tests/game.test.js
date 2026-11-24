@@ -40,6 +40,23 @@ it('adds combo across successive clears', () => {
   for(let i=0;i<2;i++){const b=empty(); b[21].fill(1);a.setBoard(b);a.sweep();game.advance(200);}
   expect(a.state.score).toBe(30); expect(a.state.combo).toBe(2);
 });
+it('stacks back-to-back clears, combo points, and a level-up in one visible group', () => {
+  for (let index = 0; index < 3; index++) {
+    const cells = empty();
+    cells.slice(-4).forEach(row => row.fill(1));
+    a.setBoard(cells);
+    expect(a.sweep()).toBe(true);
+    game.advance(155);
+  }
+  const texts = a.clearTexts;
+  expect(texts.map(text => text.txt)).toEqual(['QUAD!', 'BACK-TO-BACK', '+40', 'COMBO ×12', '+110', 'LEVEL UP!', 'LV 2']);
+  for (let index = 1; index < texts.length; index++) {
+    const before = texts[index - 1];
+    const after = texts[index];
+    expect(after.y - before.y).toBeGreaterThanOrEqual(.75 * (before.sz + after.sz));
+  }
+  expect(a.state.score).toBe(330);
+});
 it('no-clear placement resets combo', () => {
   const b=empty(); b[21].fill(1);a.setBoard(b);a.sweep();game.advance(200);
   a.hardDrop();game.advance(100);expect(a.state.combo).toBe(0);

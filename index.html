@@ -748,33 +748,27 @@
                 <div class="settings-title lb-help-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>DISPLAY <button type="button" class="lb-info-btn" data-help-section="display" aria-label="About display settings" data-control-tip="About display settings"></button></div>
                 <div class="settings-row">
                     <span>Font size</span>
-                    <div style="min-width:190px;display:flex;align-items:center;justify-content:flex-end;">
-                        <div class="e-stepper">
-                            <button class="e-step-btn" onclick="window._eStepChange('fontsize',-1)">−</button>
-                            <div class="e-step-bar"><div class="e-step-bar-fill" id="fontsize-step-fill" style="width:44.4%"></div></div>
-                            <span class="e-step-val" id="fontsize-step-val">5</span>
-                            <button class="e-step-btn" onclick="window._eStepChange('fontsize',1)">+</button>
-                        </div>
-                        <input type="range" min="1" max="10" step="1" value="5" id="slider-fontsize" aria-label="Font size" style="display:none;"
+                    <div class="e-stepper" role="group" aria-label="Font size">
+                        <button type="button" class="lb-block-btn lb-block-btn--ghost e-step-btn" aria-label="Decrease font size" onclick="window._eStepChange('fontsize',-1)">−</button>
+                        <output class="e-step-val" id="fontsize-step-val">5</output>
+                        <button type="button" class="lb-block-btn lb-block-btn--ghost e-step-btn" aria-label="Increase font size" onclick="window._eStepChange('fontsize',1)">+</button>
+                        <input type="range" min="1" max="10" step="1" value="5" id="slider-fontsize" hidden
                             oninput="window.onSettingChange('fontSize', this.value)">
                     </div>
                 </div>
                 <div class="settings-row">
                     <span>Game size</span>
-                    <div style="min-width:190px;display:flex;align-items:center;justify-content:flex-end;">
-                        <div class="e-stepper">
-                            <button class="e-step-btn" onclick="window._eStepChange('gamescale',-1)">−</button>
-                            <div class="e-step-bar"><div class="e-step-bar-fill" id="gamescale-step-fill" style="width:44.4%"></div></div>
-                            <span class="e-step-val" id="gamescale-step-val">5</span>
-                            <button class="e-step-btn" onclick="window._eStepChange('gamescale',1)">+</button>
-                        </div>
-                        <input type="range" min="1" max="10" step="1" value="5" id="slider-gamescale" aria-label="Game scale" style="display:none;"
+                    <div class="e-stepper" role="group" aria-label="Game size">
+                        <button type="button" class="lb-block-btn lb-block-btn--ghost e-step-btn" aria-label="Decrease game size" onclick="window._eStepChange('gamescale',-1)">−</button>
+                        <output class="e-step-val" id="gamescale-step-val">5</output>
+                        <button type="button" class="lb-block-btn lb-block-btn--ghost e-step-btn" aria-label="Increase game size" onclick="window._eStepChange('gamescale',1)">+</button>
+                        <input type="range" min="1" max="10" step="1" value="5" id="slider-gamescale" hidden
                             oninput="window.onSettingChange('gameScale', this.value)">
                     </div>
                 </div>
                 <div class="settings-row">
                     <span id="settings-theme-label">Theme</span>
-                    <div class="lb-block-tabs lb102-theme" aria-labelledby="settings-theme-label" role="group">
+                    <div class="lb102-theme" aria-labelledby="settings-theme-label" role="group">
                         <button type="button" class="lb-block-tab" data-ui-theme="dark" aria-pressed="true">Dark</button>
                         <button type="button" class="lb-block-tab" data-ui-theme="light" aria-pressed="false">Light</button>
                         <button type="button" class="lb-block-tab" data-ui-theme="system" aria-pressed="false">System</button>
@@ -976,14 +970,12 @@
         </div>
         <div class="lb-block-panel lb-playlist-library">
             <div class="lb-playlist-tools lb-block-panel-head">
-                <div class="lb-help-label">
-                    <h2 class="lb-block-section-title">Track selection</h2>
-                    <details class="lb-block-info">
-                        <summary class="lb-block-info-icon" aria-label="About playlist selection"></summary>
-                        <div class="lb-block-tooltip">Menu tracks play outside a run. Game tracks play during a run. Select a track name to play it now.</div>
-                    </details>
-                </div>
+                <h2 class="lb-block-section-title">Track selection</h2>
                 <button type="button" class="lb-block-btn" onclick="window.resetPlaylist()">↺ Reset</button>
+                <details class="lb-block-info">
+                    <summary class="lb-block-info-icon" aria-label="About playlist selection"></summary>
+                    <div class="lb-block-tooltip">Menu tracks play outside a run. Game tracks play during a run. Select a track name to play it now.</div>
+                </details>
             </div>
             <div id="playlist-panel-content" class="lb-scroll-fade" tabindex="0"></div>
         </div>
@@ -1009,21 +1001,16 @@
 <!-- GAME OVER -->
 <div id="go-overlay" class="overlay hidden" data-lb-bar-screen role="dialog" aria-modal="true" aria-labelledby="go-title">
     <div class="go-dialog">
-        <header class="go-heading lb-block-topbar">
-            <div class="lb-topbar-crumb">
-                <button type="button" class="lb-block-back" onclick="window.resetGameToMenu()" aria-label="Menu"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
-                <span class="lb-topbar-kicker">Run summary</span><h1 class="lb-topbar-title" id="go-title">Game Over</h1>
-            </div>
-            <span class="lb-topbar-meta" id="go-mode">Normal</span>
-        </header>
+        <h1 class="lb-visually-hidden" id="go-title">Run summary</h1>
         <div class="go-dialog-body lb-scroll-fade" role="region" aria-label="Run results" tabindex="0">
             <section class="go-score-card lb-block-card" aria-label="Scores">
                 <div>
+                    <div class="lb-topbar-kicker" id="go-mode">Normal</div>
                     <div class="lb-topbar-kicker" id="go-record-label" hidden>New personal best</div>
                     <dl><div class="go-score-main"><dt>Final score</dt><dd id="go-score">0</dd></div>
                         <div class="go-best-line" id="go-previous-best"><dt>Personal best</dt><dd id="go-best-score">0</dd></div></dl>
                 </div>
-                <div id="go-record-medal" hidden><img src="assets/ui/medals/gold.png" width="78" height="78" alt=""></div>
+                <div id="go-record-medal" hidden><img src="assets/ui/achievements/ach-crown.webp" width="64" height="64" alt=""><span>1st place</span></div>
             </section>
             <dl class="go-run-stats lb-block-card" aria-label="Run stats">
                 <div><dt>Lines</dt><dd id="go-lines-cnt">0</dd></div>
@@ -1033,8 +1020,8 @@
             <section id="go-rewards" aria-labelledby="go-rewards-title">
                 <div class="go-rewards-heading"><h2 class="lb-topbar-kicker" id="go-rewards-title">Run rewards</h2><span class="lb-topbar-kicker">Earned</span></div>
                 <dl class="go-reward-ledger">
-                    <div id="go-xp-row"><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-total-xp"/></svg><span>Player XP<small id="go-xp-progress"></small></span></dt><dd class="lb-ledger-tag" id="go-total-xp" aria-live="polite">+0 XP</dd><dd class="go-reward-target"><button type="button" class="lb-block-btn lb-block-btn--icon" data-go-destination="stats" aria-label="View player XP in Statistics"><span class="lb-ledger-chevron" aria-hidden="true"></span></button></dd></div>
-                    <div id="go-record-bonus" hidden><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Record bonus</span></dt><dd class="lb-ledger-tag" id="go-record-bonus-xp"></dd><dd class="go-reward-target"><button type="button" class="lb-block-btn lb-block-btn--icon" data-go-destination="stats" aria-label="View record XP in Statistics"><span class="lb-ledger-chevron" aria-hidden="true"></span></button></dd></div>
+                    <div id="go-xp-row"><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-total-xp"/></svg><span>Player XP<small id="go-xp-progress"></small></span></dt><dd id="go-total-xp" aria-live="polite"><span id="go-xp-amount">+0 XP</span><small id="go-xp-bonus" hidden></small></dd><dd class="go-reward-target"><button type="button" class="lb-block-btn lb-block-btn--icon" data-go-destination="stats" aria-label="View player XP in Statistics"></button></dd></div>
+                    <div id="go-record-bonus" hidden><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Record bonus</span></dt><dd id="go-record-bonus-xp"></dd><dd class="go-reward-target"><button type="button" class="lb-block-btn lb-block-btn--icon" data-go-destination="stats" aria-label="View record XP in Statistics"></button></dd></div>
                 </dl>
             </section>
             <dl class="go-reward-ledger" id="go-earned-rewards" aria-label="Other run rewards" hidden></dl>
@@ -1043,10 +1030,12 @@
         </div>
 
         <div class="go-actions lb-block-dialog-actions">
-            <button type="button" class="lb-block-btn lb-block-btn--primary lb-ledger-action result-retry" onclick="window.startGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg><span>Play Again</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-ledger-action result-menu" onclick="window.resetGameToMenu()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-topbar-home"/></svg><span>Main Menu</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-ledger-action result-pin" onclick="window.pinCurrentScore()" id="go-pin-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-pin"/></svg><span>Pin score</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-            <button type="button" class="lb-block-btn lb-ledger-action result-view-board" id="go-view-board"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-blocks"/></svg><span>View board</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-block-btn--primary lb-ledger-action result-retry" onclick="window.startGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg><span>Play Again</span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action result-menu" onclick="window.resetGameToMenu()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-topbar-home"/></svg><span>Main Menu</span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action result-pin" onclick="window.pinCurrentScore()" id="go-pin-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-pin"/></svg><span>Pin score</span></button>
+            <div class="go-view-actions">
+                <button type="button" class="lb-block-btn lb-ledger-action result-view-board" id="go-view-board"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-blocks"/></svg><span>View board</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            </div>
         </div>
     </div>
 </div>

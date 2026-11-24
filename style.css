@@ -573,13 +573,6 @@ input.d-steps-input { position: absolute !important; left: -7px !important; top:
 .d-steps-val { font-size: 0.7rem; color: #888; min-width: 52px; text-align: right; font-family: monospace; flex-shrink: 0; }
 
 /* === E-STEPPER === */
-.e-stepper { display: flex; align-items: center; gap: 6px; width: 100%; margin: 2px 0; }
-.e-step-btn { width: 26px; height: 26px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14); color: #aaa; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s, border-color 0.15s, color 0.15s; line-height: 1; padding: 0; }
-.e-step-btn:hover { background: rgba(0,255,200,0.1); border-color: var(--primary); color: var(--primary); }
-.e-step-display { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
-.e-step-val { font-size: 0.75rem; color: #fff; font-family: Arial, sans-serif; letter-spacing: 0.5px; font-weight: bold; flex-shrink: 0; min-width: 20px; text-align: center; }
-.e-step-bar { flex: 1; max-width: calc(100% - 90px); height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
-.e-step-bar-fill { height: 100%; background: var(--primary); border-radius: 2px; box-shadow: 0 0 4px rgba(0,255,200,0.35); transition: width 0.1s; }
 
 /* COIN DISPLAY */
 .coin-display {
