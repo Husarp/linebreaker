@@ -692,12 +692,19 @@
                 const beforeClaim = await menuLayout();
                 const noticeFits = await notice.evaluate(panel => {
                     const rect = panel.getBoundingClientRect();
-                    const frame = panel.closest('.lb-menu-banner').getBoundingClientRect();
+                    const banner = panel.closest('.lb-menu-banner');
+                    const frame = banner.getBoundingClientRect();
+                    const logo = banner.querySelector('.lb122-logo').getBoundingClientRect();
+                    const quote = banner.querySelector('#splash-quote').getBoundingClientRect();
                     const band = document.querySelector('.lb-top-band').getBoundingClientRect();
-                    return rect.left === frame.left && rect.right === frame.right && rect.top >= band.bottom
+                    const fitsInside = quote.top - logo.bottom >= rect.height;
+                    const verticalFit = fitsInside
+                        ? rect.top >= logo.bottom && rect.bottom <= quote.top
+                        : rect.top === frame.bottom;
+                    return rect.left === frame.left && rect.right === frame.right && rect.top >= band.bottom && verticalFit
                         && panel.querySelector('img').naturalWidth > 0 && /^(Common|Rare|Epic) crate$/.test(panel.querySelector('span').textContent);
                 });
-                if (!noticeFits) fail('Daily Gift artwork or alignment with the menu frame is incorrect');
+                if (!noticeFits) fail('Daily Gift must align with the frame and clear the logo and ribbon');
                 await page.evaluate(() => window.__LB_QA.open('inventory'));
                 const total = page.locator('.lb43-locker-total');
                 const before = Number.parseInt(await total.textContent(), 10);
@@ -850,7 +857,15 @@
                         && focus.querySelector('img').naturalWidth > 0 && /\+\d+ SP/.test(focus.textContent)
                         && steps.length === Number(count.match(/\/ (\d+)/)?.[1])
                         && active?.dataset.state === 'Ready to claim'
-                        && steps.every(step => step.getBoundingClientRect().top === active.getBoundingClientRect().top);
+                        && steps.every(step => {
+                            const rect = step.getBoundingClientRect();
+                            const caption = step.querySelector('span');
+                            const label = caption.getBoundingClientRect();
+                            const expected = { 'Ready to claim': 'Ready', Claimed: 'Done', Hidden: 'Hidden' }[step.dataset.state];
+                            return rect.top === active.getBoundingClientRect().top
+                                && label.left >= rect.left && label.right <= rect.right
+                                && (expected ? caption.textContent === expected : /^\d{1,3}%$/.test(caption.textContent));
+                        });
                 }, name === 'missions' ? 'daily' : 'weekly');
                 if (!layout) fail('Mission milestones or Focus deck did not fit with all objective steps on one row');
                 const index = await active.getAttribute('data-step');

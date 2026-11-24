@@ -660,6 +660,7 @@
 }
 #menu-overlay .lb-menu-primary { display: contents; }
 #menu-overlay .lb-menu-banner {
+    --lb-gift-notice-height: max(50px, 3.125rem);
     position: relative;
     display: grid;
     justify-items: center;
@@ -695,6 +696,17 @@
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 6px 65%, 6px 35%);
     pointer-events: none;
     user-select: none;
+}
+@container lb-menu (height >= 760px) {
+    #menu-overlay .lb-menu-banner {
+        grid-template-rows: auto minmax(var(--lb-gift-notice-height), 1fr) auto;
+        padding-block-end: 22px;
+    }
+    #menu-overlay #splash-quote {
+        position: static;
+        grid-row: 3;
+        justify-self: end;
+    }
 }
 #menu-overlay .lb-menu-rank {
     display: grid;

@@ -10281,12 +10281,12 @@
         const describe = quest => {
             const hidden = quest.tier === 'secret' && !quest.completed;
             const state = hidden ? 'Hidden' : !quest.completed ? 'In progress' : quest.ptsClaimed ? 'Claimed' : 'Ready to claim';
-            return { title: hidden ? '???' : quest.title, hidden, state,
+            const target = Math.max(1, quest.target || 0);
+            const progress = quest.completed ? target : Math.min(target, Math.max(0, quest.progress || 0));
+            return { title: hidden ? '???' : quest.title, hidden, state, target, progress,
                 art: `<img src="${LBMissionArt.forMetric(quest.metric, hidden)}" alt="" draggable="false">` };
         };
-        const { title, hidden, state, art } = describe(focused);
-        const target = Math.max(1, focused.target || 0);
-        const progress = focused.completed ? target : Math.min(target, Math.max(0, focused.progress || 0));
+        const { title, hidden, state, art, target, progress } = describe(focused);
         const format = focused.metric === 'gameTime' ? _fmtTime : value => value.toLocaleString('en-US');
         const count = hidden ? '???' : `${format(progress)} / ${format(target)}`;
         const points = `+${escapeHtml(focused.pts)} SP`;
@@ -10300,9 +10300,12 @@
         }
         const steps = entries.map((quest, index) => {
             const step = describe(quest);
-            const caption = { 'In progress': '…', 'Ready to claim': 'Ready' }[step.state] || step.state;
+            const inProgress = step.state === 'In progress';
+            const caption = inProgress ? `${Math.floor(step.progress / step.target * 100)}%`
+                : { 'Ready to claim': 'Ready', Claimed: 'Done', Hidden: 'Hidden' }[step.state];
+            const label = inProgress ? `${step.state}, ${caption}` : step.state;
             return `<button type="button" class="mq-focus-step lb-block-btn" data-step="${index}" data-state="${step.state}"
-                aria-pressed="${quest === focused}" aria-label="${escapeHtml(step.hidden ? 'Secret objective' : step.title)}, ${step.state}">
+                aria-pressed="${quest === focused}" aria-label="${escapeHtml(step.hidden ? 'Secret objective' : step.title)}, ${label}">
                 ${step.art}<span>${caption}</span></button>`;
         }).join('');
         body.innerHTML = `<div class="mq-focus-deck">

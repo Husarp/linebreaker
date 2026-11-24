@@ -272,6 +272,7 @@
     --lb-control-ink: var(--lb-ink);
     outline: 1px solid var(--lb-label);
 }
+.mq-focus-step > span { white-space: nowrap; }
 .mq-focus-step img { width: 26px; height: 26px; object-fit: contain; }
 
 @media (max-height: 850px) {

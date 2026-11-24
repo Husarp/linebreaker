@@ -11,6 +11,11 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
   const mission = save.missions[tab][list][0];
   const total = save.missions[tab][points];
   Object.assign(mission, { progress: mission.target, completed: true, ptsClaimed: false });
+  const unfinished = save.missions[tab][list][1];
+  Object.assign(unfinished, { target: 40, progress: 20, completed: false, ptsClaimed: false });
+  if (tab === 'daily') {
+    save.missions.daily.secret = { id: 'nice_bonus', tier: 'secret', target: 1, progress: 0, completed: false, ptsClaimed: false };
+  }
   api.setSave(save);
   await game.w.openMissions(tab);
 
@@ -24,7 +29,15 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
   expect(card().querySelector('strong').textContent.split(' / ')[0]).toBe(card().querySelector('strong').textContent.split(' / ')[1]);
   const claim = card().querySelector('.mq-pts-claim-btn');
   expect(claim.textContent).toBe('Claim');
-  expect(active().textContent).toContain('Ready');
+  expect(active().querySelector('span').textContent).toBe('Ready');
+  const progress = steps().find(step => step.getAttribute('aria-label').startsWith(unfinished.title + ','));
+  expect(progress.querySelector('span').textContent).toBe('50%');
+  expect(progress.getAttribute('aria-label')).toBe(unfinished.title + ', In progress, 50%');
+  if (tab === 'daily') {
+    const secret = steps().find(step => step.dataset.state === 'Hidden');
+    expect(secret.querySelector('span').textContent).toBe('Hidden');
+    expect(secret.getAttribute('aria-label')).toBe('Secret objective, Hidden');
+  }
   const index = active().dataset.step;
   steps().find(step => step !== active()).click();
   expect(card().dataset.missionSlot).not.toBe('0');
@@ -38,6 +51,7 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
   expect(card().dataset.missionSlot).toBe('0');
   expect(card().querySelector('.mq-focus-readout').textContent).toContain('Claimed');
   expect(active().dataset.step).toBe(index);
+  expect(active().querySelector('span').textContent).toBe('Done');
   expect(document.activeElement).toBe(active());
 });
 
