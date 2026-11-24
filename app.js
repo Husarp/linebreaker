@@ -172,7 +172,6 @@
         const daySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
         const quote = _SPLASH_QUOTES[daySeed % _SPLASH_QUOTES.length];
         document.getElementById('splash-quote').textContent = quote;
-        document.getElementById('loading-quote').textContent = quote;
         if (quote === 'Lucky day!') {
             setTimeout(() => {
                 if (!saveData.achievements?.lucky_day?.unlocked) {

@@ -31,11 +31,11 @@
         await page.goto(url.href);
         await page.waitForFunction(() => window.__LB_QA && document.querySelector('#loading-screen').style.display === 'none');
         reducedMotion = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
-        const matchingQuotes = await page.evaluate(() => {
-            const loadingQuote = document.querySelector('#loading-quote')?.textContent.trim();
-            return loadingQuote && loadingQuote === document.querySelector('#splash-quote')?.textContent.trim();
-        });
-        if (!matchingQuotes) fail('Loading and menu do not show the same daily quote');
+        const quotes = await page.evaluate(() => ({
+            loading: Boolean(document.getElementById('loading-quote')),
+            menu: document.getElementById('splash-quote')?.textContent.trim(),
+        }));
+        if (quotes.loading || !quotes.menu) fail('The daily quote should appear only on the menu');
         if (theme !== 'dark') {
             await page.evaluate(() => window.__LB_QA.open('settings-display'));
             await page.locator(`[data-ui-theme="${theme}"]`).click();

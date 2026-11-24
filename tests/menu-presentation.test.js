@@ -108,12 +108,12 @@ it('renders the real rank, level and XP in the menu', async () => {
   } finally { close(); }
 });
 
-it('shows the same nonempty daily quote during loading and on the menu banner', async () => {
+it('shows a nonempty daily quote on the menu banner only', async () => {
   const { w, close } = await loadGame();
   try {
     const bannerQuote = w.document.querySelector('.lb-menu-banner > #splash-quote').textContent;
     expect(bannerQuote.trim()).not.toBe('');
-    expect(w.document.querySelector('#loading-screen #loading-quote').textContent).toBe(bannerQuote);
+    expect(w.document.getElementById('loading-quote')).toBeNull();
   } finally { close(); }
 });
 
@@ -126,7 +126,6 @@ it('hides and restores menu tips with a saved, default-on Display switch', async
     expect(w.document.getElementById('splash-quote').hidden).toBe(false);
     toggle.click();
     expect(w.document.getElementById('splash-quote').hidden).toBe(true);
-    expect(w.document.getElementById('loading-quote').hidden).toBe(false);
     savedSettings = JSON.parse(w.localStorage.getItem('linebreaker_settings'));
     expect(savedSettings.showMenuTips).toBe(false);
   } finally { close(); }

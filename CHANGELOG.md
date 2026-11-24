@@ -1,3 +1,7 @@
+## [1.4.3]
+
+- Removed the daily tip from the loading screen.
+
 ## [1.4.2] [2026-11-24] Run rewards, inventory filters, and a steadier Season Pass
 
 - **Run summary:** Tap an earned reward to go where you can use it, then use Back to return to your results. The board briefly shakes on top-out. Choose **View board** to see your final position without resuming play. Run XP counts up, and used boosters stay visible and marked Used. On phones, the next-piece preview stays visible and Pause sits closer to the speed indicator.
