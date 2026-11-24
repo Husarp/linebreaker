@@ -16,14 +16,14 @@
 }
 
 #missions-overlay > .mq-header[data-lb-topbar] {
-    --lb-bar-pad: 21px;
+    --lb-bar-pad: 8px;
     --lb-topbar-surface: var(--lb-paper);
     --mq-start: max(var(--mq-inset), var(--lb-safe-left), (100% - var(--mq-column)) / 2);
     --mq-end: max(var(--mq-inset), var(--lb-safe-right), (100% - var(--mq-column)) / 2);
     position: relative;
     gap: var(--lb-space-sm);
     padding-inline: var(--mq-start) var(--mq-end);
-    padding-block-end: 10px;
+    padding-block-end: 15px;
     border-block-end: 0;
 }
 .mq-header::after {
@@ -182,7 +182,8 @@
 .lb-game-root #missions-overlay .mq-card[data-tier] {
     --lb-card-face: linear-gradient(105deg, #353e3e, var(--mq-iron-face));
     --mq-patch-size: 78px;
-    --mq-patch-dye: #bfa16b;
+    --mq-patch-dye: #2f62b0;
+    --mq-patch-ink: #fff5dc;
     --mq-patch-outline: #1d2924;
     --lb-meter: #dee3b3;
     --lb-track: #697571;
@@ -195,10 +196,13 @@
     padding: 0 8px 0 0;
     border-radius: 2px;
 }
-.lb-game-root #missions-overlay .mq-card[data-tier='easy'] { --mq-patch-dye: #60e870; }
-.lb-game-root #missions-overlay .mq-card[data-tier='normal'] { --mq-patch-dye: #ffa63e; }
-.lb-game-root #missions-overlay .mq-card[data-tier='hard'] { --mq-patch-dye: #ff618a; }
-.lb-game-root #missions-overlay .mq-card[data-tier='secret'] { --lb-card-face: linear-gradient(105deg, #413824, #322c24); }
+.lb-game-root #missions-overlay .mq-card[data-tier='easy'] { --mq-patch-dye: #367a32; }
+.lb-game-root #missions-overlay .mq-card[data-tier='normal'] { --mq-patch-dye: #a05c15; }
+.lb-game-root #missions-overlay .mq-card[data-tier='hard'] { --mq-patch-dye: #b3262e; }
+.lb-game-root #missions-overlay .mq-card[data-tier='secret'] {
+    --mq-patch-dye: #6e3a9a;
+    --lb-card-face: linear-gradient(105deg, #413824, #322c24);
+}
 .mq-card-icon {
     display: grid;
     align-content: center;
@@ -211,7 +215,7 @@
     background: var(--mq-patch-dye);
 }
 .mq-patch { display: block; }
-.mq-card-icon .mq-pts { margin: 0; color: #202920; font: var(--lb-type-micro)/1.3 var(--lb-font-pixel); }
+.mq-card-icon .mq-pts { margin: 0; color: var(--mq-patch-ink); font: var(--lb-type-micro)/1.3 var(--lb-font-pixel); }
 .mq-card-text { padding-block: 8px; }
 .mq-card .mq-card-title { color: var(--mq-iron-ink); font: 750 .9375rem/1.2 var(--lb-font-body); }
 .mq-card .mq-card-desc { color: var(--mq-iron-muted); font: var(--lb-type-small)/1.25 var(--lb-font-body); margin-block-start: 2px; }
@@ -221,7 +225,7 @@
     border: 0;
     background: none;
     padding: 0;
-    color: var(--mq-patch-dye);
+    color: color-mix(in srgb, var(--mq-patch-dye), var(--mq-patch-ink) 60%);
     font: 400 var(--lb-type-micro)/1.2 var(--lb-font-pixel);
     text-transform: uppercase;
 }

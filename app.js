@@ -6487,6 +6487,8 @@
         const [name, shape] = achievementTiers[index];
         return `<svg class="ach-tier-shape ${extraClass}" data-tier="${name.toLowerCase()}" data-locked="${locked}" viewBox="0 0 16 16" role="img" aria-label="${name} ${locked ? 'locked' : 'earned'}">${shape}</svg>`;
     }
+    const visibleAchievementRewards = 3;
+    let achievementRewardsExpanded = false;
     function renderAchievementsOverlay(tab, opening = false) {
         tab = tab || 'all';
         checkProgressAchievements();
@@ -6508,7 +6510,9 @@
         const category = overlay.querySelector('#ach-category').value;
         const sort = overlay.querySelector('#ach-sort').value;
         const pending = saveData.pendingAchievementClaims || [];
-        const renderKey = JSON.stringify([tab, showDates, category, sort, saveData.achievements, pending, achievementProgressPaths.map(_getProgressVal)]);
+        const hasMoreRewards = pending.length > visibleAchievementRewards;
+        if (opening || !hasMoreRewards) achievementRewardsExpanded = false;
+        const renderKey = JSON.stringify([tab, showDates, category, sort, achievementRewardsExpanded, saveData.achievements, pending, achievementProgressPaths.map(_getProgressVal)]);
         if (container.renderKey === renderKey && pending.every((claim, index) => claim === container.renderClaims[index])) return;
         container.renderKey = renderKey;
         container.renderClaims = pending.slice();
@@ -6538,7 +6542,7 @@
         const claimsContainer = overlay.querySelector('#ach-claims');
         claimsContainer.replaceChildren();
 
-        if (saveData.pendingAchievementClaims?.length > 0) {
+        if (pending.length > 0) {
             const pendingSection = document.createElement('section');
             pendingSection.className = 'ach-pending lb-block-panel';
             pendingSection.setAttribute('aria-label', 'Pending rewards');
@@ -6548,7 +6552,12 @@
             pendingSection.appendChild(pendingHeader);
             const pendingGrid = document.createElement('div');
             pendingGrid.className = 'ach-pending-list';
-            saveData.pendingAchievementClaims.forEach(claim => {
+            const extraRewards = document.createElement('div');
+            extraRewards.className = 'ach-pending-list';
+            extraRewards.id = 'ach-pending-extra';
+            extraRewards.hidden = !achievementRewardsExpanded;
+            const visibleClaims = achievementRewardsExpanded ? pending : pending.slice(0, visibleAchievementRewards);
+            visibleClaims.forEach((claim, index) => {
                 const rewardRarity = claim.crateRarity || claim.rarity;
                 const rarity = Object.hasOwn(RARITY_ACH, rewardRarity) ? rewardRarity : 'common';
                 const rc = RARITY_ACH[rarity];
@@ -6576,13 +6585,36 @@
                     _checkAchGlow();
                     saveDataToFile();
                     drawRankBadge();
-                    renderAchievementsOverlay(tab);
+                    const restoreFocus = document.activeElement === claimBtn;
+                    renderAchievementsOverlay(overlay._achTab);
+                    if (restoreFocus) {
+                        const claimButtons = claimsContainer.querySelectorAll('.ach-pending-row button');
+                        const nextFocus = claimButtons[Math.min(index, claimButtons.length - 1)] || overlay.querySelector('.lb-block-back');
+                        nextFocus.focus({ preventScroll: true });
+                    }
                 }));
                 card.innerHTML = achievementRegisterArt(claim.id, 'ach-claim-icon') + nameHtml;
                 card.appendChild(claimBtn);
-                pendingGrid.appendChild(card);
+                (index < visibleAchievementRewards ? pendingGrid : extraRewards).appendChild(card);
             });
             pendingSection.appendChild(pendingGrid);
+            if (hasMoreRewards) {
+                const toggleRow = document.createElement('div');
+                toggleRow.className = 'ach-pending-toggle-row';
+                const toggle = document.createElement('button');
+                toggle.type = 'button';
+                toggle.className = 'ach-pending-toggle lb-block-btn';
+                toggle.textContent = achievementRewardsExpanded ? 'Show less' : `Show all (${pending.length})`;
+                toggle.setAttribute('aria-expanded', String(achievementRewardsExpanded));
+                toggle.setAttribute('aria-controls', extraRewards.id);
+                toggle.addEventListener('click', () => {
+                    achievementRewardsExpanded = !achievementRewardsExpanded;
+                    renderAchievementsOverlay(overlay._achTab);
+                    claimsContainer.querySelector('.ach-pending-toggle').focus({ preventScroll: true });
+                });
+                toggleRow.appendChild(toggle);
+                pendingSection.append(toggleRow, extraRewards);
+            }
             claimsContainer.appendChild(pendingSection);
         }
 

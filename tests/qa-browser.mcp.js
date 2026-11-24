@@ -387,8 +387,21 @@
                 const hasDayStreak = await page.evaluate(() => /\b(?:daily streak|day streak|streak reminder|days in a row|consecutive days)\b/i.test(document.body.innerText));
                 if (hasDayStreak) fail('Day-streak copy must not appear');
             }
+            if (['missions', 'missions-weekly', 'achievements'].includes(name)) {
+                const isAchievements = name === 'achievements';
+                const header = page.locator(`${isAchievements ? '#achievements-overlay' : '#missions-overlay'} > [data-lb-topbar]`);
+                const art = await header.evaluate((element, isAchievements) => {
+                    const style = getComputedStyle(element, '::before');
+                    const bandHeight = document.querySelector('.lb-top-band').getBoundingClientRect().height;
+                    return style.backgroundImage.includes(isAchievements ? 'stats-archive-calm.webp' : 'missions-outpost.webp')
+                        && style.backgroundPositionY.endsWith('52%') && style.backgroundSize.endsWith('cover')
+                        && parseFloat(style.top) === bandHeight
+                        && element.getBoundingClientRect().height - bandHeight === (isAchievements ? 92 : 75);
+                }, isAchievements);
+                if (!art) fail('Header must use the r35 art and crop below the shared band');
+            }
             if (name === 'achievements') {
-                const singleColumn = await page.locator('.ach-records, .ach-pending-list').evaluateAll(lists =>
+                const singleColumn = await page.locator('.ach-records, .ach-pending-list:not([hidden])').evaluateAll(lists =>
                     lists.length > 0 && lists.every(list => {
                         const rows = [...list.children].map(row => row.getBoundingClientRect());
                         return rows.every((row, index) => row.height > 0 && (!index ||
@@ -402,6 +415,22 @@
                         && row.querySelector('img.ach-voxel')?.naturalWidth > 0)
                     && section.textContent.includes('Legendary crate'));
                 if (!claims) fail('Pending tier rewards must have individual claims and no bulk claim');
+                const rewards = page.locator('.ach-pending-row');
+                const rewardToggle = page.locator('.ach-pending-toggle');
+                const rewardSummary = page.locator('.ach-register-summary');
+                const beforeClaim = await rewardSummary.evaluate(element => element.offsetTop);
+                const totalRewards = Number((await rewardToggle.textContent()).match(/\d+/)?.[0]);
+                if (await rewards.count() !== 3 || totalRewards < 8) fail('Pending rewards must be capped at three rows');
+                await rewardToggle.click();
+                if (await rewards.count() !== totalRewards || await rewardToggle.getAttribute('aria-expanded') !== 'true') {
+                    fail('Pending rewards must expand in place');
+                }
+                await rewardToggle.click();
+                await rewards.first().getByRole('button', { name: /Claim/ }).click();
+                await page.waitForFunction(total => document.querySelector('.ach-pending-toggle').textContent === `Show all (${total - 1})`, totalRewards);
+                if (await rewards.count() !== 3 || await rewardSummary.evaluate(element => element.offsetTop) !== beforeClaim) {
+                    fail('Claiming a collapsed reward must backfill without moving the register');
+                }
                 const tierRows = await page.locator('#ach-list [data-ach-id]').evaluateAll(rows => {
                     const games = rows.find(row => row.dataset.achId === 'games');
                     return new Set(rows.map(row => row.dataset.achId)).size === rows.length
@@ -623,26 +652,23 @@
                 if (!board) fail('Mission board is missing its timer, active period, or single-column cards');
                 const cardDesign = await page.evaluate(() => {
                     const cards = [...document.querySelectorAll('#missions-body .mq-card')];
-                    const regular = cards.filter(card => card.dataset.tier !== 'secret');
-                    const colors = new Set(regular.map(card => getComputedStyle(card.querySelector('.mq-card-icon')).backgroundColor));
-                    return colors.size === new Set(regular.map(card => card.dataset.tier)).size
-                        && regular.every(card => {
-                            const patch = getComputedStyle(card.querySelector('.mq-card-icon'));
-                            const [red, green, blue] = patch.backgroundColor.match(/[\d.]+/g).map(Number);
-                            const neon = card.dataset.tier === 'easy' ? green >= 220 && red < 130 && blue < 130
-                                : card.dataset.tier === 'normal' ? red >= 250 && green >= 150 && blue < 100
-                                : red >= 250 && green < 130 && blue > green;
-                            const ink = getComputedStyle(card.querySelector('.mq-card-title')).color.match(/[\d.]+/g).map(Number);
-                            return neon && ink.every(channel => channel > 200);
-                        })
-                        && cards.every(card => {
-                            const art = card.querySelector('.mq-card-icon .mq-patch[viewBox="0 0 16 16"]')?.getBoundingClientRect();
-                            const patch = card.querySelector('.mq-card-icon').getBoundingClientRect();
-                            const points = card.querySelector('.mq-card-icon .mq-pts');
-                            return patch.width === patch.height && card.querySelector('.mq-card-text').getBoundingClientRect().left > patch.right
-                                && art?.width === 32 && art.height === 32 && points &&
-                                points.getBoundingClientRect().top >= art.bottom && /\+\d+ SP/.test(points.textContent);
-                        });
+                    const colors = { easy: 'rgb(54, 122, 50)', normal: 'rgb(160, 92, 21)', hard: 'rgb(179, 38, 46)', secret: 'rgb(110, 58, 154)' };
+                    const luminance = rgb => rgb.match(/[\d.]+/g).map(Number).slice(0, 3)
+                        .map(channel => channel / 255)
+                        .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4)
+                        .reduce((sum, channel, index) => sum + channel * [.2126, .7152, .0722][index], 0);
+                    return cards.length > 0 && cards.every(card => {
+                        const art = card.querySelector('.mq-card-icon .mq-patch[viewBox="0 0 16 16"]')?.getBoundingClientRect();
+                        const square = card.querySelector('.mq-card-icon');
+                        const patch = square.getBoundingClientRect();
+                        const dye = getComputedStyle(square).backgroundColor;
+                        const points = card.querySelector('.mq-card-icon .mq-pts');
+                        return patch.width === patch.height && card.querySelector('.mq-card-text').getBoundingClientRect().left > patch.right
+                            && art?.width === 32 && art.height === 32 && points
+                            && points.getBoundingClientRect().top >= art.bottom && /\+\d+ SP/.test(points.textContent)
+                            && dye === colors[card.dataset.tier]
+                            && (luminance(getComputedStyle(points).color) + .05) / (luminance(dye) + .05) >= 4.5;
+                    });
                 });
                 if (!cardDesign) fail('Mission cards must use square difficulty patches, with the text beside them and SP below the icon');
             }

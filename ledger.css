@@ -1376,7 +1376,7 @@ svg.lb-ledger-chevron {
     box-shadow: var(--lb-card-shadow);
 }
 #achievements-overlay .ach-pending-row .lb-ledger-rarity-label {
-    color: color-mix(in srgb, var(--lb-reward-rarity), var(--lb-ink) var(--lb-tier-ink-mix));
+    color: color-mix(in srgb, var(--lb-reward-rarity), var(--ach-pending-ink) var(--lb-tier-ink-mix));
 }
 #achievements-overlay .ach-card-icon { color: var(--lb-muted); }
 #achievements-overlay .ach-card[data-state='unlocked'] .ach-card-icon { color: var(--lb-label); }
@@ -1711,6 +1711,39 @@ svg.lb-ledger-chevron {
         max(var(--lb-folio-gutter), var(--lb-safe-right), calc((100% - var(--lb-folio-width)) / 2 + var(--lb-folio-gutter))) !important;
     padding-block-end: 10px;
 }
+#missions-overlay > [data-lb-topbar] {
+    --lb-header-art: url('assets/ui/tiles/missions-outpost.webp');
+    --lb-header-art-height: 75px;
+}
+#achievements-overlay > [data-lb-topbar] {
+    --lb-header-art: url('assets/ui/tiles/stats-archive-calm.webp');
+    --lb-header-art-height: 92px;
+}
+:is(#missions-overlay, #achievements-overlay) > [data-lb-topbar] {
+    display: flex;
+    position: relative;
+    isolation: isolate;
+    min-block-size: calc(var(--lb-band-height) + var(--lb-header-art-height));
+    align-items: end;
+    padding-block-end: 15px;
+}
+:is(#missions-overlay, #achievements-overlay) > [data-lb-topbar]::before {
+    content: '';
+    position: absolute;
+    inset: var(--lb-band-height) 0 0;
+    z-index: -1;
+    background: linear-gradient(0deg, #171b17e0, transparent 65%),
+        linear-gradient(90deg, #17201df5, #1c242181 47%, transparent 90%),
+        var(--lb-header-art) center 52% / cover #27312c;
+}
+.lb-game-root :is(#missions-overlay, #achievements-overlay) > [data-lb-topbar] .lb-topbar-title {
+    color: #fff5dc;
+    text-shadow: 0 1px 3px #141613;
+}
+:is(#missions-overlay, #achievements-overlay) > [data-lb-topbar] :is(.lb-topbar-kicker, .lb-topbar-meta) {
+    color: #f2dab2;
+    text-shadow: 0 1px 3px #141613;
+}
 :is(#inventory-overlay, #achievements-overlay) .lb-topbar-crumb > .lb-block-back {
     width: var(--target);
     padding-inline: 0 !important;
@@ -1918,7 +1951,7 @@ svg.lb-ledger-chevron {
 #achievements-overlay .ach-card-state { grid-area: 2 / 3; align-self: center; }
 #achievements-overlay .ach-card:not(:has(.ach-register-pips)) .ach-card-state { grid-row: 1 / span 2; }
 #achievements-overlay .ach-pending {
-    --lb-ink: #f4e7d1;
+    --ach-pending-ink: #f4e7d1;
     --lb-muted: #e3ceb2;
     --lb-tier-ink-mix: 60%;
     --lb-card-face: linear-gradient(95deg, #49332a, #382d28);
@@ -1927,7 +1960,7 @@ svg.lb-ledger-chevron {
     border-inline-start-width: 5px !important;
 }
 #achievements-overlay .ach-pending-head { padding: 8px 12px 0; border: 0; }
-#achievements-overlay .ach-pending-head h2 { color: var(--lb-ink); }
+#achievements-overlay .ach-pending-head h2 { color: var(--ach-pending-ink); }
 #achievements-overlay :is(.ach-pending-head, .ach-section-head) h2 { font: 400 .75rem/1.3 var(--lb-font-pixel); }
 #achievements-overlay .ach-pending-list { padding: 0 12px; gap: 0; }
 #achievements-overlay .ach-pending-row {
@@ -1938,9 +1971,19 @@ svg.lb-ledger-chevron {
     box-shadow: none;
     padding: 6px 0;
     min-height: 52px;
-    color: var(--lb-ink);
+    color: var(--ach-pending-ink);
 }
 #achievements-overlay .ach-pending-row:last-child { border-block-end: 0; }
+#achievements-overlay .ach-pending-toggle-row {
+    display: grid;
+    justify-items: start;
+    margin-inline: 12px;
+    padding-block: 4px;
+    border-block-start: 1px solid #80634f;
+}
+#achievements-overlay .ach-pending-toggle-row:has([aria-expanded='true']) {
+    border-block-end: 1px solid #80634f;
+}
 .ach-claim-icon { width: 36px; height: 36px; }
 .ach-tier-shape { width: 16px; height: 16px; flex: none; fill: currentColor; }
 .ach-tier-shape[data-tier='bronze'] { --lb-tier-ink: #e8b18c; }

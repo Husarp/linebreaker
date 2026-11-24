@@ -312,6 +312,49 @@ describe('achievement screen', () => {
     expect(query('[data-achtab][aria-pressed="true"]').dataset.achtab).toBe('locked');
   });
 
+  it('caps pending rewards, backfills after claiming, and keeps the disclosure in place', () => {
+    const claims = ['score', 'games', 'speed', 'total_lines', 'survival', 'combo_master', 'total_blocks', 'sec_nice']
+      .map((id, index) => ({ id, name: `Reward ${index + 1}`, rarity: 'common', xp: 200 }));
+    game.api.setup({ save: { pendingAchievementClaims: claims } });
+    game.w.openAchievements();
+    const toggle = () => query('.ach-pending-toggle');
+    const rows = () => [...query('#ach-claims').querySelectorAll('.ach-pending-row')];
+    const names = () => rows().map(row => row.querySelector('strong').textContent);
+
+    expect(names()).toEqual(['Reward 1', 'Reward 2', 'Reward 3']);
+    expect(toggle().textContent).toBe('Show all (8)');
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+    expect(query(`#${toggle().getAttribute('aria-controls')}`).hidden).toBe(true);
+    rows()[0].querySelector('button').click();
+    game.advance(100);
+    expect(names()).toEqual(['Reward 2', 'Reward 3', 'Reward 4']);
+    expect(toggle().textContent).toBe('Show all (7)');
+
+    toggle().click();
+    expect(rows()).toHaveLength(7);
+    expect(toggle().textContent).toBe('Show less');
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
+    expect(query(`#${toggle().getAttribute('aria-controls')}`).hidden).toBe(false);
+    const claim = rows()[4].querySelector('button');
+    claim.focus();
+    claim.click();
+    game.advance(100);
+    expect(rows()).toHaveLength(6);
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
+    expect(game.w.document.activeElement.getAttribute('aria-label')).toBe('Claim Reward 7');
+    expect(game.api.save.totalXP).toBe(400);
+
+    toggle().click();
+    expect(names()).toEqual(['Reward 2', 'Reward 3', 'Reward 4']);
+    expect(toggle().textContent).toBe('Show all (6)');
+    for (let remaining = 6; remaining > 3; remaining--) {
+      rows()[0].querySelector('button').click();
+      game.advance(100);
+    }
+    expect(names()).toEqual(['Reward 5', 'Reward 7', 'Reward 8']);
+    expect(toggle()).toBeNull();
+  });
+
   it('queues escalating tier rewards, restores pending crates, and pays each tier once across reloads', () => {
     const { api, w } = game;
     api.setup({ save: { stats: { gamesPlayed: 1000, bestDailyXP: 10000 } } });
