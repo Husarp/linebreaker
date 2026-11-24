@@ -32,6 +32,7 @@
             seenFunRules: true,
             levelRewardsThrough: 30,
             lastDailyGift: previousDate(),
+            pendingDailyGift: { day: previousDate(0), rarity: 'common' },
             storedCrates: ['common', 'rare', 'rare', 'epic', 'legendary', 'mythic'].map(rarity => ({ rarity })),
             season: { ...LBSeason.emptySeason(id), points: 124, claimed: { ...(day >= 2 && { 1: receipt }), ...(day >= 4 && { 2: receipt }) } },
             missions,
@@ -152,7 +153,7 @@
             remove('sfx-inv-preview');
             window.closeInventory();
         });
-        add('daily-gift', dailyGift, () => remove('daily-gift-crate-overlay'));
+        add('daily-gift', dailyGift);
         add('level-crate', levelCrate, closeCrate);
         add('level-up', levelUp, () => remove('level-up-popup-overlay'));
         add('mission-crate', missionCrate, closeCrate);

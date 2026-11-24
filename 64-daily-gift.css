@@ -49,7 +49,7 @@
     padding-top: 8px;
 }
 
-:is(#level-up-popup-overlay, #level-box-overlay, #daily-gift-overlay, .lb64-mission-crate) .lb64-rewards > .lb-block-reward {
+:is(#level-up-popup-overlay, #level-box-overlay, .lb64-mission-crate) .lb64-rewards > .lb-block-reward {
     width: 100%;
     max-width: 160px;
     gap: 4px;

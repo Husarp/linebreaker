@@ -14,27 +14,43 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
   api.setSave(save);
   await game.w.openMissions(tab);
 
-  const card = () => game.w.document.querySelector('[data-mission-slot="0"]');
-  const art = card().querySelector('.mq-card-icon .mq-patch');
-  expect(art.getAttribute('src')).toBe(game.w.LBMissionArt.forMetric(mission.metric));
-  expect(art.nextElementSibling.textContent).toBe(`+${mission.pts} SP`);
-  const claim = card().querySelector('.mq-card-action--claim > button.lb-block-btn--primary');
+  const { document } = game.w;
+  const card = () => document.querySelector('.mq-focus-card');
+  const steps = () => [...document.querySelectorAll('.mq-focus-step')];
+  const active = () => steps().find(step => step.getAttribute('aria-pressed') === 'true');
+  expect(card().dataset.missionSlot).toBe('0');
+  expect(card().querySelector('img').getAttribute('src')).toBe(game.w.LBMissionArt.forMetric(mission.metric));
+  expect(card().querySelector('small').textContent).toBe(`+${mission.pts} SP`);
+  expect(card().querySelector('strong').textContent.split(' / ')[0]).toBe(card().querySelector('strong').textContent.split(' / ')[1]);
+  const claim = card().querySelector('.mq-pts-claim-btn');
   expect(claim.textContent).toBe('Claim');
-  expect(claim.getAttribute('aria-label')).toBe(`Claim +${mission.pts} SP`);
-  const progress = card().querySelector('progress');
-  expect(progress.value).toBe(mission.target);
-  expect(progress.max).toBe(mission.target);
-  const cardOrder = () => [...game.w.document.querySelectorAll('#missions-body [data-mission-slot]')].map(row => row.dataset.missionSlot);
-  const before = cardOrder();
-  claim.focus();
-  game.w.Function(claim.getAttribute('onclick')).call(claim);
+  expect(active().textContent).toContain('Ready');
+  const index = active().dataset.step;
+  steps().find(step => step !== active()).click();
+  expect(card().dataset.missionSlot).not.toBe('0');
+  steps()[index].click();
+  card().querySelector('.mq-pts-claim-btn').focus();
+  game.w.Function(claim.getAttribute('onclick')).call(card().querySelector('.mq-pts-claim-btn'));
   game.advance(1000);
   expect(api.save.missions[tab][points]).toBe(total + mission.pts);
   expect(api.save.missions[tab][list][0].ptsClaimed).toBe(true);
-  expect(game.w.document.querySelector('#missions-body .mq-pts-claim-btn')).toBeNull();
-  expect(cardOrder()).toEqual(before);
-  expect(card().querySelector('.mq-card-slot').textContent).toContain('✓ Claimed');
-  expect(game.w.document.activeElement).toBe(card().querySelector('.mq-card'));
+  expect(card().querySelector('.mq-pts-claim-btn')).toBeNull();
+  expect(card().dataset.missionSlot).toBe('0');
+  expect(card().querySelector('.mq-focus-readout').textContent).toContain('Claimed');
+  expect(active().dataset.step).toBe(index);
+  expect(document.activeElement).toBe(active());
+});
+
+it.each([['daily', 'quests'], ['weekly', 'missions']])('focuses the first unfinished %s objective when none can be claimed', async (tab, list) => {
+  api.refreshMissions();
+  const save = api.save;
+  const period = save.missions[tab];
+  const tiers = ['hard', 'normal', 'easy'];
+  const ordered = [...period[list]].sort((a, b) => tiers.indexOf(a.tier) - tiers.indexOf(b.tier));
+  Object.assign(ordered[0], { completed: true, ptsClaimed: true });
+  api.setSave(save);
+  await game.w.openMissions(tab);
+  expect(game.w.document.querySelector('.mq-focus-copy h3').textContent).toBe(ordered[1].title);
 });
 
 it('shows the current period on the board and returns to it from Season Pass', () => {
@@ -190,21 +206,22 @@ it('preserves an already-earned Golden Zone claim without advertising new reward
   expect(claim.querySelector('img').src).toContain('/parts/universal-common.webp');
 });
 
-it('stores and counts a Common Bonus Box crate without directly granting parts', () => {
+it('ignores old Bonus Box progress and keeps crates already earned', async () => {
   api.refreshMissions();
   const save = api.save;
   const { daily } = save.missions;
   daily.pointsToday = 12;
   daily.claimedMilestones = [6, 9, 12];
   daily.quests[0].completed = true;
-  save.missions.specialBox.pts = 29;
-  api.setSave(save);
+  save.missions.specialBox = { pts: 29, excessTracked: 0 };
+  save.storedCrates = [{ rarity: 'common', source: 'bonus' }];
+  api.applyLoadedData(save);
   api.autoClaimMissions(false);
   api.autoClaimMissions(false);
-  const paid = game.w.LBSave.serializeSave(api.save);
-  expect(paid.storedCrates).toEqual([{ rarity: 'common', source: 'bonus' }]);
-  expect(paid.stats.cratesCollected).toEqual({ common: 1 });
-  expect(paid.universalParts).toEqual({});
+  await game.w.openMissions('daily');
+  expect(api.save.missions).not.toHaveProperty('specialBox');
+  expect(api.save.storedCrates).toEqual(save.storedCrates);
+  expect(game.w.document.getElementById('missions-overlay').textContent).not.toContain('Bonus Box');
 });
 
 it('rolls full daily and weekly sets without repeated objectives', () => {

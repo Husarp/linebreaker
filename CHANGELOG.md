@@ -1,5 +1,10 @@
 ## [1.4.3]
 
+- Daily and Weekly Missions show one objective at a time. Tap a step to switch objectives and claim completed goals in place.
+- The Daily Gift appears above the menu and adds a crate to Inventory when claimed. The next-gift countdown is in Inventory → Crates, and the Stats tile spans the menu.
+- Removed the Bonus Box. Previously earned crates are still available in Inventory.
+- Moved the Mission Milestones info icon next to its title. Simplified the View board action and Run rewards divider.
+
 - Removed the daily tip from the loading screen.
 - Crate openings fade the vault artwork into a two-column reward grid.
 - Run summaries show a fading score card, a crown for personal bests, and simpler actions. Tap a reward row to open its destination.

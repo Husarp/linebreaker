@@ -20,16 +20,13 @@ it('counts down to local midnight in hours, then minutes', () => {
   expect(crates.giftStatus({ ...defaults, lastDailyGift: '2026-11-23' }, new Date(2026, 10, 24)).status).toBe('available');
 });
 
-it('finishes the three gift shakes at exactly 60% common, 30% rare, and 10% epic', () => {
+it('rolls the gift at exactly 60% common, 30% rare, and 10% epic', () => {
   const rolls = Array.from({ length: 20 }, (_, index) => (index + 0.5) / 20);
-  const start = { day: '2026-11-22', rarity: 'common', taps: 0 };
   const outcomes = { common: 0, rare: 0, epic: 0 };
   for (const first of rolls) for (const second of rolls) for (const third of rolls) {
-    const result = [first, second, third].reduce((gift, roll) => crates.shakeGift(gift, roll), start);
-    expect(result.taps).toBe(3);
-    expect(result.day).toBe(start.day);
-    expect(Object.hasOwn(outcomes, result.rarity)).toBe(true);
-    outcomes[result.rarity]++;
+    const draws = [first, second, third];
+    outcomes[crates.rollGiftRarity(undefined, () => draws.shift())]++;
+
   }
   expect(outcomes).toEqual({ common: 4800, rare: 2400, epic: 800 });
 });
@@ -155,7 +152,7 @@ it('sanitizes and round-trips schema v1 gift fields without truncating milliseco
   expect(sanitizeSave(valid, defaults)).not.toHaveProperty('dailyGiftStreak');
 });
 
-it('saves shake progress and pays a daily crate once, on the spot after the third tap', async () => {
+it('persists the gift notice across navigation and reload and stores exactly one crate on Claim', async () => {
   const writes = [];
   game = await loadGame(true, async (command, payload) => {
     if (command === 'load_save') return null;
@@ -163,58 +160,53 @@ it('saves shake progress and pays a daily crate once, on the spot after the thir
   });
   const { w: window, api, advance } = game;
   const { document } = window;
-  const gift = document.querySelector('#lb43-daily-gift');
-  const yesterday = new window.Date(window.Date.now() - 86_400_000);
-  api.setup({ save: { lastDailyGift: window.LBSave.localDate(yesterday), dailyGiftStreak: 7 } });
-  window.Math.random = () => 0;
-  gift.click();
-  gift.click();
-  advance(16);
-  expect(api.save.storedCrates || []).toHaveLength(0);
-  advance(16);
-  const dialog = () => document.querySelector('#daily-gift-crate-overlay');
-  const shake = () => dialog().querySelector('button');
-  const art = () => dialog().querySelector('.lb43-crate');
   const today = window.LBSave.localDate(new window.Date());
-  expect(api.save.pendingDailyGift).toEqual({ day: today, taps: 0, rarity: 'common' });
-  expect(art().dataset.rarity).toBe('common');
-  shake().click();
-  expect(art().dataset.rarity).toBe('rare');
-  expect(art().classList.contains('lb43-crate-shaking')).toBe(true);
-  expect(api.save).toMatchObject({ pendingDailyGift: { day: today, taps: 1, rarity: 'rare' }, universalParts: {}, boosters: {} });
+  const yesterday = new window.Date(window.Date.now() - 86_400_000);
+  window.Math.random = () => 0;
+  api.applyLoadedData({ lastDailyGift: window.LBSave.localDate(yesterday) });
+  const notice = document.querySelector('#daily-gift-notice');
+  const claim = document.querySelector('#daily-gift-claim');
+  const offered = { day: today, rarity: 'epic' };
+  expect(api.save.pendingDailyGift).toEqual(offered);
+  expect(notice.hidden).toBe(false);
+  expect(notice.querySelector('img').getAttribute('src')).toBe('assets/ui/crates/epic.png');
   await window.flushLinebreakerSave();
-  dialog().dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+  expect(writes.at(-1).pendingDailyGift).toEqual(offered);
+
+  await window.openInventory('crates');
+  window.closeInventory();
+  document.getElementById('inventory-overlay').dispatchEvent(new window.Event('animationend'));
+  expect(notice.hidden).toBe(false);
+  window.Math.random = () => 0.99;
   api.applyLoadedData(writes.at(-1));
-  gift.click();
+  expect(api.save.pendingDailyGift).toEqual(offered);
+  expect(notice.textContent).toContain('Epic crate');
+
+  claim.focus();
+  claim.click();
+  claim.click();
   advance(16);
+  expect(api.save.storedCrates).toHaveLength(0);
   advance(16);
-  expect(art().dataset.rarity).toBe('rare');
-  shake().click();
-  expect(art().dataset.rarity).toBe('rare');
-  expect(api.save.universalParts).toEqual({});
-  shake().click();
-  expect(shake().textContent).toBe('Skip animation');
-  expect(api.save).toMatchObject({ lastDailyGift: today, pendingDailyGift: null, storedCrates: [], universalParts: { epic: 1 }, boosters: { '1.5x_game': 2 } });
-  expect(gift.dataset.status).toBe('claimed');
+  expect(api.save).toMatchObject({ lastDailyGift: today, pendingDailyGift: null,
+    storedCrates: [{ rarity: 'epic', source: 'daily' }], universalParts: {}, boosters: {},
+    stats: { cratesCollected: { epic: 1 } } });
+  expect(notice.hidden).toBe(true);
+  expect(document.querySelector('.lb64-crate-overlay')).toBeNull();
+  const inventory = document.querySelector('#btn-inventory');
+  expect(inventory.hasAttribute('data-ready')).toBe(true);
+  expect(document.activeElement).toBe(inventory);
+  expect(document.getElementById('inventory-gift-status').textContent).toMatch(/^Daily Gift · Next in/);
   await window.flushLinebreakerSave();
-  expect(writes.at(-1)).toMatchObject({ lastDailyGift: today, pendingDailyGift: null, storedCrates: [], universalParts: { epic: 1 } });
-  expect(writes.at(-1).stats.cratesCollected).toEqual({ epic: 1 });
-  advance(230);
-  expect(dialog().dataset.reveal).toBe('opening');
-  expect(art().dataset.frame).toBe('closed');
+  api.applyLoadedData(writes.at(-1));
+  claim.click();
   advance(120);
-  expect(art().dataset.frame).toBe('ajar');
-  advance(160);
-  expect(art().dataset.frame).toBe('open');
-  expect(dialog().querySelector('.lb43-crate-flight')).not.toBeNull();
-  dialog().click();
-  expect(dialog().dataset.reveal).toBe('revealed');
-  expect(dialog().querySelector('.lb43-crate-flight')).toBeNull();
-  expect(document.activeElement.textContent).toBe('Done');
-  expect(dialog().querySelector('h2').textContent).toBe('Epic crate');
-  document.activeElement.click();
-  gift.click();
-  expect(dialog()).toBeNull();
+  expect(notice.hidden).toBe(true);
+  expect(api.save.storedCrates).toHaveLength(1);
+  await window.openInventory('crates');
+  document.querySelector('[data-crate-rarity="epic"]').click();
+  expect(api.save).toMatchObject({ storedCrates: [], universalParts: { epic: 1 },
+    boosters: { '1.5x_game': 2 }, stats: { cratesCollected: { epic: 1 } } });
 });
 
 it('discards forged or already-claimed shake states and keeps an unfinished gift over midnight', () => {
@@ -223,6 +215,10 @@ it('discards forged or already-claimed shake states and keeps an unfinished gift
   const base = { schemaVersion: 1, lastDailyGift: '2026-11-21', pendingDailyGift: valid };
   const restored = sanitizeSave(LBSave.serializeSave(base), defaults);
   expect(restored.pendingDailyGift).toEqual(valid);
+  expect(crates.rollGiftRarity(valid, () => 0)).toBe('epic');
+  expect(crates.rollGiftRarity(valid, () => 0.99)).toBe('rare');
+  expect(sanitizeSave({ ...base, pendingDailyGift: { day, rarity: 'epic' } }, defaults).pendingDailyGift)
+    .toEqual({ day, rarity: 'epic' });
   expect(crates.giftStatus(restored, new Date(2026, 10, 23)).status).toBe('in-progress');
   expect(crates.giftStatus(restored, new Date(2026, 10, 21)).status).toBe('clock-blocked');
   for (const pendingDailyGift of [{ ...valid, taps: 3 }, { ...valid, rarity: 'mythic' }, { ...valid, taps: 0 }, { ...valid, day: '2026-02-31' }]) {
@@ -265,23 +261,19 @@ it('persists the high-water timestamp even if the clock rolls back before the fi
   window.dispatchEvent(new window.Event('pagehide'));
   expect(writes.at(-1).lastSeenTime).toBe(lastSeenTime);
   api.applyLoadedData(writes.at(-1));
-  const gift = window.document.querySelector('#lb43-daily-gift');
-  expect(gift.dataset.status).toBe('clock-blocked');
-  gift.click();
+  const notice = window.document.querySelector('#daily-gift-notice');
+  const claim = window.document.querySelector('#daily-gift-claim');
+  expect(notice.hidden).toBe(true);
+  claim.click();
   expect(api.save.lastDailyGift).toBeNull();
   window.Date = originalDate;
-  window.matchMedia = () => ({ matches: true });
-  gift.click();
+  window.dispatchEvent(new window.Event('focus'));
+  expect(notice.hidden).toBe(false);
+  claim.click();
   game.advance(16);
   game.advance(16);
-  const dialog = window.document.querySelector('#daily-gift-crate-overlay');
-  const shake = dialog.querySelector('button');
-  for (let tap = 0; tap < 3; tap++) shake.click();
-  expect(dialog.dataset.reveal).toBe('revealed');
-  expect(dialog.querySelector('.lb43-crate').dataset.frame).toBe('open');
-  expect(dialog.querySelector('.lb43-crate-flight')).toBeNull();
-  expect(window.document.activeElement.textContent).toBe('Done');
-  expect(gift.dataset.status).toBe('claimed');
+  expect(notice.hidden).toBe(true);
+  expect(api.save.storedCrates).toHaveLength(1);
 });
 
 it('merges pending level-ups across reload and opens stored rank crates only through their Open buttons', async () => {
@@ -383,27 +375,6 @@ it('opens daily and weekly milestones on the spot with three tiers each and neve
   expect(document.querySelector('.lb64-crate-overlay')).toBeNull();
 });
 
-it('finishes the final Daily Gift shake from its Skip button without paying twice', async () => {
-  game = await loadGame();
-  const { w: window, api, advance } = game;
-  const { document } = window;
-  api.setup();
-  document.getElementById('lb43-daily-gift').click();
-  advance(16);
-  advance(16);
-  const dialog = document.getElementById('daily-gift-crate-overlay');
-  for (let tap = 0; tap < 3; tap++) dialog.querySelector('button').click();
-  expect(dialog.dataset.reveal).toBe('opening');
-  expect(dialog.querySelector('button').textContent).toBe('Skip animation');
-  const counts = api.save.stats.cratesCollected;
-  dialog.querySelector('button').click();
-  expect(dialog.dataset.reveal).toBe('revealed');
-  expect(document.activeElement.textContent).toBe('Done');
-  expect(api.save.stats.cratesCollected).toEqual(counts);
-  advance(2000);
-  expect(dialog.querySelector('.lb43-reward-pending, .lb43-crate-flight')).toBeNull();
-});
-
 it('flies each reward from the crate mouth, staggers landings, and cleans up when finished', async () => {
   game = await loadGame();
   const { w: window, advance } = game;
@@ -456,7 +427,7 @@ it('migrates paid reveals and unpaid level boxes once without reissuing a claime
     universalParts: 9, storedCrates: [{ rarity: 'legendary', source: 'mission', amount: 7 }, { rarity: 'mythic', source: 'daily' }],
     pendingLevelBox: { level: 81, rewards: [paid] }, pendingLevelBoxes: [{ level: 11, rewards: [paid] }],
     pendingMilestoneReward: { level: 20, rewards: [paid] }, pendingMilestoneBoxes: [40] });
-  expect(document.querySelector('#lb43-daily-gift').dataset.status).toBe('claimed');
+  expect(document.querySelector('#daily-gift-notice').hidden).toBe(true);
   expect(api.save.storedCrates.map(crate => [crate.rarity, crate.source])).toEqual([
     ['legendary', 'mission'], ['mythic', 'daily'], ['mythic', 'legacy'], ['rare', 'legacy'], ['rare', 'legacy'], ['epic', 'level'],
   ]);

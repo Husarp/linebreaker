@@ -148,6 +148,11 @@
                     <h1 id="main-title"><button type="button" id="lb122-logo-button"><img class="lb122-logo" src="assets/ui/logo-title.png" srcset="assets/ui/logo-title@2x.png 2x" width="640" height="211" alt="Linebreaker" draggable="false"></button></h1>
                 </div>
                 <div id="splash-quote"></div>
+                <aside id="daily-gift-notice" class="lb-block-panel" aria-labelledby="daily-gift-title" hidden>
+                    <img class="lb-crate-art" alt="" width="57" height="57">
+                    <div class="lb-gift-copy"><strong id="daily-gift-title">Daily Gift</strong><span id="daily-gift-crate-name"></span></div>
+                    <button type="button" class="lb-block-btn lb-block-btn--primary" id="daily-gift-claim" aria-describedby="daily-gift-crate-name">Claim</button>
+                </aside>
             </div>
             <section id="btn-player-rank" class="lb-menu-rank lb-block-card" aria-label="Player Rank">
                 <div id="level-badge-container">
@@ -174,14 +179,7 @@
             <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg><span>Settings</span></button>
         </nav>
 
-        <section class="lb-menu-utilities" aria-label="Daily gift, stats and music">
-            <div class="lb43-gift-corner">
-                <button id="lb43-daily-gift" class="lb43-gift-button lb-block-btn lb-block-btn--icon" type="button" aria-label="Daily Gift" aria-describedby="lb43-gift-status" aria-disabled="true" aria-haspopup="dialog">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h16v10H4zM3 7h18v4H3zM12 7v14M12 7H8.5A2.5 2.5 0 1 1 11 4.5L12 7Zm0 0h3.5A2.5 2.5 0 1 0 13 4.5L12 7Z"/></svg>
-                    <span class="lb43-gift-receipt" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></svg>Daily Gift</span>
-                    <small id="lb43-gift-status" class="lb43-gift-status">Checking save…</small>
-                </button>
-            </div>
+        <section class="lb-menu-utilities" aria-label="Stats and music">
             <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-stats" onclick="window.openStats()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-average"/></svg><span>Stats</span></button>
             <div id="music-widget" class="lb-block-card" data-empty>
                 <div class="lb110-track">
@@ -407,7 +405,7 @@
         <p id="inventory-filter-empty" class="lb-collection-empty" role="status" hidden></p>
         <div id="inventory-crates" role="tabpanel" aria-labelledby="inventory-tab-crates" data-invtab-content="crates">
             <section class="lb-collection-feature lb-r17-feature" data-ledger-tone="reward" data-feature-art="locker-quartermaster">
-                <div><span class="lb-collection-label">Locker</span><h2>Stored crates</h2><p>Open your earned crates here.</p></div>
+                <div><span class="lb-collection-label">Locker</span><h2>Stored crates</h2><p>Open your earned crates here.</p><p id="inventory-gift-status" hidden></p></div>
                 <img src="assets/ui/crates/rare.png" alt="">
             </section>
             <div class="lb-collection-rule"><h3 class="lb-collection-label" id="locker-crates-title">Crates</h3><span class="lb43-locker-total" aria-live="polite"></span></div>
@@ -488,10 +486,12 @@
             <section class="lb-block-card mq-board lb-r17-feature" aria-labelledby="mq-board-title" data-feature-art="mission-forest-outpost">
                 <div class="mq-list-head">
                     <div>
-                        <h2 class="lb-block-section-title" id="mq-board-title">Mission milestones</h2>
+                        <div class="mq-board-heading">
+                            <h2 class="lb-block-section-title" id="mq-board-title">Mission milestones</h2>
+                            <button type="button" class="lb-info-btn" data-help-section="missions" aria-label="About missions" data-control-tip="About missions"></button>
+                        </div>
                         <div id="mq-countdown"><svg aria-hidden="true"><use href="#lb-metric-clock"/></svg><span>Resets in <time></time></span></div>
                     </div>
-                    <button type="button" class="lb-info-btn" data-help-section="missions" aria-label="About missions" data-control-tip="About missions"></button>
                 </div>
                 <div id="mq-milestones"></div>
             </section>
@@ -504,10 +504,6 @@
                     </div>
                 </div>
                 <div id="missions-body"></div>
-            </section>
-            <section id="mq-bonus-box" class="lb-block-card" data-ledger-tone="reward">
-                <div class="mq-list-head"><h3 class="lb-block-section-title">Bonus Box</h3><span></span></div>
-                <progress class="lb-block-progress" aria-label="Bonus Box progress"></progress>
             </section>
         </div>
     </div>
@@ -1034,7 +1030,7 @@
             <button type="button" class="lb-block-btn lb-ledger-action result-menu" onclick="window.resetGameToMenu()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-topbar-home"/></svg><span>Main Menu</span></button>
             <button type="button" class="lb-block-btn lb-ledger-action result-pin" onclick="window.pinCurrentScore()" id="go-pin-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-pin"/></svg><span>Pin score</span></button>
             <div class="go-view-actions">
-                <button type="button" class="lb-block-btn lb-ledger-action result-view-board" id="go-view-board"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-blocks"/></svg><span>View board</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+                <button type="button" class="lb-block-btn lb-ledger-action result-view-board" id="go-view-board"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-blocks"/></svg><span>View board</span></button>
             </div>
         </div>
     </div>

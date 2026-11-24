@@ -1,11 +1,23 @@
-.lb43-gift-button > svg {
-    width: 22px;
-    height: 22px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.5;
-    stroke-linejoin: round;
+.lb-game-root #menu-overlay #daily-gift-notice:not([hidden]) {
+    position: absolute;
+    z-index: 3;
+    inset: -4px calc(-1 * var(--lb-border)) auto;
+    display: grid;
+    grid-template-columns: 57px minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 79px;
+    gap: 10px;
+    padding: 9px 12px 9px 9px;
+    border-color: var(--lb-label) !important;
+    border-inline-start-width: 3px !important;
+    box-shadow: 0 5px 14px #0b110d66 !important;
 }
+#daily-gift-notice[hidden] { display: none !important; }
+#daily-gift-notice[data-exiting] { pointer-events: none; }
+.lb-gift-copy { display: grid; gap: 3px; text-align: start; }
+.lb-gift-copy strong { font: 400 .9375rem/1.35 var(--lb-font-pixel); }
+.lb-gift-copy span { color: var(--lb-muted); font: var(--lb-type-small)/1.3 var(--lb-font-body); text-transform: capitalize; }
+.lb-game-root #daily-gift-claim { padding-inline: 12px !important; text-transform: none; }
 
 #lb43-crate-banner:not(:empty) {
     position: fixed;
@@ -51,9 +63,9 @@
     font: 600 14px / 1.5 var(--font-body);
     text-transform: capitalize;
 }
-.lb43-crate[data-rarity="common"], .lb43-gift-card[data-rarity="common"] { --lb43-tone: var(--rarity-common); }
-.lb43-crate[data-rarity="rare"], .lb43-gift-card[data-rarity="rare"] { --lb43-tone: var(--rarity-rare); }
-.lb43-crate[data-rarity="epic"], .lb43-gift-card[data-rarity="epic"] { --lb43-tone: var(--rarity-epic); }
+.lb43-crate[data-rarity="common"] { --lb43-tone: var(--rarity-common); }
+.lb43-crate[data-rarity="rare"] { --lb43-tone: var(--rarity-rare); }
+.lb43-crate[data-rarity="epic"] { --lb43-tone: var(--rarity-epic); }
 .lb43-crate[data-rarity="legendary"] { --lb43-tone: var(--rarity-legendary); }
 .lb43-crate[data-rarity="mythic"] { --lb43-tone: var(--rarity-mythic); }
 .lb43-crate-sprite { position: relative; aspect-ratio: 1; overflow: visible; }
@@ -62,8 +74,6 @@
 .lb43-crate[data-frame="ajar"] [data-frame="ajar"],
 .lb43-crate[data-frame="open"] [data-frame="open"] { opacity: 1; }
 .lb43-crate figcaption { margin-top: 4px; white-space: nowrap; }
-.lb43-gift-progress { color: var(--lb-ink); font: 400 var(--lb-type-small)/1.5 var(--lb-font-pixel); }
-.lb43-crate-shaking .lb43-crate-sprite { animation: lb43-shake 230ms ease-in-out; }
 
 .lb43-crate-mouth, .lb43-crate-shine { position: absolute; left: 50%; top: 47%; pointer-events: none; }
 .lb43-crate-shine {
@@ -134,11 +144,6 @@
     animation: lb43-card-flight ease-out both;
 }
 
-@keyframes lb43-shake {
-    0%, 100% { transform: translateX(0) rotate(0); }
-    25%, 75% { transform: translateX(-4px) rotate(-4deg); }
-    50% { transform: translateX(4px) rotate(4deg); }
-}
 @keyframes lb43-shine {
     0% { opacity: 0; scale: .2; }
     25% { opacity: 1; }
@@ -157,6 +162,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .lb43-crate-shaking .lb43-crate-sprite,
     .lb64-crate-overlay .lb43-crate-flight { animation: none; }
 }

@@ -233,8 +233,8 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
   await Promise.resolve();
   advance(100);
   await gift;
-  visible('daily-gift-crate-overlay');
-  expect(get('daily-gift-crate-overlay').textContent).toContain('Shake crate');
+  expect(get('daily-gift-notice').hidden).toBe(false);
+  expect(get('daily-gift-notice').textContent).toContain('Common crate');
   await qa.open('level-crate');
   visible('inventory-crate-overlay');
   await qa.open('mission-crate');
@@ -304,7 +304,7 @@ it('opens the documented screenshot targets through real UI handlers', async () 
     'color-picker': '#color-picker-modal[open]', 'custom-palette': '#custom-palette-modal[open]', 'palette-preview': '#palette-view-modal', 'palette-editor': '#pal-edit-modal',
     'sfx-preview': '#sfx-preview-modal', 'sfx-panel': '#sfx-panel-modal', 'universal-parts': '#uni-modal-overlay',
     'universal-exchange': '#uni-xch-overlay', 'booster-exchange': '#exc-modal-overlay', 'inventory-sfx': '#sfx-inv-preview',
-    'daily-gift': '#lb43-crate-banner', 'level-crate': '#inventory-crate-overlay', 'level-up': '#level-up-popup-overlay', 'mission-crate': '#inventory-crate-overlay',
+    'daily-gift': '#daily-gift-notice', 'level-crate': '#inventory-crate-overlay', 'level-up': '#level-up-popup-overlay', 'mission-crate': '#inventory-crate-overlay',
     'start-animation': '#start-animation-overlay', game: '#app.active-game', pause: '#pause-overlay', 'game-over': '#go-overlay',
   };
   expect(w.__LB_QA.list()).toEqual(Object.keys(targets));

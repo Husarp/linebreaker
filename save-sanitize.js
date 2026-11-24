@@ -310,7 +310,7 @@
             const missionDefaults = definitions.missionDefaults || {
                 daily:{quests:[],secret:null,lastRefreshDate:'',swapDate:'',pointsToday:0,claimedMilestones:[],completedToday:false,newVisit:false,rawXPToday:0},
                 weekly:{missions:[],weekKey:'',swapDate:'',points:0,claimedMilestones:[],anyCompleted:false,dailyPtsLog:{},newVisit:false,pendingUniversalParts:0,hitAnyMilestone:false,dailyAllCompleteCount:0,dailyAllCompleteDate:''},
-                stats:{totalCompleted:0,byTier:{easy:0,normal:0,hard:0,secret:0},weeklyCompleted:0,totalPts:0,completionHistory:{}},specialBox:{pts:0}
+                stats:{totalCompleted:0,byTier:{easy:0,normal:0,hard:0,secret:0},weeklyCompleted:0,totalPts:0,completionHistory:{}}
             };
             out.missions = structured(data.missions, missionDefaults);
             for (const section of ['daily', 'weekly']) {
@@ -319,7 +319,7 @@
                     out.missions[section].swapDate = out.missions.daily.lastRefreshDate;
                 }
             }
-            for (const [section, key] of [['daily','ptsTrackedForWeekly'],['specialBox','excessTracked']]) out.missions[section][key] = number(data.missions[section]?.[key]);
+            out.missions.daily.ptsTrackedForWeekly = number(data.missions.daily?.ptsTrackedForWeekly);
             for (const [section, key] of [['daily','quests'], ['weekly','missions']]) {
                 out.missions[section][key] = list(data.missions[section]?.[key]).map(quest => missionProgress(quest, section === 'weekly')).filter(Boolean);
             }

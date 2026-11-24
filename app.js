@@ -2552,7 +2552,8 @@
                 },
                 dailyGift() {
                     saveData.lastDailyGift = _qaDemo.previousDate();
-                    return dailyGift.claim();
+                    saveData.pendingDailyGift ??= { day: LBSave.localDate(new Date()), rarity: 'common' };
+                    dailyGift.refresh();
                 },
                 universalExchange() {
                     const profile = saveData;
@@ -3529,6 +3530,7 @@
     }
     function devResetDailyGift() {
         saveData.lastDailyGift = null;
+        saveData.pendingDailyGift = null;
         dailyGift.refresh();
         saveDataToFile();
         customAlert('Daily gift reset! Gift is now available.', 'DEV');
@@ -9198,7 +9200,6 @@
         closeInfo();
         if (controlsEditor.cancel()) return;
         switch (overlay.id) {
-            case 'daily-gift-crate-overlay':
             case 'inventory-crate-overlay': overlay.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); return;
             case 'start-animation-overlay': return;
             case 'pause-overlay': pauseFromInput(overlay); return;
@@ -9819,27 +9820,11 @@
     }
     const MQ_DAILY_MILESTONES = [6, 9, 12].map(pts => ({ pts }));
     const MQ_WEEKLY_MILESTONES = [60, 90, 120].map(pts => ({ pts }));
-    const MQ_SPECIAL_BOX_CAP = 30;
-    function _advanceBonusBox(missions, silent = false) {
-        const box = (missions.specialBox ??= { pts: 0 });
-        const excess = Math.max(0, (missions.daily.pointsToday || 0) - MQ_DAILY_MILESTONES.at(-1).pts);
-        const delta = excess - (box.excessTracked || 0);
-        if (delta <= 0) return 0;
-        box.excessTracked = excess;
-        box.pts = (box.pts || 0) + delta;
-        if (box.pts >= MQ_SPECIAL_BOX_CAP) {
-            box.pts -= MQ_SPECIAL_BOX_CAP;
-            LBCrates.grantCrate(saveData, 'common', { source: 'bonus' });
-            if (!silent) _showMissionReward('Common crate added to Inventory — Bonus Box!');
-        }
-        return delta;
-    }
     function _defaultMissions() {
         return {
             daily:   { quests: [], secret: null, lastRefreshDate: '', swapDate: '', pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: false },
             weekly:  { missions: [], weekKey: '', swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: false, pendingUniversalParts: 0 },
             stats:   { totalCompleted: 0, byTier: { easy: 0, normal: 0, hard: 0, secret: 0 }, weeklyCompleted: 0, totalPts: 0, completionHistory: {} },
-            specialBox: { pts: 0 },
         };
     }
     function _missionDateKey() { return LBSave.localDate(new Date()); }
@@ -9995,7 +9980,6 @@
         if (m.daily.newVisit === undefined) m.daily.newVisit = false;
         if (m.weekly.newVisit === undefined) m.weekly.newVisit = false;
         if (!m.weekly.dailyPtsLog) m.weekly.dailyPtsLog = {};
-        if (!m.specialBox) m.specialBox = { pts: 0 };
         if (m.stats.totalPts === undefined) m.stats.totalPts = 0;
         if (!m.stats.completionHistory) m.stats.completionHistory = {};
         if (m.weekly.pendingUniversalParts === undefined) m.weekly.pendingUniversalParts = 0;
@@ -10017,7 +10001,6 @@
               if ((m.daily.secret?.completed) && _regDone === 0) _tryU('mq_lazy_lucky'); }
             const { quests, secret } = _generateDailyQuests();
             m.daily = { quests, secret, lastRefreshDate: today, swapDate: '', pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: true };
-            if (m.specialBox) m.specialBox.excessTracked = 0;
             changed = true;
         }
         if (m.daily.quests.length === 5 && !m.daily.quests.some(quest => DAILY_MODE_QUESTS.some(mode => mode.id === quest.id))) {
@@ -10254,7 +10237,6 @@
               m.weekly.points = (m.weekly.points || 0) + _dailyDelta;
               m.weekly.dailyPtsLog[today] = (m.weekly.dailyPtsLog[today] || 0) + _dailyDelta;
           } }
-        _advanceBonusBox(m);
         // Track completions per day and total pts for stats
         if (_completedThisCall > 0) {
             const _n = new Date(); const _histKey = _n.getFullYear()+'-'+String(_n.getMonth()+1).padStart(2,'0')+'-'+String(_n.getDate()).padStart(2,'0');
@@ -10283,35 +10265,78 @@
     }
 
     // ---- MISSIONS UI ----
-    function _missionQuestCard(q, index, isWeekly) {
-        const isSecret = q.tier === 'secret';
-        const displayTier = isSecret ? (q.displayTier || 'normal') : (q.tier || 'normal');
-        const tier = isSecret ? 'secret' : displayTier;
-        const claimed = q.completed && q.ptsClaimed;
-        const ready = q.completed && !claimed;
-        const swapping = !!window._mqChangeMode;
-        const canSwap = swapping && !isSecret && !q.completed && _swapCandidates(index, isWeekly).length > 0;
-        const missionTitle = escapeHtml(isSecret && !q.completed ? '???' : q.title);
-        const desc = isSecret && !q.completed ? 'Complete to reveal…' : escapeHtml(q.desc);
-        const icon = LBMissionArt.forMetric(q.metric, isSecret && !q.completed);
-        const target = Math.max(1, q.target || 0);
-        const progress = q.completed ? target : Math.min(target, Math.max(0, q.progress || 0));
-        const format = q.metric === 'gameTime' ? _fmtMissionTime : String;
-        const pointLabel = `+${escapeHtml(q.pts)} SP`;
-        const reward = claimed ? '<span class="mq-claimed">✓ Claimed</span>' : ready && !swapping
-            ? `<button type="button" class="mq-pts-claim-btn lb-block-btn lb-block-btn--primary lb-ledger-claim" aria-label="Claim ${pointLabel}" onclick="window._claimQuestPts(${escapeHtml(JSON.stringify(String(q.id)))},${!!isWeekly},null,this)">Claim</button>` : '';
-        const swap = canSwap ? `<button type="button" class="mq-change-overlay lb-block-btn" aria-label="Swap ${escapeHtml(q.desc)}" onclick="window._changeMission(${index},${!!isWeekly})">Swap</button>` : '';
-        const meter = isSecret ? '' : `<div class="mq-card-progress">
-            <progress class="lb-block-progress" aria-label="${missionTitle} progress" max="${target}" value="${progress}"></progress>
-            <span class="mq-card-progress-value">${format(progress)} / ${format(target)}</span>
-        </div>`;
-        return `<div class="mq-card-wrap"${index == null ? '' : ` data-mission-slot="${index}"`}>
-            <article class="mq-card lb-block-card" tabindex="-1" data-tier="${escapeHtml(tier)}"${ready && !swapping ? ' data-ready' : ''}>
-                <div class="mq-card-icon"><img class="mq-patch" src="${icon}" alt=""><span class="mq-pts">${pointLabel}</span></div>
-                <div class="mq-card-text"><span class="mq-tier-badge">${tier === 'normal' ? 'Medium' : escapeHtml(tier)}</span><h3 class="mq-card-title">${missionTitle}</h3><p class="mq-card-desc">${desc}</p></div>
-                <div class="mq-card-slot">${meter}${reward || swap ? `<div class="mq-card-action${ready && !swapping ? ' mq-card-action--claim' : ''}">${reward}${swap}</div>` : ''}</div>
+    function _renderMissionDeck(body, entries, quests, isWeekly) {
+        const swapping = window._mqChangeMode;
+        const canSwap = quest => _swapCandidates(quests.indexOf(quest), isWeekly).length > 0;
+        const selected = entries.includes(body._focusedMission) ? body._focusedMission : null;
+        const focused = selected || (swapping && entries.find(canSwap))
+            || entries.find(quest => quest.completed && !quest.ptsClaimed)
+            || entries.find(quest => !quest.completed) || entries[0];
+        body._focusedMission = focused;
+        if (!focused) {
+            body.replaceChildren();
+            return;
+        }
+
+        const describe = quest => {
+            const hidden = quest.tier === 'secret' && !quest.completed;
+            const state = hidden ? 'Hidden' : !quest.completed ? 'In progress' : quest.ptsClaimed ? 'Claimed' : 'Ready to claim';
+            return { title: hidden ? '???' : quest.title, hidden, state,
+                art: `<img src="${LBMissionArt.forMetric(quest.metric, hidden)}" alt="" draggable="false">` };
+        };
+        const { title, hidden, state, art } = describe(focused);
+        const target = Math.max(1, focused.target || 0);
+        const progress = focused.completed ? target : Math.min(target, Math.max(0, focused.progress || 0));
+        const format = focused.metric === 'gameTime' ? _fmtTime : value => value.toLocaleString('en-US');
+        const count = hidden ? '???' : `${format(progress)} / ${format(target)}`;
+        const points = `+${escapeHtml(focused.pts)} SP`;
+        const slot = quests.indexOf(focused);
+        let action = '';
+        if (swapping && canSwap(focused)) {
+            action = `<button type="button" class="mq-change-overlay lb-block-btn" aria-label="Swap ${escapeHtml(title)}" onclick="window._changeMission(${slot},${isWeekly})">Swap</button>`;
+        } else if (!swapping && state === 'Ready to claim') {
+            const id = escapeHtml(JSON.stringify(String(focused.id)));
+            action = `<button type="button" class="mq-pts-claim-btn lb-block-btn lb-block-btn--primary lb-ledger-claim" aria-label="Claim ${points} for ${escapeHtml(title)}" onclick="window._claimQuestPts(${id},${isWeekly},null,this)">Claim</button>`;
+        }
+        const steps = entries.map((quest, index) => {
+            const step = describe(quest);
+            const caption = { 'In progress': '…', 'Ready to claim': 'Ready' }[step.state] || step.state;
+            return `<button type="button" class="mq-focus-step lb-block-btn" data-step="${index}" data-state="${step.state}"
+                aria-pressed="${quest === focused}" aria-label="${escapeHtml(step.hidden ? 'Secret objective' : step.title)}, ${step.state}">
+                ${step.art}<span>${caption}</span></button>`;
+        }).join('');
+        body.innerHTML = `<div class="mq-focus-deck">
+            <article class="mq-focus-card lb-block-card" data-mission-slot="${slot}">
+                ${art}
+                <div class="mq-focus-copy"><h3>${escapeHtml(title)}</h3><p>${hidden ? 'Complete to reveal…' : escapeHtml(focused.desc)}</p></div>
+                <div class="mq-focus-foot">
+                    <div class="mq-focus-readout"><strong>${count}</strong><span>${state}</span></div>
+                    <div class="mq-focus-reward"><small>${points}</small>${action}</div>
+                </div>
             </article>
+            <div class="mq-focus-steps" role="group" aria-label="Select an objective">${steps}</div>
         </div>`;
+
+        function select(index, restoreFocus) {
+            body._focusedMission = entries[index];
+            _renderMissionDeck(body, entries, quests, isWeekly);
+            if (restoreFocus) body.querySelector('[aria-pressed="true"]').focus({ preventScroll: true });
+        }
+        body.querySelectorAll('.mq-focus-step').forEach(step => {
+            step.addEventListener('click', () => select(Number(step.dataset.step), true));
+        });
+        const card = body.querySelector('.mq-focus-card');
+        let startX;
+        card.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'touch' && !event.target.closest('button')) startX = event.clientX;
+        });
+        card.addEventListener('pointerup', event => {
+            if (startX === undefined) return;
+            const delta = event.clientX - startX;
+            startX = undefined;
+            if (Math.abs(delta) > 35) select((entries.indexOf(focused) + Math.sign(-delta) + entries.length) % entries.length, false);
+        });
+        card.addEventListener('pointercancel', () => { startX = undefined; });
     }
 
     function _missionCrateMarker(rarity, locked = false) {
@@ -10405,15 +10430,9 @@
         swap.textContent = swapping ? 'Cancel swap' : 'Swap';
         el.querySelector('#mq-swaps-left').textContent = swapUsed ? '0 swaps left today' : '1 swap left today';
 
-        const bonus = m.specialBox?.pts || 0;
-        const bonusBox = view.querySelector('#mq-bonus-box');
-        const bonusProgress = bonusBox.querySelector('progress');
-        bonusBox.querySelector('.mq-list-head span').textContent = `${bonus} / ${MQ_SPECIAL_BOX_CAP}`;
-        bonusProgress.max = MQ_SPECIAL_BOX_CAP;
-        bonusProgress.value = Math.min(bonus, MQ_SPECIAL_BOX_CAP);
         const body = el.querySelector('#missions-body');
-        body.innerHTML = `<div class="mq-cards">${_sortQuests(entries).map(quest =>
-            _missionQuestCard(quest, quest === period.secret ? 'secret' : quests.indexOf(quest), weekly)).join('')}</div>`;
+        if (opening || previousTab !== tab) body._focusedMission = null;
+        _renderMissionDeck(body, _sortQuests(entries), quests, weekly);
         if (tab === 'daily' && m.daily.newVisit) { m.daily.newVisit = false; saveDataToFile(); }
         if (tab === 'weekly' && m.weekly.newVisit) { m.weekly.newVisit = false; saveDataToFile(); }
         _updateMissionCountdown();
@@ -10451,8 +10470,10 @@
         const weekly = document.getElementById('missions-overlay')._mTab === 'weekly';
         if (!window._mqChangeMode && _missionSwapUsed(saveData.missions?.[weekly ? 'weekly' : 'daily'])) return;
         window._mqChangeMode = !window._mqChangeMode;
+        const body = document.getElementById('missions-body');
+        if (window._mqChangeMode) body._focusedMission = null;
         renderMissionsOverlay();
-        if (window._mqChangeMode) document.querySelector('#missions-body .mq-change-overlay')?.focus();
+        if (window._mqChangeMode) body.querySelector('.mq-change-overlay')?.focus();
     };
 
     window._exitChangeMode = function() {
@@ -10461,7 +10482,7 @@
 
     window._mqOverlayClick = function(e) {
         if (!window._mqChangeMode) return;
-        if (e.target.closest('.mq-card-wrap, .mq-swap-control')) return;
+        if (e.target.closest('.mq-focus-deck, .mq-swap-control')) return;
         window._toggleChangeMode();
     };
 
@@ -10558,6 +10579,7 @@
                 const mult = ['maxSpeed', 'maxCombo', 'funRuns'].includes(replacement.metric) ? 1 : _missionRankMult();
                 const target = _niceRound(replacement.target * mult);
                 list[index] = { ...replacement, target, progress: 0, completed: false, ptsClaimed: false, desc: _makeMissionDesc(replacement.metric, replacement.desc, target) };
+                document.getElementById('missions-body')._focusedMission = list[index];
                 missionPeriod.swapDate = _missionDateKey();
                 saveDataToFile();
                 window._exitChangeMode();
@@ -10679,33 +10701,22 @@
                 m.weekly.dailyPtsLog[today] = (m.weekly.dailyPtsLog[today] || 0) + _delta;
             }
         }
-        const _bonusBoxDelta = isWeekly ? 0 : _advanceBonusBox(m, silent);
         m.stats.totalPts = (m.stats.totalPts || 0) + pts;
         // Capture button position BEFORE re-render destroys it
         const _fromRect = btnEl ? btnEl.getBoundingClientRect() : null;
-        const focusedSlot = btnEl === document.activeElement ? btnEl.closest('[data-mission-slot]')?.dataset.missionSlot : null;
+        const restoreFocus = btnEl && btnEl === document.activeElement;
         saveDataToFile();
         if (silent) return;
         renderMissionsOverlay(isWeekly ? 'weekly' : 'daily');
-        if (focusedSlot != null) {
-            document.querySelector(`#missions-body [data-mission-slot="${focusedSlot}"] .mq-card`)?.focus({ preventScroll: true });
-        }
+        if (restoreFocus) document.querySelector('.mq-focus-step[aria-pressed="true"]')?.focus({ preventScroll: true });
         _checkGlowNotifications();
-        // Animations are purely visual (data already committed above)
-        const _bonusDeltaCapture = _bonusBoxDelta;
-        if (_fromRect) {
-            _flyPtsToBar(pts, _fromRect, color || 'var(--lb-label)', function() {
-                if (_bonusDeltaCapture > 0) {
-                    setTimeout(() => _flyPtsToBox(_bonusDeltaCapture), 150);
-                }
-            });
-        }
+        if (_fromRect) _flyPtsToBar(pts, _fromRect, color || 'var(--lb-label)');
     }
 
-    function _flyPtsToBar(pts, fromEl, color, onDone) {
+    function _flyPtsToBar(pts, fromEl, color) {
         const fromRect = (fromEl && typeof fromEl.getBoundingClientRect === 'function') ? fromEl.getBoundingClientRect() : fromEl;
         const barEl = document.querySelector('.mq-pb-points');
-        if (!barEl) { onDone && onDone(); return; }
+        if (!barEl) return;
         const barRect = barEl.getBoundingClientRect();
         const destX = barRect.left + barRect.width / 2;
         const destY = barRect.top + barRect.height / 2;
@@ -10734,45 +10745,6 @@
                 barEl.style.transition = 'filter 0.2s';
                 barEl.style.filter = `drop-shadow(0 0 6px ${color})`;
                 setTimeout(() => { barEl.style.filter = ''; }, 350);
-            }
-            onDone && onDone();
-        }, 580);
-    }
-
-    function _flyPtsToBox(delta) {
-        const barEl = document.querySelector('.mq-pb-points');
-        const boxEl = document.getElementById('mq-bonus-box');
-        if (!barEl || !boxEl) return;
-        const fromRect = barEl.getBoundingClientRect();
-        const toRect   = boxEl.getBoundingClientRect();
-
-        const flyEl = document.createElement('div');
-        flyEl.className = 'mq-fly-pts';
-        flyEl.textContent = `+${delta}`;
-        flyEl.style.left   = `${fromRect.left + fromRect.width * 0.12}px`;
-        flyEl.style.top    = `${fromRect.top + 14}px`;
-        flyEl.style.color  = 'var(--lb-utility)';
-        flyEl.style.textShadow = '0 0 10px var(--lb-utility)';
-        flyEl.style.opacity = '1';
-        document.body.appendChild(flyEl);
-
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            flyEl.style.left    = `${toRect.left + toRect.width / 2}px`;
-            flyEl.style.top     = `${toRect.top + toRect.height / 2}px`;
-            flyEl.style.fontSize = '0.55rem';
-            flyEl.style.opacity = '0';
-        }));
-
-        setTimeout(() => {
-            flyEl.remove();
-            if (boxEl) {
-                boxEl.style.transition = 'box-shadow 0.15s, border-color 0.15s';
-                boxEl.style.boxShadow = '0 0 8px var(--lb-utility)';
-                boxEl.style.borderColor = 'var(--lb-utility)';
-                setTimeout(() => {
-                    boxEl.style.boxShadow = '';
-                    boxEl.style.borderColor = '';
-                }, 500);
             }
         }, 580);
     }
@@ -11344,7 +11316,6 @@
             saveData.missions.weekly.points = (saveData.missions.weekly.points || 0) + amt;
         } else {
             saveData.missions.daily.pointsToday = (saveData.missions.daily.pointsToday || 0) + amt;
-            _advanceBonusBox(saveData.missions, true);
         }
         saveDataToFile();
         const tab = which === 'weekly' ? 'weekly' : 'daily';
@@ -11428,10 +11399,10 @@
             ['missions', 'Missions & milestones', `
                 ${block('Play & claim', '<p>Play <strong>Normal</strong> to progress most missions, or <strong>Fun</strong> for objectives that ask for it. Daily points count toward weekly milestones. Daily quests refresh each day and weekly missions reset on Monday.</p><p>Claim rewards in <strong>Missions</strong>. Each day you can swap one eligible daily mission and one eligible weekly mission. Secret quests cannot be swapped.</p>')}
                 ${block('Daily milestones', milestones(MQ_DAILY_MILESTONES))}
-                ${block('Weekly milestones', milestones(MQ_WEEKLY_MILESTONES, true))}
-                ${block('Extra rewards', `<p><strong>Bonus Box:</strong> Earn a Common crate for every ${MQ_SPECIAL_BOX_CAP} points past the last daily milestone. Open it in Inventory.</p>`)}`],
+                ${block('Weekly milestones', milestones(MQ_WEEKLY_MILESTONES, true))}`],
             ['boxes', 'Boxes & parts', `
                 ${block('Find & use parts', `<p>Earn parts from <strong>crates and milestones</strong>. Collect ${LBSave.itemPartCost} parts for a cosmetic to unlock and equip it in Inventory.</p>`)}
+                ${block('Daily Gift', '<p>Claim the Daily Gift notification on the main menu to add a Common, Rare, or Epic crate to <strong>Inventory → Crates</strong>. After claiming, check Crates for the time until the next gift.</p>')}
                 ${block('Universal parts', '<p>In <strong>Inventory → Parts</strong>, use a universal part on an item of the same or a lower rarity. Once you own every item of a rarity, trade four universal parts of that rarity for one of the next rarity.</p>')}`],
             ['achievements', 'Achievements & rarities', `
                 ${block('Track & claim', '<p>Claim each reward in Achievements. Bronze gives XP; Silver and Gold add crates to Inventory. Secret goals stay hidden until you find them.</p>')}
@@ -11664,27 +11635,25 @@
 
     let dailyGiftReady = false;
     let crateBannerTimer;
-    document.addEventListener('lb-crate-added', ({ detail: { data, rarity } }) => {
+    document.addEventListener('lb-crate-added', ({ detail: { data, rarity, source } }) => {
         if (data !== saveData) return;
         document.getElementById('btn-inventory').setAttribute('data-ready', '');
         const inventory = document.getElementById('inventory-overlay');
         if (!inventory.classList.contains('hidden') && inventory._invTab === 'crates') _populateInventoryOther();
+        if (source === 'daily') return;
         const banner = document.getElementById('lb43-crate-banner');
         banner.textContent = `${LBCrates.crateLabel(rarity)} added to your inventory`;
         clearTimeout(crateBannerTimer);
         crateBannerTimer = setTimeout(() => { banner.textContent = ''; }, 2600);
     });
     const dailyGift = LBCrates.mountDailyGift({
-        button: document.getElementById('lb43-daily-gift'), getSave: () => saveData,
-        claimAfterPaint: _claimAfterPaint,
-        ready: () => dailyGiftReady && !_gameInProgress, save: saveDataToFile,
-        onShake: () => playSFX('drop'),
-        openGift(rarity) {
-            LBCrates.recordCrate(saveData, rarity);
-            const cards = _grantRarityCrate(rarity, true);
-            checkProgressAchievements();
-            _checkGlowNotifications();
-            return _crateRewardGrid(cards);
+        notice: document.getElementById('daily-gift-notice'),
+        inventoryStatus: document.getElementById('inventory-gift-status'),
+        getSave: () => saveData, save: saveDataToFile, claimAfterPaint: _claimAfterPaint,
+        ready: () => dailyGiftReady && !_gameInProgress,
+        onClaim(restoreFocus) {
+            playSFX('gift');
+            if (restoreFocus) document.getElementById('btn-inventory').focus({ preventScroll: true });
         },
     });
 

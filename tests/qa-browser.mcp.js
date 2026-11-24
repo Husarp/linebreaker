@@ -83,11 +83,7 @@
             }
             if (name === 'start-animation') await capture?.(name);
             await page.waitForTimeout(1050);
-            const isCrate = ['daily-gift', 'level-crate', 'mission-crate'].includes(name);
-            if (name === 'daily-gift') {
-                const shake = page.getByRole('button', { name: 'Shake crate' });
-                for (let tap = 0; tap < 3; tap++) await shake.click();
-            }
+            const isCrate = ['level-crate', 'mission-crate'].includes(name);
             if (isCrate) {
                 const overlay = page.locator('.lb64-crate-overlay[data-reveal="revealed"]');
                 await overlay.waitFor();
@@ -107,6 +103,29 @@
                 if (!framesMatch) fail('Crate frames must share their canvas and show the final rewards and Done action');
             }
             if (name !== 'start-animation') await capture?.(name);
+            const infoOverlaps = await page.evaluate(() => {
+                const visible = node => node.checkVisibility();
+                const overlaps = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1
+                    && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+                return [...document.querySelectorAll('.lb-info-btn, .lb-block-info-icon')].filter(visible).flatMap(info => {
+                    const scope = info.closest('.lb-block-topbar, .lb-help-label, .mq-list-head, .go-boost-heading, .lb-color-piece-header, .lb-block-panel-head')
+                        || info.parentElement;
+                    const hit = info.getBoundingClientRect();
+                    const size = parseFloat(getComputedStyle(info, '::before').width);
+                    const x = (hit.left + hit.right) / 2;
+                    const y = (hit.top + hit.bottom) / 2;
+                    const mark = { left: x - size / 2, right: x + size / 2, top: y - size / 2, bottom: y + size / 2 };
+                    const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+                    const range = document.createRange();
+                    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                        if (!node.textContent.trim() || info.contains(node) || !visible(node.parentElement)) continue;
+                        range.selectNodeContents(node);
+                        if ([...range.getClientRects()].some(rect => overlaps(rect, mark))) return [info.getAttribute('aria-label')];
+                    }
+                    return [];
+                });
+            });
+            if (infoOverlaps.length) fail(`Info icons overlap text: ${infoOverlaps.join(', ')}`);
             const clearsBand = await page.evaluate(() => {
                 const bandBottom = document.querySelector('.lb-top-band').getBoundingClientRect().bottom;
                 return [...document.querySelectorAll('.lb-block-back, .lb-menu-banner')].every(control =>
@@ -643,17 +662,16 @@
                 if (!menuDesign) fail('Menu banner or cut XP bar does not match the r9 treatment');
                 const fits = await page.evaluate(() => {
                     const wrapper = document.querySelector('#menu-overlay .menu-scale-wrapper');
-                    const gift = document.querySelector('#lb43-daily-gift').getBoundingClientRect();
+                    const logoFrame = document.querySelector('.lb-menu-banner').getBoundingClientRect();
                     const stats = document.querySelector('#btn-stats').getBoundingClientRect();
                     const player = document.querySelector('#music-widget').getBoundingClientRect();
                     const near = (first, second) => Math.abs(first - second) <= 1;
                     return wrapper.scrollHeight <= wrapper.clientHeight && wrapper.scrollWidth <= wrapper.clientWidth
-                        && player.bottom <= wrapper.getBoundingClientRect().bottom
-                        && gift.width >= 44 && gift.height >= 44 && stats.width > gift.width && player.height > 0
-                        && near(gift.top, stats.top) && near(gift.bottom, stats.bottom) && gift.right < stats.left
-                        && player.top > gift.bottom && near(player.left, gift.left) && near(player.right, stats.right);
+                        && player.bottom <= wrapper.getBoundingClientRect().bottom && player.top > stats.bottom
+                        && near(stats.left, logoFrame.left) && near(stats.right, logoFrame.right)
+                        && near(player.left, stats.left) && near(player.right, stats.right);
                 });
-                if (!fits) fail('Daily Gift and Stats must sit above the music player, with no menu overflow');
+                if (!fits) fail('Stats and the music player must span the menu content with no overflow');
                 if (await page.locator('#menu-overlay #btn-season-pass').count()) fail('Season Pass is still on the main menu');
                 await page.locator('#btn-missions').click();
                 const seasonCard = page.locator('#missions-overlay .mq-board-controls + #btn-season-pass');
@@ -663,6 +681,38 @@
                 await page.getByRole('button', { name: 'Back to Missions' }).click();
                 if (!await seasonCard.evaluate(card => card === document.activeElement)) fail('Season Pass back button did not restore card focus');
                 await page.locator('#mq-menu').click();
+            }
+            if (name === 'daily-gift') {
+                const notice = page.locator('#daily-gift-notice');
+                const claim = notice.getByRole('button', { name: 'Claim' });
+                const name = notice.locator('#daily-gift-crate-name');
+                const gift = await name.textContent();
+                const menuLayout = () => page.locator('.lb-menu-banner, #btn-stats, #music-widget')
+                    .evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().toJSON()));
+                const beforeClaim = await menuLayout();
+                const noticeFits = await notice.evaluate(panel => {
+                    const rect = panel.getBoundingClientRect();
+                    const frame = panel.closest('.lb-menu-banner').getBoundingClientRect();
+                    const band = document.querySelector('.lb-top-band').getBoundingClientRect();
+                    return rect.left === frame.left && rect.right === frame.right && rect.top >= band.bottom
+                        && panel.querySelector('img').naturalWidth > 0 && /^(Common|Rare|Epic) crate$/.test(panel.querySelector('span').textContent);
+                });
+                if (!noticeFits) fail('Daily Gift artwork or alignment with the menu frame is incorrect');
+                await page.evaluate(() => window.__LB_QA.open('inventory'));
+                const total = page.locator('.lb43-locker-total');
+                const before = Number.parseInt(await total.textContent(), 10);
+                await page.evaluate(() => window.__LB_QA.open('menu'));
+                if (!await notice.isVisible() || await name.textContent() !== gift) fail('Daily Gift changed during menu navigation');
+                await claim.click();
+                await notice.waitFor({ state: 'hidden' });
+                if (JSON.stringify(await menuLayout()) !== JSON.stringify(beforeClaim)) fail('Claim moved the menu layout');
+                if (!await page.locator('#btn-inventory').evaluate(button => button.hasAttribute('data-ready'))) fail('Inventory lacks its crate marker');
+                await capture?.('daily-gift-claimed');
+                await page.evaluate(() => window.__LB_QA.open('inventory'));
+                await page.waitForFunction(expected => Number.parseInt(document.querySelector('.lb43-locker-total').textContent, 10) === expected, before + 1);
+                if (!(await page.locator('#inventory-gift-status').textContent()).includes('Next in')) fail('Inventory lacks the next-gift countdown');
+                await page.evaluate(() => window.__LB_QA.open('menu'));
+                if (await notice.isVisible()) fail('Claimed gift reappeared after navigation');
             }
             if (name === 'game') {
                 const speedStrip = await page.locator('.lb-hud-level').evaluate(tile => {
@@ -754,6 +804,10 @@
                 if (!await bonus.isVisible() || await base.textContent() !== xpBefore) fail('The booster bonus must appear below the base XP');
                 await capture?.('game-over-used');
                 const viewBoard = page.locator('#go-view-board');
+                if (await viewBoard.locator('.lb-ledger-chevron').count()) fail('View board still shows a chevron');
+                if (await page.locator('.go-rewards-heading').evaluate(el => ['dashed', 'dotted'].includes(getComputedStyle(el).borderBottomStyle))) {
+                    fail('Run rewards has a dashed or dotted divider');
+                }
                 await viewBoard.click();
                 const finalFits = await page.locator('#final-board').evaluate(board => {
                     const box = board.getBoundingClientRect();
@@ -766,72 +820,49 @@
                 if (!await viewBoard.evaluate(button => document.activeElement === button)) fail('Back must return focus to View board');
             }
             if (name === 'missions' || name === 'missions-weekly') {
-                const compact = await page.evaluate(() => {
-                    const button = document.querySelector('.mq-card-action--claim .mq-pts-claim-btn');
-                    if (!button) return false;
-                    const { height, right } = button.getBoundingClientRect();
-                    return height >= 26 && height <= 30 && Math.abs(right - button.parentElement.getBoundingClientRect().right) < 1;
-                });
-                if (!compact) fail('Claim button is not a 26–30px right-aligned action');
-                const board = await page.evaluate(period => {
-                    const card = document.querySelector('.mq-board');
-                    const selected = document.querySelector('.mq-board-controls [aria-pressed="true"][data-tab]');
-                    const rows = [...document.querySelectorAll('#missions-body .mq-card')].slice(0, 2);
-                    const count = document.querySelector('.mq-header #mq-list-meta');
-                    return card?.querySelector('time')?.dateTime && selected?.dataset.tab === period
-                        && card.querySelector('#mq-milestones progress')
-                        && /mission-(forest-outpost|map-room)\.webp/.test(getComputedStyle(card).backgroundImage)
-                        && selected.getBoundingClientRect().bottom <= card.getBoundingClientRect().top
-                        && /\d+ \/ \d+ complete/.test(count?.textContent) && !count.hidden
-                        && rows.length === 2 && rows[0].getBoundingClientRect().left === rows[1].getBoundingClientRect().left
-                        && !/\bspeed\b/i.test(document.getElementById('mq-mission-view').innerText);
+                const deck = page.locator('#missions-body');
+                const card = deck.locator('.mq-focus-card');
+                const steps = deck.locator('.mq-focus-step');
+                const active = deck.locator('.mq-focus-step[aria-pressed="true"]');
+                const shape = () => deck.locator('.mq-focus-card, .mq-focus-steps')
+                    .evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().toJSON()));
+                const layout = await deck.evaluate((body, period) => {
+                    const view = body.closest('#mq-mission-view');
+                    const milestones = view.querySelector('.mq-board');
+                    const selected = view.querySelector('.mq-board-controls [aria-pressed="true"][data-tab]');
+                    const info = milestones.querySelector('.lb-info-btn').getBoundingClientRect();
+                    const title = milestones.querySelector('#mq-board-title').getBoundingClientRect();
+                    const points = milestones.querySelector('.mq-pb-points').getBoundingClientRect();
+                    const count = document.querySelector('.mq-header #mq-list-meta').textContent;
+                    const focus = body.querySelector('.mq-focus-card');
+                    const art = focus.querySelector('img').getBoundingClientRect();
+                    const active = body.querySelector('.mq-focus-step[aria-pressed="true"]');
+                    const steps = [...body.querySelectorAll('.mq-focus-step')];
+                    return selected?.dataset.tab === period
+                        && selected.getBoundingClientRect().bottom <= milestones.getBoundingClientRect().top
+                        && milestones.querySelector('time').dateTime && milestones.querySelector('progress')
+                        && /mission-(forest-outpost|map-room)\.webp/.test(getComputedStyle(milestones).backgroundImage)
+                        && title.right <= info.left && info.right <= points.left
+                        && /\d+ \/ \d+ complete/.test(count)
+                        && view.scrollHeight <= view.clientHeight + 1
+                        && body.querySelectorAll('.mq-focus-card').length === 1
+                        && art.width >= 70 && Math.abs(art.width - art.height) < 1
+                        && focus.querySelector('img').naturalWidth > 0 && /\+\d+ SP/.test(focus.textContent)
+                        && steps.length === Number(count.match(/\/ (\d+)/)?.[1])
+                        && active?.dataset.state === 'Ready to claim'
+                        && steps.every(step => step.getBoundingClientRect().top === active.getBoundingClientRect().top);
                 }, name === 'missions' ? 'daily' : 'weekly');
-                if (!board) fail('Mission board is missing its timer, active period, or single-column cards');
-                const cardDesign = await page.evaluate(() => {
-                    const cards = [...document.querySelectorAll('#missions-body .mq-card')];
-                    const colors = { easy: '#367a32', normal: '#a05c15', hard: '#b3262e', secret: '#6e3a9a' };
-                    const canvas = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
-                    const luminance = rgb => rgb
-                        .map(channel => channel / 255)
-                        .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4)
-                        .reduce((sum, channel, index) => sum + channel * [.2126, .7152, .0722][index], 0);
-                    return cards.length > 0 && cards.every(card => {
-                        const icon = card.querySelector('.mq-card-icon img.mq-patch');
-                        const art = icon?.getBoundingClientRect();
-                        const square = card.querySelector('.mq-card-icon');
-                        const patch = square.getBoundingClientRect();
-                        const patchStyle = getComputedStyle(square);
-                        const points = card.querySelector('.mq-card-icon .mq-pts');
-                        canvas.clearRect(0, 0, 1, 1);
-                        canvas.fillStyle = patchStyle.backgroundColor;
-                        canvas.fillRect(0, 0, 1, 1);
-                        const alpha = canvas.getImageData(0, 0, 1, 1).data[3];
-                        canvas.globalCompositeOperation = 'destination-over';
-                        canvas.fillStyle = card.dataset.tier === 'secret' ? '#413824' : '#353e3e';
-                        canvas.fillRect(0, 0, 1, 1);
-                        canvas.globalCompositeOperation = 'source-over';
-                        const background = luminance([...canvas.getImageData(0, 0, 1, 1).data].slice(0, 3));
-                        const ink = luminance(getComputedStyle(points).color.match(/[\d.]+/g).map(Number).slice(0, 3));
-                        return patch.width === patch.height && card.querySelector('.mq-card-text').getBoundingClientRect().left > patch.right
-                            && art?.width === art.height && art.width >= 25 && icon.naturalWidth > 0
-                            && /\/achievements\/ach-[a-z]+\.webp$/.test(icon.src)
-                            && points.getBoundingClientRect().top >= art.bottom && /\+\d+ SP/.test(points.textContent)
-                            && patchStyle.getPropertyValue('--mq-patch-dye').trim() === colors[card.dataset.tier]
-                            && alpha >= 180 && alpha < 255 && (ink + .05) / (background + .05) >= 4.5;
-                    });
-                });
-                if (!cardDesign) fail('Mission cards must use square difficulty patches, with the text beside them and SP below the icon');
-                const layout = await page.locator('#mq-mission-view').evaluate(screen => ({
-                    fits: screen.scrollHeight <= screen.clientHeight + 1,
-                    overflows: [...screen.querySelectorAll('.mq-card-action button')].filter(button => button.checkVisibility()).flatMap(button => {
-                        const action = button.getBoundingClientRect();
-                        const card = button.closest('.mq-card').getBoundingClientRect();
-                        return action.left >= card.left - 1 && action.right <= card.right + 1 && action.bottom <= card.bottom + 1 ? []
-                            : [{ action: action.toJSON(), card: card.toJSON() }];
-                    }),
-                }));
-                if (viewport.height >= 640 && layout.fits === false) fail('Missions must fit without vertical scrolling');
-                if (layout.overflows.length) fail(`Mission claim button overflows its card: ${JSON.stringify(layout.overflows)}`);
+                if (!layout) fail('Mission milestones or Focus deck did not fit with all objective steps on one row');
+                const index = await active.getAttribute('data-step');
+                const title = await card.locator('h3').textContent();
+                await deck.locator(`.mq-focus-step:not([data-step="${index}"])`).first().click();
+                if (await active.getAttribute('data-step') === index) fail('Tapping a step did not switch objectives');
+                await steps.nth(Number(index)).click();
+                const before = await shape();
+                await card.getByRole('button', { name: /^Claim / }).click();
+                await card.getByText('Claimed', { exact: true }).waitFor();
+                if (await card.locator('h3').textContent() !== title || await active.getAttribute('data-step') !== index
+                    || JSON.stringify(await shape()) !== JSON.stringify(before)) fail('Claim changed the focused objective or reflowed the deck');
                 const markersAligned = await page.evaluate(() => {
                     const meter = document.querySelector('.mq-milestone-meter');
                     const track = meter.querySelector('progress').getBoundingClientRect();

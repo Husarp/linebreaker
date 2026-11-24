@@ -4,7 +4,6 @@
     const rarities = ['common', 'rare', 'epic', 'legendary', 'mythic'];
     const DAILY_GIFT_TAPS = 3;
     const DAILY_GIFT_MAX_RARITY = 'epic';
-    const DAILY_GIFT_SHAKE_MS = 230;
     const CRATE_AJAR_MS = 120;
     const CRATE_OPEN_MS = 280;
     const REWARD_FLIGHT_MS = 450;
@@ -43,19 +42,22 @@
             : `Next in ${Math.ceil(remaining / 60_000)}m`;
     }
 
-    function shakeGift(gift, roll = Math.random()) {
-        const taps = gift.taps + 1;
-        let rarity = gift.rarity;
-        if (rarity === 'common' && (taps === 1 && roll < 0.2 || taps === 2 && roll < 0.25)) rarity = 'rare';
-        if (rarity === 'rare' && taps === DAILY_GIFT_TAPS && roll < 0.25) rarity = 'epic';
-        return { day: gift.day, taps, rarity };
+    function rollGiftRarity({ taps = 0, rarity = 'common' } = {}, random = Math.random) {
+        // Keep the gift odds and any upgrades earned by a partially shaken gift from an older save.
+        for (let tap = taps + 1; tap <= DAILY_GIFT_TAPS; tap++) {
+            const roll = random();
+            if (rarity === 'common' && (tap === 1 && roll < 0.2 || tap === 2 && roll < 0.25)) rarity = 'rare';
+            if (rarity === 'rare' && tap === DAILY_GIFT_TAPS && roll < 0.25) rarity = 'epic';
+        }
+        return rarity;
     }
 
     function restoreGift(gift, lastClaimed, date) {
         const day = date(gift?.day);
         const index = rarities.indexOf(gift?.rarity);
-        if (!day || (lastClaimed && day <= lastClaimed) || !Number.isInteger(gift.taps) || gift.taps < 0 || gift.taps >= DAILY_GIFT_TAPS
-            || index < 0 || index > Math.min(gift.taps, rarities.indexOf(DAILY_GIFT_MAX_RARITY))) return null;
+        if (!day || (lastClaimed && day <= lastClaimed) || index < 0 || index > rarities.indexOf(DAILY_GIFT_MAX_RARITY)) return null;
+        if (!Object.hasOwn(gift, 'taps')) return { day, rarity: gift.rarity };
+        if (!Number.isInteger(gift.taps) || gift.taps < 0 || gift.taps >= DAILY_GIFT_TAPS || index > gift.taps) return null;
         return { day, taps: gift.taps, rarity: gift.rarity };
     }
 
@@ -132,7 +134,7 @@
         if (!rarities.includes(rarity)) return false;
         (data.storedCrates ??= []).push({ ...details, rarity });
         recordCrate(data, rarity);
-        document.dispatchEvent(new CustomEvent('lb-crate-added', { detail: { data, rarity } }));
+        document.dispatchEvent(new CustomEvent('lb-crate-added', { detail: { data, rarity, source: details.source } }));
         return true;
     }
 
@@ -342,15 +344,15 @@
         showEmpty();
     }
 
-    function showCrateReveal(rarity, count, grid, onClose, gift) {
+    function showCrateReveal(rarity, count, grid, onClose) {
         const overlay = element('div', 'lb-reward-overlay lb64-crate-overlay');
-        overlay.id = gift ? 'daily-gift-crate-overlay' : 'inventory-crate-overlay';
+        overlay.id = 'inventory-crate-overlay';
         overlay.setAttribute('role', 'dialog');
         overlay.setAttribute('aria-modal', 'true');
         overlay.setAttribute('aria-labelledby', 'lb43-crate-title');
         overlay.tabIndex = -1;
         const panel = element('div', 'lb64-crate-panel lb-block-dialog');
-        const title = element('h2', 'lb64-crate-title', gift ? 'Daily Gift' : count > 1 ? `${count} crates opened` : crateLabel(rarity));
+        const title = element('h2', 'lb64-crate-title', count > 1 ? `${count} crates opened` : crateLabel(rarity));
         title.id = 'lb43-crate-title';
         const art = crateArt(rarity);
         const rewards = element('div', 'lb43-crate-result');
@@ -362,7 +364,6 @@
         document.body.append(overlay);
         const motion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
         const timers = new Set();
-        let shake;
         let skip;
         const skipReducedMotion = event => { if (event.matches) skip?.(); };
         const clearAnimation = () => {
@@ -379,11 +380,10 @@
             }, delay);
             timers.add(timer);
         };
-        const reveal = (result, immediate = false) => {
+        const reveal = result => {
             clearAnimation();
             if (!result.childElementCount) result.append(element('p', '', 'No matching item parts to collect from this crate.'));
             rewards.prepend(result);
-            art.classList.remove('lb43-crate-shaking');
             rewards.hidden = false;
             const cards = [...result.querySelectorAll('.lb-reward-card')];
             const finish = () => {
@@ -396,7 +396,7 @@
                 done.textContent = 'Done';
                 done.focus({ preventScroll: true });
             };
-            if (immediate || motion?.matches) return finish();
+            if (motion?.matches) return finish();
             skip = finish;
             motion?.addEventListener?.('change', skipReducedMotion);
             overlay.dataset.reveal = 'opening';
@@ -438,7 +438,7 @@
         overlay.addEventListener('keydown', event => {
             if (event.key === 'Tab') {
                 event.preventDefault();
-                (rewards.hidden ? shake && !shake.disabled ? shake : overlay : done).focus();
+                done.focus();
             } else if (event.key === 'Escape') {
                 event.preventDefault();
                 event.stopPropagation();
@@ -446,96 +446,76 @@
                 else close();
             }
         });
-        if (!gift) {
-            overlay.focus({ preventScroll: true });
-            reveal(grid);
-            return;
-        }
-        const status = element('p', 'lb43-gift-progress');
-        status.setAttribute('role', 'status');
-        const updateStatus = state => {
-            status.textContent = `${crateLabel(state.rarity)} · ${state.taps} / ${DAILY_GIFT_TAPS} shakes`;
-        };
-        updateStatus(gift.state);
-        shake = action('Shake crate');
-        rewards.before(status, shake);
-        shake.addEventListener('click', () => {
-            const result = gift.onShake();
-            if (!result) return close();
-            setCrateArt(art, result.state.rarity);
-            updateStatus(result.state);
-            if (!motion?.matches) {
-                art.classList.remove('lb43-crate-shaking');
-                void art.offsetWidth;
-                art.classList.add('lb43-crate-shaking');
-            }
-            if (!result.grid) return;
-            const finish = immediate => {
-                status.remove();
-                shake.remove();
-                title.textContent = crateLabel(result.state.rarity);
-                reveal(result.grid, immediate);
-            };
-            if (motion?.matches) finish(true);
-            else {
-                shake.textContent = 'Skip animation';
-                overlay.dataset.reveal = 'opening';
-                skip = () => finish(true);
-                motion?.addEventListener?.('change', skipReducedMotion);
-                wait(DAILY_GIFT_SHAKE_MS, () => finish(false));
-            }
-        });
-        shake.focus({ preventScroll: true });
+        overlay.focus({ preventScroll: true });
+        reveal(grid);
     }
 
-    function mountDailyGift({ button, getSave, ready, save, claimAfterPaint, onShake, openGift }) {
-        const text = document.getElementById(button.getAttribute('aria-describedby'));
-        let clockCheckpoint, countdownTimer;
+    function mountDailyGift({ notice, inventoryStatus, getSave, ready, save, claimAfterPaint, onClaim }) {
+        const button = notice.querySelector('button');
+        const image = notice.querySelector('img');
+        const name = document.getElementById(button.getAttribute('aria-describedby'));
+        let clockCheckpoint, countdownTimer, exitMotion;
         function refresh() {
             const now = new Date();
-            const state = giftStatus(getSave(), now);
+            const data = getSave();
+            const state = giftStatus(data, now);
             const status = ready() ? state.status : 'loading';
-            const actionable = status === 'available' || status === 'in-progress';
-            button.dataset.status = actionable ? 'available' : status;
-            button.setAttribute('aria-disabled', String(!actionable));
-            text.textContent = {
-                available: 'Gift ready', claimed: nextGiftCountdown(now),
-                'in-progress': 'Gift in progress',
-                'clock-blocked': 'Check system clock', loading: 'Checking save…',
+            const available = status === 'available' || status === 'in-progress';
+            if (available && (!data.pendingDailyGift || Object.hasOwn(data.pendingDailyGift, 'taps'))) {
+                data.pendingDailyGift = { day: data.pendingDailyGift?.day || state.day, rarity: rollGiftRarity(data.pendingDailyGift || undefined) };
+                save();
+            }
+            if (available) {
+                const { rarity } = data.pendingDailyGift;
+                image.setAttribute('src', `assets/ui/crates/${rarity}.png`);
+                name.textContent = crateLabel(rarity);
+            }
+            if (!exitMotion) {
+                notice.hidden = !available;
+                button.disabled = !available;
+            }
+            inventoryStatus.hidden = status === 'loading';
+            inventoryStatus.textContent = {
+                available: 'Daily Gift ready on the main menu.',
+                'in-progress': 'Daily Gift ready on the main menu.',
+                claimed: `Daily Gift · ${nextGiftCountdown(now)}`,
+                'clock-blocked': 'Daily Gift · Check system clock',
+                loading: '',
             }[status];
             clearTimeout(countdownTimer);
             if (status === 'claimed') countdownTimer = window.setTimeout(refresh, 60_000 - now.getTime() % 60_000);
             return state;
         }
         function claim() {
-            if (!ready() || button.closest('.hidden') || document.querySelector('.lb-reward-overlay')) return;
-            const state = refresh();
-            if (!['available', 'in-progress'].includes(state.status)) return;
+            if (!ready() || notice.hidden || button.disabled || document.querySelector('.lb-reward-overlay')) return;
             return claimAfterPaint(button, () => {
-                if (!ready() || document.querySelector('.lb-reward-overlay')) return;
-                const state = refresh();
-                if (!['available', 'in-progress'].includes(state.status)) return;
+                const { day, status } = refresh();
                 const data = getSave();
-                data.pendingDailyGift ??= { day: state.day, taps: 0, rarity: 'common' };
+                const gift = data.pendingDailyGift;
+                if (!ready() || !gift || status === 'clock-blocked' || document.querySelector('.lb-reward-overlay')) return;
+                const restoreFocus = document.activeElement === button;
+                data.lastDailyGift = day;
+                data.pendingDailyGift = null;
+                grantCrate(data, gift.rarity, { source: 'daily' });
                 save();
-                refresh();
-                showCrateReveal(data.pendingDailyGift.rarity, 1, null, () => button.focus({ preventScroll: true }), {
-                    state: data.pendingDailyGift,
-                    onShake() {
-                        if (data !== getSave() || giftStatus(data).status !== 'in-progress') return null;
-                        onShake();
-                        const next = shakeGift(data.pendingDailyGift);
-                        let grid;
-                        if (next.taps === DAILY_GIFT_TAPS) {
-                            data.lastDailyGift = next.day;
-                            data.pendingDailyGift = null;
-                            grid = openGift(next.rarity);
-                        } else data.pendingDailyGift = next;
-                        save();
+                onClaim(restoreFocus);
+                button.disabled = true;
+                if (notice.animate && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+                    notice.setAttribute('data-exiting', '');
+                    const motion = notice.animate([
+                        { transform: 'translateY(0)', opacity: 1 },
+                        { transform: 'translateY(-110%)', opacity: 0 },
+                    ], { duration: 250, easing: 'ease-in', fill: 'forwards' });
+                    exitMotion = motion;
+                    const finish = () => {
+                        exitMotion = null;
+                        notice.removeAttribute('data-exiting');
                         refresh();
-                        return { state: next, grid };
-                    },
-                });
+                        motion.cancel();
+                    };
+                    motion.finished.then(finish, finish);
+                }
+                refresh();
             });
         }
         button.addEventListener('click', claim);
@@ -555,8 +535,8 @@
         document.addEventListener('visibilitychange', checkpoint);
         window.addEventListener('focus', checkpoint);
         button.addEventListener('focus', refresh);
-        return { refresh, claim };
+        return { refresh };
     }
 
-    window.LBCrates = Object.freeze({ rarities: Object.freeze(rarities), giftStatus, nextGiftCountdown, observeTime, rollPartRarity, shakeGift, restoreGift, levelRarity, missionRarity, universalPartName, grantPartDrops, grantGiftCrate, recordCrate, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
+    window.LBCrates = Object.freeze({ rarities: Object.freeze(rarities), giftStatus, nextGiftCountdown, observeTime, rollPartRarity, rollGiftRarity, restoreGift, levelRarity, missionRarity, universalPartName, grantPartDrops, grantGiftCrate, recordCrate, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
 })();

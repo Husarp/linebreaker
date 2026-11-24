@@ -20,7 +20,7 @@ await page.evaluate(() => window.__LB_QA.open('settings'));
 | Inventory and dialogs | `inventory` (Crates), `inventory-blocks`, `inventory-colors`, `inventory-boosters`, `inventory-parts`, `inventory-other` (SFX Packs), `palette-preview`, `palette-editor`, `custom-palette`, `inventory-sfx`, `universal-parts`, `universal-exchange`, `booster-exchange` |
 | Stats and scores | `stats`, `leaderboard`, `pinned`, `highscores` |
 | Progression | `missions`, `missions-weekly`, `mission-confirm`, `season-pass`, `achievements`, `level-up` |
-| Crates | `daily-gift` (tap Shake crate three times), `level-crate` (Inventory reveal), `mission-crate` (immediate reveal) |
+| Crates | `daily-gift` (menu notification; Claim adds a crate to Inventory), `level-crate` (Inventory reveal), `mission-crate` (immediate reveal) |
 | Music and help | `playlist`, `help`, `tutorial`, `credits` |
 | Generic dialogs | `alert`, `confirm` |
 

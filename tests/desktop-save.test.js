@@ -1,5 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { loadGame } from './loader.js';
+
+const today = new Date();
+const localDay = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
 let game;
 afterEach(() => game?.close());
 it('loads native saves without a file setup overlay and serializes pending writes', async () => {
@@ -7,7 +10,7 @@ it('loads native saves without a file setup overlay and serializes pending write
   let holdWrite = false;
   const calls = [];
   const invoke = vi.fn(async (command, payload) => {
-    if (command === 'load_save') return JSON.stringify({ schemaVersion: 4, totalXP: 123, highscore: 7, seenArt: ['missions-outpost'] });
+    if (command === 'load_save') return JSON.stringify({ schemaVersion: 4, totalXP: 123, highscore: 7, lastDailyGift: localDay, seenArt: ['missions-outpost'] });
     calls.push(JSON.parse(payload.json));
     if (holdWrite && calls.length === 1) await new Promise(resolve => { release = resolve; });
   });
