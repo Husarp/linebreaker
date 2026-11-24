@@ -5,7 +5,7 @@
   if (!ota || !bundle?.version) return;
   const startup = window.LBStartup;
   const bounded = startup?.bounded || ((label, action) => action());
-  const { startupUpgrade, attachVersion, dialog, size, setReleaseNotes, showReleaseNotice, copy, newer,
+  const { startupUpgrade, attachVersion, dialog, setReleaseNotes, showReleaseNotice, copy, newer,
     notices, queueNotice, getLabel, githubIcon, statusMarkup, setStatus, showNotes } = window.LBUpdateTools;
   const defaults = { smallFixes: true, majorUpdates: false, shellUpdates: true, wifiLimitMb: 20, mobileLimitMb: 5, checkFrequency: '6h' };
   const fields = [
@@ -19,6 +19,12 @@
   const menu = document.getElementById('menu-overlay');
   const settingsHost = document.getElementById('settings-updates');
   if (!menu || !settingsHost) return;
+  function offerTitle(label, { version, size: bytes }) {
+    const amount = !Number.isFinite(bytes) || bytes < 0 ? ''
+      : bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB`
+      : bytes >= 1e3 ? `${(bytes / 1e3).toFixed(1)} kB` : `${bytes} B`;
+    return `${label} ${version}${amount ? ` · ${amount}` : ''}`;
+  }
   const makeButton = (label, action, primary = false) => {
     const button = document.createElement('button');
     button.type = 'button';
@@ -282,8 +288,8 @@
       rollback && { key: `rollback:${rollback.from}:${rollback.to}`, title: 'Previous version restored', text: `Version ${rollback.from} could not start. You’re back on ${rollback.to}.` },
       shellReady && { ...target('shell', shell.version, 'ready'), key: `shell-ready:${shell.versionCode}`, title: 'App update ready', text: `Version ${shell.version} is ready to install.`, label: getLabel(shell.version, true), action: () => guarded(() => ota.installShell()) },
       staged && { ...target('web', staged.version, 'ready'), key: `staged:${staged.version}`, title: 'Update ready', text: 'Restart Linebreaker to finish updating.', label: getLabel(staged.version, true), action: restart },
-      !shellReady && shell && { ...target('shell', shell.version, 'available'), key: `shell:${shell.versionCode}`, title: 'App update available', text: `Version ${shell.version} · ${size(shell.size)}`, label: getLabel(shell.version), action: () => ota.downloadShell({ downloadOnly: true }) },
-      !staged && web && { ...target('web', web.version, 'available'), key: `web:${web.version}`, title: 'Update available', text: web.needsShell ? `Install the app update first to get version ${web.version}.` : `Version ${web.version} · ${size(web.size)}`, label: getLabel(web.version), action: web.needsShell ? undefined : () => ota.download({ downloadOnly: true }) },
+      !shellReady && shell && { ...target('shell', shell.version, 'available'), key: `shell:${shell.versionCode}`, title: offerTitle('App update', shell), label: getLabel(shell.version), action: () => ota.downloadShell({ downloadOnly: true }) },
+      !staged && web && { ...target('web', web.version, 'available'), key: `web:${web.version}`, title: web.needsShell ? `Update ${web.version}` : offerTitle('Update', web), text: web.needsShell ? 'Install the app update first.' : '', label: getLabel(web.version), action: web.needsShell ? undefined : () => ota.download({ downloadOnly: true }) },
     ].filter(Boolean);
   }
 

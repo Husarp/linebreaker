@@ -1,5 +1,17 @@
 package com.husarp.ota.core
 
+import java.util.Locale
+
+fun updateOfferTitle(label: String, version: String, bytes: Long?): String {
+    val size = when {
+        bytes == null || bytes < 0 -> return "$label $version"
+        bytes >= 1_000_000 -> String.format(Locale.ROOT, "%.1f MB", bytes / 1_000_000.0)
+        bytes >= 1_000 -> String.format(Locale.ROOT, "%.1f kB", bytes / 1_000.0)
+        else -> "$bytes B"
+    }
+    return "$label $version · $size"
+}
+
 enum class UpdateBannerPhase { AVAILABLE, DOWNLOADING, READY, INSTALLING }
 
 data class UpdateBannerStep(val target: String, val phase: UpdateBannerPhase)

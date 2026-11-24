@@ -316,7 +316,7 @@
             returnTo = { opener, source, wasInert: source?.hasAttribute('inert') };
             source?.setAttribute('inert', '');
             screen.style.zIndex = Math.max(1005, (parseInt(source && getComputedStyle(source).zIndex, 10) || 0) + 1);
-            const title = source?.querySelector('.lb-topbar-title')?.textContent || 'menu';
+            const title = source?.id === 'go-overlay' ? 'run summary' : source?.querySelector('.lb-topbar-title')?.textContent || 'menu';
             back.setAttribute('aria-label', `Back to ${title}`);
             screen.hidden = false;
             previous = null;

@@ -589,7 +589,7 @@ class MainActivity : BridgeActivity() {
             items.add(if (appReady != null) UpdateBannerItem("app-ready:$version", "App update ready", "Version $version is ready to install.",
                 "Install update $version", { installWithNotificationPermission { updater.shell.installFromWeb(this) } }, keepOnAction = true,
                 step = UpdateBannerStep("shell:$version", UpdateBannerPhase.READY))
-            else UpdateBannerItem("app-offer:$version", "App update available", "Version $version · ${updater.formatSize(it.optLong("size"))}",
+            else UpdateBannerItem("app-offer:$version", updateOfferTitle("App update", version, it.optLong("size", -1)), "",
                 "Download update $version", { updater.shell.downloadOffered() }, keepOnAction = true,
                 step = UpdateBannerStep("shell:$version", UpdateBannerPhase.AVAILABLE)))
         }
@@ -599,8 +599,8 @@ class MainActivity : BridgeActivity() {
             items.add(when {
                 staged != null -> UpdateBannerItem("ready:$version", "Update ready", "Restart Linebreaker to finish updating.", "Install update $version", { restartBundle(startupRecovery = updater.watchdog.reason != null) }, keepOnAction = true,
                     step = UpdateBannerStep("web:$version", UpdateBannerPhase.READY))
-                it.optBoolean("needsShell") -> UpdateBannerItem("app-first:$version", "Update available", "Install the app update first to get version $version.")
-                else -> UpdateBannerItem("offer:$version", "Update available", "Version $version · ${updater.formatSize(it.optLong("size"))}", "Download update $version", { updater.download(installAfterDownload = false) }, keepOnAction = true,
+                it.optBoolean("needsShell") -> UpdateBannerItem("app-first:$version", "Update $version", "Install the app update first.")
+                else -> UpdateBannerItem("offer:$version", updateOfferTitle("Update", version, it.optLong("size", -1)), "", "Download update $version", { updater.download(installAfterDownload = false) }, keepOnAction = true,
                     step = UpdateBannerStep("web:$version", UpdateBannerPhase.AVAILABLE))
             })
         }

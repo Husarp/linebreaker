@@ -1115,6 +1115,12 @@
 }
 .go-reward-ledger dt { display: flex; align-items: center; gap: 11px; font: 700 .9375rem/1.25 var(--lb-font-body); }
 #go-overlay .go-reward-ledger dd { color: var(--lb-utility); }
+.go-reward-ledger dt { flex: 1; min-width: 0; }
+.go-reward-ledger dt img { width: 20px; height: 20px; object-fit: contain; }
+.go-reward-ledger .lb-ledger-tag { white-space: nowrap; }
+#go-overlay [data-go-destination] { min-width: 44px; min-height: 44px; padding: 0; }
+#go-overlay .go-ach-card [data-go-destination] { margin-inline-start: auto; flex: none; }
+#go-earned-rewards { margin-block-start: var(--lb-space-sm); }
 .go-reward-ledger small { display: block; color: var(--lb-muted); font: 400 .6875rem/1.32 var(--lb-font-body); }
 #go-overlay .go-panel {
     padding: var(--lb-space-sm);
@@ -1823,6 +1829,13 @@ svg.lb-ledger-chevron {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     margin-block-end: var(--lb-space-lg);
 }
+#inventory-overlay .lb-inventory-filters {
+    grid-template-columns: 1fr 1.65fr 1fr 1fr;
+    margin-block-end: var(--lb-space-md);
+}
+#inventory-overlay .lb-inventory-filters[data-stock="true"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#inventory-overlay .lb-inventory-filters > button { min-height: 44px; }
+#inventory-overlay :is(.lb-inventory-filters, .lb-inventory-filters > button, #inventory-filter-empty, .lb-inventory-section, [data-owned], [data-empty])[hidden] { display: none !important; }
 :is(#inventory-overlay, #achievements-overlay, #stats-overlay) .lb-ledger-segments > .lb-block-btn:is([aria-selected='true'], [aria-pressed='true']) {
     --lb-control-face: var(--lb-panel-face);
     --lb-button-shadow: var(--lb-card-shadow);

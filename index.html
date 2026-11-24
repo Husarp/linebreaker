@@ -169,7 +169,7 @@
             <button type="button" class="lb-block-btn lb-block-btn--primary lb-ledger-action lb-menu-play" id="btn-play" onclick="window.openModeSelect()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-play"/></svg><span>Play</span></button>
         </div>
         <nav class="lb-menu-nav" aria-label="Main Menu">
-            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-missions" onclick="window.openMissions()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Missions</span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-missions" onclick="window.openMissions()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-missions"/></svg><span>Missions</span></button>
             <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-inventory" onclick="window.openInventory('crates')"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-inventory"/></svg><span>Inventory</span></button>
             <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-achievements" onclick="window.openAchievements()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Achievements</span></button>
             <button type="button" class="lb-block-btn lb-ledger-action lb-menu-art-tile" id="btn-settings" onclick="window.openSettings()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-icon-settings"/></svg><span>Settings</span></button>
@@ -273,6 +273,7 @@
     <symbol id="lb-topbar-next" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
     <symbol id="lb-icon-update" viewBox="0 0 24 24"><path d="M5 19h14M12 3v12m-5-5 5 5 5-5"/></symbol>
     <symbol id="lb-icon-inventory" viewBox="0 0 24 24"><path d="m12 3 9 5v8l-9 5-9-5V8l9-5Zm0 18v-8m-9-5 9 5 9-5"/></symbol>
+    <symbol id="lb-icon-missions" viewBox="0 0 24 24"><path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
     <symbol id="lb-run-icon-retry" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 2 8M4 4v6h6"/></symbol>
     <symbol id="lb-run-icon-play" viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></symbol>
     <symbol id="lb-run-icon-lines" viewBox="0 0 24 24">
@@ -394,6 +395,13 @@
             <button class="lb-block-btn lb-block-tab" id="inventory-tab-other" role="tab" tabindex="-1" aria-selected="false" aria-controls="inventory-other" onclick="window.inventoryTab('other')" data-invtab="other">SFX Packs</button>
         </div>
 
+        <div class="lb-block-tabs lb-ledger-segments lb-inventory-filters" role="group" aria-label="Filter inventory" hidden>
+            <button type="button" class="lb-block-btn lb-block-tab" data-inv-filter="all" aria-pressed="true">All</button>
+            <button type="button" class="lb-block-btn lb-block-tab" data-inv-filter="ready" aria-pressed="false">Ready to unlock</button>
+            <button type="button" class="lb-block-btn lb-block-tab" data-inv-filter="owned" aria-pressed="false">Owned</button>
+            <button type="button" class="lb-block-btn lb-block-tab" data-inv-filter="equipped" aria-pressed="false">Equipped</button>
+        </div>
+        <p id="inventory-filter-empty" class="lb-collection-empty" role="status" hidden></p>
         <div id="inventory-crates" role="tabpanel" aria-labelledby="inventory-tab-crates" data-invtab-content="crates">
             <section class="lb-collection-feature lb-r17-feature" data-ledger-tone="reward" data-feature-art="locker-quartermaster">
                 <div><span class="lb-collection-label">Locker</span><h2>Stored crates</h2><p>Open your earned crates here.</p></div>
@@ -1021,10 +1029,11 @@
             <section id="go-rewards" aria-labelledby="go-rewards-title">
                 <div class="go-rewards-heading"><h2 class="lb-topbar-kicker" id="go-rewards-title">Run rewards</h2><span class="lb-topbar-kicker">Earned</span></div>
                 <dl class="go-reward-ledger">
-                    <div id="go-xp-row"><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-total-xp"/></svg><span>Player XP<small id="go-xp-progress"></small></span></dt><dd class="lb-ledger-tag" id="go-total-xp" aria-live="polite">+0 XP</dd></div>
-                    <div id="go-record-bonus" hidden><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Record bonus</span></dt><dd class="lb-ledger-tag" id="go-record-bonus-xp"></dd></div>
+                    <div id="go-xp-row"><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-total-xp"/></svg><span>Player XP<small id="go-xp-progress"></small></span></dt><dd class="lb-ledger-tag" id="go-total-xp" aria-live="polite">+0 XP</dd><dd class="go-reward-target"><button type="button" class="lb-block-btn lb-block-btn--icon" data-go-destination="stats" aria-label="View player XP in Statistics"><span class="lb-ledger-chevron" aria-hidden="true"></span></button></dd></div>
+                    <div id="go-record-bonus" hidden><dt><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-trophy"/></svg><span>Record bonus</span></dt><dd class="lb-ledger-tag" id="go-record-bonus-xp"></dd><dd class="go-reward-target"><button type="button" class="lb-block-btn lb-block-btn--icon" data-go-destination="stats" aria-label="View record XP in Statistics"><span class="lb-ledger-chevron" aria-hidden="true"></span></button></dd></div>
                 </dl>
             </section>
+            <dl class="go-reward-ledger" id="go-earned-rewards" aria-label="Other run rewards" hidden></dl>
             <section id="go-boost-row" class="go-panel lb-block-panel" aria-labelledby="go-boost-title" hidden></section>
             <section id="go-achievements-new" class="go-panel lb-block-panel" aria-labelledby="go-ach-title" hidden></section>
         </div>

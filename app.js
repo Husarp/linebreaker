@@ -3303,6 +3303,28 @@
         if (from > newLevel) return;
         saveData.pendingRankRewards = { from: saveData.pendingRankRewards?.from ?? from, through: newLevel };
         _scheduleRankRewards();
+        return _rankRewards(from, newLevel);
+    }
+
+    function _showPendingRankRewards(profile, afterCollect) {
+        const { from, through } = profile.pendingRankRewards;
+        _showLevelUpRewardPopup(through, _rankRewards(from, through), () => {
+            if (profile !== saveData || !profile.pendingRankRewards) return;
+            const pending = profile.pendingRankRewards;
+            profile.pendingRankRewards = null;
+            document.querySelectorAll('#go-earned-rewards [data-go-collect]').forEach(button => button.removeAttribute('data-go-collect'));
+            for (const { type, key, rarity, amount } of _rankRewards(pending.from, pending.through)) {
+                if (type === 'crate') {
+                    const stock = profile.storedCrates ??= [];
+                    for (let index = 0; index < amount; index++) stock.push({ rarity, source: 'rank' });
+                } else if (type === 'universal_parts') addUniversalParts(amount, rarity);
+                else addBoosterToSave(key, amount);
+            }
+            saveDataToFile();
+            if (!document.getElementById('inventory-overlay').classList.contains('hidden')) _populateInventoryOther();
+            _checkGlowNotifications();
+            afterCollect?.();
+        });
     }
 
     function _scheduleRankRewards(delay = 2500) {
@@ -3315,22 +3337,7 @@
                 _scheduleRankRewards(500);
                 return;
             }
-            const { from, through } = profile.pendingRankRewards;
-            _showLevelUpRewardPopup(through, _rankRewards(from, through), () => {
-                if (profile !== saveData || !profile.pendingRankRewards) return;
-                const pending = profile.pendingRankRewards;
-                profile.pendingRankRewards = null;
-                for (const { type, key, rarity, amount } of _rankRewards(pending.from, pending.through)) {
-                    if (type === 'crate') {
-                        const stock = profile.storedCrates ??= [];
-                        for (let index = 0; index < amount; index++) stock.push({ rarity, source: 'rank' });
-                    } else if (type === 'universal_parts') addUniversalParts(amount, rarity);
-                    else addBoosterToSave(key, amount);
-                }
-                saveDataToFile();
-                if (!document.getElementById('inventory-overlay').classList.contains('hidden')) _populateInventoryOther();
-                _checkGlowNotifications();
-            });
+            _showPendingRankRewards(profile);
         }, delay);
     }
 
@@ -3808,7 +3815,7 @@
     function closeStats() {
         const _mEl = document.getElementById('menu-overlay');
         _animateOut(document.getElementById('stats-overlay'), 'anim-out-right', () => {
-            if (!_mEl.classList.contains('hidden')) document.getElementById('btn-stats').focus();
+            if (!returnToRunSummary('stats-overlay') && !_mEl.classList.contains('hidden')) document.getElementById('btn-stats').focus();
         });
         if (_mEl && !_mEl.classList.contains('hidden')) _animateIn(_mEl, 'anim-in-left');
     }
@@ -3930,6 +3937,45 @@
             }
         }
     }
+
+    const inventoryFilters = new Map();
+    const inventoryFilterBar = document.querySelector('.lb-inventory-filters');
+    const inventoryFilterMessages = { ready: 'Nothing is ready to unlock yet.', owned: 'Nothing owned here yet.', equipped: 'Nothing equipped here yet.' };
+
+    function applyInventoryFilter() {
+        const tab = document.getElementById('inventory-overlay')._invTab;
+        const collection = ['blocks', 'colors', 'other'].includes(tab);
+        const stock = ['parts', 'boosters'].includes(tab);
+        const filter = inventoryFilters.get(tab) || 'all';
+        const empty = document.getElementById('inventory-filter-empty');
+        inventoryFilterBar.hidden = !collection && !stock;
+        empty.hidden = true;
+        if (inventoryFilterBar.hidden) return;
+        inventoryFilterBar.dataset.stock = stock;
+        for (const button of inventoryFilterBar.querySelectorAll('button')) {
+            const option = button.dataset.invFilter;
+            button.hidden = stock && (option === 'ready' || option === 'equipped');
+            button.setAttribute('aria-pressed', String(option === filter));
+        }
+        const panel = document.getElementById(`inventory-${tab}`);
+        const matches = row => filter === 'all' || (stock ? row.dataset.empty === 'false' : row.dataset[filter] === 'true');
+        const rows = [...panel.querySelectorAll(stock ? '[data-empty]' : '[data-owned]')];
+        rows.forEach(row => { row.hidden = !matches(row); });
+        if (collection) panel.querySelectorAll('.lb-inventory-section').forEach(section => {
+            section.hidden = filter !== 'all' && !rows.some(row => section.contains(row) && !row.hidden);
+        });
+        if (filter !== 'all' && rows.every(row => row.hidden)) {
+            empty.textContent = inventoryFilterMessages[filter];
+            empty.hidden = false;
+        }
+    }
+
+    inventoryFilterBar.addEventListener('click', event => {
+        const button = event.target.closest('[data-inv-filter]');
+        if (!button || button.hidden) return;
+        inventoryFilters.set(document.getElementById('inventory-overlay')._invTab, button.dataset.invFilter);
+        applyInventoryFilter();
+    });
 
     function inventoryTab(tab) {
         closeInfo();
@@ -4073,8 +4119,9 @@
             <progress class="lb-block-progress" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
             ${_partPrice(Math.min(parts, cost), cost, _getItemRarity(itemKey))}
         </div>` : '';
-        const unlock = onUnlockJs && cost > 0 && parts >= cost ? `<div class="lb-inventory-controls"><button type="button" class="lb-inventory-action lb-block-btn lb-block-btn--primary" onclick="${onUnlockJs}">Unlock</button></div>` : '';
-        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" class="inv-row lb-inventory-card lb-inventory-item lb-block-card"${equipped ? ' tabindex="-1"' : ''}>
+        const ready = Boolean(onUnlockJs && cost > 0 && parts >= cost);
+        const unlock = ready ? `<div class="lb-inventory-controls"><button type="button" class="lb-inventory-action lb-block-btn lb-block-btn--primary" onclick="${onUnlockJs}">Unlock</button></div>` : '';
+        return `<div ${itemKey ? `data-item-key="${itemKey}"` : ''} data-owned="${isOwned}" data-equipped="${equipped}" data-ready="${ready}" class="inv-row lb-inventory-card lb-inventory-item lb-block-card"${equipped ? ' tabindex="-1"' : ''}>
             ${isOwned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
             <div class="lb-inventory-heading">
                 <div><div class="lb-inventory-name">${safeLabel}</div>${_itemRarityLabel(itemKey)}</div>
@@ -4090,13 +4137,14 @@
     function _colorInventoryCard({ key, label, owned, equipped = false, preview = '', detail = '', equip = '', unlock = '' }) {
         const cost = !owned && unlock ? _getItemCost(key) : 0;
         const parts = Math.max(0, Math.min(cost, Number(saveData.parts?.[key]) || 0));
-        return `<article class="lb-block-card lb-colors-card"${key ? ` data-item-key="${key}"` : ''} data-owned="${owned}" data-equipped="${equipped}"${equipped ? ' tabindex="-1"' : ''}>
+        const ready = cost > 0 && parts === cost;
+        return `<article class="lb-block-card lb-colors-card"${key ? ` data-item-key="${key}"` : ''} data-owned="${owned}" data-equipped="${owned && equipped}" data-ready="${ready}"${equipped ? ' tabindex="-1"' : ''}>
             ${owned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
             <header><div><h3>${label}</h3>${_itemRarityLabel(key)}</div>${!owned ? `<span class="lb-colors-state">${_inventoryState(false)}</span>` : ''}</header>
             ${preview}${detail ? `<p>${detail}</p>` : ''}
             ${cost ? `<div class="lb-colors-parts"><progress class="lb-block-progress" aria-label="${label} parts" value="${parts}" max="${cost}"></progress>${_partPrice(parts, cost, _getItemRarity(key))}</div>` : ''}
             ${equipped ? `<div class="lb-colors-state lb-inventory-equipped-label">${_inventoryState(true, true)} Equipped</div>` : ''}
-            ${cost && parts === cost ? `<div class="lb-colors-actions"><button type="button" class="lb-block-btn lb-block-btn--primary" onclick="${unlock}">Unlock</button></div>` : ''}
+            ${ready ? `<div class="lb-colors-actions"><button type="button" class="lb-block-btn lb-block-btn--primary" onclick="${unlock}">Unlock</button></div>` : ''}
         </article>`;
     }
 
@@ -4297,6 +4345,7 @@
         // Background toggle
 
         // Fonts: tied to style packs, not separately unlockable
+        applyInventoryFilter();
     }
     const BOOSTER_KEYS = ['1.25x_game', '1.5x_game', '2xp_game'];
     const BOOSTER_META = {
@@ -4438,6 +4487,7 @@
         container.querySelectorAll('[data-sfx-preview]').forEach(preview => {
             preview.addEventListener('click', () => _openSfxPreviewPopup(preview.dataset.sfxPreview, preview));
         });
+        applyInventoryFilter();
     }
 
     function _openSfxPreviewPopup(packId, opener) {
@@ -4592,6 +4642,7 @@
         inventoryPreviewObserver?.disconnect();
         inventoryPreviewObserver = undefined;
         hideMenuScreen(document.getElementById('inventory-overlay'));
+        returnToRunSummary('inventory-overlay');
     }
 
     // --- UI CONTROL HELPERS ---
@@ -6450,6 +6501,7 @@
                         <svg viewBox="0 0 24 24" width="22" height="22">${a.svgIcon}</svg>
                     </div>
                     <div><strong>${escapeHtml(name)}</strong><small>${rc.label}${tierLabel}</small></div>
+                    ${goRewardButton('achievements', `View ${name} in Achievements`)}
                 </li>`;
             }).join('') + '</ul>';
     }
@@ -8404,6 +8456,66 @@
         });
     }
     
+    const goResults = document.getElementById('go-overlay');
+    const goEarned = document.getElementById('go-earned-rewards');
+    let goRewardReturn;
+    let goSeasonPoints = 0;
+
+    function goRewardButton(destination, label, collect = false) {
+        return `<button type="button" class="lb-block-btn lb-block-btn--icon" data-go-destination="${destination}"${collect ? ' data-go-collect' : ''} aria-label="${escapeHtml(label)}"><span class="lb-ledger-chevron" aria-hidden="true"></span></button>`;
+    }
+
+    function appendGoReward({ label, amount, destination, place, icon, art, collect }) {
+        goEarned.insertAdjacentHTML('beforeend', `<div><dt>${art || `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#${icon}"/></svg>`}<span>${escapeHtml(label)}</span></dt><dd class="lb-ledger-tag">${escapeHtml(amount)}</dd><dd class="go-reward-target">${goRewardButton(destination, `View ${label} in ${place}`, collect)}</dd></div>`);
+        goEarned.hidden = false;
+        return goEarned.lastElementChild;
+    }
+
+    function appendGoRankRewards(rewards = []) {
+        for (const { type, label, amount, rarity } of rewards) {
+            const [destination, category] = { crate: ['crates', 'Crates'], universal_parts: ['parts', 'Parts'], booster: ['boosters', 'Boosters'] }[type];
+            const art = type === 'booster' ? LBArtPack.boosterIcon(rarity) : type === 'universal_parts' ? _exchangePartsIcon(rarity) : '';
+            appendGoReward({ label, amount: `×${amount}`, destination, place: `Inventory, ${category}`, icon: 'lb-metric-box', art, collect: true });
+        }
+    }
+
+    function returnToRunSummary(id) {
+        if (goRewardReturn?.id !== id) return false;
+        const { back, opener, label, scroll } = goRewardReturn;
+        goRewardReturn = undefined;
+        back.setAttribute('aria-label', label);
+        goResults.classList.remove('hidden');
+        goResults.querySelector('.go-dialog-body').scrollTop = scroll;
+        opener.focus({ preventScroll: true });
+        return true;
+    }
+
+    function openGoReward(opener) {
+        const destination = opener.dataset.goDestination;
+        if (destination === 'season') return window.openSeasonPass(opener);
+        const inventory = ['crates', 'parts', 'boosters'].includes(destination);
+        const missions = ['daily', 'weekly'].includes(destination);
+        const id = `${inventory ? 'inventory' : missions ? 'missions' : destination}-overlay`;
+        const back = document.querySelector(`#${id} .lb-block-back`);
+        goRewardReturn = { id, back, opener, label: back.getAttribute('aria-label'), scroll: goResults.querySelector('.go-dialog-body').scrollTop };
+        back.setAttribute('aria-label', 'Back to run summary');
+        goResults.classList.add('hidden');
+        if (inventory) openInventory(destination);
+        else if (missions) window.openMissions(destination);
+        else if (destination === 'stats') openStats();
+        else window.openAchievements();
+        back.focus({ preventScroll: true });
+    }
+
+    goResults.addEventListener('click', event => {
+        const opener = event.target.closest('[data-go-destination]');
+        if (!opener) return;
+        if (opener.hasAttribute('data-go-collect') && saveData.pendingRankRewards) {
+            clearTimeout(rankRewardTimer);
+            _showPendingRankRewards(saveData, () => openGoReward(opener));
+        } else openGoReward(opener);
+    });
+
     function _renderGoXP(xp, totalXP) {
         const info = getLevelInfo(totalXP);
         document.getElementById('go-total-xp').textContent = `+${xp.toLocaleString()} XP`;
@@ -8431,6 +8543,9 @@
     }
 
     function gameOver(){
+        goEarned.replaceChildren();
+        goEarned.hidden = true;
+        goSeasonPoints = 0;
         _gameInProgress = false; // allow saves again — score and achievements saved together below
         isGameOver=true; isPaused=true;
         _syncRunMissions();
@@ -8449,7 +8564,7 @@
         if (currentGameMode === 'fun') {
             // fun_squared tracking (only count games where at least 1 line was cleared)
             if (linesClearedThisGame >= 1) saveData.stats.funGamesPlayed = (saveData.stats.funGamesPlayed || 0) + 1;
-            _updateMissionProgress({ funRuns: 1 });
+            appendGoMissionRewards(_updateMissionProgress({ funRuns: 1 }));
             // Track best-ever stats for achievement progress bars
             if (gameTime > (saveData.stats.bestSurvivalTime || 0)) saveData.stats.bestSurvivalTime = gameTime;
             if (_maxLineStreakThisGame > (saveData.stats.bestLineStreak || 0)) saveData.stats.bestLineStreak = _maxLineStreakThisGame;
@@ -8487,7 +8602,7 @@
         const best = _bestScore();
         _renderGoStats(best, best > previousBest, false, finalXP, pbBonus);
         gainedXPThisRound = finalXP;
-        _updateGameMissionProgress(finalXP);
+        appendGoMissionRewards(_updateGameMissionProgress(finalXP));
         const _lvlBefore = getLevelInfo(saveData.totalXP).level;
         saveData.totalXP += finalXP;
         const _lvlAfter = getLevelInfo(saveData.totalXP).level;
@@ -8507,7 +8622,7 @@
             }
         }
 
-        _processLevelUps(_lvlBefore, _lvlAfter);
+        appendGoRankRewards(_processLevelUps(_lvlBefore, _lvlAfter));
         saveData.stats.gamesPlayed++; saveData.stats.totalTimePlayed+=gameTime; saveData.stats.totalBlocksPlaced+=blocksPlacedThisGame; saveData.stats.totalLinesCleared+=linesClearedThisGame;
         saveData.stats.totalScore = (saveData.stats.totalScore || 0) + Math.round(score);
         saveData.stats.surgeonLines = (saveData.stats.surgeonLines || 0) + _surgeonLinesThisGame;
@@ -9671,7 +9786,17 @@
     }
 
     function _updateGameMissionProgress(totalXP) {
-        _updateMissionProgress(_runMissionMetrics(totalXP));
+        return _updateMissionProgress(_runMissionMetrics(totalXP));
+    }
+
+    function appendGoMissionRewards(progress) {
+        if (!progress) return;
+        for (const [destination, count] of [['daily', progress.daily], ['weekly', progress.weekly]]) {
+            if (!count) continue;
+            const period = destination === 'daily' ? 'Daily' : 'Weekly';
+            appendGoReward({ label: `${period} mission progress`, amount: `${count} advanced`, destination, place: `${period} Missions`, icon: 'lb-icon-missions' });
+        }
+        if (progress.parts) appendGoReward({ label: LBCrates.universalPartName('common', progress.parts), amount: `×${progress.parts}`, destination: 'parts', place: 'Inventory, Parts', art: _exchangePartsIcon('common') });
     }
 
     function _gamePersonalBestBonusPercent(previousBest = _bestScore()) {
@@ -9801,12 +9926,15 @@
         if (!saveData.missions || linesClearedThisGame === 0) return;
         _checkMissionsRefresh();
         const m = saveData.missions;
+        const advanced = { daily: 0, weekly: 0, parts: 0 };
         let _completedThisCall = 0;
         // Daily quests — best single-game OR cumulative across games today
         m.daily.quests.forEach(q => {
             const val = metrics[q.metric];
             if (q.completed || val === undefined) return;
-            q.progress = _missionRunProgress(q, val);
+            const next = _missionRunProgress(q, val);
+            if (next > (q.progress || 0)) advanced.daily++;
+            q.progress = next;
             if (q.progress >= q.target) {
                 q.completed = true;
                 m.daily.completedToday = true;
@@ -9821,7 +9949,9 @@
         m.weekly.missions.forEach(wm => {
             const val = metrics[wm.metric];
             if (wm.completed || val === undefined) return;
-            wm.progress = _missionRunProgress(wm, val);
+            const next = _missionRunProgress(wm, val);
+            if (next > (wm.progress || 0)) advanced.weekly++;
+            wm.progress = next;
             if (wm.progress >= wm.target) {
                 wm.completed = true;
                 m.stats.totalCompleted++;
@@ -9833,7 +9963,9 @@
         if (m.daily.secret && !m.daily.secret.completed) {
             const sq = m.daily.secret;
             const val = _secretMissionValue(sq, metrics, m.daily.quests.length > 0 && m.daily.quests.every(q => q.completed), _completedThisCall);
-            sq.progress = _missionRunProgress(sq, val, false);
+            const next = _missionRunProgress(sq, val, false);
+            if (next > (sq.progress || 0)) advanced.daily++;
+            sq.progress = next;
             if (sq.progress >= sq.target) {
                 sq.completed = true;
                 m.daily.completedToday = true;
@@ -9872,6 +10004,7 @@
               if (m.specialBox.pts >= MQ_SPECIAL_BOX_CAP) {
                   m.specialBox.pts -= MQ_SPECIAL_BOX_CAP;
                   addUniversalParts(MQ_SPECIAL_BOX_PARTS);
+                  advanced.parts += MQ_SPECIAL_BOX_PARTS;
                   _showMissionReward(`+${MQ_SPECIAL_BOX_PARTS} ${LBCrates.universalPartName('common', MQ_SPECIAL_BOX_PARTS)} — Bonus Box!`);
               }
           } }
@@ -9883,6 +10016,7 @@
         }
         _checkMissionBadges();
         saveDataToFile();
+        return advanced;
         _checkGlowNotifications();
     }
 
@@ -10101,6 +10235,7 @@
         hideMenuScreen(document.getElementById('missions-overlay'));
         clearInterval(_missionCountdownInterval);
         _missionCountdownInterval = null;
+        returnToRunSummary('missions-overlay');
     };
     window.renderMissionsOverlay = renderMissionsOverlay;
     document.querySelectorAll('#missions-overlay [data-tab]').forEach(button => {
@@ -10277,6 +10412,12 @@
         q.ptsClaimed = true;
         const pts = q.pts;
         seasonPass.creditMissionPoints(saveData, pts);
+        if (goRewardReturn?.id === 'missions-overlay') {
+            goSeasonPoints += pts;
+            const existing = goEarned.querySelector('[data-go-destination="season"]')?.closest('.go-reward-target')?.parentElement;
+            const row = existing || appendGoReward({ label: 'Season Pass points', amount: '', destination: 'season', place: 'Season Pass', icon: 'lb-season-flag' });
+            row.querySelector('.lb-ledger-tag').textContent = `+${goSeasonPoints}`;
+        }
         if (isWeekly) {
             m.weekly.points = (m.weekly.points || 0) + pts;
         } else {
@@ -11213,6 +11354,7 @@
     window.closeAchievements = function() {
         hideMenuScreen(document.getElementById('achievements-overlay'));
         _checkAchGlow();
+        returnToRunSummary('achievements-overlay');
     };
     window.openModeSelect = openModeSelect;
     window.closeModeSelect = closeModeSelect;

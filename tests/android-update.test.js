@@ -142,7 +142,7 @@ it('acknowledges readiness without forcing an unanswered setup dialog or hiding 
   await game.ready();
   expect(game.ota.appReady).toHaveBeenCalledOnce();
   expect(game.get('dialog[open]')).toBeNull();
-  expect(game.get('.lb184-banner [data-title]').textContent).toBe('App update available');
+  expect(game.get('.lb184-banner [data-title]').textContent).toBe('App update 1.0.3 · 100 B');
   expect(game.get('.lb184-banner [data-actions] button').textContent).toBe('Download update 1.0.3');
   expect(game.ota.setSafeToInterrupt).toHaveBeenLastCalledWith({ safe: true });
   game.click('Finish update setup');
@@ -260,7 +260,7 @@ it('never restarts automatically and guards the versioned install action during 
 it('keeps dismissal scoped to the offered version and shows when the app needs updating first', async () => {
   const game = await boot({ native: { available: { version: '0.2.0', size: 2048 } } });
   await game.restoreSave(); await game.ready();
-  expect(game.get('.lb184-banner').textContent).toContain('2.0 KiB');
+  expect(game.get('.lb184-banner [data-title]').textContent).toBe('Update 0.2.0 · 2.0 kB');
   game.get('.lb184-banner [data-dismiss]').click(); await game.redraw();
   expect(game.get('.lb184-banner').hidden).toBe(true);
   game.state.available = { version: '0.3.0', needsShell: true };
@@ -268,6 +268,12 @@ it('keeps dismissal scoped to the offered version and shows when the app needs u
   expect(game.get('.lb184-banner').textContent).toContain('Install the app update first');
   expect(game.get('.lb184-banner [data-actions] button').textContent).toBe('Details');
   expect(game.ota.download).not.toHaveBeenCalled();
+});
+
+it('does not show a made-up number when an older shell omits offer size', async () => {
+  const game = await boot({ native: { available: { version: '0.2.0' } } });
+  await game.restoreSave(); await game.ready();
+  expect(game.get('.lb184-banner [data-title]').textContent).toBe('Update 0.2.0');
 });
 
 it('shows literal release notes once without a duplicate installed banner, then resumes queued offers', async () => {
@@ -282,7 +288,7 @@ it('shows literal release notes once without a duplicate installed banner, then 
   expect(game.get('[data-release-notes] .lb-topbar-kicker').textContent).toBe('Version 0.1.1');
   expect(game.get('[data-release-notes] header button').textContent).toBe('Details');
   game.get('[data-release-notes] [data-close]').click();
-  expect(banner.querySelector('[data-title]').textContent).toBe('Update available');
+  expect(banner.querySelector('[data-title]').textContent).toBe('Update 0.2.0 · 12 B');
   const reopened = await boot({ native: { updated }, saved: Object.fromEntries(Object.entries(game.window.localStorage)) });
   await reopened.restoreSave(); await reopened.ready();
   expect(reopened.get('.lb184-banner').hidden).toBe(true);
@@ -314,7 +320,7 @@ it('keeps progress in the same slot and switches Download to Install when ready'
 it.each(['bundle', 'apk'])('runs 1.4.0 → 1.4.1 for a %s without hiding or replaying earlier phases', async kind => {
   const from = '1.4.0', version = '1.4.1';
   const apk = kind === 'apk';
-  const offer = apk ? { shellAvailable: { version, versionCode: 1401, size: 100 } } : { available: { version, size: 100 } };
+  const offer = apk ? { shellAvailable: { version, versionCode: 1401, size: 7_600_000 } } : { available: { version, size: 7_600_000 } };
   const staged = apk ? { shellReady: offer.shellAvailable } : { staged: { version } };
   const game = await boot({ version: from, native: { shellVersion: from, runningShellVersionCode: 1400, ...offer } });
   const animate = vi.fn();
@@ -327,7 +333,7 @@ it.each(['bundle', 'apk'])('runs 1.4.0 → 1.4.1 for a %s without hiding or repl
     expect(banner.querySelector('[data-title]').textContent).toBe(title);
     expect(banner.querySelector('[data-actions] button')?.textContent).toBe(label);
   };
-  expectBanner(apk ? 'App update available' : 'Update available', `Download update ${version}`);
+  expectBanner(`${apk ? 'App update' : 'Update'} ${version} · 7.6 MB`, `Download update ${version}`);
   banner.querySelector('[data-actions] button').click();
   expectBanner('Downloading update');
   await game.redraw();

@@ -4,6 +4,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class UpdateBannerFlowTest {
+    @Test fun `offer titles show metadata bytes and omit missing sizes`() {
+        assertEquals("Update 1.4.2 · 7.6 MB", updateOfferTitle("Update", "1.4.2", 7_600_000))
+        assertEquals("App update 1.4.2 · 2.0 kB", updateOfferTitle("App update", "1.4.2", 2_048))
+        assertEquals("Update 1.4.2 · 0 B", updateOfferTitle("Update", "1.4.2", 0))
+        assertEquals("Update 1.4.2", updateOfferTitle("Update", "1.4.2", -1))
+    }
+
     @Test fun `late and duplicate snapshots do not regress a bundle or APK banner`() {
         for (channel in listOf("web", "shell")) {
             val target = "$channel:1.4.1"

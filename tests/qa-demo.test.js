@@ -72,6 +72,78 @@ const fileFor = {
 };
 const fetchDemoAssets = async path => ({ ok: Boolean(fileFor[path]), json: async () => JSON.parse(readFileSync(new URL(`../${fileFor[path]}`, import.meta.url))) });
 
+it('filters inventory by actual unlock, equipment and stock state and remembers each tab', async () => {
+  game = await loadGame(true);
+  const { w, api } = game;
+  const save = api.save;
+  save.parts.sfxRetro = api.partCost('sfxRetro');
+  save.boosters = { '1.25x_game': 1 };
+  api.setSave(save);
+  const filter = name => w.document.querySelector(`[data-inv-filter="${name}"]`);
+  const visibleCards = tab => [...w.document.querySelectorAll(`#inventory-${tab} [data-owned]:not([hidden])`)];
+  await w.openInventory('other');
+  filter('ready').click();
+  expect(visibleCards('other').map(row => row.dataset.itemKey)).toEqual(['sfxRetro']);
+  expect(visibleCards('other')[0].querySelector('button').textContent).toBe('Unlock');
+  w.inventoryTab('colors');
+  expect(filter('all').getAttribute('aria-pressed')).toBe('true');
+  filter('equipped').click();
+  expect(visibleCards('colors').length).toBeGreaterThan(0);
+  expect(visibleCards('colors').every(row => row.dataset.equipped === 'true')).toBe(true);
+  w.inventoryTab('boosters');
+  expect(filter('equipped').hidden).toBe(true);
+  filter('owned').click();
+  expect(w.document.querySelectorAll('#inventory-boosters [data-empty]:not([hidden])')).toHaveLength(1);
+  w.inventoryTab('parts');
+  filter('owned').click();
+  expect(w.document.getElementById('inventory-filter-empty').hidden).toBe(false);
+  w.closeInventory();
+  await w.openInventory('other');
+  expect(filter('ready').getAttribute('aria-pressed')).toBe('true');
+  w.inventoryTab('crates');
+  expect(filter('all').parentElement.hidden).toBe(true);
+});
+
+it('opens earned reward destinations and restores summary focus and scroll on Back', async () => {
+  game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
+  const { w, api, advance } = game;
+  const save = api.save;
+  const quest = save.missions.daily.quests[0];
+  Object.assign(quest, { metric: 'linesCleared', completed: false, target: 1, progress: 0, ptsClaimed: false });
+  api.setSave(save);
+  const opened = w.__LB_QA.open('game-over');
+  await Promise.resolve();
+  advance(3000);
+  await opened;
+  const summary = w.document.getElementById('go-overlay');
+  const body = summary.querySelector('.go-dialog-body');
+  const reward = destination => summary.querySelector(`[data-go-destination="${destination}"]`);
+  const roundTrip = (destination, id, atDestination) => {
+    const opener = reward(destination);
+    expect(opener).not.toBeNull();
+    body.scrollTop = 120;
+    opener.click();
+    const overlay = w.document.getElementById(id);
+    if (destination === 'crates') w.document.querySelector('#level-up-popup-overlay button').click();
+    const back = overlay.querySelector('[aria-label="Back to run summary"]');
+    expect(back).not.toBeNull();
+    atDestination?.(overlay);
+    const close = { stats: w.closeStats, daily: w.closeMissions, crates: w.closeInventory }[destination];
+    if (close) close();
+    else back.click();
+    overlay.dispatchEvent(new w.Event('animationend'));
+    expect(summary.classList.contains('hidden')).toBe(false);
+    expect(w.document.activeElement).toBe(opener);
+    expect(body.scrollTop).toBe(120);
+  };
+  roundTrip('stats', 'stats-overlay');
+  roundTrip('daily', 'missions-overlay', () => w._claimQuestPts(quest.id, false));
+  roundTrip('season', 'season-pass-overlay');
+  roundTrip('crates', 'inventory-overlay', overlay => {
+    expect(overlay.querySelector('[data-invtab="crates"]').getAttribute('aria-selected')).toBe('true');
+  });
+});
+
 it('mirrors the theme to compatible Android shells without changing it on wallpaper selection', async () => {
   const setUiTheme = vi.fn().mockRejectedValue(new Error('Older shell'));
   game = await loadGame(true, null, {
