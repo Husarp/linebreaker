@@ -1,19 +1,9 @@
-## [1.4.2]
-- Pace the 30-stage Season Pass at 30 SP per stage, with a bonus chest every 60 SP after the track. Season Prism is now Epic.
-- Rebalance Daily Gifts, mission milestone crates, and crate drops. Every part-unlocked cosmetic now requires 100 parts; existing progress carries over proportionally.
-- The Bonus Box awards a Common crate instead of universal parts. Weekly rewards end at the final crate milestone, and rank-ups no longer award universal parts directly. Unavailable item drops reroll to the same or a lower rarity before converting to a universal part.
-- Use universal parts on items of the same rarity or lower. Exchange up once you own every item of the rarity you’re trading in.
-- Align control bindings and use frameless volume mute icons in Settings.
-- Keep the next-piece preview larger and move the pause key next to the level indicator on phones.
-- Count up run XP, keep used boosters visible, and show a brief top-out before results. View the final board from the run summary.
-- Skip crate reveals from the button, backdrop, or Escape; show rewards immediately with reduced motion.
-- Keep the full recent Activity chart visible and track collected crates by rarity in Stats.
-- Pick Help topics from one list; use smaller playlist checkboxes with column labels that stay visible while scrolling.
-- Missions fit more comfortably on phones, show where rewards are ready, and preview the best claimable Season Pass chest.
-- Level-up rewards appear when you return to the main menu; the rank aura follows XP progress and the board no longer shows behind the menu.
-- Inventory hides empty crate and universal-part stocks and reveals collectible items when you find their first part.
-- Achievement rewards expand in place, and Platinum and Diamond tiers are reserved for long-term goals.
-- Smooth out reward and stock changes, unify info controls, and keep automatic connection failures quiet.
-- Open earned rewards from the run summary and return to your results with Back.
-- Filter each Inventory collection by what’s ready to unlock, owned, or equipped. Parts and Boosters can show only what’s in stock.
-- Android update notices show the download size before you start and the transfer speed while downloading.
+## [1.4.2] [2026-11-24] Run rewards, inventory filters, and a steadier Season Pass
+
+- **Run summary:** Tap an earned reward to go where you can use it, then use Back to return to your results. The board briefly shakes on top-out. Choose **View board** to see your final position without resuming play. Run XP counts up, and used boosters stay visible and marked Used. On phones, the next-piece preview stays visible and Pause sits closer to the speed indicator.
+- **Inventory and crates:** Each collection remembers its filter so you can see what’s ready to unlock, owned, or equipped, depending on the tab. Empty crate and universal-part stocks stay hidden. Unseen collectibles show a silhouette until you find their first part. When an item is ready to unlock, its tab and the Inventory tile light up, and crates stop dropping parts for it. Skip a crate reveal with the button, backdrop, or Escape; reduced motion shows rewards immediately.
+- **Missions and achievements:** Missions fit better on phones. Milestone progress moves smoothly, claim buttons stay inside their cards, and Daily and Weekly tabs show when rewards are ready. The Season Pass card previews the best chest you can claim, and collected steps stay marked. Achievement rewards expand in place, with matching Platinum and Diamond markers reserved for long-term goals.
+- **Season Pass and rewards:** The 30-stage pass now takes 30 points per stage and gives a bonus chest every 60 points after completion. Season Prism is Epic. Daily Gifts now award Common, Rare, or Epic crates (60%, 30%, and 10%). Daily milestones award two Common crates and a Rare; weekly milestones award two Rare crates and an Epic, with no extra weekly reward after the last chest. Bonus Boxes now give a Common crate; rank-ups keep their crates and boosters but no longer give universal parts directly.
+- **Collecting parts:** Every part-unlocked item now takes 100 parts, and your existing progress carries over proportionally. Crates give larger bundles for rarer items, with item parts at most one rarity above the crate. Universal parts never exceed the crate’s rarity, and a crate can give at most one Legendary or Mythic universal part. If an item drop has no eligible match, it tries the same or a lower rarity before becoming a universal part. Spend universal parts on items of the same rarity or lower; trade up once you own all items of the rarity you’re trading in.
+- **Main menu and settings:** Level-up rewards appear when you return to the main menu, and the rank glow follows your XP progress. The previous board no longer shows behind the menu, and the Daily Gift countdown fits better. Control bindings line up, mute uses simple icons, and the redundant copy button next to the theme is gone. Lists collapse and counts change smoothly without repeated taps restarting the animation. Info buttons share a style, and the back-to-top button scrolls smoothly.
+- **Stats, Help, music, and updates:** Stats shows the full recent activity chart and counts collected crates by rarity. Pick any Help topic from one list. Playlist checkboxes are smaller and the column labels stay visible as you scroll. Android update notices show the download size before you start and the speed while downloading. Routine offline checks stay quiet; a manual check still tells you if it can’t connect.

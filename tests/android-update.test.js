@@ -468,7 +468,7 @@ it('reads a new snapshot if the install event arrives during an older state read
 });
 
 it('expires the completion notice and does not reopen it or offer the installed version after restart', async () => {
-  const briefTimers = [], version = '1.4.2';
+  const briefTimers = [], version = '0.1.2';
   const native = { updated: { to: version }, available: { version }, staged: { version } };
   const game = await boot({ version, native, briefTimers });
   await game.restoreSave(); await game.ready();
