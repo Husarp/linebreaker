@@ -74,7 +74,7 @@ it('refunds each retired owned skin once and persists Retro and square through a
   game = await loadGame(true, invoke);
   await game.w.flushLinebreakerSave();
   expect(JSON.parse(persisted)).toMatchObject({
-    schemaVersion: 3, skinCatalogVersion: 1,
+    schemaVersion: 4, skinCatalogVersion: 1,
     ownedSkins: ['retro', 'bubble', 'glass'], universalParts: { common: 6.4 },
     _settings: { skin: 'retro', blockShape: 'square' },
   });
@@ -147,17 +147,16 @@ it('keys multiply tints by skin and normalized palette color and reuses them acr
     .toEqual([['drawImage', image, 512, 0, 64, 64, 0, 0, 64, 64]]);
 });
 
-it('offers Bubble and every packaged image skin as rewards at the price of their rarity', async () => {
+it('offers Bubble and every packaged image skin as rewards for 100 parts', async () => {
   game = await loadGame();
   const manifest = JSON.parse(readFileSync(new URL('../assets/skins/skins.json', import.meta.url), 'utf8'));
   const rewardKeys = game.api.partsItems().filter(item => item.cat === 'skin').map(item => item.key);
   expect(manifest.length).toBeGreaterThan(0);
   expect(rewardKeys).toEqual(['glass', 'shadow', 'outline', 'holo', 'journey', 'bubble', ...manifest.map(skin => skin.key)]);
-  const prices = { rare: 15, epic: 12, legendary: 10 };
-  expect(new Set(manifest.map(skin => skin.rarity))).toEqual(new Set(Object.keys(prices)));
+  expect(new Set(manifest.map(skin => skin.rarity))).toEqual(new Set(['rare', 'epic', 'legendary']));
   expect(manifest.find(skin => skin.key === 'forged-iron')).toMatchObject({ name: 'Forged Iron', rarity: 'rare' });
-  for (const { key, file, rarity, cell } of manifest) {
-    expect(game.api.partCost(key)).toBe(prices[rarity]);
+  for (const { key, file, cell } of manifest) {
+    expect(game.api.partCost(key)).toBe(100);
     const atlas = readFileSync(new URL(`../assets/skins/${file}`, import.meta.url));
     let dimensions;
     if (file.endsWith('.webp')) {
@@ -175,7 +174,7 @@ it('offers Bubble and every packaged image skin as rewards at the price of their
 it('unlocks Forged Iron with rare parts and offers it as an equip choice', async () => {
   game = await loadGame();
   const { api, w } = game;
-  api.setup({ save: { parts: { 'forged-iron': 15 } } });
+  api.setup({ save: { parts: { 'forged-iron': 100 } } });
   expect(api.save.ownedSkins).not.toContain('forged-iron');
   w.playerUnlockItem('skin', 'forged-iron');
   expect(api.save.ownedSkins).toContain('forged-iron');
@@ -185,37 +184,33 @@ it('unlocks Forged Iron with rare parts and offers it as an equip choice', async
   expect(equip).not.toBeNull();
 });
 
-it('prices every available part unlock and keeps the Mythic season skin out of the parts pool', async () => {
+it('prices every available part unlock and keeps the Epic season skin out of the parts pool', async () => {
   game = await loadGame();
   const { w, api } = game;
-  for (const { cat, key } of api.partsItems()) {
-    expect(api.partCost(key)).toBe({ common: 20, rare: 15, epic: 12, legendary: 10, mythic: 8 }[api.partRarity(key)]);
-    if (cat === 'palette' || cat === 'gridStyle') expect(api.partCost(key)).toBe(20);
-    if (cat === 'sfxPack') expect(api.partCost(key)).toBe(15);
-  }
+  for (const { key } of api.partsItems()) expect(api.partCost(key)).toBe(100);
   expect(api.partCost('season-prism')).toBe(0);
   expect(api.partsItems().some(item => item.key === 'season-prism')).toBe(false);
   api.applyLoadedData({ ...api.save, ownedSkins: ['retro', 'season-prism'], parts: { 'season-prism': 500 } });
   w.openInventory();
   w.inventoryTab('blocks');
-  expect(w.document.querySelector('[data-item-key="season-prism"][data-owned="true"] .lb-inventory-rarity').dataset.rarity).toBe('mythic');
+  expect(w.document.querySelector('[data-item-key="season-prism"][data-owned="true"] .lb-inventory-rarity').dataset.rarity).toBe('epic');
 });
 
 it('retains owned items and applies already collected parts toward the new price', async () => {
   game = await loadGame();
   const { w, api } = game;
-  api.applyLoadedData({ ...api.save, ownedSkins: ['retro', 'aztec'], parts: { glass: 10 } });
+  api.applyLoadedData({ ...api.save, schemaVersion: 3, ownedSkins: ['retro', 'aztec'], parts: { glass: 10 } });
   w.openInventory();
   w.inventoryTab('blocks');
   const glass = () => w.document.querySelector('[data-item-key="glass"]');
   expect(glass().querySelector('.lb-inventory-rarity').dataset.rarity).toBe('rare');
-  expect(glass().querySelector('progress').value).toBe(10);
-  expect(glass().querySelector('progress').max).toBe(15);
+  expect(glass().querySelector('progress').value).toBe(66);
+  expect(glass().querySelector('progress').max).toBe(100);
   expect(w.document.querySelector('[data-item-key="aztec"]').dataset.owned).toBe('true');
   w.playerUnlockItem('skin', 'glass');
   expect(api.save.ownedSkins).not.toContain('glass');
   const save = api.save;
-  save.parts.glass += 5;
+  save.parts.glass += 34;
   api.setSave(save);
   w.playerUnlockItem('skin', 'glass');
   expect(api.save.ownedSkins).toContain('glass');

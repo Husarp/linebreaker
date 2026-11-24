@@ -24,19 +24,18 @@ it('shows grouped legacy conversions in Inventory while escaping reward text', a
   expect(card.querySelector('b')).toBeNull();
 });
 
-it('pays matched universal parts in mission and legacy level crates if eligible items are capped', () => {
+it('skips capped item parts and pays only the fixed universal parts in milestone and level crates', () => {
   const missions = api.defaultMissions();
   missions.daily.pointsToday = 6;
   api.setup({ save: { parts: cappedParts(), missions } });
   window.Math.random = () => 0;
   window._claimMissionMilestone(6, false);
-  const card = document.querySelector('#inventory-crate-overlay .lb-block-reward');
-  expect(card.querySelector('.lb64-reward-name').textContent).toBe('Common Universal Part');
-  expect(card.querySelector('.lb-block-reward-amount').textContent).toBe('×1');
+  expect(document.querySelector('#inventory-crate-overlay .lb-block-reward')).toBeNull();
+  expect(api.save.universalParts).toEqual({});
   const rewards = api.generateLevelBoxRewards('legendary');
   expect(rewards).toEqual([
-    { type: 'universal_parts', label: 'Common Universal Part', amount: 10, rarity: 'common' },
-    { type: 'universal_parts', label: 'Legendary Universal Part', amount: 2, rarity: 'legendary' },
+    { type: 'universal_parts', label: 'Epic Universal Part', amount: 1, rarity: 'epic' },
+    { type: 'universal_parts', label: 'Legendary Universal Part', amount: 1, rarity: 'legendary' },
   ]);
 });
 

@@ -126,9 +126,8 @@
 }
 
 .sp-card[data-tier="rare"] { --sp-tier: var(--rarity-rare); }
-.sp-card[data-tier="epic"] { --sp-tier: var(--rarity-epic); }
+.sp-card[data-rarity="epic"] { --sp-tier: var(--rarity-epic); }
 .sp-card[data-tier="legendary"] { --sp-tier: var(--rarity-legendary); }
-.sp-card[data-tier="exclusive"] { --sp-tier: var(--rarity-mythic); }
 .sp-card[data-state="future"] { background: var(--surface-0); }
 .sp-card[aria-current="date"] { outline: 2px solid var(--accent-bright); outline-offset: 3px; }
 .sp-card .sp-tier { color: var(--sp-tier); text-transform: uppercase; letter-spacing: var(--tracking); font-size: var(--text-xs); font-weight: 750; }

@@ -7,7 +7,7 @@ it('loads native saves without a file setup overlay and serializes pending write
   let holdWrite = false;
   const calls = [];
   const invoke = vi.fn(async (command, payload) => {
-    if (command === 'load_save') return JSON.stringify({ totalXP: 123, highscore: 7, seenArt: ['missions-outpost'] });
+    if (command === 'load_save') return JSON.stringify({ schemaVersion: 4, totalXP: 123, highscore: 7, seenArt: ['missions-outpost'] });
     calls.push(JSON.parse(payload.json));
     if (holdWrite && calls.length === 1) await new Promise(resolve => { release = resolve; });
   });
@@ -21,10 +21,10 @@ it('loads native saves without a file setup overlay and serializes pending write
   const first = game.api.writeSaveFile({ totalXP: 1 });
   game.api.writeSaveFile({ totalXP: 2 });
   game.api.writeSaveFile({ totalXP: 3 });
-  expect(calls).toEqual([{ schemaVersion: 3, totalXP: 1 }]);
+  expect(calls).toEqual([{ schemaVersion: 4, totalXP: 1 }]);
   release();
   await first;
-  expect(calls).toEqual([{ schemaVersion: 3, totalXP: 1 }, { schemaVersion: 3, totalXP: 3 }]);
+  expect(calls).toEqual([{ schemaVersion: 4, totalXP: 1 }, { schemaVersion: 4, totalXP: 3 }]);
 });
 it('does not overwrite native saves after a failed boot read', async () => {
   const invoke = vi.fn(async command => {

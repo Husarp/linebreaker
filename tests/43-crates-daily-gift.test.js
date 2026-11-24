@@ -10,7 +10,6 @@ for (const file of ['41-season-pass.js', '44-art-pack.js', 'save-sanitize.js', '
 }
 const { LBCrates: crates, LBSave, sanitizeSave } = context.window;
 const defaults = { lastDailyGift: null, lastSeenTime: 0 };
-const totalUniversal = save => Object.values(save.universalParts).reduce((total, count) => total + count, 0);
 let game;
 afterEach(() => game?.close());
 
@@ -21,21 +20,8 @@ it('counts down to local midnight in hours, then minutes', () => {
   expect(crates.giftStatus({ ...defaults, lastDailyGift: '2026-11-23' }, new Date(2026, 10, 24)).status).toBe('available');
 });
 
-it('rolls exactly 70/22/6.5/1.3/0.2 and scales each type of reward with rarity', () => {
-  const rarities = ['common', 'rare', 'epic', 'legendary', 'mythic'];
-  const rollCounts = Object.fromEntries(rarities.map(rarity => [rarity, 0]));
-  for (let index = 0; index < 1000; index++) rollCounts[crates.rollRarity((index + 0.5) / 1000)]++;
-  expect(Object.values(rollCounts)).toEqual([700, 220, 65, 13, 2]);
-  expect([0.7, 0.92, 0.985, 0.998].map(crates.rollRarity)).toEqual(rarities.slice(1));
-  const plans = rarities.map(rarity => crates.giftContents(rarity));
-  expect(plans.map(plan => plan.parts)).toEqual([2, 3, 5, 7, 10]);
-  expect(plans.map(plan => plan.universal)).toEqual([1, 1, 2, 3, 5]);
-  expect(plans.map(plan => plan.boosters)).toEqual([1, 1, 2, 2, 3]);
-  expect(crates.giftContents('mythic', 15)).toEqual(crates.giftContents('mythic'));
-});
-
-it('gives three independent 25% shakes capped at Epic (27/27/10 of 64 outcomes)', () => {
-  const rolls = [0, 0.25, 0.5, 0.75];
+it('finishes the three gift shakes at exactly 60% common, 30% rare, and 10% epic', () => {
+  const rolls = Array.from({ length: 20 }, (_, index) => (index + 0.5) / 20);
   const start = { day: '2026-11-22', rarity: 'common', taps: 0 };
   const outcomes = { common: 0, rare: 0, epic: 0 };
   for (const first of rolls) for (const second of rolls) for (const third of rolls) {
@@ -45,31 +31,66 @@ it('gives three independent 25% shakes capped at Epic (27/27/10 of 64 outcomes)'
     expect(Object.hasOwn(outcomes, result.rarity)).toBe(true);
     outcomes[result.rarity]++;
   }
-  expect(outcomes).toEqual({ common: 27, rare: 27, epic: 10 });
+  expect(outcomes).toEqual({ common: 4800, rare: 2400, epic: 800 });
 });
 
-it('rolls part slots at 60/25/10/4/1 and keeps the rolled rarity even when no item is eligible', () => {
+it.each([
+  ['common', [80, 20, 0, 0, 0]], ['rare', [50, 40, 10, 0, 0]], ['epic', [25, 40, 30, 5, 0]],
+  ['legendary', [10, 30, 35, 25, 0]], ['mythic', [5, 20, 30, 30, 15]],
+])('rolls the exact item-part weights for a %s crate', (tier, expected) => {
   const counts = Object.fromEntries(crates.rarities.map(rarity => [rarity, 0]));
-  for (let index = 0; index < 100; index++) counts[crates.rollPartRarity((index + 0.5) / 100)]++;
-  expect(Object.values(counts)).toEqual([60, 25, 10, 4, 1]);
-  expect([0.6, 0.85, 0.95, 0.99].map(crates.rollPartRarity)).toEqual(crates.rarities.slice(1));
-  const rolls = [0.62, 0, 0.64, 0.995];
-  runInContext('originalRandom = Math.random; Math.random = () => partRolls.shift()', Object.assign(context, { partRolls: rolls }));
-  try {
-    const grants = [];
-    const cards = crates.grantPartDrops(3, {
-      eligibleParts: () => [{ key: 'glass' }], partRarity: () => 'rare', partName: () => 'Glass',
-      partCost: () => 15, addPart: (key, amount) => { grants.push([key, amount]); return 4; },
-      addUniversal: (amount, rarity) => grants.push([rarity, amount]),
-    }, { rarity: 'epic', amount: 2 });
-    expect(grants).toEqual([['glass', 1], ['rare', 1], ['epic', 2], ['mythic', 1]]);
-    expect(cards.map(({ type, rarity, amount }) => [type, rarity, amount])).toEqual([
-      ['parts', 'rare', 1], ['universal_parts', 'rare', 1], ['universal_parts', 'epic', 2], ['universal_parts', 'mythic', 1],
-    ]);
-    expect(cards[0].desc).toBe('4/15 parts');
-  } finally {
-    runInContext('Math.random = originalRandom', context);
-  }
+  for (let index = 0; index < 100; index++) counts[crates.rollPartRarity(tier, (index + 0.5) / 100)]++;
+  expect(Object.values(counts)).toEqual(expected);
+});
+
+function dropFixture(counts) {
+  const universal = {};
+  const hooks = {
+    eligibleParts: () => Object.keys(counts).filter(key => counts[key] < 100).map(key => ({ key })),
+    partRarity: key => key.split('-')[0], partName: key => key, partCost: () => 100,
+    partCount: key => counts[key], addPart: (key, amount) => counts[key] += amount,
+    addUniversal: (amount, rarity) => { universal[rarity] = (universal[rarity] || 0) + amount; },
+  };
+  return { hooks, universal };
+}
+
+it.each([
+  ['common', 1, {}], ['rare', 3, { rare: 1 }], ['epic', 5, { epic: 1 }],
+  ['legendary', 7, { epic: 1, legendary: 1 }], ['mythic', 17, { mythic: 1 }],
+])('pays the item and universal counts for a seeded %s crate', (tier, expectedParts, expectedUniversal) => {
+  let seed = 287;
+  const random = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32;
+  const counts = Object.fromEntries(crates.rarities.map(rarity => [rarity, 0]));
+  const { hooks, universal } = dropFixture(counts);
+  const cards = crates.grantPartDrops(tier, hooks, random);
+  expect(Object.values(counts).reduce((total, amount) => total + amount, 0)).toBe(expectedParts);
+  expect(cards.filter(card => card.type === 'parts').reduce((total, card) => total + card.amount, 0)).toBe(expectedParts);
+  expect(universal).toEqual(expectedUniversal);
+  expect(cards.filter(card => card.type === 'universal_parts').every(card => crates.rarities.indexOf(card.rarity) <= crates.rarities.indexOf(tier))).toBe(true);
+});
+
+it('groups parts, stops at 100 in the same crate, and never converts missing drops into extra universal parts', () => {
+  const counts = { common: 97, 'common-next': 99, 'common-done': 100 };
+  const { hooks, universal } = dropFixture(counts);
+  expect(crates.grantPartDrops('common', hooks, () => 0.6).map(({ key, amount, desc }) => [key, amount, desc]))
+    .toEqual([['common-next', 1, '100/100 parts'], ['common', 1, '98/100 parts']]);
+  const cards = crates.grantPartDrops('rare', hooks, () => 0);
+  expect(counts).toEqual({ common: 100, 'common-next': 100, 'common-done': 100 });
+  expect(cards[0]).toMatchObject({ key: 'common', amount: 2, desc: '100/100 parts' });
+  expect(universal).toEqual({ rare: 1 });
+});
+
+it('grants one 8-part mythic bundle when possible and only one mythic universal when there is no eligible mythic item', () => {
+  const counts = { common: 0, 'mythic-near': 99, 'mythic-new': 0 };
+  const { hooks } = dropFixture(counts);
+  const cards = crates.grantPartDrops('mythic', hooks, () => 0);
+  expect(cards[0]).toMatchObject({ key: 'mythic-new', amount: 8, desc: '8/100 parts' });
+  expect(counts['mythic-near']).toBe(99);
+  const near = dropFixture({ 'mythic-near': 99 });
+  expect(crates.grantPartDrops('mythic', near.hooks, () => 0.99).map(({ amount }) => amount)).toEqual([1, 1]);
+  const withoutMythic = dropFixture({ common: 0 });
+  expect(crates.grantPartDrops('mythic', withoutMythic.hooks, () => 0.99))
+    .toEqual([expect.objectContaining({ type: 'universal_parts', rarity: 'mythic', amount: 1 })]);
 });
 
 it('claims once per local calendar day without consulting legacy streaks', () => {
@@ -96,7 +117,7 @@ it('blocks rollbacks over ten minutes without losing the high-water timestamp', 
 it('sanitizes and round-trips schema v1 gift fields without truncating millisecond timestamps', () => {
   const now = new Date(2026, 10, 18, 12).getTime();
   const valid = { schemaVersion: 1, lastDailyGift: '2026-11-18', lastSeenTime: now, dailyGiftStreak: 3 };
-  expect(sanitizeSave(LBSave.serializeSave(valid), defaults)).toMatchObject({ schemaVersion: 3, lastDailyGift: valid.lastDailyGift, lastSeenTime: now });
+  expect(sanitizeSave(LBSave.serializeSave(valid), defaults)).toMatchObject({ schemaVersion: 4, lastDailyGift: valid.lastDailyGift, lastSeenTime: now });
   for (const invalid of ['123', -1, 0.5, Infinity, Number.MAX_SAFE_INTEGER]) {
     expect(sanitizeSave({ ...valid, lastSeenTime: invalid }, defaults).lastSeenTime).toBe(0);
   }
@@ -139,14 +160,14 @@ it('saves shake progress and pays a daily crate once, on the spot after the thir
   advance(16);
   expect(art().dataset.rarity).toBe('rare');
   shake().click();
-  expect(art().dataset.rarity).toBe('epic');
+  expect(art().dataset.rarity).toBe('rare');
   expect(api.save.universalParts).toEqual({});
   shake().click();
   expect(shake().textContent).toBe('Skip animation');
-  expect(api.save).toMatchObject({ lastDailyGift: today, pendingDailyGift: null, storedCrates: [], universalParts: { epic: 2 }, boosters: { '1.5x_game': 2 } });
+  expect(api.save).toMatchObject({ lastDailyGift: today, pendingDailyGift: null, storedCrates: [], universalParts: { epic: 1 }, boosters: { '1.5x_game': 2 } });
   expect(gift.dataset.status).toBe('claimed');
   await window.flushLinebreakerSave();
-  expect(writes.at(-1)).toMatchObject({ lastDailyGift: today, pendingDailyGift: null, storedCrates: [], universalParts: { epic: 2 } });
+  expect(writes.at(-1)).toMatchObject({ lastDailyGift: today, pendingDailyGift: null, storedCrates: [], universalParts: { epic: 1 } });
   expect(writes.at(-1).stats.cratesCollected).toEqual({ epic: 1 });
   advance(230);
   expect(dialog().dataset.reveal).toBe('opening');
@@ -272,7 +293,7 @@ it('merges pending level-ups across reload and opens stored rank crates only thr
   expect(document.querySelector('#inventory-crate-overlay')).toBeNull();
   common.click();
   expect(api.save.storedCrates).toHaveLength(11);
-  expect(api.save.universalParts).toMatchObject({ common: 1, rare: 3 });
+  expect(api.save.universalParts).toEqual({ rare: 3 });
   document.querySelector('#inventory-crate-overlay button').click();
   expect(Array.from(document.querySelectorAll('#inventory-crates button:enabled'), button => button.textContent)).toEqual(['Open', 'Open', 'Open']);
   for (let remaining = 11; remaining > 0; remaining--) {
@@ -282,7 +303,7 @@ it('merges pending level-ups across reload and opens stored rank crates only thr
     document.querySelector('#inventory-crate-overlay button').click();
   }
   expect(api.save.storedCrates).toEqual([]);
-  expect(totalUniversal(api.save)).toBeGreaterThanOrEqual(16);
+  expect(api.save.universalParts).toEqual({ rare: 6, epic: 1 });
   expect(api.save.stats.rareItemsFromDailyBox).toBe(0);
   expect(document.querySelector('.lb43-locker-total').textContent).toBe('0 stored');
   const emptyCards = [...document.querySelectorAll('.lb43-locker-list [data-empty="true"]')];
@@ -298,7 +319,7 @@ it('opens daily and weekly milestones on the spot with three tiers each and neve
   save.missions.daily.pointsToday = 12;
   save.missions.weekly.points = 180;
   api.setSave(save);
-  for (const [tab, thresholds, rarities] of [['daily', [6, 9, 12], ['common', 'common', 'rare']], ['weekly', [60, 90, 120], ['rare', 'epic', 'epic']]]) {
+  for (const [tab, thresholds, rarities] of [['daily', [6, 9, 12], ['common', 'common', 'rare']], ['weekly', [60, 90, 120], ['rare', 'rare', 'epic']]]) {
     await window.openMissions(tab);
     expect([...document.querySelectorAll('#mq-milestones button')].map(button => button.getAttribute('aria-label')))
       .toEqual(thresholds.map((points, index) => `Claim ${points} points: ${rarities[index]} crate`));
@@ -322,7 +343,8 @@ it('opens daily and weekly milestones on the spot with three tiers each and neve
     }
   }
   const paid = api.save;
-  expect(paid.stats.cratesCollected).toEqual({ common: 2, rare: 2, epic: 2 });
+  expect(paid.stats.cratesCollected).toEqual({ common: 2, rare: 3, epic: 1 });
+  expect(paid.universalParts).toEqual({ rare: 3, epic: 1 });
   api.applyLoadedData(window.LBSave.serializeSave(paid));
   window._claimMissionMilestone(120, true);
   window._claimMissionMilestone(150, true);
@@ -419,6 +441,5 @@ it('migrates paid reveals and unpaid level boxes once without reissuing a claime
   expect(api.save.universalParts).toEqual({ common: 9 });
   document.querySelector('#inventory-crate-overlay button').click();
   document.querySelector('[data-crate-rarity="epic"]').click();
-  expect(api.save.universalParts).toMatchObject({ epic: 2 });
-  expect(totalUniversal(api.save)).toBeGreaterThanOrEqual(11);
+  expect(api.save.universalParts).toEqual({ common: 9, epic: 1 });
 });

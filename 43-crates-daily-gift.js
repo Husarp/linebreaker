@@ -2,9 +2,7 @@
     'use strict';
 
     const rarities = ['common', 'rare', 'epic', 'legendary', 'mythic'];
-    const weights = [70, 22, 6.5, 1.3, 0.2];
     const DAILY_GIFT_TAPS = 3;
-    const DAILY_GIFT_UPGRADE_CHANCE = 0.25;
     const DAILY_GIFT_MAX_RARITY = 'epic';
     const DAILY_GIFT_SHAKE_MS = 230;
     const CRATE_AJAR_MS = 120;
@@ -14,15 +12,18 @@
     const crateFrames = ['closed', 'ajar', 'open'];
     const crateSparkles = { epic: 6, legendary: 9, mythic: 14 };
     const contents = [
-        { parts: 2, universal: 1, booster: '1.25x_game', boosters: 1 },
-        { parts: 3, universal: 1, booster: '1.5x_game', boosters: 1 },
-        { parts: 5, universal: 2, booster: '1.5x_game', boosters: 2 },
-        { parts: 7, universal: 3, booster: '2xp_game', boosters: 2 },
-        { parts: 10, universal: 5, booster: '2xp_game', boosters: 3 },
+        { parts: 2, universal: [], booster: '1.25x_game', boosters: 1 },
+        { parts: 3, universal: ['rare'], booster: '1.5x_game', boosters: 1 },
+        { parts: 5, universal: ['epic'], booster: '1.5x_game', boosters: 2 },
+        { parts: 7, universal: ['epic', 'legendary'], booster: '2xp_game', boosters: 2 },
+        { parts: 9, universal: ['mythic'], booster: '2xp_game', boosters: 3 },
+    ];
+    const partWeights = [
+        [80, 20], [50, 40, 10], [25, 40, 30, 5], [10, 30, 35, 25], [5, 20, 30, 30, 15],
     ];
     const rankTiers = ['common', 'rare', 'rare', 'epic', 'epic', 'legendary', 'legendary', 'legendary', 'mythic'];
     const dailyTiers = { 6: 'common', 9: 'common', 12: 'rare' };
-    const weeklyTiers = { 60: 'rare', 90: 'epic', 120: 'epic' };
+    const weeklyTiers = { 60: 'rare', 90: 'rare', 120: 'epic' };
     const rollbackTolerance = 10 * 60_000;
 
     function giftStatus(save, now = new Date()) {
@@ -43,10 +44,11 @@
     }
 
     function shakeGift(gift, roll = Math.random()) {
-        const index = rarities.indexOf(gift.rarity);
-        return { day: gift.day, taps: gift.taps + 1, rarity: rarities[
-            Math.min(rarities.indexOf(DAILY_GIFT_MAX_RARITY), index + Number(roll < DAILY_GIFT_UPGRADE_CHANCE))
-        ] };
+        const taps = gift.taps + 1;
+        let rarity = gift.rarity;
+        if (rarity === 'common' && (taps === 1 && roll < 0.2 || taps === 2 && roll < 0.25)) rarity = 'rare';
+        if (rarity === 'rare' && taps === DAILY_GIFT_TAPS && roll < 0.25) rarity = 'epic';
+        return { day: gift.day, taps, rarity };
     }
 
     function restoreGift(gift, lastClaimed, date) {
@@ -63,50 +65,49 @@
         return true;
     }
 
-    const partWeights = [60, 25, 10, 4, 1];
-    function rollWeightedRarity(weights, roll) {
+    function rollPartRarity(crateRarity, roll = Math.random()) {
+        const weights = partWeights[rarities.indexOf(crateRarity)] || partWeights[0];
         let cutoff = 0;
         for (const [index, weight] of weights.entries()) {
             cutoff += weight;
             if (roll < cutoff / 100) return rarities[index];
         }
-        return 'mythic';
+        return rarities[weights.length - 1];
     }
-    function rollRarity(roll = Math.random()) { return rollWeightedRarity(weights, roll); }
-    function rollPartRarity(roll = Math.random()) { return rollWeightedRarity(partWeights, roll); }
 
-    function grantPartDrops(count, { eligibleParts, addPart, partName, partCost, partRarity, addUniversal }, guaranteed = null) {
-        const cards = [];
-        const universal = Object.fromEntries(rarities.map(rarity => [rarity, 0]));
-        if (guaranteed) universal[guaranteed.rarity] = guaranteed.amount;
+    function grantPartDrops(crateRarity, { eligibleParts, addPart, partName, partCount, partCost, partRarity, addUniversal }, random = Math.random) {
+        const plan = contents[rarities.indexOf(crateRarity)] || contents[0];
+        const count = crateRarity === 'common' && random() < 0.5 ? 1 : plan.parts;
+        const cards = new Map();
         const pools = Object.fromEntries(rarities.map(rarity => [rarity, []]));
-        for (const item of eligibleParts()) pools[partRarity(item.key)].push(item);
-        for (let slot = 0; slot < count; slot++) {
-            const rarity = rollPartRarity();
+        for (const { key } of eligibleParts()) pools[partRarity(key)]?.push(key);
+        function grantItemPart(rarity, bundle) {
             const pool = pools[rarity];
-            if (!pool.length) {
-                universal[rarity]++;
-                continue;
-            }
-            const [{ key }] = pool.splice(Math.floor(Math.random() * pool.length), 1);
-            const owned = addPart(key, 1);
-            cards.push({ type: 'parts', key, label: `${partName(key)} Part`, amount: 1, rarity, desc: `${owned}/${partCost(key)} parts` });
+            if (!pool.length) return;
+            const fullBundle = bundle > 1 ? pool.filter(key => partCost(key) - partCount(key) >= bundle) : pool;
+            const candidates = fullBundle.length ? fullBundle : pool;
+            const key = candidates[Math.floor(random() * candidates.length)];
+            const cost = partCost(key);
+            const current = partCount(key);
+            const amount = Math.min(bundle, cost - current);
+            const owned = addPart(key, amount);
+            if (owned >= cost) pool.splice(pool.indexOf(key), 1);
+            cards.set(key, { type: 'parts', key, label: `${partName(key)} Part`, amount: (cards.get(key)?.amount || 0) + amount,
+                rarity, desc: `${owned}/${cost} parts` });
         }
-        for (const rarity of rarities) {
-            if (!universal[rarity]) continue;
-            addUniversal(universal[rarity], rarity);
-            cards.push({ type: 'universal_parts', label: universalPartName(rarity), amount: universal[rarity], rarity });
+        if (crateRarity === 'mythic') grantItemPart('mythic', 8);
+        for (let slot = 0; slot < count; slot++) grantItemPart(rollPartRarity(crateRarity, random()), 1);
+        const rewards = [...cards.values()];
+        for (const rarity of plan.universal) {
+            addUniversal(1, rarity);
+            rewards.push({ type: 'universal_parts', label: universalPartName(rarity), amount: 1, rarity });
         }
-        return cards;
+        return rewards;
     }
 
     function universalPartName(rarity, amount = 1) {
         if (!rarities.includes(rarity)) rarity = 'common';
         return `${rarity[0].toUpperCase()}${rarity.slice(1)} Universal Part${amount === 1 ? '' : 's'}`;
-    }
-
-    function giftContents(rarity) {
-        return { ...(contents[rarities.indexOf(rarity)] || contents[0]) };
     }
 
     function recordCrate(data, rarity) {
@@ -142,9 +143,10 @@
         return (weekly ? weeklyTiers : dailyTiers)[points] || 'common';
     }
 
-    function grantDailyGift(data, plan, hooks, daily = true, rarity = 'common') {
+    function grantGiftCrate(data, rarity, hooks, daily = true) {
+        const plan = contents[rarities.indexOf(rarity)] || contents[0];
         const { addBooster, boosterInfo } = hooks;
-        const cards = grantPartDrops(plan.parts, hooks, { rarity, amount: plan.universal });
+        const cards = grantPartDrops(rarity, hooks);
         const booster = boosterInfo[plan.booster];
         for (let count = 0; count < plan.boosters; count++) addBooster(plan.booster);
         cards.push({ type: 'booster', key: plan.booster, label: booster.label, amount: plan.boosters, rarity: booster.rarity });
@@ -367,7 +369,7 @@
         };
         const reveal = (result, immediate = false) => {
             clearAnimation();
-            if (!result.childElementCount) result.append(element('p', '', 'These rewards were already added to your inventory.'));
+            if (!result.childElementCount) result.append(element('p', '', 'No matching item parts to collect from this crate.'));
             rewards.prepend(result);
             art.classList.remove('lb43-crate-shaking');
             rewards.hidden = false;
@@ -544,5 +546,5 @@
         return { refresh, claim };
     }
 
-    window.LBCrates = Object.freeze({ rarities: Object.freeze(rarities), giftStatus, nextGiftCountdown, observeTime, rollRarity, rollPartRarity, shakeGift, restoreGift, giftContents, levelRarity, missionRarity, universalPartName, grantPartDrops, grantDailyGift, recordCrate, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
+    window.LBCrates = Object.freeze({ rarities: Object.freeze(rarities), giftStatus, nextGiftCountdown, observeTime, rollPartRarity, shakeGift, restoreGift, levelRarity, missionRarity, universalPartName, grantPartDrops, grantGiftCrate, recordCrate, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
 })();

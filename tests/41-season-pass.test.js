@@ -14,7 +14,7 @@ afterEach(() => game?.close());
 
 it('distinguishes the highest reached stage from the next unclaimed reward', () => {
   const now = EPOCH + 7 * DAY;
-  const save = { season: { ...emptySeason(1), points: 67 } };
+  const save = { season: { ...emptySeason(1), points: 247 } };
   storeState(save, claimStage(save, config, 1, now));
   expect(summarizeTrack(config.stages, seasonState(save, now))).toEqual({
     current: config.stages[7],
@@ -40,25 +40,26 @@ it.each([[2026, 0, 31], [2026, 1, 28], [2026, 10, 30], [2028, 1, 29], [2028, 11,
 it('resets season points and claims only on the next local month', () => {
   const rollover = +new Date(2026, 1, 1);
   const save = { season: emptySeason(1) };
-  creditMissionPoints(save, 8, rollover - 1);
+  creditMissionPoints(save, 30, rollover - 1);
   storeState(save, claimStage(save, config, 1, rollover - 1));
-  expect(seasonState(save, rollover - 1).season).toMatchObject({ points: 8, claimed: { 1: { type: 'crate' } } });
+  expect(seasonState(save, rollover - 1).season).toMatchObject({ points: 30, claimed: { 1: { type: 'crate' } } });
   expect(seasonState(save, rollover).season).toEqual(emptySeason(2));
   creditMissionPoints(save, 3, rollover);
   expect(save.season).toEqual({ ...emptySeason(2), points: 3 });
 });
 
-it('migrates an active legacy season once without dropping points, claims, or overflow', () => {
+it('migrates an active legacy season once without dropping points or stage receipts', () => {
   const upgrade = +new Date(2026, 10, 22);
   const monthEnd = +new Date(2026, 11, 1);
   const oldId = Math.floor((upgrade - Date.UTC(2026, 0, 1)) / (30 * DAY)) + 1;
   const claimed = { 1: { type: 'crate', tier: 'common' }, 30: { type: 'skin', key: 'season-prism' } };
-  const save = { season: sanitizeSeason({ id: oldId, points: 264, claimed, bonusClaimed: 2 }), lastSeenTime: upgrade };
+  const save = { season: sanitizeSeason({ id: oldId, points: 264, claimed, bonusClaimed: 2 }, true), lastSeenTime: upgrade };
   storeState(save, seasonState(save, upgrade));
-  expect(save.season).toEqual({ ...emptySeason(11), points: 264, claimed, bonusClaimed: 2 });
+  expect(save.season).toEqual({ ...emptySeason(11), points: 264, claimed, bonusClaimed: 0 });
   save.season = sanitizeSeason(JSON.parse(JSON.stringify(save.season)));
   expect(claimStage(save, config, 1, monthEnd - 1).reward).toBeUndefined();
-  expect(bonusProgress(config, seasonState(save, monthEnd - 1))).toEqual({ ready: 1, points: 0 });
+  expect(claimStage(save, config, 30, monthEnd - 1).reward).toBeUndefined();
+  expect(bonusProgress(config, seasonState(save, monthEnd - 1))).toEqual({ ready: 0, points: 0 });
   expect(seasonState(save, monthEnd).season).toEqual(emptySeason(12));
 });
 
@@ -88,7 +89,7 @@ it('persists the migrated month on native load before the player makes any chang
 
 it('requires the points threshold and grants once without spending points', () => {
   const now = EPOCH;
-  const save = { season: { ...emptySeason(1), points: 7 } };
+  const save = { season: { ...emptySeason(1), points: 29 } };
   const grant = vi.fn(tier => ({ type: 'crate', tier }));
   expect(stageStatus(config.stages[0], seasonState(save, now))).toBe('locked');
   expect(claimStage(save, config, 1, now, grant).reward).toBeUndefined();
@@ -97,7 +98,7 @@ it('requires the points threshold and grants once without spending points', () =
   const result = claimStage(save, config, 1, now, grant);
   storeState(save, result);
   expect(result.reward).toEqual({ type: 'crate', tier: 'common' });
-  expect(save.season.points).toBe(8);
+  expect(save.season.points).toBe(30);
   expect(stageStatus(config.stages[0], seasonState(save, now))).toBe('claimed');
   expect(claimStage(save, config, 1, now, grant).reward).toBeUndefined();
   expect(grant).toHaveBeenCalledExactlyOnceWith('common');
@@ -120,22 +121,22 @@ it('latches a rollback greater than ten minutes until the last observed time', (
 it('unlocks stages by points even on the first day, without requiring earlier claims', () => {
   const save = { season: emptySeason(1) };
   const statuses = () => config.stages.slice(0, 3).map(stage => stageStatus(stage, seasonState(save, EPOCH)));
-  creditMissionPoints(save, 15, EPOCH);
+  creditMissionPoints(save, 45, EPOCH);
   expect(statuses()).toEqual(['claimable', 'locked', 'locked']);
-  creditMissionPoints(save, 9, EPOCH);
+  creditMissionPoints(save, 45, EPOCH);
   expect(statuses()).toEqual(['claimable', 'claimable', 'claimable']);
-  creditMissionPoints(save, 216, EPOCH);
+  creditMissionPoints(save, 810, EPOCH);
   expect(claimStage(save, config, 30, EPOCH).reward).toEqual({ type: 'skin', key: 'season-prism' });
   expect(claimStage({ ...save, ownedSkins: ['season-prism'] }, config, 30, EPOCH).reward).toEqual({ type: 'crate', tier: 'legendary' });
 });
 
-it('grants the specified crate at each stage without changing the points curve', () => {
+it('grants the specified crate at each stage at 30 points per stage', () => {
   const tiers = {
     common: [1, 2, 3, 4, 6, 8, 9, 11, 12, 13, 16, 17, 19, 21, 22, 24, 27],
     rare: [5, 7, 14, 18, 23, 26], epic: [10, 15, 25, 28], legendary: [20], mythic: [29],
   };
-  const save = { season: { ...emptySeason(1), points: 240 } };
-  expect(config.stages.map(stage => stage.points)).toEqual(Array.from({ length: 30 }, (_, index) => (index + 1) * 8));
+  const save = { season: { ...emptySeason(1), points: 900 } };
+  expect(config.stages.map(stage => stage.points)).toEqual(Array.from({ length: 30 }, (_, index) => (index + 1) * 30));
   for (const [tier, stages] of Object.entries(tiers)) {
     for (const number of stages) expect(claimStage(save, config, number, EPOCH).reward).toEqual({ type: 'crate', tier });
   }
@@ -143,14 +144,14 @@ it('grants the specified crate at each stage without changing the points curve',
 });
 
 it('banks repeatable rare chests at each final-stage increment and expires them at rollover', () => {
-  const save = { season: { ...emptySeason(1), points: 247 } };
+  const save = { season: { ...emptySeason(1), points: 959 } };
   const progress = now => bonusProgress(config, seasonState(save, now));
   const grant = vi.fn(tier => ({ type: 'crate', tier }));
-  expect(progress(EPOCH)).toEqual({ ready: 0, points: 7 });
+  expect(progress(EPOCH)).toEqual({ ready: 0, points: 59 });
   expect(claimBonus(save, config, EPOCH, grant).reward).toBeUndefined();
   creditMissionPoints(save, 1, EPOCH);
   expect(progress(EPOCH)).toEqual({ ready: 1, points: 0 });
-  creditMissionPoints(save, 10, EPOCH);
+  creditMissionPoints(save, 62, EPOCH);
   expect(progress(EPOCH)).toEqual({ ready: 2, points: 2 });
   for (const ready of [1, 0]) {
     const result = claimBonus(save, config, EPOCH, grant);
@@ -158,12 +159,18 @@ it('banks repeatable rare chests at each final-stage increment and expires them 
     storeState(save, result);
     expect(progress(EPOCH)).toEqual({ ready, points: 2 });
   }
-  expect(save.season).toMatchObject({ points: 258, bonusClaimed: 2 });
+  expect(save.season).toMatchObject({ points: 1022, bonusClaimed: 2 });
   expect(claimBonus(save, config, EPOCH, grant).reward).toBeUndefined();
-  creditMissionPoints(save, 6, EPOCH);
+  creditMissionPoints(save, 58, EPOCH);
   expect(progress(EPOCH)).toEqual({ ready: 1, points: 0 });
   expect(claimBonus(save, config, seasonWindow(EPOCH).end, grant).reward).toBeUndefined();
   expect(grant.mock.calls).toEqual([['rare'], ['rare']]);
+});
+
+it('rebases paid bonuses by their point threshold without replaying them or blocking future bonuses', () => {
+  const season = sanitizeSeason({ ...emptySeason(1), points: 1020, bonusClaimed: 90 }, true);
+  expect(season).toMatchObject({ points: 1020, bonusClaimed: 1 });
+  expect(bonusProgress(config, { season })).toEqual({ ready: 1, points: 0 });
 });
 
 it('credits daily and weekly point claims once, including automatic recovery', async () => {
@@ -209,16 +216,16 @@ it('migrates old saves without resetting points or already-claimed stage receipt
   game = await loadGame();
   const { sanitizeSave, LBSave } = game.w;
   const defaults = game.api.save;
-  const season = { id: 1, points: 45, claimed: {
+  const season = { id: 1, points: 155, claimed: {
     1: { type: 'crate', tier: 'common', contents: [{ type: 'parts', key: 'shadow', amount: 1, label: '<script>' }] },
     2: { type: 'parts', key: 'constructor', amount: 5 },
     30: { type: 'skin', key: 'season-prism' },
     31: { type: 'universal_parts', amount: 10 },
   } };
   const clock = { lastSeenTime: EPOCH + DAY, seasonBlockedUntil: EPOCH + 2 * DAY };
-  const clean = sanitizeSave({ ...defaults, season, ...clock }, defaults);
-  expect(clean).toMatchObject({ schemaVersion: 3, ...clock });
-  expect(clean.season).toEqual({ id: 1, points: 45, bonusClaimed: 0, claimed: {
+  const clean = sanitizeSave({ ...defaults, schemaVersion: 3, season, ...clock }, defaults);
+  expect(clean).toMatchObject({ schemaVersion: 4, ...clock });
+  expect(clean.season).toEqual({ id: 1, points: 155, bonusClaimed: 0, claimed: {
     1: { type: 'crate', tier: 'common', contents: [{ type: 'parts', key: 'shadow', amount: 1 }] },
     30: { type: 'skin', key: 'season-prism' },
   } });
@@ -259,7 +266,7 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   const firstMinute = EPOCH + 60_000;
   let now = firstMinute;
   w.Date.now = () => now;
-  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 240 }, lastSeenTime: firstMinute });
+  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 900 }, lastSeenTime: firstMinute });
   await w.openMissions('weekly');
   const missions = w.document.getElementById('missions-overlay');
   const seasonTab = missions.querySelector('[data-tab="season"]');
@@ -285,7 +292,7 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   expect(overlay.querySelector('[aria-current="step"] h3').textContent).toBe('Stage 30: Season Prism');
   expect(overlay.querySelector('[aria-current="step"] .sp-step').textContent).toBe('30');
   expect(overlay.querySelector('#sp-title').textContent).toBe('Stage 30');
-  expect(progressText.textContent).toBe('240 SP · All stages unlocked');
+  expect(progressText.textContent).toBe('900 SP · All stages unlocked');
   expect(progress.hidden).toBe(true);
   expect(overlay.querySelector('[data-stage="29"] img').getAttribute('src')).toBe('assets/ui/crates/mythic.png');
   expect(overlay.querySelector('[data-stage="30"] .sp-prism')).not.toBeNull();
@@ -315,19 +322,19 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   expect(receipt.querySelector('.sp-receipt').textContent).not.toBe('');
   receipt.querySelector('summary').click();
   expect(receipt.open).toBe(true);
-  expect(progressText.textContent).toBe('240 SP · All stages unlocked');
-  api.setSave({ ...api.save, season: { ...api.save.season, points: 11 } });
+  expect(progressText.textContent).toBe('900 SP · All stages unlocked');
+  api.setSave({ ...api.save, season: { ...api.save.season, points: 45 } });
   w.dispatchEvent(new w.Event('focus'));
-  expect(progressText.textContent).toBe('11 / 16 SP to stage 02');
-  expect(progress.value).toBe(11);
-  expect(progress.max).toBe(16);
+  expect(progressText.textContent).toBe('45 / 60 SP to stage 02');
+  expect(progress.value).toBe(45);
+  expect(progress.max).toBe(60);
   const fills = [...meter.querySelector('.sp-meter-segments').children].map(segment =>
     parseFloat(segment.style.getPropertyValue('--sp-day-fill')));
-  expect(fills).toEqual([...Array(21).fill(100), 31.25, ...Array(9).fill(0)]);
+  expect(fills).toEqual([...Array(23).fill(100), 25, ...Array(7).fill(0)]);
   const locked = overlay.querySelector('[data-stage="2"] details');
   locked.querySelector('summary').click();
   expect(locked.open).toBe(true);
-  expect(locked.querySelector('.lb-block-expand-body').textContent).toBe('5 SP to go');
+  expect(locked.querySelector('.lb-block-expand-body').textContent).toBe('15 SP to go');
   w.document.getElementById('mq-back').click();
   expect(overlay.hidden).toBe(true);
   expect(missionView.hidden).toBe(false);
@@ -350,7 +357,7 @@ it('redraws the meter for each local month without filling it for elapsed days',
   const fetchSeason = async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] });
   game = await loadGame(true, null, null, fetchSeason, null, window => { window.Date.now = () => now; });
   const { w, api } = game;
-  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 4 }, lastSeenTime: now });
+  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 15 }, lastSeenTime: now });
   await w.openSeasonPass();
   const segments = w.document.querySelector('.sp-meter-segments');
   expect(segments.children).toHaveLength(31);
@@ -368,7 +375,7 @@ it('fills the season track through reached thresholds and partway toward the nex
   const { w, api } = game;
   const now = EPOCH + 9 * DAY;
   w.Date.now = () => now;
-  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 70 }, lastSeenTime: now });
+  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 264 }, lastSeenTime: now });
   w.openMissions();
   w.document.querySelector('[data-tab="season"]').click();
   const stage = day => w.document.querySelector(`.sp-card[data-stage="${day}"]`);
@@ -377,14 +384,14 @@ it('fills the season track through reached thresholds and partway toward the nex
   expect(stage(8).hasAttribute('data-reached')).toBe(true);
   expect(stage(8).style.getPropertyValue('--sp-outgoing')).toBe('100%');
   expect(stage(9).hasAttribute('data-reached')).toBe(false);
-  expect(stage(9).style.getPropertyValue('--sp-incoming')).toBe('50%');
+  expect(parseFloat(stage(9).style.getPropertyValue('--sp-incoming'))).toBeCloseTo(60);
 });
 
 it('reports the visible stage range and only shows the jump arrow when its target is out of view', async () => {
   game = await loadGame(true, null, null, async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] }));
   const { w, api } = game;
   w.Date.now = () => EPOCH;
-  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 56 }, lastSeenTime: EPOCH });
+  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 210 }, lastSeenTime: EPOCH });
   const track = w.document.querySelector('.sp-track');
   await w.openMissions('season');
   const stages = track.querySelectorAll('[data-stage]');
@@ -414,15 +421,15 @@ it('claims the rare overflow row repeatedly and retains count and remainder on r
   game = await loadGame(true, null, null, async path => ({ ok: true, json: async () => path === 'data/season.json' ? data : [] }));
   const { w, api, advance } = game;
   w.Date.now = () => EPOCH;
-  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 258 }, lastSeenTime: EPOCH });
+  api.setSave({ ...api.save, season: { ...emptySeason(1), points: 1022 }, lastSeenTime: EPOCH });
   await w.openMissions('season');
   const bonus = () => w.document.querySelector('[data-bonus]');
   expect(bonus().nextElementSibling).toBeNull();
-  expect(bonus().querySelector('h3').textContent).toBe('Bonus chest · every 8 SP');
+  expect(bonus().querySelector('h3').textContent).toBe('Bonus chest · every 60 SP');
   expect(bonus().querySelector('img').getAttribute('src')).toBe('assets/ui/crates/rare.png');
   const { universalParts, storedCrates } = api.save;
   const giftStat = api.save.stats.rareItemsFromDailyBox;
-  for (const [count, label] of [[1, '2 ready · 2 / 8 SP'], [2, '1 ready · 2 / 8 SP']]) {
+  for (const [count, label] of [[1, '2 ready · 2 / 60 SP'], [2, '1 ready · 2 / 60 SP']]) {
     expect(bonus().querySelector('#sp-bonus-progress').textContent).toBe(label);
     bonus().querySelector('button').click();
     advance(16);
@@ -434,7 +441,7 @@ it('claims the rare overflow row repeatedly and retains count and remainder on r
   expect(bonus().querySelector('button')).toBeNull();
   expect(bonus().querySelector('progress').value).toBe(2);
   const clean = w.sanitizeSave(w.LBSave.serializeSave(api.save), api.save);
-  expect(clean.season).toMatchObject({ points: 258, bonusClaimed: 2 });
+  expect(clean.season).toMatchObject({ points: 1022, bonusClaimed: 2 });
   expect(clean.storedCrates).toEqual(api.save.storedCrates);
   w.closeMissions();
   await w.openInventory('crates');

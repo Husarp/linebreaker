@@ -33,7 +33,7 @@
             levelRewardsThrough: 30,
             lastDailyGift: previousDate(),
             storedCrates: ['common', 'rare', 'rare', 'epic', 'legendary', 'mythic'].map(rarity => ({ rarity })),
-            season: { ...LBSeason.emptySeason(id), points: 64, claimed: { ...(day >= 2 && { 1: receipt }), ...(day >= 4 && { 2: receipt }) } },
+            season: { ...LBSeason.emptySeason(id), points: 124, claimed: { ...(day >= 2 && { 1: receipt }), ...(day >= 4 && { 2: receipt }) } },
             missions,
             stats: {
                 ...defaults.stats, gamesPlayed: 12, totalTimePlayed: 2840, totalBlocksPlaced: 1211,
@@ -72,7 +72,7 @@
         Object.assign(stats, { totalCompleted: 13, weeklyCompleted: 3, totalPts: 84 });
     }
 
-    function mount({ run, resetRun, tracksReady, alert, confirm, levelUp, levelCrate, missionCrate, closeCrate, dailyGift }) {
+    function mount({ run, resetRun, tracksReady, alert, confirm, levelUp, levelCrate, missionCrate, closeCrate, dailyGift, universalExchange }) {
         const byId = id => document.getElementById(id);
         const click = selector => document.querySelector(selector).click();
         const screens = new Map();
@@ -142,7 +142,11 @@
         add('sfx-preview', window.openSfxPackPreview, () => remove('sfx-preview-modal'));
         add('sfx-panel', window.devSFXPanel, () => remove('sfx-panel-modal'));
         add('universal-parts', () => window.openUseUniversalPart('rare'), () => remove('uni-modal-overlay'));
-        add('universal-exchange', () => window.openExchangeUniversalParts('common'), () => remove('uni-xch-overlay'));
+        let restoreExchange;
+        add('universal-exchange', () => { restoreExchange = universalExchange(); }, () => {
+            remove('uni-xch-overlay');
+            restoreExchange();
+        });
         add('booster-exchange', () => window._openExchangeModal('1.25x_game', '1.5x_game', 'booster'), () => remove('exc-modal-overlay'));
         screen('inventory-sfx', 'inventory-overlay', async () => { await inventory('other'); click('[data-sfx-preview="retro"]'); }, () => {
             remove('sfx-inv-preview');

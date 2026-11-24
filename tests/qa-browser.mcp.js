@@ -433,11 +433,12 @@
             if (name === 'universal-parts') {
                 const allocation = await page.locator('#uni-modal-overlay').evaluate(dialog => {
                     const rows = [...dialog.querySelectorAll('.lb-exchange-row')];
-                    return dialog.querySelector('#uni-title')?.textContent === 'Rare Universal Parts' && rows.length > 0
-                        && rows.every(row => row.querySelector('img')?.getAttribute('src') === 'assets/ui/parts/part-rune.webp')
-                        && !dialog.querySelector('#uni-inc-outline');
+                    const materials = rows.map(row => row.querySelector('img')?.getAttribute('src'));
+                    return dialog.querySelector('#uni-title')?.textContent === 'Rare Universal Parts'
+                        && materials.includes('assets/ui/parts/part-rune.webp') && materials.includes('assets/ui/parts/part-scroll.webp')
+                        && dialog.querySelector('#uni-inc-outline') && !dialog.querySelector('#uni-inc-obsidian-carved');
                 });
-                if (!allocation) fail('Rare parts must show only Rare items with the rune material');
+                if (!allocation) fail('Rare universal parts must apply to Common and Rare items with their own materials');
             }
             if (name === 'universal-exchange') {
                 const exchange = await page.locator('#uni-xch-overlay').evaluate(dialog => ({

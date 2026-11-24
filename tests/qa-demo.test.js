@@ -535,30 +535,42 @@ it('queues only affordable whole parts and re-enables controls when a part is re
   const apply = get('uni-apply-btn');
   expect(apply.disabled).toBe(true);
   expect(dialog.querySelector('.lb-exchange-parts-icon').getAttribute('src')).toBe('assets/ui/parts/universal-rare.webp');
-  expect(get('uni-inc-outline')).toBeNull();
-  w._uniInc('outline');
+  expect(get('uni-inc-outline')).not.toBeNull();
+  expect(get('uni-inc-obsidian-carved')).toBeNull();
+  w._uniInc('obsidian-carved');
   expect(apply.disabled).toBe(true);
-  for (let count = 0; count < 13; count++) dialog.querySelector('button[id^="uni-inc-"]:not(:disabled)').click();
+  get('uni-inc-outline').click();
+  for (let count = 0; count < 12; count++) get('uni-inc-bubble').click();
   expect(get('uni-avail-lbl').textContent).toBe('0.2 available');
   expect(dialog.querySelector('button[id^="uni-inc-"]:not(:disabled)')).toBeNull();
   expect(apply.disabled).toBe(false);
-  dialog.querySelector('button[id^="uni-dec-"]:not([hidden])').click();
+  get('uni-dec-bubble').click();
   expect(get('uni-avail-lbl').textContent).toBe('1.2 available');
   expect(dialog.querySelector('button[id^="uni-inc-"]:not(:disabled)')).not.toBeNull();
   w._uniDoApply();
   expect(api.save.universalParts).toEqual({ common: 4, rare: 1.2 });
-  expect(api.save.parts.outline).toBe(1);
+  expect(api.save.parts.outline).toBe(2);
 });
 
 it('previews and exchanges the selected number of 4-to-1 rarity sets in Inventory', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
   const { w, api } = game;
   const startXP = 65_000;
-  api.setSave({ ...api.save, totalXP: startXP, universalParts: { common: 13.2, rare: 2, mythic: 8 } });
+  const save = { ...api.save, totalXP: startXP, universalParts: { common: 13.2, rare: 2, mythic: 8 } };
+  const categories = { skin: 'ownedSkins', theme: 'ownedThemes', gridStyle: 'ownedGridStyles', palette: 'ownedPalettes' };
+  for (const { cat, key } of api.partsItems()) {
+    if (api.partRarity(key) === 'common' && key !== 'outline') (save[categories[cat]] ??= []).push(key);
+  }
+  save.parts.outline = 100;
+  api.setSave(save);
   await w.__LB_QA.open('inventory-parts');
   expect(w.document.querySelectorAll('#inventory-parts [data-use-parts]')).toHaveLength(3);
   expect(w.document.querySelector('[data-exchange-parts="rare"]').disabled).toBe(true);
   expect(w.document.querySelector('[data-exchange-parts="mythic"]')).toBeNull();
+  expect(w.document.querySelector('[data-exchange-parts="common"]').disabled).toBe(true);
+  expect(api.exchangeUniversalParts('common', 1)).toBe(false);
+  w.playerUnlockItem('skin', 'outline');
+  expect(w.document.querySelector('[data-exchange-parts="common"]').disabled).toBe(false);
   w.document.querySelector('[data-exchange-parts="common"]').click();
   const get = id => w.document.getElementById(id);
   const quantity = get('uni-xch-quantity');
@@ -579,5 +591,5 @@ it('previews and exchanges the selected number of 4-to-1 rarity sets in Inventor
   get('uni-xch-confirm').click();
   expect(api.save.universalParts).toEqual({ common: 5.2, rare: 4, mythic: 8 });
   expect(api.save.totalXP).toBe(startXP);
-  expect(w.document.querySelector('[data-exchange-parts="rare"]').disabled).toBe(false);
+  expect(w.document.querySelector('[data-exchange-parts="rare"]').disabled).toBe(true);
 });

@@ -188,9 +188,9 @@
                 card.className = 'sp-card';
                 card.dataset.stage = number;
                 card.dataset.tier = tier;
-                card.dataset.rarity = tier;
+                card.dataset.rarity = tier === 'exclusive' ? exclusiveSkin.rarity : tier;
                 card.dataset.state = status;
-                if (season.points >= threshold) card.dataset.reached = '';
+                if (status === 'claimed' || season.points >= threshold) card.dataset.reached = '';
                 const progress = progressBetween(threshold, stages[index + 1]?.points ?? threshold + config.bonusStep);
                 card.style.setProperty('--sp-outgoing', `${100 * Math.min(1, progress * 2)}%`);
                 if (index > 0) {
@@ -209,7 +209,7 @@
                     </div>`;
                 const row = card.querySelector('.sp-row');
                 if (status === 'claimable') {
-                    row.append(claimButton(number, `Claim stage ${number} ${tier} reward`));
+                    row.append(claimButton(number, `Claim stage ${number} ${tier === 'exclusive' ? exclusiveSkin.rarity : tier} reward`));
                 } else {
                     const claimed = status === 'claimed';
                     const remaining = Math.max(0, threshold - season.points);

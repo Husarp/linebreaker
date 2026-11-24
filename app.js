@@ -2519,6 +2519,15 @@
                     saveData.lastDailyGift = _qaDemo.previousDate();
                     return dailyGift.claim();
                 },
+                universalExchange() {
+                    const profile = saveData;
+                    saveData = JSON.parse(JSON.stringify(profile));
+                    for (const { cat, key } of _getAllPartsItems()) {
+                        if (_getItemRarity(key) === 'common') giveItemDirectly(cat, key);
+                    }
+                    openExchangeUniversalParts('common');
+                    return () => { saveData = profile; };
+                },
             });
             refreshMenuUtilities(); drawRankBadge(); _checkGlowNotifications(); startMusic('menu');
             _dismissLoadingScreen();
@@ -2553,6 +2562,7 @@
     }
 
     function applyLoadedData(data, showSkinNotice = true) {
+        const economyMigrated = data && !(Number.isFinite(data.schemaVersion) && data.schemaVersion >= LBSave.economyVersion);
         const legacySkins = data != null && !(Number.isFinite(data.skinCatalogVersion) && data.skinCatalogVersion >= SKIN_CATALOG_VERSION);
         const wasRemoved = key => REMOVED_SKINS.has(key) || (legacySkins && key === 'lava');
         const removed = Array.isArray(data?.ownedSkins) ? [...new Set(data.ownedSkins.slice(0, 2000).filter(wasRemoved))] : [];
@@ -2662,11 +2672,12 @@
         _initTrackCatalog(); // re-run now that saveData is loaded
         if (skinSettingsChanged) saveSettings();
         if (skinNotice && showSkinNotice) customAlert(skinNotice, 'BLOCK SKINS UPDATED');
-        return { skinNotice, skinSettingsChanged, seasonMigrated };
+        return { skinNotice, skinSettingsChanged, seasonMigrated, economyMigrated };
     }
 
     function applyStoredSave(data) {
-        if (applyLoadedData(data).seasonMigrated) saveDataToFile();
+        const { seasonMigrated, economyMigrated } = applyLoadedData(data);
+        if (seasonMigrated || economyMigrated) saveDataToFile();
     }
 
     function enterMenuAfterSave() {
@@ -2705,9 +2716,9 @@
             const { data, readOnly } = loaded;
             if (readOnly) console.warn('Native save opened read-only:', readOnly);
             _readOnlyRawSave = readOnly ? data : null;
-            const { skinSettingsChanged, seasonMigrated } = applyLoadedData(data, !readOnly);
+            const { skinSettingsChanged, seasonMigrated, economyMigrated } = applyLoadedData(data, !readOnly);
             _desktopSaveReady = true;
-            if (!readOnly && (skinSettingsChanged || seasonMigrated)) saveDataToFile();
+            if (!readOnly && (skinSettingsChanged || seasonMigrated || economyMigrated)) saveDataToFile();
             enterMenuAfterSave();
             if (readOnly) customAlert(`${readOnly} Your original save is unchanged. You can export it from Save Transfer.`, 'SAVE IS READ-ONLY');
             _dismissLoadingScreen();
@@ -2967,7 +2978,6 @@
         saveData.boosters[type] = (saveData.boosters[type] || 0) + amount;
     }
 
-    const PART_COST_BY_RARITY = { common: 20, rare: 15, epic: 12, legendary: 10, mythic: 8 };
     const PART_EXCHANGE_RATE = 4;
     const ITEM_RARITIES = {
         glass: 'rare', shadow: 'rare', outline: 'common', holo: 'epic', journey: 'rare', bubble: 'rare',
@@ -2978,11 +2988,11 @@
         greyscale: 'common', ice: 'common', pastel: 'common', dark: 'common', synthwave: 'common', earth: 'common', neon: 'common',
     };
     function _getItemRarity(key) { return IMAGE_SKINS.get(key)?.rarity || (Object.hasOwn(ITEM_RARITIES, key) ? ITEM_RARITIES[key] : null); }
-    function _getItemCost(key) { return IMAGE_SKINS.get(key)?.exclusive ? 0 : PART_COST_BY_RARITY[_getItemRarity(key)] || 0; }
+    function _getItemCost(key) { return !IMAGE_SKINS.get(key)?.exclusive && _getItemRarity(key) ? LBSave.itemPartCost : 0; }
 
-    function _getAllPartsItems() {
+    function _getAllPartsItems(includeExclusive = false) {
         const items = [];
-        Object.keys(SKIN_NAMES).forEach(k => { if (!IMAGE_SKINS.get(k)?.exclusive && !(saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).includes(k)) items.push({cat:'skin',key:k}); });
+        Object.keys(SKIN_NAMES).forEach(k => { if ((includeExclusive || !IMAGE_SKINS.get(k)?.exclusive) && !(saveData.ownedSkins || [DEFAULT_BLOCK_SKIN]).includes(k)) items.push({cat:'skin',key:k}); });
         const themeNames = ['ocean','forest','fire','dragon','void','sunset','arctic','midnight','sakura'];
         themeNames.forEach(k => { if (!(saveData.ownedThemes||[]).includes(k)) items.push({cat:'theme',key:k}); });
         // Fonts are tied to style packs — not separately unlockable via parts
@@ -3015,7 +3025,7 @@
     }
     function _partDropHooks() {
         return { eligibleParts: _getPartsEligibleItems, addPart: addPartsToItem, partName: _partItemName,
-            partCost: _getItemCost, partRarity: _getItemRarity, addUniversal: addUniversalParts };
+            partCount: key => saveData.parts?.[key] || 0, partCost: _getItemCost, partRarity: _getItemRarity, addUniversal: addUniversalParts };
     }
     function _partItemName(key) {
         if (key === 'ghostColor') return 'Colored Ghost';
@@ -3052,9 +3062,13 @@
     function _partPrice(value, cost, rarity) {
         return `<span class="lb-item-part-count" role="img" aria-label="${value} of ${cost} parts">${_exchangePartsIcon(rarity, true)}<span data-stock-value="${value}" data-stock-format="part" data-stock-cost="${cost}">${value}/${cost}</span></span>`;
     }
+    function _canUseUniversalPart(rarity, key) {
+        const itemTier = LBCrates.rarities.indexOf(_getItemRarity(key));
+        return itemTier >= 0 && itemTier <= LBCrates.rarities.indexOf(rarity);
+    }
     function openUseUniversalPart(rarity = 'common') {
         if (!LBCrates.rarities.includes(rarity) || _universalBalance(rarity) < 1) return;
-        const matches = item => _getItemRarity(item.key) === rarity;
+        const matches = item => _canUseUniversalPart(rarity, item.key);
         const canUse = key => _getPartsEligibleItems().some(item => item.key === key && matches(item));
         document.getElementById('uni-modal-overlay')?.remove();
         const THEME_NAMES = {ocean:'Ocean',forest:'Forest',fire:'Fire',dragon:'Golden',void:'Void',sunset:'Sunset',arctic:'Arctic',midnight:'Midnight',sakura:'Sakura'};
@@ -3086,7 +3100,7 @@
                 bar.style.width = actualPct + '%';
                 bar.style.removeProperty('--lb-exchange-owned-stop');
             }
-            if (lbl) lbl.innerHTML = _partPrice(pending > 0 ? `${parts}+${pending}` : parts, cost, rarity);
+            if (lbl) lbl.innerHTML = _partPrice(pending > 0 ? `${parts}+${pending}` : parts, cost, _getItemRarity(key));
         }
         function _updateApplyBtn() {
             const btn = document.getElementById('uni-apply-btn');
@@ -3116,19 +3130,20 @@
                 + items.map(item => {
                     const parts = saveData.parts?.[item.key] || 0;
                     const cost = _getItemCost(item.key);
+                    const itemRarity = _getItemRarity(item.key);
                     const maxAdd = Math.min(_avail(), cost - parts);
                     const pct = (parts / cost) * 100;
                     const cur = _inputVals[item.key] || 0;
                     const name = parts ? escapeHtml(_getLabel(item)) : 'undiscovered item';
                     return `<div class="lb-block-card lb-exchange-row">
-                        <div class="lb-exchange-row-art">${_exchangePartsIcon(rarity, true)}</div>
+                        <div class="lb-exchange-row-art">${_exchangePartsIcon(itemRarity, true)}</div>
                         <div class="lb-exchange-row-detail">
                             <strong${parts ? '' : ' aria-label="Undiscovered item"'}>${parts ? name : '?'}</strong>
                             <div class="lb-exchange-row-meta lb-inventory-parts-allocation">
                                 <div class="lb-exchange-meter" aria-hidden="true">
                                     <div id="uni-bar-${item.key}" style="width:${pct}%"></div>
                                 </div>
-                                <span id="uni-lbl-${item.key}">${_partPrice(parts, cost, rarity)}</span>
+                                <span id="uni-lbl-${item.key}">${_partPrice(parts, cost, itemRarity)}</span>
                             </div>
                         </div>
                         ${parts < cost ? `<div class="lb-exchange-stepper">
@@ -3141,7 +3156,7 @@
         function _rebuildContent() {
             const c = document.getElementById('uni-modal-body');
             if (!c) return;
-            const all = _getAllPartsItems().filter(matches);
+            const all = _getPartsEligibleItems().filter(matches);
             const avail = _avail();
             c.innerHTML = `<header class="lb-exchange-parts-head">
                 <div class="lb-exchange-title-row">
@@ -3250,7 +3265,7 @@
                     setTimeout(() => { bar.style.width = newPct + '%'; }, 50);
                 }
                 const lbl = document.getElementById(`uni-lbl-${key}`);
-                if (lbl) lbl.innerHTML = _partPrice(saveData.parts?.[key] || 0, _getItemCost(key), rarity);
+                if (lbl) lbl.innerHTML = _partPrice(saveData.parts?.[key] || 0, _getItemCost(key), _getItemRarity(key));
             });
             setTimeout(() => _rebuildContent(), 700);
         };
@@ -3312,14 +3327,17 @@
     function exchangeUniversalParts(rarity, sets) {
         const nextRarity = _nextPartRarity(rarity);
         const spent = sets * PART_EXCHANGE_RATE;
-        if (!nextRarity || !Number.isSafeInteger(sets) || sets < 1 || spent > _universalBalance(rarity)) return false;
+        if (!nextRarity || !Number.isSafeInteger(sets) || sets < 1 || spent > _universalBalance(rarity) || !_ownsRarity(rarity)) return false;
         addUniversalParts(-spent, rarity);
         addUniversalParts(sets, nextRarity);
         return true;
     }
+    function _ownsRarity(rarity) {
+        return !_getAllPartsItems(true).some(({ key }) => _getItemRarity(key) === rarity);
+    }
     function openExchangeUniversalParts(rarity = 'common') {
         const nextRarity = _nextPartRarity(rarity);
-        if (!nextRarity) return;
+        if (!nextRarity || !_ownsRarity(rarity)) return;
         const avail = _universalBalance(rarity);
         const maxSets = Math.floor(avail / PART_EXCHANGE_RATE);
         if (maxSets < 1) return;
@@ -3378,7 +3396,7 @@
         return { rank, name: division ? `${name} ${_toRoman(division)}` : name };
     }
     function _generateLevelBoxRewards(rarity = 'common') {
-        return LBCrates.grantPartDrops(10, _partDropHooks(), { rarity, amount: 2 });
+        return LBCrates.grantPartDrops(rarity, _partDropHooks());
     }
 
     function _grantXP(amount) {
@@ -4542,7 +4560,7 @@
                 heading.textContent = `${Number(value.toFixed(activeTab === 'parts' ? 1 : 0)).toLocaleString()} owned`;
             });
         }
-        const eligibleRarities = new Set(_getPartsEligibleItems().map(({ key }) => _getItemRarity(key)));
+        const eligibleItems = _getPartsEligibleItems();
         const uniRows = LBCrates.rarities.filter(rarity => _universalBalance(rarity) > 0).map(rarity => {
             const count = _universalBalance(rarity);
             const nextRarity = _nextPartRarity(rarity);
@@ -4554,8 +4572,8 @@
                 <span class="lb-collection-quantity" data-stock-format="universal" data-stock-value="${count}">${count.toLocaleString('en-US')} owned</span>
             </div>
             <div class="lb-parts-actions">
-                <button type="button" class="lb-block-btn" data-use-parts="${rarity}" aria-label="Use ${name}" ${count < 1 || !eligibleRarities.has(rarity) ? 'disabled' : ''}>Use</button>
-                ${nextRarity ? `<button type="button" class="lb-block-btn" data-exchange-parts="${rarity}" aria-label="Exchange ${name} up to ${nextRarity}" ${count < PART_EXCHANGE_RATE ? 'disabled' : ''}>Exchange Up</button>` : ''}
+                <button type="button" class="lb-block-btn" data-use-parts="${rarity}" aria-label="Use ${name}" ${count < 1 || !eligibleItems.some(({ key }) => _canUseUniversalPart(rarity, key)) ? 'disabled' : ''}>Use</button>
+                ${nextRarity ? `<button type="button" class="lb-block-btn" data-exchange-parts="${rarity}" aria-label="Exchange ${name} up to ${nextRarity}" ${count < PART_EXCHANGE_RATE || !_ownsRarity(rarity) ? 'disabled' : ''}>Exchange Up</button>` : ''}
             </div>
         </div>`;
         }).join('');
@@ -4593,7 +4611,7 @@
                 '', p.key, p.packId);
         }).join('');
 
-        partsPanel.innerHTML = locker('Parts', 'Use parts on matching rarities, or trade 4 for 1 of the next rarity.', _exchangePartsIcon('common'),
+        partsPanel.innerHTML = locker('Parts', 'Use parts at the same rarity or below. Own every item of a rarity to exchange up.', _exchangePartsIcon('common'),
             '<button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" data-control-tip="About universal parts"></button>') + (uniRows || '<p class="lb-inventory-stock-empty">No universal parts in stock.</p>');
         const stockEmpty = partsPanel.querySelector('.lb-inventory-stock-empty');
         if (depletedParts.length && stockEmpty) stockEmpty.hidden = true;
@@ -4675,9 +4693,9 @@
         });
     }
     function _grantRarityCrate(rarity, daily) {
-        return LBCrates.grantDailyGift(saveData, LBCrates.giftContents(rarity), {
+        return LBCrates.grantGiftCrate(saveData, rarity, {
             ..._partDropHooks(), addBooster: addBoosterToSave, boosterInfo: BOOSTER_INFO,
-        }, daily, rarity);
+        }, daily);
     }
 
     function _openStoredCrates(rarity) {
@@ -4688,8 +4706,7 @@
         if (index < 0) return;
         const [crate] = stock.splice(index, 1);
         const cards = crate.source === 'legacy' ? crate.rewards
-            : crate.source === 'level' ? _generateLevelBoxRewards(rarity)
-            : crate.source === 'mission' ? _grantMissionCrateParts(crate.amount)
+            : crate.source === 'level' || crate.source === 'mission' ? LBCrates.grantPartDrops(rarity, _partDropHooks())
             : _grantRarityCrate(rarity, crate.source === 'daily');
         saveDataToFile();
         _populateInventoryOther();
@@ -9770,16 +9787,8 @@
         missions.daily.secret = secret?.tier === 'secret' ? restore(missions.daily.secret, secret) : null;
         missions.weekly.missions = missions.weekly.missions.map(state => restore(state, weekly.get(state.id), true)).filter(Boolean);
     }
-    const MQ_DAILY_MILESTONES = [
-        { pts: 6,  reward: { type: 'parts', amount: 1 }, label: '+1 Part'  },
-        { pts: 9,  reward: { type: 'parts', amount: 2 }, label: '+2 Parts' },
-        { pts: 12, reward: { type: 'parts', amount: 3 }, label: '+3 Parts' },
-    ];
-    const MQ_WEEKLY_MILESTONES = [
-        { pts: 60,  reward: { type: 'parts', amount: 2  }, label: '+2 Parts'  },
-        { pts: 90,  reward: { type: 'parts', amount: 4  }, label: '+4 Parts'  },
-        { pts: 120, reward: { type: 'parts', amount: 7  }, label: '+7 Parts'  },
-    ];
+    const MQ_DAILY_MILESTONES = [6, 9, 12].map(pts => ({ pts }));
+    const MQ_WEEKLY_MILESTONES = [60, 90, 120].map(pts => ({ pts }));
     const MQ_WEEKLY_GOLDEN_THRESHOLD = 180; // pts above this earn 1 universal part each
 
     const MQ_SPECIAL_BOX_CAP = 30;
@@ -10596,7 +10605,7 @@
     function _openMissionCrate(ms, isWeekly, silent = false) {
         const rarity = LBCrates.missionRarity(ms.pts, isWeekly);
         LBCrates.recordCrate(saveData, rarity);
-        const cards = _grantMissionCrateParts(ms.reward.amount);
+        const cards = LBCrates.grantPartDrops(rarity, _partDropHooks());
         saveDataToFile();
         if (silent) return;
         const overlay = document.getElementById('missions-overlay');
@@ -10609,10 +10618,6 @@
         LBCrates.showCrateReveal(rarity, 1, _crateRewardGrid(cards), () => {
             (opener?.isConnected ? opener : overlay.querySelector('#mq-menu')).focus({ preventScroll: true });
         });
-    }
-
-    function _grantMissionCrateParts(amount) {
-        return LBCrates.grantPartDrops(amount, _partDropHooks());
     }
 
     window._claimWeeklyUniversalParts = function(silent = false, button) {
@@ -11399,7 +11404,7 @@
         const definitions = entries => `<dl class="lb-help-rows">${entries.map(([term, text]) => `<div><dt>${term}</dt><dd>${text}</dd></div>`).join('')}</dl>`;
         const block = (title, body, id = '') => `<div class="lb-help-block"><h3 class="lb-block-section-title"${id ? ` id="help-${id}" tabindex="-1"` : ''}>${title}</h3>${body}</div>`;
         const table = (label, columns, rows) => `<table class="lb-help-table" aria-label="${label}"><thead><tr>${columns.map(column => `<th scope="col">${column}</th>`).join('')}</tr></thead><tbody>${rows.map(([heading, ...cells]) => `<tr><th scope="row">${heading}</th>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-        const milestones = entries => definitions(entries.map(({ pts, label }) => [`${pts} pts`, escapeHtml(label)]));
+        const milestones = (entries, weekly = false) => definitions(entries.map(({ pts }) => [`${pts} pts`, LBCrates.crateLabel(LBCrates.missionRarity(pts, weekly))]));
         const keycap = code => `<kbd>${escapeHtml(LBControls.keyLabel(code))}</kbd>`;
         const settingRange = id => {
             const input = document.getElementById(id);
@@ -11454,11 +11459,11 @@
             ['missions', 'Missions & milestones', `
                 ${block('Play & claim', '<p>Play <strong>Normal</strong> to progress most missions, or <strong>Fun</strong> for objectives that ask for it. Daily points count toward weekly milestones. Daily quests refresh each day and weekly missions reset on Monday.</p><p>Claim rewards in <strong>Missions</strong>. Each day you can swap one eligible daily mission and one eligible weekly mission. Secret quests cannot be swapped.</p>')}
                 ${block('Daily milestones', milestones(MQ_DAILY_MILESTONES))}
-                ${block('Weekly milestones', milestones(MQ_WEEKLY_MILESTONES))}
+                ${block('Weekly milestones', milestones(MQ_WEEKLY_MILESTONES, true))}
                 ${block('Extra rewards', `<p><strong>Bonus Box:</strong> Earn ${MQ_SPECIAL_BOX_PARTS} common universal parts for every ${MQ_SPECIAL_BOX_CAP} points past the last daily milestone.</p><p><strong>Golden Zone:</strong> Claim one common universal part per weekly point above ${MQ_WEEKLY_GOLDEN_THRESHOLD}.</p>`)}`],
             ['boxes', 'Boxes & parts', `
-                ${block('Find & use parts', '<p>Earn parts from <strong>level boxes, milestones and missions</strong>. Each cosmetic has its own parts. Collect enough to unlock and equip it in Inventory.</p>')}
-                ${block('Universal parts', '<p>In <strong>Inventory → Parts</strong>, use one universal part in place of one item part of the same rarity. Exchange four universal parts for one of the next rarity. You can only exchange up.</p>')}`],
+                ${block('Find & use parts', `<p>Earn parts from <strong>crates and milestones</strong>. Collect ${LBSave.itemPartCost} parts for a cosmetic to unlock and equip it in Inventory.</p>`)}
+                ${block('Universal parts', '<p>In <strong>Inventory → Parts</strong>, use a universal part on an item of the same or a lower rarity. Once you own every item of a rarity, trade four universal parts of that rarity for one of the next rarity.</p>')}`],
             ['achievements', 'Achievements & rarities', `
                 ${block('Track & claim', '<p>Claim each reward in Achievements. Bronze gives XP; Silver and Gold add crates to Inventory. Secret goals stay hidden until you find them.</p>')}
                 ${block('Rarity rewards', `<p>Check the info box for earned tier rewards.</p>${table('Single-goal XP by rarity', ['Rarity', 'XP'], Object.entries(RARITY_ACH).map(([id, { label }]) => [label, number(_ACH_XP[id])]))}`)}`],

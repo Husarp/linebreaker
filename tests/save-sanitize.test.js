@@ -40,7 +40,7 @@ it('loads a defaults-based real save with progress, dates, missions and legacy b
  fixture.missions.weekly.weekKey = a.missionWeekKey(); fixture.missions.weekly.isoWeekKey=true;
  fixture.missions.stats.totalPts=25;
  a.applyLoadedData(fixture);
- expect(a.save).toMatchObject({schemaVersion:3,skinCatalogVersion:1,totalXP:12345,parts:{shadow:4},universalParts:{common:3.4},ownedSkins:['retro'],boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
+ expect(a.save).toMatchObject({schemaVersion:4,skinCatalogVersion:1,totalXP:12345,parts:{shadow:4},universalParts:{common:3.4},ownedSkins:['retro'],boosters:{'1.25x_game':2},stats:{gamesPlayed:12,songPlayCounts:{Track:5}},missions:{stats:{totalPts:25}}});
  expect(a.save.leaderboard[0]).toMatchObject({score:5000,date:'2026-11-18',clock:'12:30'});
  expect(a.save.pinnedScores[0].note).toBe('Nice run');
  expect(a.save.storedCrates[0].rewards).toHaveLength(2);
@@ -92,28 +92,39 @@ it('sanitizes schema v1 skin keys while preserving image rewards and the Neon pa
   ownedSkins:['lava','lava-glass','gem','neon'],ownedPalettes:['classic','neon'],parts:{'golden-dragon':7,lava:4,gem:3,neon:2},
   _settings:{skin:'gem',blockShape:'round'},
   pendingLevelBox:{rewards:[{type:'parts',key:'golden-dragon'},{type:'parts',key:'gem'},{type:'parts',key:'lava'}]}});
- expect(a.save).toMatchObject({schemaVersion:3,ownedSkins:['retro','lava-glass'],ownedPalettes:['classic','neon'],universalParts:{common:3},
+ expect(a.save).toMatchObject({schemaVersion:4,ownedSkins:['retro','lava-glass'],ownedPalettes:['classic','neon'],universalParts:{common:3},
   _settings:{skin:'retro',blockShape:'square'}});
- expect(a.save.parts).toEqual({'golden-dragon':7,neon:2});
- expect(a.save.storedCrates[0].rewards).toEqual([expect.objectContaining({key:'golden-dragon',label:'Golden Dragon Part',rarity:'legendary',desc:'7/10 parts'})]);
+ expect(a.save.parts).toEqual({'golden-dragon':70,neon:10});
+ expect(a.save.storedCrates[0].rewards).toEqual([expect.objectContaining({key:'golden-dragon',label:'Golden Dragon Part',rarity:'legendary',desc:'70/100 parts'})]);
 });
 it('migrates v2 balances and receipts and caps existing per-item parts without losing owned items', () => {
  const { w } = game;
  a.applyLoadedData({ ...a.save, schemaVersion: 2, ownedSkins: ['retro', 'shadow'], ownedThemes: ['ocean'],
   parts: { outline: 19, glass: 48, shadow: 33, holo: 5, 'golden-dragon': 200 }, universalParts: 7.2,
   storedCrates: [{ rarity: 'rare', source: 'legacy', rewards: [{ type: 'universal_parts', rarity: 'rare', amount: 3 }] }] });
- expect(a.save.parts).toEqual({ outline: 19, glass: 15, shadow: 15, holo: 5, 'golden-dragon': 10 });
+ expect(a.save.parts).toEqual({ outline: 95, glass: 99, shadow: 99, holo: 41, 'golden-dragon': 99 });
  expect(a.save.ownedSkins).toContain('shadow');
  expect(a.save.ownedThemes).toContain('ocean');
  expect(a.save.universalParts).toEqual({ common: 7.2 });
  expect(a.save.storedCrates[0].rewards[0]).toMatchObject({ amount: 3, rarity: 'common' });
- expect(a.exchangeUniversalParts('common', 1)).toBe(true);
+ expect(a.exchangeUniversalParts('common', 1)).toBe(false);
  for (const [rarity, sets] of [['common', 1], ['rare', 1], ['mythic', 1], ['unknown', 1], ['rare', -1], ['rare', 0.5]]) {
   expect(a.exchangeUniversalParts(rarity, sets)).toBe(false);
  }
- expect(a.save.universalParts).toEqual({ common: 3.2, rare: 1 });
+ expect(a.save.universalParts).toEqual({ common: 7.2 });
  a.applyLoadedData(w.LBSave.serializeSave(a.save));
- expect(a.save.universalParts).toEqual({ common: 3.2, rare: 1 });
+ expect(a.save.universalParts).toEqual({ common: 7.2 });
+});
+it('migrates v3 part progress proportionally once, including a future mythic item', () => {
+ const { LBSave, sanitizeSave } = game.w;
+ const definitions = {
+  items: [{ key: 'future-mythic' }],
+  partRarity: key => key === 'future-mythic' ? 'mythic' : a.partRarity(key),
+ };
+ const legacy = { ...a.save, schemaVersion: 3, parts: { 'future-mythic': 6, glass: 11, holo: 12, outline: 1 } };
+ const migrated = sanitizeSave(legacy, a.save, definitions);
+ expect(migrated.parts).toEqual({ 'future-mythic': 75, glass: 73, holo: 99, outline: 5 });
+ expect(sanitizeSave(LBSave.serializeSave(migrated), a.save, definitions).parts).toEqual(migrated.parts);
 });
 it('sanitizes native desktop saves before displaying loaded progress', async () => {
  game.close();

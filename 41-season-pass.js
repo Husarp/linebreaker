@@ -8,12 +8,11 @@
     const CLOCK_TOLERANCE = 10 * 60_000;
     const MAX_DATE = 8_640_000_000_000_000;
     const CRATE_TIERS = ['common', 'rare', 'epic', 'legendary', 'mythic'];
-    const TRACK = [
-        'common', 'common', 'common', 'common', 'rare', 'common', 'rare', 'common', 'common', 'epic',
-        'common', 'common', 'common', 'rare', 'epic', 'common', 'common', 'rare', 'common', 'legendary',
-        'common', 'common', 'rare', 'common', 'epic', 'rare', 'common', 'epic', 'mythic', 'exclusive',
-    ];
-    const exclusiveSkin = { key: 'season-prism', name: 'Season Prism', asset: 'assets/ui/41-season-pass-skin.svg', cell: 64, rarity: 'mythic', exclusive: true };
+    const STAGE_COUNT = 30;
+    const STAGE_POINTS = 30;
+    const BONUS_STEP = 60;
+    const LEGACY_STAGE_POINTS = 8;
+    const exclusiveSkin = { key: 'season-prism', name: 'Season Prism', asset: 'assets/ui/41-season-pass-skin.svg', cell: 64, rarity: 'epic', exclusive: true };
 
     const emptySeason = (id = 0) => ({ id, calendar: CALENDAR, points: 0, claimed: {}, bonusClaimed: 0 });
     const validKey = key => typeof key === 'string' && /^[a-z\d_.-]{1,50}$/i.test(key)
@@ -45,17 +44,21 @@
         return contents.length ? { type, tier, contents } : null;
     }
 
-    function sanitizeSeason(value) {
+    function sanitizeSeason(value, legacyEconomy = false) {
         const id = value?.id;
         const isCalendar = value?.calendar === CALENDAR;
         if (!Number.isSafeInteger(id) || id < 1 || id > (isCalendar ? seasonWindow(MAX_DATE).id : legacyId(MAX_DATE))) return emptySeason();
         const points = Number.isSafeInteger(value.points) ? Math.max(0, value.points) : 0;
         const claimed = {};
-        for (let number = 1; number <= TRACK.length; number++) {
+        for (let number = 1; number <= STAGE_COUNT; number++) {
             const reward = cleanReward(value.claimed?.[number]);
             if (reward) claimed[number] = reward;
         }
-        const bonusClaimed = Number.isSafeInteger(value.bonusClaimed) ? Math.min(points, Math.max(0, value.bonusClaimed)) : 0;
+        let bonusClaimed = Number.isSafeInteger(value.bonusClaimed) ? Math.min(points, Math.max(0, value.bonusClaimed)) : 0;
+        if (legacyEconomy && bonusClaimed) {
+            const previousClaimThreshold = LEGACY_STAGE_POINTS * (STAGE_COUNT + bonusClaimed);
+            bonusClaimed = Math.floor(Math.max(0, Math.min(points, previousClaimThreshold) - STAGE_COUNT * STAGE_POINTS) / BONUS_STEP);
+        }
         return { id, ...(isCalendar ? { calendar: CALENDAR } : {}), points, claimed, bonusClaimed };
     }
 
@@ -102,14 +105,10 @@
 
     function prepareConfig(data) {
         const invalid = () => { throw new Error('Invalid season pass configuration'); };
-        if (!Array.isArray(data?.stages) || data.stages.length !== TRACK.length) invalid();
-        const stages = TRACK.map((tier, index) => {
-            const points = data.stages[index]?.points;
-            if (!Number.isSafeInteger(points) || points <= (data.stages[index - 1]?.points ?? 0)) invalid();
-            return { number: index + 1, tier, points };
-        });
-        const bonusStart = stages.at(-1).points;
-        return { stages, bonusStart, bonusStep: bonusStart - stages.at(-2).points };
+        if (!Array.isArray(data?.stages) || data.stages.length !== STAGE_COUNT || data.stages.at(-1) !== 'exclusive'
+            || !data.stages.slice(0, -1).every(tier => CRATE_TIERS.includes(tier))) invalid();
+        const stages = data.stages.map((tier, index) => ({ number: index + 1, tier, points: (index + 1) * STAGE_POINTS }));
+        return { stages, bonusStart: stages.at(-1).points, bonusStep: BONUS_STEP };
     }
 
     function stageStatus(stage, state) {

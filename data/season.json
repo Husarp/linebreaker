@@ -1,48 +1,7 @@
 {
   "stages": [
-    {"points": 8, "tier": "common"},
-    {"points": 16, "tier": "common"},
-    {"points": 24, "tier": "rare"},
-    {"points": 32, "tier": "common"},
-    {"points": 40, "tier": "rare"},
-    {"points": 48, "tier": "common"},
-    {"points": 56, "tier": "epic"},
-    {"points": 64, "tier": "common"},
-    {"points": 72, "tier": "rare"},
-    {"points": 80, "tier": "common"},
-    {"points": 88, "tier": "rare"},
-    {"points": 96, "tier": "epic"},
-    {"points": 104, "tier": "rare"},
-    {"points": 112, "tier": "legendary"},
-    {"points": 120, "tier": "rare"},
-    {"points": 128, "tier": "epic"},
-    {"points": 136, "tier": "common"},
-    {"points": 144, "tier": "rare"},
-    {"points": 152, "tier": "epic"},
-    {"points": 160, "tier": "rare"},
-    {"points": 168, "tier": "legendary"},
-    {"points": 176, "tier": "rare"},
-    {"points": 184, "tier": "epic"},
-    {"points": 192, "tier": "rare"},
-    {"points": 200, "tier": "epic"},
-    {"points": 208, "tier": "legendary"},
-    {"points": 216, "tier": "epic"},
-    {"points": 224, "tier": "rare"},
-    {"points": 232, "tier": "legendary"},
-    {"points": 240, "tier": "exclusive"}
-  ],
-  "pools": {
-    "common": [{"type": "parts", "amount": 1}, {"type": "universal_parts", "amount": 1}, {"type": "booster", "key": "1.25x_game", "amount": 1}, {"type": "crate", "tier": "common"}],
-    "rare": [{"type": "parts", "amount": 2}, {"type": "universal_parts", "amount": 2}, {"type": "booster", "key": "1.5x_game", "amount": 1}, {"type": "crate", "tier": "rare"}],
-    "epic": [{"type": "parts", "amount": 3}, {"type": "universal_parts", "amount": 3}, {"type": "booster", "key": "2xp_game", "amount": 1}, {"type": "crate", "tier": "epic"}],
-    "legendary": [{"type": "parts", "amount": 5}, {"type": "universal_parts", "amount": 6}, {"type": "booster", "key": "2xp_game", "amount": 2}, {"type": "crate", "tier": "legendary"}],
-    "exclusive": [{"type": "skin", "key": "season-prism"}]
-  },
-  "exclusiveFallback": {"type": "crate", "tier": "legendary"},
-  "crates": {
-    "common": [{"type": "parts", "amount": 1}, {"type": "universal_parts", "amount": 1}],
-    "rare": [{"type": "parts", "amount": 2}, {"type": "universal_parts", "amount": 2}],
-    "epic": [{"type": "parts", "amount": 3}, {"type": "universal_parts", "amount": 2}, {"type": "booster", "key": "1.5x_game", "amount": 1}],
-    "legendary": [{"type": "parts", "amount": 5}, {"type": "universal_parts", "amount": 4}, {"type": "booster", "key": "2xp_game", "amount": 1}]
-  }
+    "common", "common", "common", "common", "rare", "common", "rare", "common", "common", "epic",
+    "common", "common", "common", "rare", "epic", "common", "common", "rare", "common", "legendary",
+    "common", "common", "rare", "common", "epic", "rare", "common", "epic", "mythic", "exclusive"
+  ]
 }

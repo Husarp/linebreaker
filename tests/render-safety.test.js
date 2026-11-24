@@ -254,7 +254,7 @@ it('shows distinct inventory colour states and keeps palette preview separate fr
 it('marks equipped and locked inventory cards without adding owned tags', () => {
   const manifest = JSON.parse(readFileSync(new URL('../assets/skins/skins.json', import.meta.url), 'utf8'));
   const builtInSkinCount = 7;
-  game.setup({ save: { ownedSkins: ['retro', 'retro', 'bubble', 'neon', 'matrix', 'unknown'], parts: { glass: 50, shadow: 2 } } });
+  game.setup({ save: { ownedSkins: ['retro', 'retro', 'bubble', 'neon', 'matrix', 'unknown'], parts: { glass: 100, shadow: 2 } } });
   window.openInventory();
   const row = key => document.querySelector(`#owned-skin-btns [data-item-key="${key}"]`);
   const equipped = row('retro');
@@ -280,10 +280,10 @@ it('marks equipped and locked inventory cards without adding owned tags', () => 
   expect(owned.querySelector('.lb-inventory-equip-target').getAttribute('aria-label')).toBe('Equip Bubble');
   expect(owned.querySelector('progress')).toBeNull();
   expect(locked.querySelector('progress').value).toBe(2);
-  expect(locked.querySelector('.lb-item-part-count').textContent).toBe('2/15');
+  expect(locked.querySelector('.lb-item-part-count').textContent).toBe('2/100');
   expect(locked.querySelector('.lb-item-part-count img').getAttribute('src')).toBe('assets/ui/parts/part-rune.webp');
   expect(locked.querySelector('button')).toBeNull();
-  expect(ready.querySelector('progress').value).toBe(15);
+  expect(ready.querySelector('progress').value).toBe(100);
   expect(ready.querySelector('button').textContent).toBe('Unlock');
 });
 

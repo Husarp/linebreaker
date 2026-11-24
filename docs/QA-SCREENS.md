@@ -33,3 +33,5 @@ Before staging a release, serve the app and open `index.html?dev&demo` in an own
 When the browser tool limits call duration, pass `batch: [start, end]` (zero-based, end-exclusive indices from `window.__LB_QA.list()`) to cover the targets over multiple calls. The final batch, ending at the reported `total`, also runs the crate animation checks.
 
 Pass `screens: ['game-over', 'stats', 'help']` for a focused run instead of the full sweep. Captures for these targets also include the top-out moment, used boosters, final board, recent activity, crate counts, and Help topic list respectively.
+
+Run `node scripts/simulate-economy.mjs` to compare a seeded 30-day top-rank player's quest, gift, and Season Pass rewards with the 1.4.2 projection. It reports crates, item parts, and universal parts by rarity using the game's reward functions. It does not assume a rate of XP-based level-ups or one-time achievement rewards.

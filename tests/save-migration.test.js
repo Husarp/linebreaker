@@ -142,7 +142,7 @@ it('does not award a time trial tier without a qualifying saved time', async () 
 it('migrates legacy scores, listening counts, and dates without retaining duplicates', async () => {
   game = await loadGame();
   const clean = game.w.sanitizeSave(legacy, { ...game.api.save, lastSeenTime: 0 });
-  expect(clean.schemaVersion).toBe(3);
+  expect(clean.schemaVersion).toBe(4);
   expect(clean.leaderboard.map(entry => entry.score)).toEqual([1500, 1000, 800]);
   expect(clean.leaderboard[0]).toMatchObject({ date: '2026-02-07', lines: 20, maxSpeed: 5 });
   expect(clean.pinnedScores[0]).toMatchObject({ date: '2026-11-18', clock: '12:30', note: 'Keep this' });

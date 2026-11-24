@@ -8,7 +8,10 @@
     const number = (v, fallback = 0, max = 1e12) => typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, v)) : fallback;
     const string = v => typeof v === 'string' ? v.replace(/[&<>"'`\\\u0000-\u001f]/g, '').slice(0, 200) : '';
     const colour = (v, fallback = '#ffffff') => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v : fallback;
-    const version = 3;
+    const economyVersion = 4;
+    const version = economyVersion;
+    const itemPartCost = 100;
+    const legacyPartCosts = { common: 20, rare: 15, epic: 12, legendary: 10, mythic: 8 };
     const retiredDayAchievements = new Set(['daily_streak', 'streak_lost', 'mq_streak_7', 'mq_streak_30']);
     const retainedAchievementTiers = {
         score: [1, 3, 5], games: [1, 3, 5], speed: [1, 3, 5], survival: [1, 3, 5],
@@ -299,7 +302,7 @@
             pendingTiers.add(key);
             return true;
         });
-        out.season = (window.LBSeason || globalThis.LBSeason).sanitizeSeason(data.season);
+        out.season = (window.LBSeason || globalThis.LBSeason).sanitizeSeason(data.season, sourceVersion < economyVersion);
         out.lastSeenTime = (window.LBSeason || globalThis.LBSeason).timestamp(data.lastSeenTime);
         out.seasonBlockedUntil = (window.LBSeason || globalThis.LBSeason).timestamp(data.seasonBlockedUntil);
         out.missions = null;
@@ -359,9 +362,15 @@
             ...Object.keys(palettes),
         ]);
         const partLabel = definitions.partLabel || (key => key === 'ghostColor' ? 'Colored Ghost' : Object.hasOwn(skins, key) ? skins[key] : key.charAt(0).toUpperCase() + key.slice(1));
-        const partCost = definitions.partCost || (() => 10);
+        const partCost = definitions.partCost || (key => key === 'season-prism' ? 0 : itemPartCost);
         out.parts = Object.fromEntries(Object.entries(out.parts || {}).filter(([key]) => items.has(key) && partCost(key) > 0)
-            .map(([key, count]) => [key, Math.min(partCost(key), Math.floor(count))]));
+            .map(([key, count]) => {
+                const cost = partCost(key);
+                const oldCost = legacyPartCosts[definitions.partRarity?.(key)] || legacyPartCosts.legendary;
+                return [key, sourceVersion < economyVersion
+                    ? Math.min(cost - 1, Math.floor(Math.floor(count) * cost / oldCost))
+                    : Math.min(cost, Math.floor(count))];
+            }));
         function reward(r) {
             if (!object(r)) return null;
             let type = r.type, key = r.key;
@@ -404,5 +413,5 @@
         return out;
     }
     window.sanitizeSave = sanitizeSave;
-    window.LBSave = { version, serializeSave, cleanSettings, localDate, localClock, date, displayDate, musicCounts, retainedAchievementTiers };
+    window.LBSave = { version, economyVersion, itemPartCost, serializeSave, cleanSettings, localDate, localClock, date, displayDate, musicCounts, retainedAchievementTiers };
 })();
