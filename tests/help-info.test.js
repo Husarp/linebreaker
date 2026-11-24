@@ -5,7 +5,7 @@ let game;
 beforeEach(async () => { game = await loadGame(); });
 afterEach(() => game?.close());
 
-it('opens contextual Help, scrolls the matching topic, and restores focus on close', () => {
+it('opens contextual Help, picks a topic from one list, and restores focus on close', () => {
   const { document } = game.w;
   const missions = document.getElementById('missions-overlay');
   missions.classList.remove('hidden');
@@ -19,12 +19,20 @@ it('opens contextual Help, scrolls the matching topic, and restores focus on clo
   expect(document.activeElement.id).toBe('help-missions');
   expect(help.querySelector('[aria-current="location"]').dataset.helpJump).toBe('missions');
   expect(help.querySelectorAll('[data-help-topic]')).toHaveLength(9);
+  expect(help.querySelectorAll('[data-help-topic]:not([hidden])')).toHaveLength(1);
 
   const ranks = document.getElementById('help-ranks');
-  Object.defineProperty(ranks, 'offsetTop', { value: 800 });
-  content.style.paddingTop = '16px';
+  const topicKey = help.querySelector('[aria-controls="help-topic-list"]');
+  expect(topicKey.getAttribute('aria-expanded')).toBe('false');
+  topicKey.click();
+  expect(topicKey.getAttribute('aria-expanded')).toBe('true');
+  expect(content.hidden).toBe(true);
+  expect(help.querySelector('nav').hidden).toBe(false);
+  content.scrollTop = 784;
   help.querySelector('[data-help-jump="ranks"]').click();
-  expect(content.scrollTop).toBe(784);
+  expect(topicKey.getAttribute('aria-expanded')).toBe('false');
+  expect(content.scrollTop).toBe(0);
+  expect(help.querySelector('[data-help-topic]:not([hidden])').dataset.helpTopic).toBe('ranks');
   expect(document.activeElement).toBe(ranks);
   expect(game.api.save.stats.rulesOpened).toBe(initialVisits + 1);
 

@@ -109,9 +109,16 @@
         return { ...(contents[rarities.indexOf(rarity)] || contents[0]) };
     }
 
+    function recordCrate(data, rarity) {
+        if (!rarities.includes(rarity)) return;
+        const counts = ((data.stats ??= {}).cratesCollected ??= {});
+        counts[rarity] = (counts[rarity] || 0) + 1;
+    }
+
     function grantCrate(data, rarity, details = {}) {
         if (!rarities.includes(rarity)) return false;
         (data.storedCrates ??= []).push({ ...details, rarity });
+        recordCrate(data, rarity);
         document.dispatchEvent(new CustomEvent('lb-crate-added', { detail: { data, rarity } }));
         return true;
     }
@@ -421,7 +428,8 @@
             } else if (event.key === 'Escape') {
                 event.preventDefault();
                 event.stopPropagation();
-                close();
+                if (skip) skip();
+                else close();
             }
         });
         if (!gift) {
@@ -448,8 +456,6 @@
                 art.classList.add('lb43-crate-shaking');
             }
             if (!result.grid) return;
-            shake.disabled = true;
-            overlay.focus({ preventScroll: true });
             const finish = immediate => {
                 status.remove();
                 shake.remove();
@@ -458,6 +464,8 @@
             };
             if (motion?.matches) finish(true);
             else {
+                shake.textContent = 'Skip animation';
+                overlay.dataset.reveal = 'opening';
                 skip = () => finish(true);
                 motion?.addEventListener?.('change', skipReducedMotion);
                 wait(DAILY_GIFT_SHAKE_MS, () => finish(false));
@@ -536,5 +544,5 @@
         return { refresh, claim };
     }
 
-    window.LBCrates = Object.freeze({ rarities: Object.freeze(rarities), giftStatus, nextGiftCountdown, observeTime, rollRarity, rollPartRarity, shakeGift, restoreGift, giftContents, levelRarity, missionRarity, universalPartName, grantPartDrops, grantDailyGift, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
+    window.LBCrates = Object.freeze({ rarities: Object.freeze(rarities), giftStatus, nextGiftCountdown, observeTime, rollRarity, rollPartRarity, shakeGift, restoreGift, giftContents, levelRarity, missionRarity, universalPartName, grantPartDrops, grantDailyGift, recordCrate, grantCrate, migratePendingCrates, rewardGrid, renderLocker, showCrateReveal, crateLabel, mountDailyGift });
 })();

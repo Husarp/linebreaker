@@ -8,7 +8,7 @@
         --hud-left: max(12px, var(--lb-safe-left));
         --hud-right: max(12px, var(--lb-safe-right));
         --hud-gap: 8px;
-        --hud-preview-row: 64px;
+        --hud-preview-row: 70px;
         --hud-stat-row: 52px;
         --hud-control-row: 54px;
         --hud-footer-space: 0px;
@@ -35,14 +35,16 @@
     #app .lb-hud-score { grid-area: 1 / 2; }
     #app .lb-hud-lines { grid-area: 1 / 3; }
     #app .lb-hud-time { grid-area: 1 / 4; }
-    #app .lb-hud-level { grid-area: 3 / 1; }
+    #app .lb-hud-level { grid-area: 3 / 3; }
     #app .btn-pause-pc { grid-area: 3 / 4; flex-direction: column; gap: 1px; font-size: 11px; }
 
     #app .lb-hud-tile { padding-inline: 4px; }
     #app .lb-hud-hold-slot { height: 32px; }
-    #app .lb-hud-queue { height: 44px; }
-    #app #pc-next-wrap[data-expanded] canvas { width: min(25%, 25px); }
-    #app #pc-next-wrap[data-expanded] #pc-next-canvas { width: min(50%, 44px); height: auto; }
+    #app .lb-hud-queue { flex: 1; min-height: 0; }
+    #app #pc-next-canvas { width: min(100%, 56px); height: auto; }
+    #app #pc-next-wrap[data-expanded] .lb-hud-queue { display: grid; grid-template: repeat(2, minmax(0, 1fr)) / minmax(0, 1fr) clamp(12px, 4.2vw, 18px); }
+    #app #pc-next-wrap[data-expanded] canvas { width: 100%; height: auto; max-height: 100%; }
+    #app #pc-next-wrap[data-expanded] #pc-next-canvas { grid-row: span 2; }
 
     #app #game-wrapper,
     .lb-touch #app.active-game #game-wrapper { grid-area: 2 / 1 / 3 / -1; height: auto; }

@@ -360,6 +360,7 @@ it('credits raw and multiplied game XP separately and adds booster XP only once'
   clearSingle();
   expect(progress()).toEqual([[10, 13, 1], [10, 13, 1]]);
   expect(results.textContent).not.toContain('Mission progress');
+  game.advance(520);
   game.w.useScoreBooster('2xp_game');
   game.w.useScoreBooster('2xp_game');
   expect(progress()).toEqual([[10, 25, 1], [10, 26, 1]]);

@@ -139,9 +139,9 @@ it('keeps imported track metadata as text and passes the unchanged name to the p
   const row = toggle.closest('.lb-playlist-row');
   const metadata = row.querySelector('.lb-playlist-track');
   expect([...metadata.children].map(field => field.textContent)).toEqual([title, `by ${artist}`]);
-  expect([...playlist.querySelector('.lb-playlist-columns').children].map(column => column.textContent)).toEqual(['Track', 'Menu', 'Game']);
+  expect([...playlist.querySelector('.lb-playlist-columns').children].map(column => column.textContent)).toEqual(['Menu', 'Game', 'Track name']);
   expect([...row.children].map(control => control.getAttribute('aria-label'))).toEqual([
-    `Play ${title}`, `Menu playlist: ${title}`, `Game playlist: ${title}`,
+    `Menu playlist: ${title}`, `Game playlist: ${title}`, `Play ${title}`,
   ]);
   expect(playlist.querySelector('[data-render-probe]')).toBeNull();
   toggle.click();

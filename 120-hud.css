@@ -76,6 +76,8 @@
     height: min(52px, 10dvh);
 }
 
+.lb-hud-queue { height: min(66px, 12dvh); }
+
 #app :is(#pc-hold-canvas, #pc-next-canvas, #pc-next2-canvas, #pc-next3-canvas) {
     width: auto;
     height: 100%;

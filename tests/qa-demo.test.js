@@ -114,6 +114,7 @@ it('opens earned reward destinations and restores summary focus and scroll on Ba
   const opened = w.__LB_QA.open('game-over');
   await Promise.resolve();
   advance(3000);
+  advance(520);
   await opened;
   const summary = w.document.getElementById('go-overlay');
   const body = summary.querySelector('.go-dialog-body');
@@ -242,6 +243,7 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
     const opened = qa.open(name);
     await Promise.resolve();
     advance(3000);
+    if (name === 'game-over') advance(520);
     await opened;
     visible(id);
   }
@@ -254,6 +256,8 @@ it.each(['browser', 'desktop', 'android'])('never accesses real saves or save pr
   expect(get('go-time').textContent).toBe('04:26');
   expect(get('go-record-label').hidden).toBe(false);
   expect(get('go-record-medal').hidden).toBe(false);
+  advance(16);
+  advance(400);
   expect(get('go-total-xp').textContent).toMatch(/^\+.+ XP$/);
   const level = game.api.getLevelInfo(game.api.save.totalXP);
   expect(get('go-xp-progress').textContent).toBe(`${level.currentXP.toLocaleString()} / ${level.neededXP.toLocaleString()} XP to next level`);
@@ -309,6 +313,7 @@ it('opens the documented screenshot targets through real UI handlers', async () 
     if (['daily-gift', 'game', 'pause', 'game-over'].includes(name)) {
       await Promise.resolve();
       advance(3000);
+      if (name === 'game-over') advance(520);
     }
     await opened;
     const element = w.document.querySelector(selector);

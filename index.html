@@ -347,6 +347,10 @@
                 <div class="lb-block-panel-head"><h2><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-calendar"/></svg>Activity</h2></div>
                 <div id="stat-activity-calendar"></div>
             </section>
+            <section class="lb-block-panel lb-stats-section" data-stat-tone="collection">
+                <div class="lb-block-panel-head"><h2><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-box"/></svg>Crates collected</h2><span>Since tracking began</span></div>
+                <dl class="lb-stats-metrics lb-metric-grid" id="stat-crates-collected"></dl>
+            </section>
             <section class="lb-block-panel lb-stats-section">
                 <div class="lb-block-panel-head"><h2><svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-clock"/></svg>Today</h2><span id="stat-today-date"></span></div>
                 <dl class="lb-stats-metrics lb-stats-today"></dl>
@@ -571,7 +575,7 @@
                             <input type="range" class="c-pill-input" id="setting-sfx-vol" aria-label="SFX volume" min="0" max="100" step="5" value="50"
                                 oninput="_cPillSync('sfx',this.value);window.onSettingChange('sfxVol',this.value)">
                         </div>
-                        <button id="sfx-mute-btn" onclick="window.toggleMute('sfx')" style="background:none;border:1px solid #444;border-radius:6px;cursor:pointer;color:#aaa;padding:4px 7px;line-height:1;flex-shrink:0;display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
+                        <button type="button" class="lb-block-btn lb-block-btn--icon lb-volume-mute" id="sfx-mute-btn" onclick="window.toggleMute('sfx')" aria-label="Mute sound effects"></button>
                         <span id="setting-sfx-val" style="font-size:0.65rem;color:var(--primary);min-width:32px;text-align:left;font-family:monospace;flex-shrink:0;">50%</span>
                     </div>
                     <div class="settings-tip">Volume of sound effects. Drag to 0 or click the button to mute.</div>
@@ -585,7 +589,7 @@
                             <input type="range" class="c-pill-input" id="setting-music-vol" aria-label="Music volume" min="0" max="100" step="5" value="30"
                                 oninput="_cPillSync('music',this.value);window.onSettingChange('musicVol',this.value)">
                         </div>
-                        <button id="music-mute-btn" onclick="window.toggleMute('music')" style="background:none;border:1px solid #444;border-radius:6px;cursor:pointer;color:#aaa;padding:4px 7px;line-height:1;flex-shrink:0;display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
+                        <button type="button" class="lb-block-btn lb-block-btn--icon lb-volume-mute" id="music-mute-btn" onclick="window.toggleMute('music')" aria-label="Mute music"></button>
                         <span id="setting-music-val" style="font-size:0.65rem;color:var(--primary);min-width:32px;text-align:left;font-family:monospace;flex-shrink:0;">30%</span>
                     </div>
                     <div class="settings-tip">Background music volume. Drag to 0 or click the button to mute.</div>
@@ -997,7 +1001,8 @@
         </div>
     </header>
     <div class="lb-help-layout">
-        <nav class="lb-help-nav lb-block-tabs lb-scroll-fade" aria-label="Help sections"></nav>
+        <button type="button" class="lb-block-btn lb-ledger-row lb-help-topic-key" aria-expanded="false" aria-controls="help-topic-list"><span>Topics</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+        <nav id="help-topic-list" class="lb-help-nav" aria-label="Help topics" hidden></nav>
         <div class="lb-help-content lb-scroll-fade" tabindex="0"></div>
     </div>
 </div>
@@ -1042,8 +1047,20 @@
             <button type="button" class="lb-block-btn lb-block-btn--primary lb-ledger-action result-retry" onclick="window.startGame()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-retry"/></svg><span>Play Again</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
             <button type="button" class="lb-block-btn lb-ledger-action result-menu" onclick="window.resetGameToMenu()"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-topbar-home"/></svg><span>Main Menu</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
             <button type="button" class="lb-block-btn lb-ledger-action result-pin" onclick="window.pinCurrentScore()" id="go-pin-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-run-icon-pin"/></svg><span>Pin score</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
+            <button type="button" class="lb-block-btn lb-ledger-action result-view-board" id="go-view-board"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#lb-metric-blocks"/></svg><span>View board</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
         </div>
     </div>
+</div>
+
+<div id="final-board-overlay" class="overlay hidden lb-fullscreen" data-lb-bar-screen role="dialog" aria-modal="true" aria-labelledby="final-board-title">
+    <header class="lb-block-topbar">
+        <div class="lb-topbar-crumb">
+            <button type="button" class="lb-block-back btn-back" id="final-board-back" aria-label="Back to results"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
+            <span class="lb-topbar-kicker" aria-hidden="true">Run summary</span>
+            <h1 class="lb-topbar-title" id="final-board-title">Final board</h1>
+        </div>
+    </header>
+    <div class="lb-final-board-well"><canvas id="final-board" role="img" aria-label="Final board, read-only"></canvas></div>
 </div>
 
 <!-- START ANIMATION -->
@@ -1074,21 +1091,21 @@
                 <canvas id="pc-next3-canvas" width="150" height="150" style="display:none;"></canvas>
             </div>
         </div>
+        <div class="glass-box lb-hud-tile lb-hud-time"><div class="label">Time</div><div class="value" id="pc-time">00:00</div></div>
+        <div class="glass-box lb-hud-tile lb-hud-lines"><div class="label">Lines</div><div class="value" id="pc-lines">0</div></div>
+    </div>
+
+    <div id="game-wrapper"><div id="game-container"><canvas id="game-board" width="300" height="600"></canvas></div><p id="game-crash" role="status" hidden>Top out!</p></div>
+
+    <div class="pc-panel portrait-right">
+        <div class="glass-box lb-hud-tile lb-hud-score"><div class="label">Score</div><div class="value" id="pc-score">0</div></div>
+        <div class="glass-box lb-hud-tile lb-hud-record" id="pc-pb-hint"></div>
         <div class="glass-box lb-hud-tile lb-hud-level">
             <span class="lb-visually-hidden" id="lb-hud-speed-status" role="status" aria-atomic="true">Speed 1</span>
             <span class="lb-hud-speed-label" aria-hidden="true">Speed</span>
             <span class="lb-hud-speed-caret" aria-hidden="true"></span>
             <span id="lb-hud-speed-values" aria-hidden="true"><span></span><span></span><span>1</span><span>2</span></span>
         </div>
-        <div class="glass-box lb-hud-tile lb-hud-lines"><div class="label">Lines</div><div class="value" id="pc-lines">0</div></div>
-    </div>
-    
-    <div id="game-wrapper"><div id="game-container"><canvas id="game-board" width="300" height="600"></canvas></div></div>
-    
-    <div class="pc-panel portrait-right">
-        <div class="glass-box lb-hud-tile lb-hud-score"><div class="label">Score</div><div class="value" id="pc-score">0</div></div>
-        <div class="glass-box lb-hud-tile lb-hud-record" id="pc-pb-hint"></div>
-        <div class="glass-box lb-hud-tile lb-hud-time"><div class="label">Time</div><div class="value" id="pc-time">00:00</div></div>
         <button type="button" class="btn-pause-pc lb-block-btn" aria-label="Pause game" onclick="window.togglePause()">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
             <span>Pause</span><kbd class="lb-hud-key">Esc</kbd>

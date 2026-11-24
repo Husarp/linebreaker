@@ -1,4 +1,4 @@
-(async (page, { viewport = { width: 390, height: 844 }, cutout, theme = 'dark', capture, batch } = {}) => {
+(async (page, { viewport = { width: 390, height: 844 }, cutout, theme = 'dark', capture, batch, screens } = {}) => {
     const url = new URL('/index.html?dev&demo', page.url());
     if (cutout !== undefined) url.searchParams.set('cutout', cutout);
     const localCatalog = await (await page.request.get(new URL('/assets/music.json', url).href)).json();
@@ -67,11 +67,17 @@
         if ([...allNames].sort().join() !== documented.sort().join()) fail('QA screen list differs from the documented targets');
         await page.evaluate(() => document.fonts.ready);
 
-        const names = batch ? allNames.slice(...batch) : allNames;
+        const names = (batch ? allNames.slice(...batch) : allNames).filter(name => !screens || screens.includes(name));
         for (const name of names) {
             screen = name;
             try {
-                await page.evaluate(target => window.__LB_QA.open(target), name);
+                const opened = page.evaluate(target => window.__LB_QA.open(target), name);
+                if (name === 'game-over') {
+                    await page.locator('#game-crash').waitFor({ state: 'visible' });
+                    if (await page.locator('#go-overlay').isVisible()) fail('Top-out must precede results');
+                    await capture?.('game-crash');
+                }
+                await opened;
             } catch (error) {
                 onError(error);
             }
@@ -163,6 +169,32 @@
             if (name === 'settings' || name === 'settings-audio') {
                 if (await page.locator('#settings-overlay .settings-tip:visible').count()) {
                     fail('Settings help sources must not cover neighbouring controls');
+                }
+            }
+            if (name === 'settings-controls') {
+                const rowsAlign = await page.locator('.lb-controls-grid').evaluate(grid => [...grid.children].every((row, index) => {
+                    const style = getComputedStyle(row);
+                    const visible = [...row.children].filter(child => child.getClientRects().length);
+                    const center = child => child.getBoundingClientRect().y + child.getBoundingClientRect().height / 2;
+                    return style.borderBottomWidth === '0px' && style.borderTopWidth === (index ? '1px' : '0px')
+                        && visible.every(child => Math.abs(center(child) - center(visible[0])) <= 1);
+                }));
+                if (!rowsAlign) fail('Binding rows must center their controls and share one separator');
+            }
+            if (name === 'settings-audio') {
+                for (const id of ['sfx-mute-btn', 'music-mute-btn']) {
+                    const mute = page.locator(`#${id}`);
+                    await mute.hover();
+                    const floats = await mute.evaluate(button => {
+                        const style = getComputedStyle(button);
+                        return style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.borderTopWidth === '0px' && style.boxShadow === 'none'
+                            && button.getBoundingClientRect().height >= 44;
+                    });
+                    if (!floats) fail(`${id} must be frameless and keep its hit target`);
+                    const label = await mute.getAttribute('aria-label');
+                    await mute.click();
+                    if (await mute.getAttribute('aria-label') === label) fail(`${id} must announce the new action`);
+                    await mute.click();
                 }
             }
             const textLayoutFailures = await page.evaluate(isMenu => {
@@ -278,9 +310,26 @@
                         && days.every(day => !day.querySelector('.lb-week-marker') || Number(day.querySelector('.lb-week-marker span')?.textContent) > 0);
                 });
                 if (!chart) fail('This week must show seven day labels and leave zero-game days empty');
+                const recentFits = await page.locator('.lb-stats-chart--recent .lb-stats-calendar-scroll').evaluate(scroller => {
+                    const cells = [...scroller.querySelectorAll('[data-cal-day]')];
+                    const bounds = scroller.getBoundingClientRect();
+                    return cells.length > 0 && cells.at(-1).getAttribute('aria-current') === 'date' && cells.every(cell => {
+                        const rect = cell.getBoundingClientRect();
+                        return rect.left >= bounds.left && rect.right <= bounds.right;
+                    });
+                });
+                if (!recentFits) fail('Recent Activity must show both ends of the visible date range');
+                const crates = page.locator('#stat-crates-collected');
+                if (await crates.locator('dd').count() !== 5) fail('Stats must count each crate rarity separately');
+                if (capture) {
+                    await page.locator('#stat-activity-calendar').scrollIntoViewIfNeeded();
+                    await capture('stats-activity');
+                    await crates.scrollIntoViewIfNeeded();
+                    await capture('stats-crates');
+                }
             }
             const statsSections = {
-                stats: ['This week', 'Personal best', 'Lifetime', 'Experience', 'Activity', 'Today'],
+                stats: ['This week', 'Personal best', 'Lifetime', 'Experience', 'Activity', 'Crates collected', 'Today'],
                 leaderboard: ['Top three', 'Ranked runs'], pinned: ['Standard runs', 'Fun mode'], highscores: ['Personal bests'],
             }[name];
             if (statsSections) {
@@ -493,6 +542,16 @@
                         && rows.every(row => row.getBoundingClientRect().height >= 47);
                 });
                 if (!deck) fail('Track Ledger must have a blue deck, no header separator, and alternating rows');
+                const sticky = await page.locator('#playlist-panel-content').evaluate(scroller => {
+                    const columns = scroller.querySelector('.lb-playlist-columns');
+                    const check = scroller.querySelector('.lb-playlist-check');
+                    const top = columns.getBoundingClientRect().top;
+                    scroller.scrollTop = 140;
+                    const pinned = scroller.scrollTop > 0 && Math.abs(columns.getBoundingClientRect().top - top) <= 1;
+                    scroller.scrollTop = 0;
+                    return pinned && check.getBoundingClientRect().height >= 44 && check.firstElementChild.getBoundingClientRect().width <= 26;
+                });
+                if (!sticky) fail('Playlist columns must stay pinned above compact checkboxes and full-size touch targets');
                 const firstRow = page.locator('.lb-playlist-row').first();
                 for (const column of ['menu', 'game']) {
                     const toggle = firstRow.locator(`[data-playlist="${column}"]`);
@@ -510,6 +569,22 @@
                         fail(`Unchecked ${column} mark is visible`);
                     }
                     if (initial === 'true') await toggle.click();
+                }
+            }
+            if (name === 'help') {
+                const topics = page.locator('[aria-controls="help-topic-list"]');
+                await topics.click();
+                if (await page.locator('#help-topic-list button:visible').count() !== 9) fail('Help must open a single list of topics');
+                const compactIcons = await page.locator('#help-topic-list .lb-metric-icon').evaluateAll(icons => icons.every(icon => {
+                    const rect = icon.getBoundingClientRect();
+                    const row = icon.closest('button').getBoundingClientRect();
+                    return rect.width <= 20 && rect.top >= row.top && rect.bottom <= row.bottom;
+                }));
+                if (!compactIcons) fail('Help topic icons must stay within their own rows');
+                await capture?.('help-topics');
+                await page.locator('#help-topic-list [data-help-jump="ranks"]').click();
+                if (await page.locator('[data-help-topic]:visible').count() !== 1 || !await page.locator('[data-help-topic="ranks"]').isVisible()) {
+                    fail('Picking a Help topic must show just that topic');
                 }
             }
             if (name === 'menu') {
@@ -626,10 +701,19 @@
                         && tiles.every(tile => near(tile.width, tiles[0].width) && near(tile.top, tiles[0].top) && tile.bottom < board.top)
                         && [speed, pause, ...(hold.width > 0 ? [hold] : [])].every(tile =>
                             near(tile.width, tiles[0].width) && near(tile.top, speed.top) && tile.top >= board.bottom)
-                        && near(speed.left, tiles[0].left) && near(pause.left, tiles[3].left)
+                        && near(speed.left, tiles[2].left) && near(pause.left, tiles[3].left)
+                        && box('#pc-next-canvas').width >= 40 && box('#pc-next-canvas').bottom <= tiles[0].bottom
                         && (hold.width === 0 || near(hold.left, tiles[1].left));
                 });
                 if (!alignedHud) fail('Phone HUD columns do not align to the board or preserve the top buffer');
+            }
+            if (name === 'game' && viewport.width >= 800) {
+                const adjacent = await page.locator('.portrait-right').evaluate(panel => {
+                    const speed = panel.querySelector('.lb-hud-level').getBoundingClientRect();
+                    const pause = panel.querySelector('.btn-pause-pc').getBoundingClientRect();
+                    return Math.abs(speed.left - pause.left) <= 1 && pause.top >= speed.bottom && pause.top - speed.bottom <= 12;
+                });
+                if (!adjacent) fail('Desktop level and Pause should share the same column without an empty row');
             }
             if (name === 'game-over') {
                 const actionsFit = await page.locator('#go-overlay .go-actions').evaluate(actions => {
@@ -649,6 +733,29 @@
                     return row.top >= top - 1 && row.bottom <= bottom + 1;
                 });
                 if (!boostersFit) fail('XP booster buttons cannot be brought fully into view above the run actions');
+                const earned = page.locator('#go-total-xp');
+                const xpBefore = await earned.textContent();
+                const boosters = page.locator('.go-boost-list button');
+                await boosters.first().click();
+                if (await boosters.count() !== await page.locator('.go-boost-list button:disabled').count()
+                    || !await page.locator('.go-boost-list [data-used] .go-booster-used').isVisible()) {
+                    fail('Used boosters must stay marked and lock all booster buttons');
+                }
+                if (await page.locator('#go-overlay .lb-scroll-top:visible').count()
+                    && !await page.locator('#go-overlay .go-heading .lb-scroll-top').count()) fail('Results scroll shortcut must not cover run actions');
+                await page.waitForFunction(before => document.getElementById('go-total-xp').textContent !== before, xpBefore);
+                await capture?.('game-over-used');
+                const viewBoard = page.locator('#go-view-board');
+                await viewBoard.click();
+                const finalFits = await page.locator('#final-board').evaluate(board => {
+                    const box = board.getBoundingClientRect();
+                    return box.top >= document.querySelector('#final-board-overlay header').getBoundingClientRect().bottom
+                        && box.bottom <= innerHeight && Math.abs((box.left + box.right) / 2 - innerWidth / 2) <= 1;
+                });
+                if (!finalFits) fail('Final board does not fit or center below its header');
+                await capture?.('final-board');
+                await page.locator('#final-board-back').click();
+                if (!await viewBoard.evaluate(button => document.activeElement === button)) fail('Back must return focus to View board');
             }
             if (name === 'missions' || name === 'missions-weekly') {
                 const compact = await page.evaluate(() => {
@@ -790,6 +897,7 @@
             && document.activeElement?.textContent === 'Done');
         if (!skipped) fail('Tapping the backdrop must finish, not dismiss, the reveal');
         await page.emulateMedia({ reducedMotion: 'reduce' });
+        await page.waitForFunction(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
         const instant = await page.evaluate(async () => {
             await window.__LB_QA.open('level-crate');
             const dialog = document.getElementById('inventory-crate-overlay');

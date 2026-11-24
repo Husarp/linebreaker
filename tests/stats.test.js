@@ -4,6 +4,21 @@ import { loadGame } from './loader.js';
 let game;
 const byId = id => game.w.document.getElementById(id);
 const query = selector => game.w.document.querySelector(selector);
+
+it('counts and persists crate acquisitions by rarity without inventing historical totals', () => {
+  const { api, w } = game;
+  const save = api.save;
+  w.LBCrates.grantCrate(save, 'common', { source: 'level' });
+  w.LBCrates.grantCrate(save, 'rare');
+  w.LBCrates.grantCrate(save, 'common', { source: 'achievement' });
+  w.LBCrates.grantCrate(save, 'invalid');
+  save.stats.cratesCollected.mythic = -1;
+  save.stats.cratesCollected.invalid = 17;
+  api.applyLoadedData(w.LBSave.serializeSave(save));
+  expect(api.save.stats.cratesCollected).toEqual({ common: 2, rare: 1 });
+  w.openStats();
+  expect([...byId('stat-crates-collected').querySelectorAll('dd')].map(count => count.textContent)).toEqual(['2', '1', '0', '0', '0']);
+});
 const all = selector => [...game.w.document.querySelectorAll(selector)];
 const score = (value, maxSpeed, xp) => {
   const now = new game.w.Date();
@@ -22,7 +37,7 @@ it('opens on general stats and switches exactly four panels by click or keyboard
   expect(byId('stat-block-usage')).toBeNull();
   expect(byId('stat-activity-calendar').querySelector('#cal-grid')).not.toBeNull();
   expect(all('#general-stats-container > section h2').map(heading => heading.textContent))
-    .toEqual(['This week', 'Personal best', 'Lifetime', 'Experience', 'Activity', 'Today']);
+    .toEqual(['This week', 'Personal best', 'Lifetime', 'Experience', 'Activity', 'Crates collected', 'Today']);
   const checkSelection = active => {
     expect(all('#stats-overlay [role="tabpanel"]:not([hidden])').map(panel => panel.id)).toEqual([active.getAttribute('aria-controls')]);
     expect(tabs.filter(tab => tab.getAttribute('aria-selected') === 'true')).toEqual([active]);

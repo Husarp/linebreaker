@@ -169,6 +169,10 @@ it('uses the same scrolls in the inventory and for eligible game-over boosters',
     expect(result('go-record-label').textContent).toBe('New personal best');
     expect(result('go-record-label').hidden).toBe(false);
     expect(result('go-lines-cnt').textContent).toBe('1');
+    advance(520);
+    expect(result('go-total-xp').textContent).toBe('+0 XP');
+    advance(16);
+    advance(400);
     expect(result('go-total-xp').textContent).toBe(`+${runXP} XP`);
 
     expect(result('go-boost-row').querySelector('[data-rarity="epic"]').getAttribute('onclick'))
@@ -179,7 +183,9 @@ it('uses the same scrolls in the inventory and for eligible game-over boosters',
     advance(400);
     expect(result('go-total-xp').textContent).toBe(`+${2 * runXP} XP`);
     expect(result('go-xp-progress').textContent).toBe(`${2 * runXP} / 1,000 XP to next level`);
-    expect(result('go-boost-row').hidden).toBe(true);
+    expect(result('go-boost-row').hidden).toBe(false);
+    expect(result('go-boost-row').querySelectorAll('.go-boost-list button:disabled')).toHaveLength(3);
+    expect(result('go-boost-row').querySelector('button[data-used]').textContent).toContain('Used');
     expect(api.save.boosters['2xp_game']).toBe(0);
   } finally { close(); }
 });

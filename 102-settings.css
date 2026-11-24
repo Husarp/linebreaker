@@ -76,7 +76,6 @@
 #settings-overlay .lb102-reset-note { color: var(--lb-muted); margin-block: 0 var(--lb-space-md); }
 #settings-overlay .lb102-controls-head {
     padding-block: 2px 6px;
-    border-bottom: 1px solid var(--bb-edge);
     color: var(--bb-muted);
     font: 700 var(--text-xs)/1.4 var(--font-body);
     font-variant-caps: all-small-caps;

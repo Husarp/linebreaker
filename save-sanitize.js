@@ -279,6 +279,9 @@
             else out.stats[k] = number(v);
         }
         if (Object.hasOwn(data.stats || {}, 'bestNormalLines')) out.stats.bestNormalLines = number(data.stats.bestNormalLines);
+        const crates = object(data.stats?.cratesCollected) ? data.stats.cratesCollected : {};
+        out.stats.cratesCollected = Object.fromEntries(window.LBCrates.rarities.map(rarity => [rarity, Math.floor(number(crates[rarity]))])
+            .filter(([, count]) => count > 0));
         out.achievements = cleanAchievements(data.achievements);
         out.pendingAchievementClaims = list(data.pendingAchievementClaims).filter(claim => object(claim) && typeof claim.id === 'string' && safeKey(claim.id) && !discardedAchievementIds.has(claim.id)).map(claim => ({
             id: achievementId(claim.id), name: retiredDayAchievements.has(claim.id) ? 'Legacy achievement' : string(claim.name), rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(claim.rarity) ? claim.rarity : 'common',

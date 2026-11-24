@@ -138,13 +138,37 @@ it.each([1,2,5,10,15])('gravity at speed %i uses a strict interval boundary', sp
   a.tick(1);expect(a.state.player.pos.y).toBe(1);
 });
 // Existing regression: checkAchievements calls a missing tier.check before displaying the overlay.
-it('game over shows the overlay', () => {a.gameOver();game.advance(1000);expect(a.state.isGameOver).toBe(true);expect(game.w.document.getElementById('go-overlay').classList.contains('hidden')).toBe(false);});
+it('shows a short top-out before results and opens a read-only board with a return to results', () => {
+  const get = id => game.w.document.getElementById(id);
+  const cells = empty();
+  cells.at(-1)[0] = 2;
+  a.setup({ cells });
+  a.gameOver();
+  expect(a.state.isGameOver).toBe(true);
+  expect(get('game-crash').hidden).toBe(false);
+  expect(get('go-overlay').classList.contains('hidden')).toBe(true);
+  game.advance(520);
+  expect(get('game-crash').hidden).toBe(true);
+  expect(get('go-overlay').classList.contains('hidden')).toBe(false);
+  get('go-view-board').click();
+  expect(get('go-overlay').classList.contains('hidden')).toBe(true);
+  expect(get('final-board-overlay').classList.contains('hidden')).toBe(false);
+  expect(get('final-board').width).toBe(get('game-board').width);
+  expect(game.calls).toContainEqual(['drawImage', get('game-board'), 0, 0]);
+  game.w.document.dispatchEvent(new game.w.KeyboardEvent('keydown', { code: 'Space', bubbles: true }));
+  expect(a.state.board).toEqual(cells);
+  get('final-board-back').click();
+  expect(get('final-board-overlay').classList.contains('hidden')).toBe(true);
+  expect(get('go-overlay').classList.contains('hidden')).toBe(false);
+  expect(game.w.document.activeElement).toBe(get('go-view-board'));
+});
 it('picks a new results scene when a run ends', () => {
   const results = game.w.document.getElementById('go-overlay');
   for (const [roll, scene] of [[.49, 'a'], [.5, 'b']]) {
     a.setup();
     game.w.Math.random = () => roll;
     a.gameOver();
+    game.advance(520);
     expect(results.dataset.scene).toBe(scene);
   }
 });

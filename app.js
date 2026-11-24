@@ -543,7 +543,7 @@
     }
     function triggerShake(f=5){shakeIntensity=f}
 
-    let saveData = {}; let gainedXPThisRound = 0; let _boosterUsedThisRound = false; let _leveledUpThisGame = false;
+    let saveData = {}; let gainedXPThisRound = 0; let _boosterUsedThisRound = null; let _leveledUpThisGame = false;
     let _gameInProgress = false; // true between startGame and gameOver — blocks mid-game file saves
     const defaultSaveData = { schemaVersion: LBSave.version, totalXP: 0, parts: {}, universalParts: {}, ownedSkins: [DEFAULT_BLOCK_SKIN], skinCatalogVersion: SKIN_CATALOG_VERSION, ownedThemes: [], ownedBtnStyles: [], ownedSfxPacks: ['default'], ownedPalettes: ['classic'], lastDailyGift: null, boosters: {}, ghostColorUnlocked: false, seenFunRules: false, pendingLevelBox: null, missions: null, season: seasonPass.emptySeason(), lastSeenTime: 0, seasonBlockedUntil: 0, stats: { gamesPlayed: 0, totalTimePlayed: 0, totalBlocksPlaced: 0, totalLinesCleared: 0, totalQuads: 0, totalBoostersUsed: 0, rareItemsFromDailyBox: 0, maxCombo: 0, lastPlayDate: '', playHistory: {}, blockTypeUsage: {}, luckySevenCount: 0 }, leaderboard:[], pinnedScores: [], achievements: {}, pendingAchievementClaims: [] };
 
@@ -2906,7 +2906,8 @@
         if (!(target instanceof HTMLElement) || !target.matches('.lb-scroll-fade')) return;
         if (target.scrollTop > 120 && target !== activeScroller) {
             activeScroller = target;
-            (target.closest('dialog, .overlay, [id$="-overlay"]') || document.body).append(scrollTopButton);
+            const resultsHeader = target.closest('.go-dialog')?.querySelector('.go-heading');
+            (resultsHeader || target.closest('dialog, .overlay, [id$="-overlay"]') || document.body).append(scrollTopButton);
         }
         if (target === activeScroller) scrollTopButton.hidden = target.scrollTop <= 120 && target !== scrollToTopTarget;
     }, true);
@@ -3415,8 +3416,7 @@
             profile.pendingRankRewards = null;
             for (const { type, key, rarity, amount } of _rankRewards(pending.from, pending.through)) {
                 if (type === 'crate') {
-                    const stock = profile.storedCrates ??= [];
-                    for (let index = 0; index < amount; index++) stock.push({ rarity, source: 'rank' });
+                    for (let index = 0; index < amount; index++) LBCrates.grantCrate(profile, rarity, { source: 'rank' });
                 } else if (type === 'universal_parts') addUniversalParts(amount, rarity);
                 else addBoosterToSave(key, amount);
             }
@@ -3672,6 +3672,9 @@
         const collected = ownedSkins + ownedThemes + ownedGrid + ownedPal + ownedSfx + Number(!!saveData.ghostColorUnlocked);
         const total = (_devMode ? 17 : 8) + Object.keys(THEMES).length + Object.keys(GRID_STYLES).length + Object.keys(BLOCK_PALETTES).length + 6;
         stat('items-collected', `${collected} / ${total}`);
+        document.getElementById('stat-crates-collected').innerHTML = LBCrates.rarities.map(rarity => `
+            <div><dt><img src="assets/ui/crates/${rarity}.png" alt="" width="22" height="22"><span>${LBCrates.crateLabel(rarity)}</span></dt>
+                <dd>${(stats.cratesCollected?.[rarity] ?? 0).toLocaleString()}</dd></div>`).join('');
         _renderStatsWeek(stats.playHistory || {});
         _renderActivityCalendar(document.getElementById('stat-activity-calendar').dataset.calYear || 'recent');
     }
@@ -4126,6 +4129,7 @@
         document.querySelectorAll('[data-vstab-content]').forEach(p => p.classList.toggle('hidden', p.dataset.vstabContent !== tab));
     }
     let _prevMusicVol = defaultSettings.musicVol;
+    let _prevSfxVol = defaultSettings.sfxVol;
     let _sfxMuted = settings.sfxMuted || false;
     const _SVG_PIX_VOL = `<svg viewBox="0 0 16 16" width="14" height="14" shape-rendering="crispEdges"><rect fill="currentColor" x="0" y="6" width="4" height="4"/><rect fill="currentColor" x="4" y="4" width="2" height="8"/><rect fill="currentColor" x="6" y="2" width="2" height="12"/><rect fill="currentColor" x="10" y="5" width="2" height="6"/><rect fill="currentColor" x="13" y="3" width="2" height="10"/></svg>`;
     const _SVG_PIX_MUTED = `<svg viewBox="0 0 16 16" width="14" height="14" shape-rendering="crispEdges"><rect fill="currentColor" x="0" y="6" width="4" height="4"/><rect fill="currentColor" x="4" y="4" width="2" height="8"/><rect fill="currentColor" x="6" y="2" width="2" height="12"/><rect fill="currentColor" x="10" y="4" width="2" height="2"/><rect fill="currentColor" x="12" y="6" width="2" height="2"/><rect fill="currentColor" x="14" y="8" width="2" height="2"/><rect fill="currentColor" x="12" y="10" width="2" height="2"/><rect fill="currentColor" x="10" y="12" width="2" height="2"/></svg>`;
@@ -4146,10 +4150,15 @@
         }
     }
 
+    function syncSfxMuteButton() {
+        const muted = _sfxMuted || settings.sfxVol === 0;
+        const pixel = settings.stylePack === 'pixel';
+        const button = document.getElementById('sfx-mute-btn');
+        button.innerHTML = pixel ? (muted ? _SVG_PIX_MUTED : _SVG_PIX_VOL) : (muted ? _SVG_MUTED : _SVG_VOL);
+        button.setAttribute('aria-label', muted ? 'Unmute sound effects' : 'Mute sound effects');
+    }
+
     function toggleMute(type) {
-        const isPix = settings.stylePack === 'pixel';
-        const svgVol = isPix ? _SVG_PIX_VOL : _SVG_VOL;
-        const svgMuted = isPix ? _SVG_PIX_MUTED : _SVG_MUTED;
         if (type === 'music') {
             if (settings.musicVol === 0) {
                 settings.musicVol = _prevMusicVol;
@@ -4167,19 +4176,16 @@
                 { const _now = Date.now(); if (_now - _lastMuteTime >= 5000) { saveData.stats.muteCount = (saveData.stats.muteCount || 0) + 1; _lastMuteTime = _now; if ((saveData.stats.muteCount || 0) >= 10 && !saveData.achievements?.['mute_jarvis']?.unlocked) { unlockAchievement('mute_jarvis'); } saveDataToFile(); } }
             }
         } else {
-            if (!_sfxMuted) {
-                _sfxMuted = true;
-                if (sfxGain) sfxGain.gain.value = 0;
-                settings.sfxMuted = true; saveSettings();
-                const sb = document.getElementById('sfx-mute-btn');
-                if (sb) sb.innerHTML = svgMuted;
-            } else {
-                _sfxMuted = false;
-                if (sfxGain) sfxGain.gain.value = settings.sfxVol / 100 * 0.4;
-                settings.sfxMuted = false; saveSettings();
-                const sb = document.getElementById('sfx-mute-btn');
-                if (sb) sb.innerHTML = svgVol;
-            }
+            if (settings.sfxVol === 0) {
+                settings.sfxVol = _prevSfxVol;
+                document.getElementById('setting-sfx-vol').value = _prevSfxVol;
+                document.getElementById('setting-sfx-val').textContent = `${_prevSfxVol}%`;
+                _cPillSync('sfx', _prevSfxVol);
+                _sfxMuted = settings.sfxMuted = false;
+            } else _sfxMuted = settings.sfxMuted = !_sfxMuted;
+            if (sfxGain) sfxGain.gain.value = _sfxMuted ? 0 : settings.sfxVol / 100 * 0.4;
+            syncSfxMuteButton();
+            saveSettings();
         }
         _updateMusicWidget();
     }
@@ -4866,10 +4872,8 @@
         document.getElementById('setting-sfx-vol').value = sv;
         _cPillSync('sfx', sv);
         const svEl0 = document.getElementById('setting-sfx-val'); if (svEl0) svEl0.innerText = sv + '%';
-        const isPix = settings.stylePack === 'pixel';
         syncMusicMuteButtons();
-        const sfxMuteBtn = document.getElementById('sfx-mute-btn');
-        if (sfxMuteBtn) sfxMuteBtn.innerHTML = _sfxMuted ? (isPix ? _SVG_PIX_MUTED : _SVG_MUTED) : (isPix ? _SVG_PIX_VOL : _SVG_VOL);
+        syncSfxMuteButton();
         // SFX Pack dropdown sync
         const _sfxSel = document.getElementById('setting-sfx-pack');
         if (_sfxSel) {
@@ -5037,12 +5041,11 @@
             saveSettingsDebounced(); return;
         } else if (key === 'sfxVol') {
             settings.sfxVol = parseInt(value);
+            if (settings.sfxVol > 0) _prevSfxVol = settings.sfxVol;
             _cPillSync('sfx', value);
             const svEl = document.getElementById('setting-sfx-val'); if (svEl) svEl.innerText = value + '%';
-            if (sfxGain) sfxGain.gain.value = settings.sfxVol / 100 * 0.4;
-            const isPix2 = settings.stylePack === 'pixel';
-            const sb = document.getElementById('sfx-mute-btn');
-            if (sb) sb.innerHTML = settings.sfxVol === 0 ? (isPix2?_SVG_PIX_MUTED:_SVG_MUTED) : (isPix2?_SVG_PIX_VOL:_SVG_VOL);
+            if (sfxGain) sfxGain.gain.value = _sfxMuted ? 0 : settings.sfxVol / 100 * 0.4;
+            syncSfxMuteButton();
             saveSettingsDebounced(); return;
         } else if (key === 'fontSize') {
             settings.fontSize = value;
@@ -6810,7 +6813,7 @@
                     saveData.pendingAchievementClaims.splice(idx, 1);
                     if (claim.crateRarity) {
                         for (let count = 0; count < (claim.crateCount ?? 1); count++) {
-                            (saveData.storedCrates ??= []).push({ rarity: claim.crateRarity, source: 'achievement' });
+                            LBCrates.grantCrate(saveData, claim.crateRarity, { source: 'achievement' });
                         }
                         _checkGlowNotifications();
                     } else {
@@ -7807,7 +7810,7 @@
             if ((saveData.stats.gamesAborted || 0) >= 20 && !saveData.achievements?.['abort_mission']?.unlocked) { unlockAchievement('abort_mission'); }
             _gameInProgress = false;
             saveDataToFile();
-            gameOver();
+            gameOver(undefined, false);
         }
     }
 
@@ -8072,7 +8075,7 @@
             if (isAnimating && lineClear.drawRow(ctx, row, values, BLOCK, drawGameBlock)) return;
             values.forEach((value, column) => { if (value) drawGameBlock(ctx, column, row, value, BLOCK); });
         });
-        if(player.matrix && !isAnimating){
+        if(player.matrix && !isAnimating && !isGameOver){
             if(settings.optGhost){let gY=player.pos.y; while(!collide(board,{matrix:player.matrix,pos:{x:player.pos.x,y:gY}}))gY++; gY--;
             player.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v)drawGameBlock(ctx,player.pos.x+x,gY+y,v,BLOCK,true)}));}
             player.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v)drawGameBlock(ctx,player.pos.x+x,player.pos.y+y,v,BLOCK)}));
@@ -8094,11 +8097,17 @@
     }
     function drawNext(){
         if (settings.optNoNext) { [pcNextCtx,mNextCtx].filter(Boolean).forEach(c=>{c.clearRect(0,0,c.canvas._logicalWidth,c.canvas._logicalHeight);}); return; }
-        [pcNextCtx,mNextCtx].filter(Boolean).forEach(c=>{c.clearRect(0,0,c.canvas._logicalWidth,c.canvas._logicalHeight);drawCenteredPiece(c,player.next, c.canvas._logicalWidth * .23)});
+        const paint = (context, piece) => {
+            if (!context) return;
+            const { _logicalWidth: width, _logicalHeight: height } = context.canvas;
+            context.clearRect(0, 0, width, height);
+            drawCenteredPiece(context, piece, Math.min(width, height) * .245);
+        };
+        [pcNextCtx, mNextCtx].forEach(context => paint(context, player.next));
         if (settings.opt3Next) {
             [pcNext2Ctx, pcNext3Ctx].forEach((pc, i) => {
                 const piece = _nextQueue[i];
-                if (pc) { pc.clearRect(0,0,pc.canvas._logicalWidth,pc.canvas._logicalHeight); if(piece) drawCenteredPiece(pc,piece); }
+                paint(pc, piece);
             });
         }
     }
@@ -8609,6 +8618,41 @@
     }
     
     const goResults = document.getElementById('go-overlay');
+    const gameContainer = document.getElementById('game-container');
+    const gameCrash = document.getElementById('game-crash');
+    const finalBoardOverlay = document.getElementById('final-board-overlay');
+    const finalBoard = document.getElementById('final-board');
+    const viewBoardButton = document.getElementById('go-view-board');
+    const finalBoardBack = document.getElementById('final-board-back');
+    let crashTimer, resultsInputTimer;
+
+    viewBoardButton.addEventListener('click', () => {
+        if (!isGameOver || goResults.classList.contains('hidden')) return;
+        goResults.classList.add('hidden');
+        finalBoardOverlay.classList.remove('hidden');
+        finalBoardBack.focus({ preventScroll: true });
+    });
+    finalBoardBack.addEventListener('click', () => {
+        finalBoardOverlay.classList.add('hidden');
+        goResults.classList.remove('hidden');
+        viewBoardButton.focus({ preventScroll: true });
+    });
+    finalBoardOverlay.addEventListener('keydown', event => {
+        if (event.key === 'Tab') {
+            event.preventDefault();
+            finalBoardBack.focus();
+        }
+    });
+
+    function captureFinalBoard() {
+        finalBoard.width = canvas.width;
+        finalBoard.height = canvas.height;
+        finalBoard.style.setProperty('--lb-final-board-ratio', canvas.width / canvas.height);
+        finalBoard.style.setProperty('--lb-final-board-face', getComputedStyle(gameContainer).backgroundColor);
+        const snapshot = finalBoard.getContext('2d');
+        if (settings.optMirror) snapshot.setTransform(1, 0, 0, -1, 0, finalBoard.height);
+        snapshot.drawImage(canvas, 0, 0);
+    }
     const goEarned = document.getElementById('go-earned-rewards');
     let goRewardReturn;
     let goSeasonPoints = 0;
@@ -8669,7 +8713,7 @@
         const earned = document.getElementById('go-total-xp');
         const detail = document.getElementById('go-xp-progress');
         if (previousXP == null) valueAnimations.delete(earned);
-        animateValue(earned, previousXP, xp, value => {
+        animateValue(earned, previousXP ?? 0, xp, value => {
             const shownXP = Math.round(value);
             const shownTotal = totalXP - xp + shownXP;
             const info = getLevelInfo(shownTotal);
@@ -8680,7 +8724,7 @@
         });
     }
 
-    function _renderGoStats(best, isRecord, funMode, xp, recordBonus = 0) {
+    function _renderGoStats(best, isRecord, funMode, recordBonus = 0) {
         document.getElementById('go-score').textContent = Math.round(score).toLocaleString();
         document.getElementById('go-best-score').textContent = Math.round(best).toLocaleString();
         document.getElementById('go-record-label').hidden = !isRecord;
@@ -8691,26 +8735,37 @@
         document.getElementById('go-max-speed').textContent = speedLevel;
         document.getElementById('go-time').textContent = formatRunClock(gameTime);
         document.getElementById('go-rewards').hidden = funMode;
-        if (!funMode) _renderGoXP(xp, saveData.totalXP + xp);
         document.getElementById('go-pin-btn').hidden = funMode;
         const bonus = document.getElementById('go-record-bonus');
         bonus.hidden = funMode || recordBonus <= 0;
         document.getElementById('go-record-bonus-xp').textContent = bonus.hidden ? '' : `+${recordBonus.toLocaleString()} XP`;
     }
 
-    function gameOver(){
+    function gameOver(onShown, topOut = true){
+        if (isGameOver) return;
         goEarned.replaceChildren();
         goEarned.hidden = true;
         goSeasonPoints = 0;
         _gameInProgress = false; // allow saves again — score and achievements saved together below
         isGameOver=true; isPaused=true;
+        _gameOverProtect = true;
+        document.activeElement?.blur();
+        resetHeldInputs();
+        clearInterval(timeInterval);
         _syncRunMissions();
         isAnimating=false; _hardDropAnimating=false; // safety: clear all animation locks
         lineClear.reset();
-        _boosterUsedThisRound = false;
+        _boosterUsedThisRound = null;
+        gainedXPThisRound = 0;
+        shakeIntensity = 0;
+        floatingTexts = [];
+        drawGame();
+        captureFinalBoard();
+        if (topOut) {
+            gameCrash.hidden = false;
+            gameContainer.classList.add('lb-board-crash');
+        }
         try {
-        const _gcGO = document.getElementById('game-container');
-        if (_gcGO) _gcGO.style.transform = '';
         musicPlaying = false;
         _stopMusicSources();
         updateNowPlaying('');
@@ -8756,7 +8811,7 @@
             saveToLeaderboard(Math.round(score), linesClearedThisGame, blocksPlacedThisGame, gameTime, speedLevel, finalXP, _maxComboThisGame, playedAt);
         }
         const best = _bestScore();
-        _renderGoStats(best, best > previousBest, false, finalXP, pbBonus);
+        _renderGoStats(best, best > previousBest, false, pbBonus);
         gainedXPThisRound = finalXP;
         appendGoMissionRewards(_updateGameMissionProgress(finalXP));
         const _lvlBefore = getLevelInfo(saveData.totalXP).level;
@@ -8860,24 +8915,28 @@
             console.error('Game-over bookkeeping failed:', error);
         } finally {
             _reminders?.refresh();
-            const results = document.getElementById('go-overlay');
-            results.dataset.scene = Math.random() < .5 ? 'a' : 'b';
-            results.classList.remove('hidden');
-            results.querySelector('.go-dialog-body').scrollTop = 0;
-            _gameOverProtect = true;
-            if (document.activeElement) document.activeElement.blur();
-            resetHeldInputs();
-            setTimeout(() => { _gameOverProtect = false; }, 800);
+            const showResults = () => {
+                gameCrash.hidden = true;
+                gameContainer.classList.remove('lb-board-crash');
+                goResults.dataset.scene = Math.random() < .5 ? 'a' : 'b';
+                goResults.classList.remove('hidden');
+                goResults.querySelector('.go-dialog-body').scrollTop = 0;
+                if (currentGameMode !== 'fun') _renderGoXP(gainedXPThisRound, saveData.totalXP);
+                resultsInputTimer = setTimeout(() => { _gameOverProtect = false; }, 300);
+                onShown?.();
+            };
+            if (topOut) crashTimer = setTimeout(showResults, 520);
+            else showResults();
         }
     }
 
     function useScoreBooster(key) {
-        if (gainedXPThisRound <= 0 || _boosterUsedThisRound) return;
+        if (!isGameOver || goResults.classList.contains('hidden') || gainedXPThisRound <= 0 || _boosterUsedThisRound) return;
         const mult = BOOSTER_INFO[key]?.mult;
         if (!mult || !saveData.boosters || !saveData.boosters[key]) return;
         playSFX('booster');
         saveData.boosters[key]--;
-        _boosterUsedThisRound = true;
+        _boosterUsedThisRound = key;
         saveData.stats.totalBoostersUsed = (saveData.stats.totalBoostersUsed||0) + 1;
         if (key === '2xp_game' && score < 100 && !saveData.achievements?.['sec_booster_waste']?.unlocked) {
             unlockAchievement('sec_booster_waste');
@@ -8889,27 +8948,23 @@
         if (bonus > 0) _updateMissionProgress({ totalXP: bonus });
         checkProgressAchievements();
         _renderGoXP(gainedXPThisRound, saveData.totalXP, originalXP);
-        collapseRow(document.getElementById('go-boost-row'), () => {
-            const row = document.getElementById('go-boost-row');
-            row.removeAttribute('inert');
-            row.removeAttribute('data-row-collapsing');
-            row.style.removeProperty('overflow');
-            _renderGoBoostRow(gainedXPThisRound);
-        });
+        _renderGoBoostRow(gainedXPThisRound);
+        document.querySelector('.go-boost-heading button')?.focus({ preventScroll: true });
         saveDataToFile();
     }
     function _renderGoBoostRow(xp) {
         const row = document.getElementById('go-boost-row');
-        const available = [...BOOSTER_KEYS].reverse().filter(key => saveData.boosters?.[key] > 0);
-        row.hidden = _boosterUsedThisRound || xp <= 0 || !available.length;
+        const available = [...BOOSTER_KEYS].reverse().filter(key => key === _boosterUsedThisRound || saveData.boosters?.[key] > 0);
+        row.hidden = xp <= 0 || !available.length;
         row.innerHTML = row.hidden ? '' : `<div class="go-boost-heading"><h2 class="go-section-title" id="go-boost-title">XP boosters</h2><button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About score boosters" data-control-tip="About score boosters"></button></div>
             <ul class="go-reward-list go-boost-list">${available.map(key => {
                 const { label, rarity } = BOOSTER_META[key];
-                return `<li><button type="button" class="lb-block-btn" data-rarity="${rarity}" onclick="window.useScoreBooster('${key}')" aria-label="Use ${label}, ${escapeHtml(saveData.boosters[key])} available">
+                const used = key === _boosterUsedThisRound;
+                return `<li><button type="button" class="lb-block-btn" data-rarity="${rarity}" ${used ? 'data-used' : ''} ${_boosterUsedThisRound ? 'disabled' : ''} onclick="window.useScoreBooster('${key}')" aria-label="${used ? `${label}: Used` : `Use ${label}, ${escapeHtml(saveData.boosters[key])} available`}">
                     ${LBArtPack.boosterIcon(rarity)}
                     <strong>${label.replace(' Booster', ' XP')}</strong>
-                    <small>${rarity}</small>
-                    <span class="lb-block-reward-amount">×${escapeHtml(saveData.boosters[key])}</span>
+                    <small>${rarity}${used ? ' · <span class="go-booster-used">Used</span>' : ''}</small>
+                    ${used ? '' : `<span class="lb-block-reward-amount">×${escapeHtml(saveData.boosters[key])}</span>`}
                 </button></li>`;
             }).join('')}</ul>`;
     }
@@ -9043,17 +9098,23 @@
                 score = _bestScore() + 120;
                 linesClearedThisGame = 4;
                 gameTime = 266;
-                gameOver();
+                board.at(-1).splice(0, 5, 1, 1, 4, 4, 4);
+                board.at(-2).splice(0, 4, 1, 1, 4, 0);
+                return gameOver(resolve);
             }
             resolve();
         }));
     }
     function resetQARun() {
         clearStartFlash();
+        clearTimeout(crashTimer);
+        clearTimeout(resultsInputTimer);
+        gameCrash.hidden = true;
+        gameContainer.classList.remove('lb-board-crash');
         _gameOverProtect = false;
         _gameInProgress = false;
         clearInterval(timeInterval);
-        for (const id of ['pause-overlay', 'go-overlay']) {
+        for (const id of ['pause-overlay', 'go-overlay', 'final-board-overlay']) {
             document.getElementById(id).classList.add('hidden');
         }
         resetGameToMenu();
@@ -9090,6 +9151,7 @@
         closeInfo();
         if (controlsEditor.cancel()) return;
         switch (overlay.id) {
+            case 'daily-gift-crate-overlay':
             case 'inventory-crate-overlay': overlay.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); return;
             case 'start-animation-overlay': return;
             case 'pause-overlay': pauseFromInput(overlay); return;
@@ -10532,6 +10594,8 @@
     };
 
     function _openMissionCrate(ms, isWeekly, silent = false) {
+        const rarity = LBCrates.missionRarity(ms.pts, isWeekly);
+        LBCrates.recordCrate(saveData, rarity);
         const cards = _grantMissionCrateParts(ms.reward.amount);
         saveDataToFile();
         if (silent) return;
@@ -10542,7 +10606,7 @@
         }
         _checkGlowNotifications();
         playSFX('gift');
-        LBCrates.showCrateReveal(LBCrates.missionRarity(ms.pts, isWeekly), 1, _crateRewardGrid(cards), () => {
+        LBCrates.showCrateReveal(rarity, 1, _crateRewardGrid(cards), () => {
             (opener?.isConnected ? opener : overlay.querySelector('#mq-menu')).focus({ preventScroll: true });
         });
     }
@@ -10765,9 +10829,9 @@
         const gamePlaylist = _getPlaylist('game');
         const actionPlaylist = _getPlaylist('action');
         const allNames = [..._trackPool.keys()].sort((a, b) => a.localeCompare(b));
-        const trackToggle = (on, ctx, name) => `<button type="button" class="lb-block-btn lb-block-btn--icon lb-playlist-check" data-playlist="${ctx === 'menu' ? 'menu' : 'game'}" aria-label="${ctx === 'menu' ? 'Menu' : 'Game'} playlist: ${escapeHtml(name)}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}',${escapeHtml(JSON.stringify(name))},${!on})">${svgCheck}</button>`;
+        const trackToggle = (on, ctx, name) => `<button type="button" class="lb-block-btn lb-block-btn--icon lb-playlist-check" data-playlist="${ctx === 'menu' ? 'menu' : 'game'}" aria-label="${ctx === 'menu' ? 'Menu' : 'Game'} playlist: ${escapeHtml(name)}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}',${escapeHtml(JSON.stringify(name))},${!on})"><span>${svgCheck}</span></button>`;
         const header = `<div class="lb-playlist-grid lb-playlist-columns" aria-hidden="true">
-            <span>Track</span><span>Menu</span><span>Game</span>
+            <span>Menu</span><span>Game</span><span>Track name</span>
         </div>`;
         const rows = allNames.map(name => {
             const entry = _trackPool.get(name);
@@ -10780,12 +10844,12 @@
             const gameCtx = isAction ? 'action' : 'game';
             const playMark = isPlaying ? '<span class="lb-playlist-equalizer" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
             return `<div class="lb-playlist-grid lb-playlist-row">
+                ${trackToggle(menuOn, 'menu', name)}
+                ${trackToggle(gameOn, gameCtx, name)}
                 <button type="button" class="lb-block-btn lb-playlist-track" aria-label="Play ${escapeHtml(name)}" ${isPlaying ? 'aria-current="true"' : ''} onclick="window.playTrackInPlaylist(${escapeHtml(JSON.stringify(name))})">
                     <span class="lb-playlist-track-title">${playMark}<span>${escapeHtml(name)}</span></span>
                     ${artist ? `<small>by ${escapeHtml(artist)}</small>` : ''}
                 </button>
-                ${trackToggle(menuOn, 'menu', name)}
-                ${trackToggle(gameOn, gameCtx, name)}
             </div>`;
         }).join('');
         el.innerHTML = header + rows;
@@ -11327,6 +11391,7 @@
     const helpBack = document.getElementById('help-back');
     const helpNav = helpOverlay.querySelector('.lb-help-nav');
     const helpContent = helpOverlay.querySelector('.lb-help-content');
+    const helpTopicKey = helpOverlay.querySelector('.lb-help-topic-key');
     let helpOpener;
 
     function renderHelp() {
@@ -11419,9 +11484,9 @@
                 ]))}
                 <button type="button" class="lb-block-btn" id="help-tutorial">Open tutorials</button>`]
         ];
-        helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-block-btn lb-block-tab" data-help-jump="${id}">${title}</button>`).join('');
         const topicIcons = { basics: 'lb-metric-gamepad', scoring: 'lb-run-icon-lines', ranks: 'lb-metric-total-xp', boxes: 'lb-metric-box', achievements: 'lb-metric-trophy' };
         const topicIcon = id => topicIcons[id] ? `<svg class="lb-metric-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#${topicIcons[id]}"/></svg>` : '';
+        helpNav.innerHTML = sections.map(([id, title]) => `<button type="button" class="lb-block-btn lb-ledger-row" data-help-jump="${id}">${topicIcon(id)}<span>${title}</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>`).join('');
         helpContent.innerHTML = sections.map(([id, title, body]) => `<section class="lb-help-topic lb-block-card" data-help-topic="${id}" aria-labelledby="help-${id}"><h2 id="help-${id}" class="lb-block-panel-head lb-block-section-title" tabindex="-1">${topicIcon(id)}${title}</h2>${body}</section>`).join('');
         document.getElementById('help-tutorial').addEventListener('click', () => {
             window.openTutorial();
@@ -11429,18 +11494,25 @@
         });
     }
 
+    function showHelpTopics(expanded) {
+        helpTopicKey.setAttribute('aria-expanded', String(expanded));
+        helpNav.hidden = !expanded;
+        helpContent.hidden = expanded;
+    }
+
     function jumpToHelp(sectionId) {
         const candidate = document.getElementById(`help-${sectionId}`);
         const heading = candidate?.closest('[data-help-topic]') ? candidate : document.getElementById('help-basics');
         const topicId = heading.closest('[data-help-topic]').dataset.helpTopic;
+        for (const topic of helpContent.querySelectorAll('[data-help-topic]')) topic.hidden = topic.dataset.helpTopic !== topicId;
         for (const button of helpNav.querySelectorAll('[data-help-jump]')) {
-            if (button.dataset.helpJump === topicId) {
-                button.setAttribute('aria-current', 'location');
-                button.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
-            } else button.removeAttribute('aria-current');
+            if (button.dataset.helpJump === topicId) button.setAttribute('aria-current', 'location');
+            else button.removeAttribute('aria-current');
         }
+        showHelpTopics(false);
         heading.focus({ preventScroll: true });
-        helpContent.scrollTop = heading.offsetTop - parseFloat(getComputedStyle(helpContent).paddingTop || 0);
+        helpContent.scrollTop = 0;
+        if (heading.id !== `help-${topicId}`) heading.scrollIntoView?.({ block: 'nearest' });
     }
 
     window.openHelp = function(sectionId = 'basics') {
@@ -11473,9 +11545,12 @@
         const button = event.target.closest('[data-help-jump]');
         if (button) jumpToHelp(button.dataset.helpJump);
     });
+    helpTopicKey.addEventListener('click', () => showHelpTopics(helpNav.hidden));
     helpOverlay.addEventListener('keydown', event => {
         if (event.key !== 'Tab') return;
-        const last = document.getElementById('help-tutorial');
+        const last = helpNav.hidden
+            ? (helpContent.querySelector('[data-help-topic]:not([hidden]) button:last-of-type') || helpContent)
+            : helpNav.lastElementChild;
         if (event.shiftKey ? event.target === helpBack : event.target === last) {
             event.preventDefault();
             (event.shiftKey ? last : helpBack).focus();
@@ -11631,6 +11706,7 @@
         ready: () => dailyGiftReady && !_gameInProgress, save: saveDataToFile,
         onShake: () => playSFX('drop'),
         openGift(rarity) {
+            LBCrates.recordCrate(saveData, rarity);
             const cards = _grantRarityCrate(rarity, true);
             checkProgressAchievements();
             _checkGlowNotifications();
@@ -11653,11 +11729,7 @@
     _sfxMuted = settings.sfxMuted || false;
     syncMusicGain();
     syncMusicMuteButtons();
-    // Sync mute button icons on load
-    { const _isPix = settings.stylePack === 'pixel';
-      const _sBtn = document.getElementById('sfx-mute-btn');
-      if (_sBtn) _sBtn.innerHTML = (_sfxMuted ? (_isPix?_SVG_PIX_MUTED:_SVG_MUTED) : (_isPix?_SVG_PIX_VOL:_SVG_VOL));
-    }
+    syncSfxMuteButton();
     _setLoadProgress(20, 'Loading settings…');
     try {
         _applyColorPalette(settings.colorPalette || 'classic');

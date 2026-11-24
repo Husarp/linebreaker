@@ -142,11 +142,12 @@ it('saves shake progress and pays a daily crate once, on the spot after the thir
   expect(art().dataset.rarity).toBe('epic');
   expect(api.save.universalParts).toEqual({});
   shake().click();
-  shake().click();
+  expect(shake().textContent).toBe('Skip animation');
   expect(api.save).toMatchObject({ lastDailyGift: today, pendingDailyGift: null, storedCrates: [], universalParts: { epic: 2 }, boosters: { '1.5x_game': 2 } });
   expect(gift.dataset.status).toBe('claimed');
   await window.flushLinebreakerSave();
   expect(writes.at(-1)).toMatchObject({ lastDailyGift: today, pendingDailyGift: null, storedCrates: [], universalParts: { epic: 2 } });
+  expect(writes.at(-1).stats.cratesCollected).toEqual({ epic: 1 });
   advance(230);
   expect(dialog().dataset.reveal).toBe('opening');
   expect(art().dataset.frame).toBe('closed');
@@ -321,11 +322,34 @@ it('opens daily and weekly milestones on the spot with three tiers each and neve
     }
   }
   const paid = api.save;
+  expect(paid.stats.cratesCollected).toEqual({ common: 2, rare: 2, epic: 2 });
   api.applyLoadedData(window.LBSave.serializeSave(paid));
   window._claimMissionMilestone(120, true);
   window._claimMissionMilestone(150, true);
   expect(api.save.parts).toEqual(paid.parts);
+  expect(api.save.stats.cratesCollected).toEqual(paid.stats.cratesCollected);
   expect(document.querySelector('.lb64-crate-overlay')).toBeNull();
+});
+
+it('finishes the final Daily Gift shake from its Skip button without paying twice', async () => {
+  game = await loadGame();
+  const { w: window, api, advance } = game;
+  const { document } = window;
+  api.setup();
+  document.getElementById('lb43-daily-gift').click();
+  advance(16);
+  advance(16);
+  const dialog = document.getElementById('daily-gift-crate-overlay');
+  for (let tap = 0; tap < 3; tap++) dialog.querySelector('button').click();
+  expect(dialog.dataset.reveal).toBe('opening');
+  expect(dialog.querySelector('button').textContent).toBe('Skip animation');
+  const counts = api.save.stats.cratesCollected;
+  dialog.querySelector('button').click();
+  expect(dialog.dataset.reveal).toBe('revealed');
+  expect(document.activeElement.textContent).toBe('Done');
+  expect(api.save.stats.cratesCollected).toEqual(counts);
+  advance(2000);
+  expect(dialog.querySelector('.lb43-reward-pending, .lb43-crate-flight')).toBeNull();
 });
 
 it('flies each reward from the crate mouth, staggers landings, and cleans up when finished', async () => {

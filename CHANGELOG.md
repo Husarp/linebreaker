@@ -1,4 +1,10 @@
 ## [1.4.2]
+- Align control bindings and use frameless volume mute icons in Settings.
+- Keep the next-piece preview larger and move the pause key next to the level indicator on phones.
+- Count up run XP, keep used boosters visible, and show a brief top-out before results. View the final board from the run summary.
+- Skip crate reveals from the button, backdrop, or Escape; show rewards immediately with reduced motion.
+- Keep the full recent Activity chart visible and track collected crates by rarity in Stats.
+- Pick Help topics from one list; use smaller playlist checkboxes with column labels that stay visible while scrolling.
 - Missions fit more comfortably on phones, show where rewards are ready, and preview the best claimable Season Pass chest.
 - Level-up rewards appear when you return to the main menu; the rank aura follows XP progress and the board no longer shows behind the menu.
 - Inventory hides empty crate and universal-part stocks and reveals collectible items when you find their first part.
