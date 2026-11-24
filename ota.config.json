@@ -5,7 +5,7 @@
   "channels": { "bundle": "channel", "shell": "shell-channel" },
   "artifacts": { "manifest": "manifest.json", "shellManifest": "shell.json", "apk": "LinebreakerShell-{code}.apk", "asset": "f-{sha256}.bin" },
   "updateUrls": { "bundle": null, "shell": null, "releases": null },
-  "build": { "shellApi": 1, "versionCode": 1401, "versionName": "1.4.1", "webVersion": "1.4.1", "minShellApi": 1, "message": "Discover rotating illustrations and earn Bronze, Silver, and Gold achievement rewards. The music player now shows when a track is paused or nothing is playing." },
+  "build": { "shellApi": 1, "versionCode": 1401, "versionName": "1.4.1", "webVersion": "1.4.1", "minShellApi": 1, "message": "Explore the illustrated Missions and Achievements screens, earn Platinum and Diamond rewards, and unlock the Forged Iron skin. Fun mode now opens at level 5, and the Daily Gift counts down to your next crate." },
   "signing": {
     "privateKey": "~/.keystores/linebreaker/ota-private.pem",
     "publicKey": "keys/public-key.b64",
