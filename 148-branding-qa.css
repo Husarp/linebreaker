@@ -70,14 +70,6 @@ html[data-lb-qa-cutout='notch']::after {
 
 #uni-modal-list { padding-inline-end: 4px; }
 
-@supports (animation-timeline: scroll(self block)) and (animation-range: 0px 16px) {
-    #playlist-panel-content {
-        animation: lb-scroll-fade-start linear both, lb-scroll-fade-end linear both !important;
-        animation-timeline: scroll(self block), scroll(self block) !important;
-        animation-range: 0px 16px, calc(100% - 16px) 100% !important;
-    }
-}
-
 #mode-select-overlay .lb69-layout { height: 100%; grid-template-rows: minmax(0, 1fr); }
 #mode-select-overlay .lb69-panel {
     position: relative;

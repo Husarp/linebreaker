@@ -265,13 +265,6 @@
 .lb-unlock-requirement svg { flex: none; }
 .lb-rank-unlock-name { color: color-mix(in srgb, var(--rank-unlock-color), var(--lb-ink) var(--lb-tier-ink-mix)); white-space: nowrap; }
 .lb-floating-tip { max-height: calc(100dvh - var(--lb-band-height) - 20px); }
-.lb-game-root :is(button.lb-info-btn, .lb-block-info-icon):not([hidden])::before {
-    border: var(--lb-border) solid var(--lb-control-line);
-    box-shadow: none;
-    background: transparent;
-    color: var(--lb-label);
-}
-
 .lb-game-root :is(.lb-block-btn, .lb-btn, .lb149-actions button, #settings-overlay button:not(.btn-back, .lb-info-btn), #pl-mini-widget button) {
     border: var(--lb-button-border, var(--lb-border) solid var(--lb-control-edge, var(--bb-button-edge, var(--lb-rule)))) !important;
     border-radius: var(--lb-radius) !important;
@@ -575,6 +568,30 @@
 
 .lb-game-root, .lb-game-root * { scrollbar-color: var(--bb-scroll-thumb) transparent; }
 .lb-game-root .lb-scroll-fade { scrollbar-gutter: stable; }
+.lb-game-root .lb-block-btn.lb-scroll-top:not([hidden]) {
+    position: fixed;
+    z-index: 1003;
+    inset-inline-end: max(16px, var(--lb-safe-right));
+    inset-block-end: max(16px, var(--lb-safe-bottom));
+    inline-size: 44px;
+    block-size: 44px;
+    border-radius: var(--lb-radius);
+}
+.lb-game-root .lb-scroll-top svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+.lb-game-root .lb-scroll-top[hidden] { display: none !important; }
+.lb-game-root .lb-inventory-undiscovered { place-items: center; min-block-size: 76px; }
+.lb-inventory-undiscovered > span {
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    color: var(--lb-muted);
+    background: var(--lb-track);
+    clip-path: polygon(0 33%, 33% 33%, 33% 0, 67% 0, 67% 33%, 100% 33%, 100% 67%, 67% 67%, 67% 100%, 0 100%);
+    font: 400 1.25rem/1 var(--lb-font-pixel);
+}
+.lb-inventory-stock-empty { color: var(--lb-muted); padding-inline: var(--lb-space-sm); }
+.lb-game-root [data-row-collapsing] { min-height: 0 !important; box-sizing: border-box; }
 .lb-game-root ::-webkit-scrollbar-thumb, .lb-game-root::-webkit-scrollbar-thumb {
     background-color: var(--bb-scroll-thumb);
     background-clip: padding-box;
@@ -708,14 +725,6 @@
         var(--lb-tile-art) right center / cover no-repeat, var(--lb-panel-face);
 }
 #menu-overlay #level-badge-container { width: 72px; height: 72px; margin: 0; }
-#menu-overlay #level-badge-container::before {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    background: radial-gradient(circle closest-side,
-        color-mix(in srgb, var(--lb-rank-tone, var(--lb-label)) 54%, transparent) 52%, transparent 100%);
-    pointer-events: none;
-}
 #menu-overlay #rank-canvas { width: 100% !important; height: 100% !important; }
 .lb-menu-rank .lb-menu-kicker { display: block; color: var(--lb-label); }
 #badge-rank-name {
@@ -889,6 +898,7 @@
     padding: 4px 2px !important;
 }
 #menu-overlay .lb43-gift-status { margin: 0; color: var(--lb-muted); letter-spacing: 0; text-transform: none; }
+#menu-overlay #lb43-daily-gift[data-status='claimed'] .lb43-gift-status { font-size: .62rem; white-space: nowrap; }
 #menu-overlay #lb43-daily-gift[data-status='clock-blocked'] .lb43-gift-status { color: var(--lb-utility); }
 #menu-overlay #lb43-daily-gift[aria-disabled='true'] { --lb-control-face: var(--lb-disabled); }
 #menu-overlay #lb43-daily-gift[data-status='claimed'] {

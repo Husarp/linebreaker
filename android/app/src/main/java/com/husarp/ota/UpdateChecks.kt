@@ -15,28 +15,29 @@ class UpdateChecks(context: Context, private val log: EventLog, private val chan
     private fun connected() = connectivity.activeNetwork != null
 
     fun <Manifest> fetch(channel: CheckChannel, url: String, transport: Transport,
+                         manual: Boolean = false,
                          verify: (DownloadedManifest) -> Manifest): Pair<DownloadedManifest, Manifest> =
-        checked(channel, { checkNotNull(fetchManifest(url, transport, log, allowMissing = false)) }, verify)
+        checked(channel, manual, { checkNotNull(fetchManifest(url, transport, log, allowMissing = false)) }, verify)
 
-    fun <Manifest> fetchShell(url: String, transport: Transport, verify: (DownloadedManifest) -> Manifest): Pair<DownloadedManifest, Manifest>? {
-        val (source, manifest) = checked(CheckChannel.SHELL, { fetchManifest(url, transport, log) }) { it?.let(verify) }
+    fun <Manifest> fetchShell(url: String, transport: Transport, manual: Boolean, verify: (DownloadedManifest) -> Manifest): Pair<DownloadedManifest, Manifest>? {
+        val (source, manifest) = checked(CheckChannel.SHELL, manual, { fetchManifest(url, transport, log) }) { it?.let(verify) }
         return if (source != null && manifest != null) source to manifest else null
     }
 
-    private fun <Source, Manifest> checked(channel: CheckChannel, fetch: () -> Source, verify: (Source) -> Manifest): Pair<Source, Manifest> {
+    private fun <Source, Manifest> checked(channel: CheckChannel, manual: Boolean, fetch: () -> Source, verify: (Source) -> Manifest): Pair<Source, Manifest> {
         val result = try {
             verifyUpdateCheck(::connected, fetch, verify)
         } catch (error: CheckException) {
-            failure(channel, error)
+            failure(channel, error, manual)
             throw error
         }
         success(channel)
         return result
     }
 
-    @Synchronized private fun failure(channel: CheckChannel, error: CheckException) {
+    @Synchronized private fun failure(channel: CheckChannel, error: CheckException, manual: Boolean) {
         prefs.edit().putString("$channel.error", error.failure.name).apply()
-        gate.failed(channel, error.failure)
+        gate.failed(channel, error.failure, manual)
         log.add("$channel: ${error.failure.message}${error.cause?.message?.let { ": $it" }.orEmpty()}")
         changed()
     }

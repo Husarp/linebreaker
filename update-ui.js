@@ -86,7 +86,7 @@
         } catch (error) {
           outcome = 'Could not check for updates';
           log(`${outcome}: ${error}`);
-          tell(outcome, 'Check your connection and try again.', [['Retry', () => check(true)], ['Details', openLogs]], manual);
+          if (manual) tell(outcome, 'Check your connection and try again.', [['Retry', () => check(true)], ['Details', openLogs]], true);
         }
         render();
       })().finally(() => { checking = null; });

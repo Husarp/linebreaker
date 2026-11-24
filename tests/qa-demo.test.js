@@ -124,7 +124,7 @@ it('opens earned reward destinations and restores summary focus and scroll on Ba
     body.scrollTop = 120;
     opener.click();
     const overlay = w.document.getElementById(id);
-    if (destination === 'crates') w.document.querySelector('#level-up-popup-overlay button').click();
+    if (destination === 'crates') expect(w.document.querySelector('#level-up-popup-overlay')).toBeNull();
     const back = overlay.querySelector('[aria-label="Back to run summary"]');
     expect(back).not.toBeNull();
     atDestination?.(overlay);
@@ -454,7 +454,7 @@ it('keeps SFX Preview independent of equipping an owned pack', async () => {
 
 it('shows plain booster balances and puts the cost inside the exchange dialog', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
-  const { w, api } = game;
+  const { w, api, advance } = game;
   api.setSave({ ...api.save, boosters: { ...api.save.boosters, '1.25x_game': 7 } });
   await w.__LB_QA.open('inventory-boosters');
   const inventory = w.document.getElementById('inventory-boosters');
@@ -494,6 +494,11 @@ it('shows plain booster balances and puts the cost inside the exchange dialog', 
   expect(api.save.boosters).toMatchObject({ '1.25x_game': 1, '1.5x_game': 4 });
   expect(inventory.querySelector('[aria-label="Exchange 1.25× Booster"]').disabled).toBe(true);
   expect(inventory.querySelector('[aria-label="Exchange 1.5× Booster"]').disabled).toBe(false);
+  expect(quantityLabel.textContent).toBe('10 owned');
+  advance(16);
+  advance(180);
+  expect(parseInt(quantityLabel.textContent)).toBeGreaterThan(6);
+  advance(220);
   expect(quantityLabel.textContent).toBe('6 owned');
   await w.__LB_QA.open('inventory');
   expect(quantityLabel.textContent).toBe('6 owned');
@@ -537,7 +542,7 @@ it('queues only affordable whole parts and re-enables controls when a part is re
   expect(dialog.querySelector('button[id^="uni-inc-"]:not(:disabled)')).not.toBeNull();
   w._uniDoApply();
   expect(api.save.universalParts).toEqual({ common: 4, rare: 1.2 });
-  expect(api.save.parts.outline).toBeUndefined();
+  expect(api.save.parts.outline).toBe(1);
 });
 
 it('previews and exchanges the selected number of 4-to-1 rarity sets in Inventory', async () => {
@@ -546,7 +551,7 @@ it('previews and exchanges the selected number of 4-to-1 rarity sets in Inventor
   const startXP = 65_000;
   api.setSave({ ...api.save, totalXP: startXP, universalParts: { common: 13.2, rare: 2, mythic: 8 } });
   await w.__LB_QA.open('inventory-parts');
-  expect(w.document.querySelectorAll('#inventory-parts [data-use-parts]')).toHaveLength(5);
+  expect(w.document.querySelectorAll('#inventory-parts [data-use-parts]')).toHaveLength(3);
   expect(w.document.querySelector('[data-exchange-parts="rare"]').disabled).toBe(true);
   expect(w.document.querySelector('[data-exchange-parts="mythic"]')).toBeNull();
   w.document.querySelector('[data-exchange-parts="common"]').click();

@@ -235,7 +235,7 @@ it('shows distinct inventory colour states and keeps palette preview separate fr
   expect(card('forest').querySelector('progress').value).toBe(1);
   expect(document.getElementById('theme-owned-count').textContent).toBe('2/10');
   const themeSample = card('ocean').querySelector('.lb-inventory-theme-swatch');
-  expect(themeSample.querySelector('button').getAttribute('aria-label')).toBe('Copy Ocean colour');
+  expect(themeSample.querySelector('button')).toBeNull();
   expect(themeSample.textContent.trim()).toBe('');
   expect(themeSample.querySelector('.lb-colors-chip').style.getPropertyValue('--swatch')).toBe('#0099ff');
 
@@ -262,7 +262,10 @@ it('marks equipped and locked inventory cards without adding owned tags', () => 
   const locked = row('shadow');
   const ready = row('glass');
   expect(document.getElementById('skin-owned-count').innerText).toBe(`(2/${builtInSkinCount + manifest.length + 1})`);
-  expect(row('season-prism').textContent).toContain('Earn from the Season Pass');
+  expect(row('season-prism')).toBeNull();
+  const mystery = document.querySelector('#owned-skin-btns .lb-inventory-undiscovered');
+  expect(mystery.textContent).toBe('?');
+  expect(mystery.querySelector('canvas, button, progress')).toBeNull();
   const rarities = ['common', 'rare', 'epic', 'legendary', 'mythic'];
   const ranks = [...document.querySelectorAll('#owned-skin-btns > [data-item-key]')]
     .map(card => rarities.indexOf(card.querySelector('.lb-inventory-rarity')?.dataset.rarity ?? 'common'));
@@ -288,6 +291,7 @@ it('cycles the equipped skin preview only while Blocks is open', () => {
   Object.defineProperty(document, 'hidden', { value: false });
   const intervals = vi.spyOn(window, 'setInterval');
   const clear = vi.spyOn(window, 'clearInterval');
+  game.setup({ save: { parts: { glass: 1 } } });
   window.openInventory();
   const previews = [...document.querySelectorAll('#owned-skin-btns canvas')];
   const preview = previews.find(canvas => canvas.parentElement.dataset.itemKey === 'retro');

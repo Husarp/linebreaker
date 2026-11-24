@@ -270,28 +270,55 @@
 
     function renderLocker(container, crates, onOpen) {
         const list = container.querySelector('.lb43-locker-list');
-        list.replaceChildren();
-        container.querySelector('.lb43-locker-total').textContent = `${crates.length.toLocaleString()} stored`;
+        const total = container.querySelector('.lb43-locker-total');
+        const before = total.dataset.count == null ? null : Number(total.dataset.count);
+        total.dataset.count = crates.length;
+        const motion = window.LBMotion;
+        const paintTotal = value => { total.textContent = `${Math.round(value).toLocaleString()} stored`; };
+        if (motion) motion.animateValue(total, before, crates.length, paintTotal);
+        else paintTotal(crates.length);
         const counts = new Map();
         for (const { rarity } of crates) counts.set(rarity, (counts.get(rarity) || 0) + 1);
+        list.querySelector('.lb-inventory-stock-empty')?.remove();
+        function showEmpty() {
+            if (!list.children.length) list.append(element('p', 'lb-inventory-stock-empty', 'No crates in stock.'));
+        }
         for (const rarity of rarities) {
             const count = counts.get(rarity) || 0;
-            const card = element('article', 'lb-block-card lb43-locker-card');
+            let card = list.querySelector(`[data-rarity="${rarity}"]:not([inert])`);
+            if (card) {
+                if (!count) {
+                    card.querySelector('button').disabled = true;
+                    const remove = () => { card.remove(); showEmpty(); };
+                    if (motion) motion.collapseRow(card, remove);
+                    else remove();
+                } else {
+                    const quantity = card.querySelector('.lb43-locker-count');
+                    const paint = value => { quantity.textContent = `×${Math.round(value).toLocaleString()}`; };
+                    if (motion) motion.animateValue(quantity, Number(card.dataset.count), count, paint);
+                    else paint(count);
+                    card.dataset.count = count;
+                }
+                continue;
+            }
+            if (!count) continue;
+            card = element('article', 'lb-block-card lb43-locker-card');
             card.dataset.rarity = rarity;
-            card.dataset.empty = String(count === 0);
+            card.dataset.count = count;
             const quantity = element('span', 'lb43-locker-count', `×${count.toLocaleString()}`);
             const art = element('img', 'lb-crate-art lb43-locker-art');
             art.src = `assets/ui/crates/${rarity}.png`;
             art.alt = '';
             const open = element('button', 'lb-block-btn', 'Open');
             open.type = 'button';
-            open.disabled = count === 0;
             open.dataset.crateRarity = rarity;
             open.setAttribute('aria-label', `Open ${crateLabel(rarity).toLowerCase()}`);
             open.onclick = () => onOpen(rarity);
             card.append(quantity, art, element('h4', 'lb43-locker-name', crateLabel(rarity)), open);
-            list.append(card);
+            const successor = [...list.querySelectorAll('[data-rarity]')].find(row => rarities.indexOf(row.dataset.rarity) > rarities.indexOf(rarity));
+            list.insertBefore(card, successor || null);
         }
+        showEmpty();
     }
 
     function showCrateReveal(rarity, count, grid, onClose, gift) {

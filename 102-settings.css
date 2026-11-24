@@ -1,41 +1,8 @@
-@property --lb-scroll-fade-start {
-    syntax: '<length>';
-    inherits: false;
-    initial-value: 0px;
-}
-
-@property --lb-scroll-fade-end {
-    syntax: '<length>';
-    inherits: false;
-    initial-value: 0px;
-}
-
 .lb-scroll-fade {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior-y: contain;
     scroll-padding-block: 16px;
-}
-
-@supports (animation-timeline: scroll(self block)) and (animation-range: 0px 16px) {
-    .lb-scroll-fade {
-        mask-image: linear-gradient(to bottom,
-            transparent, #000 var(--lb-scroll-fade-start),
-            #000 calc(100% - var(--lb-scroll-fade-end)), transparent);
-        animation: lb-scroll-fade-start linear both, lb-scroll-fade-end linear both;
-        animation-timeline: scroll(self block), scroll(self block);
-        animation-range: 0px 16px, calc(100% - 16px) 100%;
-    }
-}
-
-@keyframes lb-scroll-fade-start {
-    from { --lb-scroll-fade-start: 0px; }
-    to { --lb-scroll-fade-start: 16px; }
-}
-
-@keyframes lb-scroll-fade-end {
-    from { --lb-scroll-fade-end: 16px; }
-    to { --lb-scroll-fade-end: 0px; }
 }
 
 .overlay.lb-fullscreen:is(#settings-overlay, #tutorial-overlay) { overflow: hidden; }

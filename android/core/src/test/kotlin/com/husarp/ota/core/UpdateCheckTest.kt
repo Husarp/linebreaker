@@ -61,30 +61,31 @@ class UpdateCheckTest {
         assertEquals("signed" to 42, verifyUpdateCheck({ true }, { "signed" }, { 42 }))
     }
 
-    @Test fun gameAndNativeShareOneNoticeAcrossChecksAndLaunches() {
+    @Test fun gameAndNativeShareManualNoticesButNeverShowBackgroundFailures() {
         val gate = CheckNoticeGate()
         assertNull(gate.claim())
-        gate.failed(CheckChannel.WEB, CheckFailure.OFFLINE)
-        gate.failed(CheckChannel.SHELL, CheckFailure.UNREACHABLE)
+        gate.failed(CheckChannel.WEB, CheckFailure.OFFLINE, manual = false)
+        assertFalse(gate.hasPending())
+        gate.failed(CheckChannel.WEB, CheckFailure.OFFLINE, manual = true)
+        gate.failed(CheckChannel.SHELL, CheckFailure.UNREACHABLE, manual = true)
         assertTrue(gate.hasPending())
         assertEquals(CheckNotice(CheckChannel.WEB, CheckFailure.OFFLINE), gate.claim())
         gate.succeeded(CheckChannel.WEB)
-        gate.failed(CheckChannel.WEB, CheckFailure.MANIFEST)
+        gate.failed(CheckChannel.WEB, CheckFailure.MANIFEST, manual = false)
         assertFalse(gate.hasPending())
         assertNull(gate.claim())
-        val nextSession = CheckNoticeGate()
-        nextSession.failed(CheckChannel.WEB, CheckFailure.MANIFEST)
-        assertNotNull(nextSession.claim())
+        gate.failed(CheckChannel.WEB, CheckFailure.MANIFEST, manual = true)
+        assertNotNull(gate.claim())
     }
 
     @Test fun successOnlyClearsItsOwnPendingFailureWithoutSpendingTheNotice() {
         val gate = CheckNoticeGate()
-        gate.failed(CheckChannel.WEB, CheckFailure.OFFLINE)
-        gate.failed(CheckChannel.SHELL, CheckFailure.OFFLINE)
+        gate.failed(CheckChannel.WEB, CheckFailure.OFFLINE, manual = true)
+        gate.failed(CheckChannel.SHELL, CheckFailure.OFFLINE, manual = true)
         gate.succeeded(CheckChannel.WEB)
         gate.succeeded(CheckChannel.SHELL)
         assertNull(gate.claim())
-        gate.failed(CheckChannel.SHELL, CheckFailure.MANIFEST)
+        gate.failed(CheckChannel.SHELL, CheckFailure.MANIFEST, manual = true)
         gate.succeeded(CheckChannel.WEB)
         assertEquals(CheckNotice(CheckChannel.SHELL, CheckFailure.MANIFEST), gate.claim())
     }

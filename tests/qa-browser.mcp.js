@@ -442,6 +442,9 @@
                 if (await rewards.count() !== totalRewards || await rewardToggle.getAttribute('aria-expanded') !== 'true') {
                     fail('Pending rewards must expand in place');
                 }
+                if (!await rewards.last().evaluate(row => Boolean(row.compareDocumentPosition(document.querySelector('.ach-pending-toggle')) & Node.DOCUMENT_POSITION_FOLLOWING))) {
+                    fail('Expanded reward rows must precede the disclosure');
+                }
                 await rewardToggle.click();
                 await rewards.first().getByRole('button', { name: /Claim/ }).click();
                 await page.waitForFunction(total => document.querySelector('.ach-pending-toggle').textContent === `Show all (${total - 1})`, totalRewards);
@@ -695,7 +698,7 @@
                         const background = luminance([...canvas.getImageData(0, 0, 1, 1).data].slice(0, 3));
                         const ink = luminance(getComputedStyle(points).color.match(/[\d.]+/g).map(Number).slice(0, 3));
                         return patch.width === patch.height && card.querySelector('.mq-card-text').getBoundingClientRect().left > patch.right
-                            && art?.width === 40 && art.height === 40 && icon.naturalWidth > 0
+                            && art?.width === art.height && art.width >= 25 && icon.naturalWidth > 0
                             && /\/achievements\/ach-[a-z]+\.webp$/.test(icon.src)
                             && points.getBoundingClientRect().top >= art.bottom && /\+\d+ SP/.test(points.textContent)
                             && patchStyle.getPropertyValue('--mq-patch-dye').trim() === colors[card.dataset.tier]
@@ -703,6 +706,17 @@
                     });
                 });
                 if (!cardDesign) fail('Mission cards must use square difficulty patches, with the text beside them and SP below the icon');
+                const layout = await page.locator('#mq-mission-view').evaluate(screen => ({
+                    fits: screen.scrollHeight <= screen.clientHeight + 1,
+                    overflows: [...screen.querySelectorAll('.mq-card-action button')].filter(button => button.checkVisibility()).flatMap(button => {
+                        const action = button.getBoundingClientRect();
+                        const card = button.closest('.mq-card').getBoundingClientRect();
+                        return action.left >= card.left - 1 && action.right <= card.right + 1 && action.bottom <= card.bottom + 1 ? []
+                            : [{ action: action.toJSON(), card: card.toJSON() }];
+                    }),
+                }));
+                if (viewport.height >= 640 && layout.fits === false) fail('Missions must fit without vertical scrolling');
+                if (layout.overflows.length) fail(`Mission claim button overflows its card: ${JSON.stringify(layout.overflows)}`);
                 const markersAligned = await page.evaluate(() => {
                     const meter = document.querySelector('.mq-milestone-meter');
                     const track = meter.querySelector('progress').getBoundingClientRect();
@@ -744,7 +758,7 @@
             const before = Number.parseInt(await total.textContent(), 10);
             if (await reveal.count()) fail('Clicking crate art must not open a crate');
             await openMythic.click();
-            if (Number.parseInt(await total.textContent(), 10) !== before - 1) fail('Open must consume exactly one crate');
+            await page.waitForFunction(expected => Number.parseInt(document.querySelector('.lb43-locker-total').textContent, 10) === expected, before - 1);
             const auraFits = await reveal.locator('.lb43-crate-sprite').evaluate(sprite => {
                 const title = sprite.closest('.lb64-crate-panel').querySelector('h2').getBoundingClientRect();
                 const art = sprite.getBoundingClientRect();

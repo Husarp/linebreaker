@@ -142,7 +142,7 @@
     min-block-size: var(--sp-row-height);
     padding: 5px var(--lb-space-sm);
 }
-.sp-card[data-next] .sp-row { --bb-frame-edge: var(--lb-meter); }
+.sp-card:is([data-next], [data-state='claimed']) .sp-row { --bb-frame-edge: var(--lb-meter); }
 .sp-row h3 { grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--lb-ink); font: 700 .9375rem/1.25 var(--lb-font-body); }
 .sp-row > .sp-claim { width: auto; margin: 0; }
 .sp-reward-icon { object-fit: contain; }
@@ -153,7 +153,7 @@
 .sp-state summary::-webkit-details-marker { display: none; }
 .sp-state[open] { grid-column: 1 / -1; }
 .sp-state[open] summary { position: absolute; inset-block-start: 12px; inset-inline-end: var(--lb-space-sm); }
-.sp-row:has(.sp-state[open]) h3 { margin-inline-end: 44px; }
+.sp-row:has(.sp-state[open]) h3 { margin-inline-end: 72px; }
 .sp-state .lb-block-expand-body { color: var(--lb-muted); padding: var(--lb-space-xs) 0; font-size: var(--lb-type-small); }
 .sp-step {
     z-index: 1;
@@ -166,7 +166,7 @@
     color: var(--lb-label);
     font: 400 var(--lb-type-small)/1 var(--lb-font-heading);
 }
-.sp-card[data-next] .sp-step { border-color: var(--lb-meter); background: var(--lb-action); color: var(--lb-on-action); }
+.sp-card:is([data-next], [data-state='claimed']) .sp-step { border-color: var(--lb-meter); background: var(--lb-action); color: var(--lb-on-action); }
 .sp-card:not(:last-child)::before, .sp-card:not(:first-child)::after {
     content: '';
     position: absolute;

@@ -267,7 +267,9 @@ it('opens from missions, rechecks a stale claim, and awards the exclusive skin a
   const missionView = w.document.getElementById('mq-mission-view');
   const missionBoard = w.document.getElementById('missions-body').firstElementChild;
   missionView.scrollTop = 120;
-  await vi.waitFor(() => expect(seasonTab.querySelector('small').textContent).toBe('Stage 30 · Next reward at 8 SP'));
+  await vi.waitFor(() => expect(seasonTab.querySelector('small').textContent).toBe('Reward ready'));
+  expect(seasonTab.hasAttribute('data-ready')).toBe(true);
+  expect(seasonTab.querySelector('img').getAttribute('src')).toBe('assets/ui/crates/mythic.png');
   seasonTab.click();
   await vi.waitFor(() => expect(w.document.querySelectorAll('.sp-card[data-stage]')).toHaveLength(30));
   const overlay = w.document.getElementById('season-pass-overlay');

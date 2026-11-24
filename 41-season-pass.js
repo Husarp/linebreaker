@@ -123,6 +123,15 @@
         return { current, next };
     }
 
+    function claimableRewards(config, state, rarities, ownsExclusive = false) {
+        if (state.blocked) return { ready: false };
+        const stages = config.stages.filter(stage => stageStatus(stage, state) === 'claimable');
+        const bonus = bonusProgress(config, state).ready > 0;
+        const tiers = new Set(stages.map(stage => stage.tier === 'exclusive' && ownsExclusive ? 'legendary' : stage.tier));
+        if (bonus) tiers.add('rare');
+        return { ready: stages.length > 0 || bonus, crate: rarities.findLast(rarity => tiers.has(rarity)) };
+    }
+
     function bonusProgress({ bonusStart, bonusStep }, { season }) {
         const overflow = Math.max(0, season.points - bonusStart);
         const earned = Math.floor(overflow / bonusStep);
@@ -148,5 +157,5 @@
     }
 
     globalThis.LBSeason = { DAY, EPOCH, CLOCK_TOLERANCE, exclusiveSkin, emptySeason, timestamp, seasonWindow,
-        sanitizeSeason, seasonState, storeState, observe, creditMissionPoints, prepareConfig, stageStatus, summarizeTrack, bonusProgress, claimStage, claimBonus };
+        sanitizeSeason, seasonState, storeState, observe, creditMissionPoints, prepareConfig, stageStatus, summarizeTrack, claimableRewards, bonusProgress, claimStage, claimBonus };
 })();

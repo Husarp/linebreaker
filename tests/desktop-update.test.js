@@ -61,10 +61,11 @@ it('throttles automatic checks, allows manual checks, and remembers a dismissed 
   expect(restarted.select('.lb184-banner').hidden).toBe(true);
 });
 
-it('honors automatic-check opt-out and uses plain language for check failures', async () => {
+it('honors automatic-check opt-out and only announces manual check failures', async () => {
   const offline = () => { throw Error('Low-level network error'); };
   const automatic = await launch(offline);
-  expect(automatic.select('.lb184-banner [data-title]').textContent).toBe('Could not check for updates');
+  expect(checks(automatic.invoke)).toHaveLength(1);
+  expect(automatic.select('.lb184-banner').hidden).toBe(true);
   const manual = await launch(offline, 'off');
   manual.focus();
   await settle();

@@ -49,10 +49,8 @@ data class CheckNotice(val channel: CheckChannel, val failure: CheckFailure)
 
 class CheckNoticeGate {
     private val pending = linkedMapOf<CheckChannel, CheckFailure>()
-    private var shown = false
-
-    @Synchronized fun failed(channel: CheckChannel, failure: CheckFailure) {
-        if (!shown) pending[channel] = failure
+    @Synchronized fun failed(channel: CheckChannel, failure: CheckFailure, manual: Boolean) {
+        if (manual) pending[channel] = failure
     }
 
     @Synchronized fun succeeded(channel: CheckChannel) { pending.remove(channel) }
@@ -63,7 +61,6 @@ class CheckNoticeGate {
         val entry = pending.entries.firstOrNull() ?: return null
         val notice = CheckNotice(entry.key, entry.value)
         pending.clear()
-        shown = true
         return notice
     }
 }

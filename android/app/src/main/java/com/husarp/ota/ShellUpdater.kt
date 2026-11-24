@@ -113,7 +113,7 @@ class ShellUpdater(private val context: Context, private val engine: Engine,
                 prefs.edit().remove("session").apply(); installing=false
             }
             log("check started; installed versionCode ${BuildConfig.VERSION_CODE}")
-            val release = checks.fetchShell(Updater.SHELL_URL, transport) {
+            val release = checks.fetchShell(Updater.SHELL_URL, transport, manual) {
                 verifier.verifyShell(it.bytes,System.currentTimeMillis(),-1)
             }
             if (release == null) {

@@ -368,6 +368,7 @@
     function _animateOut(el, animClass, onDone) {
         closeInfo();
         if (!el || el.classList.contains('hidden')) { onDone && onDone(); return; }
+        if ([...el.classList].some(name => name.startsWith('anim-out-'))) return;
         el.classList.remove('anim-in-right', 'anim-in-left', 'anim-in-up', 'anim-in-down');
         el.classList.add(animClass);
         function _done(e) {
@@ -381,8 +382,7 @@
     }
     function _animateIn(el, animClass) {
         closeInfo();
-        if (!el) return;
-        el.classList.remove(animClass);
+        if (!el || el.classList.contains(animClass)) return;
         void el.offsetWidth;
         el.classList.add(animClass);
         function _done(e) {
@@ -475,10 +475,13 @@
     }
     [canvas, ...document.querySelectorAll('canvas[id*="next"][id$="canvas"], canvas[id*="hold"][id$="canvas"]')].forEach(cv => _sizeGameCanvas(cv,cv.width,cv.height));
     function _syncBadgeLoop() {
+        if (!document?.getElementById('menu-overlay')) return;
         if (document.hidden || !_rankBadgeVisible || document.getElementById('menu-overlay').classList.contains('hidden')) {
             if (badgeAnimFrame) cancelAnimationFrame(badgeAnimFrame);
             badgeAnimFrame=null;
-        } else drawRankBadge();
+            badgeGainAnimating = false;
+        } else if (gainedXPThisRound > 0) animateXPGain();
+        else drawRankBadge();
     }
     new MutationObserver(_syncBadgeLoop).observe(document.getElementById('menu-overlay'),{attributes:true,attributeFilter:['class']});
     document.addEventListener('visibilitychange',_syncBadgeLoop);
@@ -2823,6 +2826,104 @@
     }
 
     let pendingClaim = false;
+    const valueAnimations = new WeakMap();
+    const motionAllowed = () => !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    function animateValue(element, from, to, paint, duration = 380) {
+        if (!element) return;
+        const previous = valueAnimations.get(element);
+        if (previous?.target === to) return;
+        if (previous) cancelAnimationFrame(previous.frame);
+        const state = { value: previous?.value ?? from, target: to };
+        valueAnimations.set(element, state);
+        if (state.value == null || state.value === to || !motionAllowed()) {
+            state.value = to;
+            paint(to);
+            return;
+        }
+        const initial = state.value;
+        let start;
+        const step = time => {
+            if (valueAnimations.get(element) !== state) return;
+            start ??= time;
+            const progress = Math.min(1, (time - start) / duration);
+            state.value = initial + (to - initial) * (1 - (1 - progress) ** 3);
+            paint(state.value);
+            if (progress < 1 && element.isConnected) state.frame = requestAnimationFrame(step);
+        };
+        paint(initial);
+        state.frame = requestAnimationFrame(step);
+    }
+
+    function collapseRow(row, done) {
+        if (!motionAllowed() || !row.animate || !row.getBoundingClientRect().height) { done(); return; }
+        const height = row.getBoundingClientRect().height;
+        row.setAttribute('inert', '');
+        row.setAttribute('data-row-collapsing', '');
+        row.style.overflow = 'hidden';
+        const animation = row.animate([
+            { height: `${height}px`, opacity: 1 },
+            { height: '0px', opacity: 0, paddingBlock: 0, borderBlockWidth: 0, minHeight: 0 },
+        ], { duration: 230, easing: 'ease-in-out', fill: 'forwards' });
+        animation.finished.then(() => { animation.cancel(); done(); }, done);
+    }
+
+    window.LBMotion = { animateValue, collapseRow };
+
+    function stockNumberEntries(panel) {
+        return [...panel.querySelectorAll('[data-stock-value]')].map(element => {
+            const { stockFormat } = element.dataset;
+            const owner = element.closest(stockFormat === 'part' ? '[data-item-key]' : '[data-rarity]');
+            return [`${stockFormat}:${owner?.dataset.itemKey || owner?.dataset.rarity}`, element];
+        });
+    }
+
+    const stockNumbers = panel => new Map(stockNumberEntries(panel).map(([key, element]) =>
+        [key, Number(element.dataset.stockCurrent ?? element.dataset.stockValue)]));
+
+    function paintStockNumbers(panel, previous) {
+        for (const [key, element] of stockNumberEntries(panel)) {
+            const target = Number(element.dataset.stockValue);
+            const format = element.dataset.stockFormat;
+            animateValue(element, previous.get(key), target, current => {
+                element.dataset.stockCurrent = current;
+                const value = (Number.isInteger(target) ? Math.round(current) : current).toLocaleString('en-US', { maximumFractionDigits: 2 });
+                element.textContent = format === 'part' ? `${value}/${element.dataset.stockCost}` : format === 'booster' ? `×${value}` : `${value} owned`;
+                const progress = format === 'part' && element.closest('.lb-item-part-count').parentElement.querySelector('progress');
+                if (progress) progress.value = current;
+            });
+        }
+    }
+
+    const scrollTopButton = document.createElement('button');
+    scrollTopButton.type = 'button';
+    scrollTopButton.className = 'lb-block-btn lb-block-btn--icon lb-scroll-top';
+    scrollTopButton.setAttribute('aria-label', 'Scroll to top');
+    scrollTopButton.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 20V5m-6 6 6-6 6 6"/></svg>';
+    scrollTopButton.hidden = true;
+    let activeScroller;
+    let scrollToTopTarget;
+    document.addEventListener('scroll', ({ target }) => {
+        if (!(target instanceof HTMLElement) || !target.matches('.lb-scroll-fade')) return;
+        if (target.scrollTop > 120 && target !== activeScroller) {
+            activeScroller = target;
+            (target.closest('dialog, .overlay, [id$="-overlay"]') || document.body).append(scrollTopButton);
+        }
+        if (target === activeScroller) scrollTopButton.hidden = target.scrollTop <= 120 && target !== scrollToTopTarget;
+    }, true);
+    scrollTopButton.addEventListener('click', () => {
+        if (!activeScroller || scrollToTopTarget === activeScroller) return;
+        const target = activeScroller;
+        scrollToTopTarget = target;
+        animateValue(scrollTopButton, target.scrollTop, 0, value => {
+            target.scrollTop = value;
+            if (value === 0) {
+                scrollToTopTarget = null;
+                valueAnimations.delete(scrollTopButton);
+                if (target === activeScroller) scrollTopButton.hidden = true;
+            }
+        }, 270);
+    });
+
     function _claimAfterPaint(button, claim) {
         if (pendingClaim || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
         pendingClaim = true;
@@ -2948,7 +3049,7 @@
         return `<img class="lb-exchange-parts-icon" src="${item ? LBArtPack.itemPart(rarity) : LBArtPack.universalPart(rarity)}" width="28" height="28" alt="">`;
     }
     function _partPrice(value, cost, rarity) {
-        return `<span class="lb-item-part-count" role="img" aria-label="${value} of ${cost} parts">${_exchangePartsIcon(rarity, true)}${value}/${cost}</span>`;
+        return `<span class="lb-item-part-count" role="img" aria-label="${value} of ${cost} parts">${_exchangePartsIcon(rarity, true)}<span data-stock-value="${value}" data-stock-format="part" data-stock-cost="${cost}">${value}/${cost}</span></span>`;
     }
     function openUseUniversalPart(rarity = 'common') {
         if (!LBCrates.rarities.includes(rarity) || _universalBalance(rarity) < 1) return;
@@ -3017,11 +3118,11 @@
                     const maxAdd = Math.min(_avail(), cost - parts);
                     const pct = (parts / cost) * 100;
                     const cur = _inputVals[item.key] || 0;
-                    const name = escapeHtml(_getLabel(item));
+                    const name = parts ? escapeHtml(_getLabel(item)) : 'undiscovered item';
                     return `<div class="lb-block-card lb-exchange-row">
                         <div class="lb-exchange-row-art">${_exchangePartsIcon(rarity, true)}</div>
                         <div class="lb-exchange-row-detail">
-                            <strong>${name}</strong>
+                            <strong${parts ? '' : ' aria-label="Undiscovered item"'}>${parts ? name : '?'}</strong>
                             <div class="lb-exchange-row-meta lb-inventory-parts-allocation">
                                 <div class="lb-exchange-meter" aria-hidden="true">
                                     <div id="uni-bar-${item.key}" style="width:${pct}%"></div>
@@ -3306,13 +3407,12 @@
         return _rankRewards(from, newLevel);
     }
 
-    function _showPendingRankRewards(profile, afterCollect) {
+    function _showPendingRankRewards(profile) {
         const { from, through } = profile.pendingRankRewards;
         _showLevelUpRewardPopup(through, _rankRewards(from, through), () => {
             if (profile !== saveData || !profile.pendingRankRewards) return;
             const pending = profile.pendingRankRewards;
             profile.pendingRankRewards = null;
-            document.querySelectorAll('#go-earned-rewards [data-go-collect]').forEach(button => button.removeAttribute('data-go-collect'));
             for (const { type, key, rarity, amount } of _rankRewards(pending.from, pending.through)) {
                 if (type === 'crate') {
                     const stock = profile.storedCrates ??= [];
@@ -3323,7 +3423,6 @@
             saveDataToFile();
             if (!document.getElementById('inventory-overlay').classList.contains('hidden')) _populateInventoryOther();
             _checkGlowNotifications();
-            afterCollect?.();
         });
     }
 
@@ -3333,7 +3432,9 @@
         const profile = saveData;
         rankRewardTimer = setTimeout(() => {
             if (profile !== saveData || !profile.pendingRankRewards) return;
-            if (_gameInProgress || document.querySelector('.lb-reward-overlay:not(#level-up-popup-overlay), dialog[open]')) {
+            const top = LBGamepad.topOverlay();
+            if (!document.querySelector('#menu-overlay:not(.hidden):not([inert])') ||
+                document.querySelector('#go-overlay:not(.hidden), dialog[open]') || (top && top.id !== 'menu-overlay')) {
                 _scheduleRankRewards(500);
                 return;
             }
@@ -4114,6 +4215,7 @@
         const equipped = isOwned && isActive;
         const cost = !isOwned && itemKey ? _getItemCost(itemKey) : 0;
         const parts = Math.max(0, Number(partCount) || 0);
+        if (!isOwned && itemKey && !parts) return _undiscoveredInventoryCard('inv-row lb-inventory-card lb-inventory-item');
         const safeLabel = escapeHtml(label);
         const progress = cost > 0 ? `<div class="lb-inventory-progress">
             <progress class="lb-block-progress" aria-label="${safeLabel} parts" max="${cost}" value="${Math.min(parts, cost)}"></progress>
@@ -4134,9 +4236,14 @@
         </div>`;
     }
 
+    function _undiscoveredInventoryCard(className) {
+        return `<article class="lb-block-card ${className} lb-inventory-undiscovered" data-owned="false" data-equipped="false" data-ready="false" aria-label="Undiscovered item"><span aria-hidden="true">?</span></article>`;
+    }
+
     function _colorInventoryCard({ key, label, owned, equipped = false, preview = '', detail = '', equip = '', unlock = '' }) {
         const cost = !owned && unlock ? _getItemCost(key) : 0;
         const parts = Math.max(0, Math.min(cost, Number(saveData.parts?.[key]) || 0));
+        if (!owned && key && !parts) return _undiscoveredInventoryCard('lb-colors-card');
         const ready = cost > 0 && parts === cost;
         return `<article class="lb-block-card lb-colors-card"${key ? ` data-item-key="${key}"` : ''} data-owned="${owned}" data-equipped="${owned && equipped}" data-ready="${ready}"${equipped ? ' tabindex="-1"' : ''}>
             ${owned && !equipped && equip ? _inventoryEquipButton(label, equip) : ''}
@@ -4149,6 +4256,8 @@
     }
 
     function _populateVisualCustomize() {
+        const inventory = document.getElementById('inventory-overlay');
+        const previous = stockNumbers(inventory);
         function _positionTip(tip, e) {
             const mx = e.clientX, my = e.clientY;
             const tw = tip.offsetWidth || 120, th = tip.offsetHeight || 80;
@@ -4230,7 +4339,7 @@
                 const equipped = settings.theme === key;
                 const color = THEMES[key].primary;
                 return _colorInventoryCard({ key, label, owned, equipped,
-                    preview: `<div class="lb-inventory-theme-swatch"><span class="lb-colors-chip" aria-hidden="true" style="--swatch:${color}"></span>${owned ? `<button type="button" class="lb-block-btn lb-block-btn--icon" aria-label="Copy ${label} colour" onclick="window._copyColour(this,'${color}')"><span aria-hidden="true">${_SVG_COPY}</span></button>` : ''}</div>`,
+                    preview: `<div class="lb-inventory-theme-swatch"><span class="lb-colors-chip" aria-hidden="true" style="--swatch:${color}"></span></div>`,
                     equip: ['theme', key],
                     unlock: `window.playerUnlockItem('theme','${key}')` });
             }).join('');
@@ -4345,6 +4454,7 @@
         // Background toggle
 
         // Fonts: tied to style packs, not separately unlockable
+        paintStockNumbers(inventory, previous);
         applyInventoryFilter();
     }
     const BOOSTER_KEYS = ['1.25x_game', '1.5x_game', '2xp_game'];
@@ -4394,6 +4504,8 @@
     function _populateInventoryOther() {
         const container = document.getElementById('inventory-other-content');
         if (!container) return;
+        const inventory = document.getElementById('inventory-overlay');
+        const previous = stockNumbers(inventory);
         const boosterPanel = document.getElementById('inventory-boosters');
         const partsPanel = document.getElementById('inventory-parts');
         const boosters = saveData.boosters || {};
@@ -4407,16 +4519,25 @@
                 <span class="lb-collection-label">${category}</span>${help}<span class="lb-collection-label">Quantity</span>
             </div>`;
 
-        const activeTab = document.getElementById('inventory-overlay')._invTab;
+        const activeTab = inventory._invTab;
+        const depletedParts = activeTab === 'parts' ? [...partsPanel.querySelectorAll('.lb-inventory-parts:not([inert])')]
+            .filter(row => _universalBalance(row.dataset.rarity) <= 0) : [];
         const crates = saveData.storedCrates || [];
         const partTotal = LBCrates.rarities.reduce((total, rarity) => total + _universalBalance(rarity), 0);
         const stockTotals = { crates: crates.length, boosters: ownedBoosters, parts: Number(partTotal.toFixed(1)) };
         if (activeTab === 'crates') LBCrates.renderLocker(document.getElementById('inventory-crates'), crates, _openStoredCrates);
         if (Object.hasOwn(stockTotals, activeTab)) {
-            document.getElementById('inventory-quantity').textContent = `${stockTotals[activeTab].toLocaleString('en-US')} owned`;
+            const heading = document.getElementById('inventory-quantity');
+            const from = heading.dataset.stockTab === activeTab ? Number(heading.dataset.stockTotal) : null;
+            if (from == null) valueAnimations.delete(heading);
+            heading.dataset.stockTab = activeTab;
+            heading.dataset.stockTotal = stockTotals[activeTab];
+            animateValue(heading, from, stockTotals[activeTab], value => {
+                heading.textContent = `${Number(value.toFixed(activeTab === 'parts' ? 1 : 0)).toLocaleString()} owned`;
+            });
         }
         const eligibleRarities = new Set(_getPartsEligibleItems().map(({ key }) => _getItemRarity(key)));
-        const uniRows = LBCrates.rarities.map(rarity => {
+        const uniRows = LBCrates.rarities.filter(rarity => _universalBalance(rarity) > 0).map(rarity => {
             const count = _universalBalance(rarity);
             const nextRarity = _nextPartRarity(rarity);
             const name = LBCrates.universalPartName(rarity, 2);
@@ -4424,7 +4545,7 @@
             <div class="lb-exchange-row-art">${_exchangePartsIcon(rarity)}</div>
             <div class="lb-exchange-row-detail">
                 <strong>${name}</strong>
-                <span class="lb-collection-quantity">${count.toLocaleString('en-US')} owned</span>
+                <span class="lb-collection-quantity" data-stock-format="universal" data-stock-value="${count}">${count.toLocaleString('en-US')} owned</span>
             </div>
             <div class="lb-parts-actions">
                 <button type="button" class="lb-block-btn" data-use-parts="${rarity}" aria-label="Use ${name}" ${count < 1 || !eligibleRarities.has(rarity) ? 'disabled' : ''}>Use</button>
@@ -4441,7 +4562,7 @@
             return `<div class="lb-block-card lb-inventory-booster" data-rarity="${meta.rarity}" data-empty="${count === 0}">
                 <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(meta.rarity)}</div>
                 <div class="lb-inventory-booster-copy"><strong>${meta.label}</strong><span class="lb-exchange-rarity">${meta.rarity}</span></div>
-                <span class="lb-collection-quantity lb-ledger-tag">×${count}</span>
+                <span class="lb-collection-quantity lb-ledger-tag" data-stock-format="booster" data-stock-value="${count}">×${count}</span>
                 ${nextKey ? `<button type="button" class="lb-block-btn lb-block-btn--primary" aria-label="Exchange ${meta.label}" data-exchange-booster="${i}" ${count < 3 ? 'disabled' : ''}>Exchange</button>` : ''}
             </div>`;
         }).join('');
@@ -4467,7 +4588,18 @@
         }).join('');
 
         partsPanel.innerHTML = locker('Parts', 'Use parts on matching rarities, or trade 4 for 1 of the next rarity.', _exchangePartsIcon('common'),
-            '<button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" data-control-tip="About universal parts"></button>') + uniRows;
+            '<button type="button" class="lb-info-btn" data-help-section="boxes" aria-label="About universal parts" data-control-tip="About universal parts"></button>') + (uniRows || '<p class="lb-inventory-stock-empty">No universal parts in stock.</p>');
+        const stockEmpty = partsPanel.querySelector('.lb-inventory-stock-empty');
+        if (depletedParts.length && stockEmpty) stockEmpty.hidden = true;
+        for (const row of depletedParts) {
+            const next = [...partsPanel.querySelectorAll('.lb-inventory-parts')].find(part =>
+                LBCrates.rarities.indexOf(part.dataset.rarity) > LBCrates.rarities.indexOf(row.dataset.rarity));
+            partsPanel.insertBefore(row, next || stockEmpty || null);
+            collapseRow(row, () => {
+                row.remove();
+                if (stockEmpty && !partsPanel.querySelector('[data-row-collapsing]')) stockEmpty.hidden = false;
+            });
+        }
         boosterPanel.innerHTML = locker('Boosters', `${boosterTypes} ${boosterTypes === 1 ? 'type' : 'types'} in your collection`,
             LBArtPack.boosterIcon(BOOSTER_INFO[BOOSTER_KEYS.find(key => boosters[key] > 0) || BOOSTER_KEYS[0]].rarity),
             '<button type="button" class="lb-info-btn" data-help-section="boosters" aria-label="About boosters" data-control-tip="About boosters"></button>') +
@@ -4487,6 +4619,7 @@
         container.querySelectorAll('[data-sfx-preview]').forEach(preview => {
             preview.addEventListener('click', () => _openSfxPreviewPopup(preview.dataset.sfxPreview, preview));
         });
+        paintStockNumbers(inventory, previous);
         applyInventoryFilter();
     }
 
@@ -4582,36 +4715,43 @@
         // Achievements button glow when there are pending XP claims
         _checkAchGlow();
         // Missions button glow when unclaimed milestones or quest XP available
-        const _hasMissionReward = (() => {
-            if (!saveData.missions) return false;
-            try {
-                const dp = saveData.missions.daily?.pointsToday || 0;
-                const dClaimed = saveData.missions.daily?.claimedMilestones || [];
-                const hasD = MQ_DAILY_MILESTONES.some(ms => dp >= ms.pts && !dClaimed.includes(ms.pts));
-                const wp = saveData.missions.weekly?.points || 0;
-                const wClaimed = saveData.missions.weekly?.claimedMilestones || [];
-                const hasW = MQ_WEEKLY_MILESTONES.some(ms => wp >= ms.pts && !wClaimed.includes(ms.pts));
-                const hasNewVisit = saveData.missions.daily?.newVisit || saveData.missions.weekly?.newVisit;
-                const hasUnclaimedPts = (saveData.missions.daily?.quests?.some(q => q.completed && !q.ptsClaimed)) ||
-                    (saveData.missions.daily?.secret?.completed && !saveData.missions.daily?.secret?.ptsClaimed) ||
-                    (saveData.missions.weekly?.missions?.some(wm => wm.completed && !wm.ptsClaimed));
-                const hasPendingUniParts = (saveData.missions.weekly?.pendingUniversalParts || 0) > 0;
-                return hasD || hasW || hasNewVisit || hasUnclaimedPts || hasPendingUniParts;
-            } catch(e) { return false; }
-        })();
-        document.getElementById('btn-missions').toggleAttribute('data-ready', Boolean(_hasMissionReward));
+        _updateMissionReady(document.getElementById('btn-season-pass').hasAttribute('data-ready'));
+        void _seasonScreen.updatePreview();
+    }
+
+    function _updateMissionReady(seasonReady) {
+        const { daily, weekly } = saveData.missions || {};
+        const pendingQuest = quest => quest?.completed && !quest.ptsClaimed;
+        const dailyReady = MQ_DAILY_MILESTONES.some(({ pts }) => daily?.pointsToday >= pts && !daily.claimedMilestones?.includes(pts))
+            || daily?.quests?.some(pendingQuest) || pendingQuest(daily?.secret);
+        const weeklyReady = MQ_WEEKLY_MILESTONES.some(({ pts }) => weekly?.points >= pts && !weekly.claimedMilestones?.includes(pts))
+            || weekly?.missions?.some(pendingQuest) || weekly?.pendingUniversalParts > 0;
+        for (const [tab, ready] of Object.entries({ daily: dailyReady, weekly: weeklyReady })) {
+            const button = document.querySelector(`#missions-overlay [data-tab="${tab}"]`);
+            button.toggleAttribute('data-claimable', Boolean(ready));
+            if (ready) button.setAttribute('aria-description', 'Rewards ready');
+            else button.removeAttribute('aria-description');
+        }
+        document.getElementById('btn-missions').toggleAttribute('data-ready', Boolean(dailyReady || weeklyReady || seasonReady || daily?.newVisit || weekly?.newVisit));
     }
     function fillScreenAfterPaint(overlay, fill) {
         const request = {};
         overlay.screenFill = request;
-        return new Promise((resolve, reject) => requestAnimationFrame(() => requestAnimationFrame(() => {
-            setTimeout(() => {
+        return new Promise((resolve, reject) => {
+            let frame;
+            let paintTimer;
+            const finish = () => {
+                clearTimeout(fallback);
+                clearTimeout(paintTimer);
+                cancelAnimationFrame(frame);
                 if (overlay.screenFill !== request || overlay.classList.contains('hidden')) return resolve();
                 try { resolve(fill()); }
                 catch (error) { reject(error); }
                 finally { overlay.screenFill = null; }
-            }, 0);
-        })));
+            };
+            const fallback = setTimeout(finish, 150);
+            frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => { paintTimer = setTimeout(finish, 0); }); });
+        });
     }
 
     function hideMenuScreen(overlay) {
@@ -5167,14 +5307,18 @@
             } });
             trigger.setAttribute('aria-expanded', 'true');
             pinButton?.addEventListener('click', () => {
-                const index = pinIndex ?? _findScorePin(entry, Boolean(board));
+                const index = pinIndex == null ? _findScorePin(entry, Boolean(board)) : (saveData.pinnedScores?.indexOf(entry) ?? -1);
+                if (pinIndex != null && index < 0) return;
                 if (index === -1) pinScore(entry.score, entry.lines, entry.blocks, entry.time, entry.maxSpeed, entry.xp, 'from leaderboard', entry, Boolean(board));
                 else unpinScore(index);
                 if (pinIndex == null) updatePin();
                 else {
                     closeInfo(trigger);
-                    drawPinnedScores();
-                    if (!event.detail) (document.querySelector('#pinned-list .lb-row') || document.getElementById('stats-tab-pin')).focus({ preventScroll: true });
+                    collapseRow(trigger, () => {
+                        if (!trigger.isConnected) return;
+                        drawPinnedScores();
+                        if (!event.detail) (document.querySelector('#pinned-list .lb-row') || document.getElementById('stats-tab-pin')).focus({ preventScroll: true });
+                    });
                 }
             });
             panel.onkeydown = key => {
@@ -5549,27 +5693,16 @@
     }
 
     const achievementPrestige = {
-        score: [20000, 40000, 'Reach a score of {n}', run => run.score],
         games: [2000, 4000, 'Play {n} games'],
-        speed: [170, 200, 'Clear {n} lines in one Normal run', run => run.mode === 'normal' ? run.lines : 0, 'stats.bestNormalLines'],
-        survival: [780, 900, 'Survive for {n} minutes', run => run.time],
-        speed_placer: [125, 150, 'Place {n} pieces in 60 seconds', run => run.maxBlocksIn60s],
         total_blocks: [250000, 500000, 'Place {n} pieces total'],
         total_lines: [75000, 150000, 'Clear {n} lines total'],
-        speedrunner: [20, 15, 'Clear 10 lines in {n} seconds or less', run => run.speedrunner],
         quad_count: [500, 1000, 'Clear 4 lines at once {n} times total'],
-        combo_master: [13, 15, 'Reach combo ×{n}'],
-        high_placer: [400, 800, 'Place {n} pieces fully in the bottom half (one game)', run => run.highPlacer],
         booster_user: [48, 96, 'Use {n} score boosters'],
-        fun_score: [10000, 25000, 'Reach {n} score in Fun Mode', run => run.mode === 'fun' ? run.score : 0],
-        i_piece_lines: [20, 40, 'Clear {n} lines using I-pieces in one game', run => run.iPieceLines],
         daily_rare: [50, 80, 'Find {n} rare+ items in Daily Gift crates'],
         surgeon: [1000, 2000, 'Clear {n} single or double lines'],
-        daily_xp: [25000, 50000, 'Earn {n} raw XP in one day (from games only)'],
         music_listener: [200, 400, 'Listen to {n} music tracks'],
-        mirror_score: [5000, 10000, 'Score {n} in Mirror Mode', run => run.mode === 'normal' && run.mirror ? run.score : 0],
         fun_squared: [200, 400, 'Play {n} Fun games clearing at least 1 line each'],
-        collector: [150, 350, 'Earn Gold and find {n} rare+ items in Daily Gift crates', null, 'stats.rareItemsFromDailyBox'],
+        collector: [150, 350, 'Earn Gold and find {n} rare+ items in Daily Gift crates', 'stats.rareItemsFromDailyBox'],
         one_at_a_time: [1000, 2000, 'Clear {n} single lines'],
         spinner: [100000, 250000, 'Rotate {n} times'],
         mq_easy_quests: [80, 120, 'Complete {n} Easy quests (daily or weekly)'],
@@ -6212,16 +6345,12 @@
     ].map(ach => {
         const retained = LBSave.retainedAchievementTiers[ach.id];
         if (retained) ach.tiers = retained.map(tier => ach.tiers[tier - 1]);
-        if (ach.type === 'tiered') {
-            const [platinum, diamond, description, runValue, path = ach.counter.path] = achievementPrestige[ach.id];
+        if (ach.type === 'tiered' && Object.hasOwn(achievementPrestige, ach.id)) {
+            const [platinum, diamond, description, path = ach.counter.path] = achievementPrestige[ach.id];
             ach.tiers.push(...[platinum, diamond].map((target, index) => {
                 const name = `${ach.name} ${index === 0 ? 'Platinum' : 'Diamond'}`;
-                const desc = description.replace('{n}', (ach.id === 'survival' ? target / 60 : target).toLocaleString('en-US'));
-                const progress = { path, target };
-                return { name, desc, rarity: index === 0 ? 'legendary' : 'mythic', ...(runValue ? {
-                    progressDisplay: progress,
-                    check: run => ach.id === 'speedrunner' ? runValue(run) > 0 && runValue(run) <= target : runValue(run) >= target,
-                } : { progress }) };
+                const desc = description.replace('{n}', target.toLocaleString('en-US'));
+                return { name, desc, rarity: index === 0 ? 'legendary' : 'mythic', progress: { path, target } };
             }));
         }
         return { ...ach, svgIcon: achievementIcon(ach.id) };
@@ -6582,8 +6711,8 @@
         ['Bronze', '<circle cx="8" cy="8" r="5.2"/>'],
         ['Silver', '<path d="M8 1.6 14.4 8 8 14.4 1.6 8Z"/>'],
         ['Gold', '<path d="M8 1.4 13.7 4.7v6.6L8 14.6 2.3 11.3V4.7Z"/>'],
-        ['Platinum', '<path d="M5 1.5h6L14.5 5v6L11 14.5H5L1.5 11V5Z"/>'],
-        ['Diamond', '<path d="M8 1 11 5l4 3-4 3-3 4-3-4-4-3 4-3Z"/>'],
+        ['Platinum', '<path d="M8 .8C8.6 5.4 10.6 7.4 15.2 8 10.6 8.6 8.6 10.6 8 15.2 7.4 10.6 5.4 8.6.8 8 5.4 7.4 7.4 5.4 8 .8Z"/>'],
+        ['Diamond', '<path d="M8 .6 9.11 5.32 12.17 3.83 10.68 6.89 15.4 8 10.68 9.11 12.17 12.17 9.11 10.68 8 15.4 6.89 10.68 3.83 12.17 5.32 9.11 .6 8 5.32 6.89 3.83 3.83 6.89 5.32Z"/>'],
     ];
     function achievementTierShape(index, locked, extraClass = '') {
         const [name, shape] = achievementTiers[index];
@@ -6675,6 +6804,7 @@
                 claimBtn.textContent = 'Claim';
                 claimBtn.setAttribute('aria-label', `Claim ${name}`);
                 claimBtn.addEventListener('click', () => _claimAfterPaint(claimBtn, () => {
+                    if (claimsContainer.hasAttribute('data-collapsing')) return;
                     const idx = saveData.pendingAchievementClaims.indexOf(claim);
                     if (idx < 0) return;
                     saveData.pendingAchievementClaims.splice(idx, 1);
@@ -6683,7 +6813,10 @@
                             (saveData.storedCrates ??= []).push({ rarity: claim.crateRarity, source: 'achievement' });
                         }
                         _checkGlowNotifications();
-                    } else _grantXP(claim.xp);
+                    } else {
+                        _grantXP(claim.xp);
+                        gainedXPThisRound += claim.xp;
+                    }
                     playSFX('unlock');
                     const rect = claimBtn.getBoundingClientRect();
                     _spawnAchClaimFloat(rect.left + rect.width / 2, rect.top, rewardLabel, rc.color);
@@ -6691,12 +6824,17 @@
                     saveDataToFile();
                     drawRankBadge();
                     const restoreFocus = document.activeElement === claimBtn;
-                    renderAchievementsOverlay(overlay._achTab);
-                    if (restoreFocus) {
-                        const claimButtons = claimsContainer.querySelectorAll('.ach-pending-row button');
-                        const nextFocus = claimButtons[Math.min(index, claimButtons.length - 1)] || overlay.querySelector('.lb-block-back');
-                        nextFocus.focus({ preventScroll: true });
-                    }
+                    claimsContainer.setAttribute('data-collapsing', '');
+                    collapseRow(card, () => {
+                        claimsContainer.removeAttribute('data-collapsing');
+                        if (!card.isConnected) return;
+                        renderAchievementsOverlay(overlay._achTab);
+                        if (restoreFocus) {
+                            const claimButtons = claimsContainer.querySelectorAll('.ach-pending-row button');
+                            const nextFocus = claimButtons[Math.min(index, claimButtons.length - 1)] || overlay.querySelector('.lb-block-back');
+                            nextFocus.focus({ preventScroll: true });
+                        }
+                    });
                 }));
                 card.innerHTML = achievementRegisterArt(claim.id, 'ach-claim-icon') + nameHtml;
                 card.appendChild(claimBtn);
@@ -6713,12 +6851,13 @@
                 toggle.setAttribute('aria-expanded', String(achievementRewardsExpanded));
                 toggle.setAttribute('aria-controls', extraRewards.id);
                 toggle.addEventListener('click', () => {
+                    if (claimsContainer.hasAttribute('data-collapsing')) return;
                     achievementRewardsExpanded = !achievementRewardsExpanded;
                     renderAchievementsOverlay(overlay._achTab);
                     claimsContainer.querySelector('.ach-pending-toggle').focus({ preventScroll: true });
                 });
                 toggleRow.appendChild(toggle);
-                pendingSection.append(toggleRow, extraRewards);
+                pendingSection.append(extraRewards, toggleRow);
             }
             claimsContainer.appendChild(pendingSection);
         }
@@ -7139,23 +7278,20 @@
         const extent = r + 12;
         const size = extent * 2;
         const muted = _badgeTone(color, -.42);
-        const empty = _makeBadgeSprite(size, (ctx, scale) => {
+        const empty = _makeBadgeSprite(size, ctx => {
             _traceMiniShape(ctx, extent, extent, r, shape);
             ctx.fillStyle = '#181c20';
             ctx.fill();
             _traceMiniShape(ctx, extent, extent, r * _HALO_RIM_SCALE, shape);
-            ctx.strokeStyle = color;
+            ctx.strokeStyle = muted;
             ctx.lineWidth = 1.4;
-            ctx.shadowColor = color;
-            ctx.shadowBlur = 5 * scale;
             ctx.stroke();
-            ctx.shadowBlur = 0;
             _traceMiniShape(ctx, extent, extent, r * .68, shape);
             ctx.strokeStyle = _badgeTone(color, -.5);
             ctx.lineWidth = .8;
             ctx.stroke();
         });
-        const filled = _makeBadgeSprite(size, ctx => {
+        const filled = _makeBadgeSprite(size, (ctx, scale) => {
             _traceMiniShape(ctx, extent, extent, r, shape);
             const surface = ctx.createLinearGradient(extent - r, extent - r, extent - r * .5, extent + r);
             surface.addColorStop(0, muted);
@@ -7166,7 +7302,10 @@
             _traceMiniShape(ctx, extent, extent, r * _HALO_RIM_SCALE, shape);
             ctx.strokeStyle = color;
             ctx.lineWidth = 4.2;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 4 * scale;
             ctx.stroke();
+            ctx.shadowBlur = 0;
             ctx.strokeStyle = _badgeTone(color, .69);
             ctx.lineWidth = .9;
             ctx.stroke();
@@ -7350,8 +7489,6 @@
 
             _celestiteHalo ??= _makeBadgeSprite(300, (halo, scale) => {
                 _traceCelestiteShield(halo);
-                halo.fillStyle = '#181c20';
-                halo.fill();
                 halo.strokeStyle = CELESTITE_RANK.c;
                 halo.lineWidth = 4.2;
                 halo.shadowColor = CELESTITE_RANK.c;
@@ -7360,8 +7497,17 @@
             });
             ctx.save();
             ctx.globalCompositeOperation = 'destination-over';
+            _traceCelestiteShield(ctx);
+            ctx.fillStyle = '#181c20';
+            ctx.fill();
+            ctx.restore();
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, fillTop, w, h - fillTop);
+            ctx.clip();
             ctx.drawImage(_celestiteHalo, 0, 0, w, h);
             ctx.restore();
+            _traceCelestiteShield(ctx);
             ctx.strokeStyle = gold;
             ctx.lineWidth = 2.5;
             ctx.stroke();
@@ -7462,6 +7608,7 @@
     }
 
     function drawRankBadge(overridePercent = null) {
+        if (badgeGainAnimating && overridePercent === null) return;
         if (badgeAnimFrame) cancelAnimationFrame(badgeAnimFrame);
         badgeAnimFrame = null;
 
@@ -7485,8 +7632,12 @@
         // Show pending level box if any
     }
 
+    let badgeGainAnimating = false;
     function animateXPGain() {
+        if (badgeGainAnimating) return;
         if (gainedXPThisRound <= 0) { drawRankBadge(); return; }
+        if (!motionAllowed()) { gainedXPThisRound = 0; _leveledUpThisGame = false; drawRankBadge(); return; }
+        badgeGainAnimating = true;
         if (badgeAnimFrame) cancelAnimationFrame(badgeAnimFrame);
 
         const startXP = saveData.totalXP - gainedXPThisRound;
@@ -7509,6 +7660,7 @@
                 badgeAnimFrame = requestAnimationFrame(anim);
             } else {
                 gainedXPThisRound = 0;
+                badgeGainAnimating = false;
                 if (_leveledUpThisGame) {
                     const _badge = document.getElementById('level-badge-container');
                     if (_badge) {
@@ -8461,12 +8613,12 @@
     let goRewardReturn;
     let goSeasonPoints = 0;
 
-    function goRewardButton(destination, label, collect = false) {
-        return `<button type="button" class="lb-block-btn lb-block-btn--icon" data-go-destination="${destination}"${collect ? ' data-go-collect' : ''} aria-label="${escapeHtml(label)}"><span class="lb-ledger-chevron" aria-hidden="true"></span></button>`;
+    function goRewardButton(destination, label) {
+        return `<button type="button" class="lb-block-btn lb-block-btn--icon" data-go-destination="${destination}" aria-label="${escapeHtml(label)}"><span class="lb-ledger-chevron" aria-hidden="true"></span></button>`;
     }
 
-    function appendGoReward({ label, amount, destination, place, icon, art, collect }) {
-        goEarned.insertAdjacentHTML('beforeend', `<div><dt>${art || `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#${icon}"/></svg>`}<span>${escapeHtml(label)}</span></dt><dd class="lb-ledger-tag">${escapeHtml(amount)}</dd><dd class="go-reward-target">${goRewardButton(destination, `View ${label} in ${place}`, collect)}</dd></div>`);
+    function appendGoReward({ label, amount, destination, place, icon, art }) {
+        goEarned.insertAdjacentHTML('beforeend', `<div><dt>${art || `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#${icon}"/></svg>`}<span>${escapeHtml(label)}</span></dt><dd class="lb-ledger-tag">${escapeHtml(amount)}</dd><dd class="go-reward-target">${goRewardButton(destination, `View ${label} in ${place}`)}</dd></div>`);
         goEarned.hidden = false;
         return goEarned.lastElementChild;
     }
@@ -8475,7 +8627,7 @@
         for (const { type, label, amount, rarity } of rewards) {
             const [destination, category] = { crate: ['crates', 'Crates'], universal_parts: ['parts', 'Parts'], booster: ['boosters', 'Boosters'] }[type];
             const art = type === 'booster' ? LBArtPack.boosterIcon(rarity) : type === 'universal_parts' ? _exchangePartsIcon(rarity) : '';
-            appendGoReward({ label, amount: `×${amount}`, destination, place: `Inventory, ${category}`, icon: 'lb-metric-box', art, collect: true });
+            appendGoReward({ label, amount: `×${amount}`, destination, place: `Inventory, ${category}`, icon: 'lb-metric-box', art });
         }
     }
 
@@ -8510,18 +8662,22 @@
     goResults.addEventListener('click', event => {
         const opener = event.target.closest('[data-go-destination]');
         if (!opener) return;
-        if (opener.hasAttribute('data-go-collect') && saveData.pendingRankRewards) {
-            clearTimeout(rankRewardTimer);
-            _showPendingRankRewards(saveData, () => openGoReward(opener));
-        } else openGoReward(opener);
+        openGoReward(opener);
     });
 
-    function _renderGoXP(xp, totalXP) {
-        const info = getLevelInfo(totalXP);
-        document.getElementById('go-total-xp').textContent = `+${xp.toLocaleString()} XP`;
-        document.getElementById('go-xp-progress').textContent = info.isCelestite
-            ? `${Math.floor(totalXP).toLocaleString()} total XP`
-            : `${Math.floor(info.currentXP).toLocaleString()} / ${info.neededXP.toLocaleString()} XP to next level`;
+    function _renderGoXP(xp, totalXP, previousXP = null) {
+        const earned = document.getElementById('go-total-xp');
+        const detail = document.getElementById('go-xp-progress');
+        if (previousXP == null) valueAnimations.delete(earned);
+        animateValue(earned, previousXP, xp, value => {
+            const shownXP = Math.round(value);
+            const shownTotal = totalXP - xp + shownXP;
+            const info = getLevelInfo(shownTotal);
+            earned.textContent = `+${shownXP.toLocaleString()} XP`;
+            detail.textContent = info.isCelestite
+                ? `${Math.floor(shownTotal).toLocaleString()} total XP`
+                : `${Math.floor(info.currentXP).toLocaleString()} / ${info.neededXP.toLocaleString()} XP to next level`;
+        });
     }
 
     function _renderGoStats(best, isRecord, funMode, xp, recordBonus = 0) {
@@ -8732,9 +8888,14 @@
         _grantXP(bonus);
         if (bonus > 0) _updateMissionProgress({ totalXP: bonus });
         checkProgressAchievements();
-        _renderGoXP(gainedXPThisRound, saveData.totalXP);
-        _renderGoBoostRow(gainedXPThisRound);
-        animateXPGain();
+        _renderGoXP(gainedXPThisRound, saveData.totalXP, originalXP);
+        collapseRow(document.getElementById('go-boost-row'), () => {
+            const row = document.getElementById('go-boost-row');
+            row.removeAttribute('inert');
+            row.removeAttribute('data-row-collapsing');
+            row.style.removeProperty('overflow');
+            _renderGoBoostRow(gainedXPThisRound);
+        });
         saveDataToFile();
     }
     function _renderGoBoostRow(xp) {
@@ -8898,19 +9059,20 @@
         resetGameToMenu();
     }
     function resetGameToMenu(){
-        if (_gameOverProtect) return;
+        if (_gameOverProtect || goResults.classList.contains('anim-out-down')) return;
         isGameOver = false; isPaused = true;
+        document.getElementById('app').classList.remove('active-game');
         startMusic('menu');
         const goOverlay = document.getElementById('go-overlay');
         _animateOut(goOverlay, 'anim-out-down', function() {
-            document.getElementById('app').classList.remove('active-game');
             const _menuEl = document.getElementById('menu-overlay');
             _menuEl.classList.remove('hidden');
             _animateIn(_menuEl, 'anim-in-left');
             refreshMenuUtilities();
+            animateXPGain();
+            _scheduleRankRewards(1800);
         });
         fadeMusic(1, 0.8);
-        animateXPGain();
         _checkAchGlow();
         _menuIdleStart = Date.now(); // reset afk timer
     }
@@ -9270,7 +9432,7 @@
         overlay.style.setProperty('--lb105-rank', rank.c);
         overlay.innerHTML = `<div class="lb105-level-panel lb-block-dialog">
             <header class="lb105-level-header">
-                <h2 id="lb105-level-title" class="lb-block-dialog-title">Rewards to collect</h2>
+                <h2 id="lb105-level-title" class="lb-block-dialog-title">You reached level ${level}</h2>
                 <div class="lb105-level-emblem">
                     <svg class="lb135-halo-emblem" viewBox="0 0 300 300" aria-hidden="true">
                         <defs>
@@ -10091,13 +10253,13 @@
         });
         if (isWeekly) {
             const pending = saveData.missions?.weekly?.pendingUniversalParts || 0;
-            const content = `<img class="mq-ms-crate${points <= goal && !pending ? ' mq-ms-crate--locked' : ''}" src="${LBArtPack.universalPart('common')}" alt=""><span aria-hidden="true">${goal}+</span>`;
+            const content = `<img class="mq-ms-crate${points <= goal && !pending ? ' mq-ms-crate--locked' : ''}" src="${LBArtPack.universalPart('common')}" alt=""><span class="mq-ms-amount" aria-hidden="true">${pending ? `+${pending.toLocaleString()}` : `${goal}+`}</span>`;
             const label = `${goal}+ points: earn +1 Common Universal Part per extra point`;
             markers.push(pending > 0
-                ? `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" style="--mq-stop:100%" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} ${LBCrates.universalPartName('common', pending)}">${content}<span class="mq-ms-claimed" aria-hidden="true">+${escapeHtml(pending)}</span></button>`
+                ? `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" style="--mq-stop:100%" onclick="window._claimWeeklyUniversalParts(false,this)" aria-label="Collect +${escapeHtml(pending)} ${LBCrates.universalPartName('common', pending)}">${content}</button>`
                 : `<span class="mq-ms-marker" role="img" style="--mq-stop:100%" aria-label="${label}" data-mqctip="${label}">${content}</span>`);
         }
-        return `<span class="mq-pb-points">${escapeHtml(points)} pts</span>
+        return `<span class="mq-pb-points" data-value="${escapeHtml(points)}">${escapeHtml(points)} pts</span>
         <div class="mq-milestone-meter">
             <progress class="lb-block-progress" aria-label="Crate milestone progress" aria-valuetext="${escapeHtml(points)} of ${goal} points"
                 max="${range}" value="${Math.min(range, Math.max(0, points - start))}"></progress>
@@ -10142,7 +10304,16 @@
         const quests = (weekly ? period.missions : period.quests) || [];
         const entries = !weekly && period.secret ? [...quests, period.secret] : quests;
         const milestones = el.querySelector('#mq-milestones');
+        const previousPoints = !opening && previousTab === tab ? milestones.querySelector('.mq-pb-points')?.dataset.value : null;
+        const previousFill = previousPoints != null ? milestones.querySelector('progress').value : null;
         milestones.innerHTML = _missionProgressBar(points, weekly ? MQ_WEEKLY_MILESTONES : MQ_DAILY_MILESTONES, period.claimedMilestones, weekly);
+        const pointsLabel = milestones.querySelector('.mq-pb-points');
+        const milestoneProgress = milestones.querySelector('progress');
+        animateValue(pointsLabel, previousPoints == null ? null : Number(previousPoints), points, value => {
+            pointsLabel.dataset.value = value;
+            pointsLabel.textContent = `${Math.round(value).toLocaleString()} pts`;
+        });
+        animateValue(milestoneProgress, previousFill, milestoneProgress.value, value => { milestoneProgress.value = value; });
         el.querySelector('#mq-board-period').textContent = weekly ? 'Weekly objectives' : 'Daily objectives';
         el.querySelector('#mq-list-meta').textContent = `${entries.filter(quest => quest.completed).length} / ${entries.length} complete`;
         const swap = el.querySelector('#mq-change-toggle');
@@ -10247,6 +10418,7 @@
         save: saveDataToFile,
         claimAfterPaint: _claimAfterPaint,
         onNavigate: closeInfo,
+        onReady: _updateMissionReady,
         partName: _partItemName,
         boosterName: key => BOOSTER_INFO[key]?.label || key,
         grantSkin: key => giveItemDirectly('skin', key),

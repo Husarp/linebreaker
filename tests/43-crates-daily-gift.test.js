@@ -245,7 +245,7 @@ it('merges pending level-ups across reload and opens stored rank crates only thr
   api.applyLoadedData(pending);
   advance(2500);
   const popup = document.querySelector('#level-up-popup-overlay');
-  expect(popup.querySelector('h2').textContent).toBe('Rewards to collect');
+  expect(popup.querySelector('h2').textContent).toBe('You reached level 12');
   expect(popup.querySelector('.lb105-level-value').textContent).toBe('Level 12');
   const quantities = [...popup.querySelectorAll('.lb-block-reward')].map(row => [row.querySelector('strong').textContent, row.querySelector('.lb-block-reward-amount').textContent]);
   expect(quantities).toEqual([['Common crate', '×8'], ['Rare crate', '×3'], ['Epic crate', '×1'], ['Rare Universal Part', '×3'], ['1.5x Score Booster', '×1']]);
@@ -285,8 +285,8 @@ it('merges pending level-ups across reload and opens stored rank crates only thr
   expect(api.save.stats.rareItemsFromDailyBox).toBe(0);
   expect(document.querySelector('.lb43-locker-total').textContent).toBe('0 stored');
   const emptyCards = [...document.querySelectorAll('.lb43-locker-list [data-empty="true"]')];
-  expect(emptyCards).toHaveLength(5);
-  expect(emptyCards.every(card => card.querySelector('.lb43-locker-count').textContent === '×0' && card.querySelector('button').disabled)).toBe(true);
+  expect(emptyCards).toHaveLength(0);
+  expect(document.querySelector('.lb43-locker-list').textContent).toBe('No crates in stock.');
 });
 
 it('opens daily and weekly milestones on the spot with three tiers each and never creates a stored crate', async () => {

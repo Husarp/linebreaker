@@ -267,7 +267,7 @@ class Updater(private val context: Context, val engine: Engine, private val veri
                 val sigStart = System.nanoTime()
                 val waiting = if (manual) null else eligibleWaiting()
                 val (downloaded, m) = if (waiting != null) waiting to verifier.verify(waiting.bytes, System.currentTimeMillis())
-                else checks.fetch(CheckChannel.WEB, url, transport) { verifier.verify(it.bytes, System.currentTimeMillis()) }
+                else checks.fetch(CheckChannel.WEB, url, transport, manual) { verifier.verify(it.bytes, System.currentTimeMillis()) }
                 engine.log.add("Signature OK (Ed25519); expiry/release/file inventory OK", (System.nanoTime()-sigStart)/1_000_000)
                 if (compareVersions(m.version, engine.snapshot().current) > 0)
                     engine.dates.record("web", m.version, m.releasedAt, available = true)

@@ -16,7 +16,7 @@ it('draws static inventory previews only when they enter the observation range',
       disconnect() { this.targets.clear(); }
     };
   });
-  game.api.setup();
+  game.api.setup({ save: { parts: { glass: 1 } } });
   game.w.openInventory();
   const preview = game.w.document.querySelector('#owned-skin-btns canvas[data-skin="glass"]');
   const deliver = isIntersecting => activeObserver.callback([{ target: preview, isIntersecting }], activeObserver);

@@ -95,7 +95,12 @@
     catch (error) { console.warn('Android update action failed:', error); message('Could not update', 'Try again from Settings → Updates.', [['Details', openShell]]); }
   };
   const openGitHub = () => ota.openReleases();
-  const check = () => run(() => ota.check());
+  let manualCheckUntil = 0;
+  const check = () => run(async () => {
+    await ota.claimCheckNotice({ token: state.token });
+    manualCheckUntil = Date.now() + 60_000;
+    await ota.check();
+  });
   const restart = () => guarded(() => ota.restart());
   const logField = diagnostics.querySelector('textarea');
   const reloadLog = async () => {
@@ -149,10 +154,10 @@
   const retry = makeButton('Check for updates', check);
   async function showCheckNotice(current) {
     if (!ready || document.hidden || !current.updateChecks?.noticePending) return;
-    const { message } = await bounded('Checking Android update notice', () => ota.claimCheckNotice({ token: current.token })).catch(() => ({}));
-    if (!message) return;
-    queueNotice('android-check', { key: `android-check:${++eventId}`, title: 'Could not check for updates',
-      text: 'Check your connection and try again.', actions: [['Retry', check], ['Details', () => checkHelp.showModal()]] });
+    const { message: failure } = await bounded('Checking Android update notice', () => ota.claimCheckNotice({ token: current.token })).catch(() => ({}));
+    if (!failure || Date.now() > manualCheckUntil) return;
+    manualCheckUntil = 0;
+    message('Could not check for updates', 'Check your connection and try again.', [['Retry', check], ['Details', () => checkHelp.showModal()]]);
   }
   let currentAction;
   let releaseInfo = [];

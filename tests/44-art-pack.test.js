@@ -174,6 +174,9 @@ it('uses the same scrolls in the inventory and for eligible game-over boosters',
     expect(result('go-boost-row').querySelector('[data-rarity="epic"]').getAttribute('onclick'))
       .toBe("window.useScoreBooster('2xp_game')");
     w.useScoreBooster('2xp_game');
+    expect(result('go-total-xp').textContent).toBe(`+${runXP} XP`);
+    advance(16);
+    advance(400);
     expect(result('go-total-xp').textContent).toBe(`+${2 * runXP} XP`);
     expect(result('go-xp-progress').textContent).toBe(`${2 * runXP} / 1,000 XP to next level`);
     expect(result('go-boost-row').hidden).toBe(true);

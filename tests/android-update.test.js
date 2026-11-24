@@ -95,7 +95,7 @@ it('acknowledges the actual bundle and native token only after save restoration 
   expect(game.window.resumeLinebreakerOtaWrites).toHaveBeenCalledOnce();
 });
 
-it('shows a plain-language check failure with retry and help after game readiness', async () => {
+it('suppresses background connection failures and shows retry and help after a manual check', async () => {
   const message = "Can't check for updates — connection blocked (firewall?)";
   const game = await boot({ native: { updateChecks: { noticePending: true, failed: true, summary: message } } });
   game.ota.claimCheckNotice.mockImplementationOnce(async () => {
@@ -107,17 +107,21 @@ it('shows a plain-language check failure with retry and help after game readines
   await game.ready();
   expect(game.ota.claimCheckNotice).toHaveBeenCalledWith({ token: 'session' });
   const notice = game.get('.lb184-banner');
+  expect(notice.hidden).toBe(true);
+  game.ota.check.mockImplementationOnce(async () => { game.state.updateChecks.noticePending = true; });
+  game.ota.claimCheckNotice.mockResolvedValueOnce({}).mockImplementationOnce(async () => {
+    game.state.updateChecks.noticePending = false;
+    return { message };
+  });
+  game.get('[data-section-actions] button').click();
+  await game.redraw();
+  expect(game.ota.check).toHaveBeenCalledOnce();
   expect(notice.hidden).toBe(false);
   expect(notice.querySelector('[data-title]').textContent).toBe('Could not check for updates');
   expect(notice.textContent).not.toContain('firewall');
   notice.querySelector('[data-actions] button:nth-child(2)').click();
   expect(game.get('dialog[aria-label="Update check help"]').open).toBe(true);
   game.get('dialog[aria-label="Update check help"] [data-close]').click();
-  game.get('[data-section-actions] button').click();
-  await game.redraw();
-  expect(game.ota.check).toHaveBeenCalledOnce();
-  expect(game.ota.claimCheckNotice).toHaveBeenCalledOnce();
-  expect(notice.hidden).toBe(true);
   expect(game.get('.lb149-settings [data-status]').textContent).toBe('Could not check for updates');
   expect(game.get('.lb149-settings details')).toBeNull();
   expect(game.get('[data-policy] input')).not.toBeNull();
@@ -207,6 +211,7 @@ it('exposes Android policy and shell actions directly in the Updates section', a
   expect(game.ota.setUpdateSettings).toHaveBeenLastCalledWith({ mobileLimitMb: 0 });
   expect(mobile.getAttribute('aria-pressed')).toBe('true');
   game.click('Check for updates');
+  await flush();
   expect(game.ota.check).toHaveBeenCalledOnce();
   game.click('Open app shell');
   expect(game.get('dialog[open]').getAttribute('aria-label')).toBe('Update logs');

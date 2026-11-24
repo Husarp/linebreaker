@@ -242,7 +242,7 @@ describe('achievement screen', () => {
     expect(tip.querySelectorAll('progress')).toHaveLength(1);
     expect(tip.querySelector('progress').position).toBe(0.4);
     expect([...tip.querySelectorAll('svg[data-locked="true"]')].map(shape => shape.getAttribute('aria-label')))
-      .toEqual(['Silver locked', 'Gold locked', 'Platinum locked', 'Diamond locked']);
+      .toEqual(['Silver locked', 'Gold locked']);
     expect(tip.querySelector('svg[data-tier="bronze"] circle').getAttribute('r')).toBe('5.2');
     score().click();
     expect(tip.hidden).toBe(true);
@@ -341,6 +341,7 @@ describe('achievement screen', () => {
     expect(toggle().textContent).toBe('Show less');
     expect(toggle().getAttribute('aria-expanded')).toBe('true');
     expect(query(`#${toggle().getAttribute('aria-controls')}`).hidden).toBe(false);
+    expect(rows().at(-1).compareDocumentPosition(toggle()) & game.w.Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const claim = rows()[4].querySelector('button');
     claim.focus();
     claim.click();
@@ -425,20 +426,20 @@ describe('achievement screen', () => {
     expect(api.save.pendingAchievementClaims.some(reward => reward.id === 'games' && reward.tierNum === 5)).toBe(false);
   });
 
-  it('uses prior Normal run lines above the speed cap and never counts the Fun leaderboard', () => {
+  it('caps the speed achievement at Gold regardless of past Normal or Fun records', () => {
     const { api } = game;
     api.setup({ save: { achievements: { speed: { tier: 3 } }, leaderboard: [{ lines: 170 }], funLeaderboard: [{ lines: 200 }] } });
     api.checkAchievementsOnLoad();
-    expect(api.save.achievements.speed.tier).toBe(4);
+    expect(api.save.achievements.speed.tier).toBe(3);
     api.setSave({ ...api.save, stats: { ...api.save.stats, bestNormalLines: 200 } });
     api.checkAchievementsOnLoad();
-    expect(api.save.achievements.speed.tier).toBe(5);
+    expect(api.save.achievements.speed.tier).toBe(3);
   });
 
-  it('recognizes prestige score thresholds from an existing leaderboard', () => {
+  it('does not grant prestige tiers for single-run scores', () => {
     const { api } = game;
     api.setup({ save: { achievements: { score: { tier: 3 } }, leaderboard: [{ score: 20000 }] } });
     api.checkAchievementsOnLoad();
-    expect(api.save.achievements.score.tier).toBe(4);
+    expect(api.save.achievements.score.tier).toBe(3);
   });
 });

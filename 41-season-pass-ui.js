@@ -1,5 +1,5 @@
 (() => {
-    const { DAY, observe, claimStage, claimBonus, bonusProgress, storeState, stageStatus, prepareConfig, seasonState, seasonWindow, summarizeTrack, exclusiveSkin } = window.LBSeason;
+    const { DAY, observe, claimStage, claimBonus, claimableRewards, bonusProgress, storeState, stageStatus, prepareConfig, seasonState, seasonWindow, summarizeTrack, exclusiveSkin } = window.LBSeason;
     const title = value => value[0].toUpperCase() + value.slice(1);
     const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
     const clockDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -20,7 +20,7 @@
         return `${Math.floor(remaining / hour)} h ${Math.floor(remaining % hour / minute)} m left`;
     }
 
-    function mount({ getSave, save, partName, boosterName, grantCrate, grantSkin, claimAfterPaint, onNavigate }) {
+    function mount({ getSave, save, partName, boosterName, grantCrate, grantSkin, claimAfterPaint, onNavigate, onReady }) {
         const screen = document.getElementById('season-pass-overlay');
         const back = document.getElementById('mq-back');
         const seasonDay = document.getElementById('sp-day');
@@ -79,6 +79,8 @@
         const announcement = find('#sp-announcement');
         const missionDate = document.getElementById('mq-season-date');
         const missionStage = document.getElementById('mq-season-stage');
+        const missionCard = document.getElementById('btn-season-pass');
+        const missionCrate = missionCard.querySelector('img');
         let config, configRequest, timer, previous, saveCheckpoint, returnTo;
         const isOpen = () => !screen.hidden;
 
@@ -88,11 +90,17 @@
             missionDate.textContent = id ? `Season ${String(id).padStart(2, '0')} · Day ${day} of ${days}` : 'Season Calendar';
             await loadConfig();
             if (!config) return;
-            const state = seasonState(getSave(), now);
+            const profile = getSave();
+            const state = seasonState(profile, Date.now());
             const { current, next } = summarizeTrack(config.stages, state);
             const stage = current ? `Stage ${stageNumber(current.number)}` : '';
             const requirement = next ? `Next reward at ${points.format(next.points)} SP` : `Bonus chest every ${points.format(config.bonusStep)} SP`;
-            missionStage.textContent = stage ? `${stage} · ${requirement}` : requirement;
+            const { ready, crate } = claimableRewards(config, state, window.LBCrates.rarities, profile.ownedSkins?.includes(exclusiveSkin.key));
+            missionStage.textContent = ready ? 'Reward ready' : stage ? `${stage} · ${requirement}` : requirement;
+            missionCard.toggleAttribute('data-ready', ready);
+            missionCrate.hidden = !crate;
+            if (crate) missionCrate.setAttribute('src', `assets/ui/crates/${crate}.png`);
+            onReady(ready);
         }
 
         function rewardLabel(reward) {
@@ -210,7 +218,7 @@
                     details.className = 'sp-state lb-block-expand';
                     details.open = openDetails.has(String(number));
                     const label = claimed ? `Stage ${number} claimed: Show reward` : `Stage ${number}: ${requirement}`;
-                    details.innerHTML = `<summary class="lb-ledger-tag" aria-label="${label}">${icon(claimed ? 'lb-reward-check' : 'play-icon-lock')}</summary>
+                    details.innerHTML = `<summary class="lb-ledger-tag" aria-label="${label}">${claimed ? 'Claimed' : 'Details'}</summary>
                         <p class="lb-block-expand-body${claimed ? ' sp-receipt' : ''}"></p>`;
                     details.querySelector('p').textContent = claimed ? rewardLabel(season.claimed[number]) : requirement;
                     row.append(details);
@@ -353,6 +361,7 @@
                     announcement.textContent = `${label} claimed: ${rewardLabel(result.reward)}`;
                 }
                 refresh(true);
+                void updatePreview();
             });
         });
         return { open, close, isOpen, updatePreview };

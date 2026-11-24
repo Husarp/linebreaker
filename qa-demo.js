@@ -25,7 +25,7 @@
             ownedThemes: ['ocean', 'forest', 'fire', 'dragon', 'void', 'sunset', 'arctic', 'midnight', 'sakura'],
             ownedSfxPacks: ['default', 'retro'],
             ownedPalettes: ['classic', 'greyscale', 'ice', 'pastel', 'dark', 'synthwave', 'earth', 'neon'],
-            parts: { 'aztec-gold': 12, bubble: 4, 'carved-stone': 7 },
+            parts: { 'aztec-gold': 12, bubble: 4, 'carved-stone': 7, outline: 1, sfxCyber: 1 },
             universalParts: { common: 13, rare: 6, epic: 4, legendary: 2, mythic: 1 },
             boosters: { '1.25x_game': 4, '1.5x_game': 2, '2xp_game': 1 },
             ghostColorUnlocked: true,

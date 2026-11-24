@@ -174,7 +174,7 @@ it('persists the effect setting and describes custom effects on inventory cards'
   expect(JSON.parse(window.localStorage.getItem('linebreaker_settings')).lineClearEffect).toBe('skin');
   window.openSettings();
   expect(setting.value).toBe('skin');
-  game.api.setup({ save: { ownedSkins: ['retro', seasonSkin] } });
+  game.api.setup({ save: { ownedSkins: ['retro', seasonSkin], parts: Object.fromEntries(Object.keys(skinNames).map(skin => [skin, 1])) } });
   window.openInventory();
   for (const [skin, name] of Object.entries(skinNames)) {
     const detail = window.document.querySelector(`[data-item-key="${skin}"] .lb-inventory-detail`);
