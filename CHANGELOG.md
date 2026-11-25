@@ -1,17 +1,10 @@
-## [1.4.4]
+## [1.4.4] [2026-11-25] Easier reward claims, clearer lists, and a new look
 
-- Claim ready achievement tiers in their rows. A brief message confirms the reward, and crates go to Inventory.
-- Undiscovered collectibles share one silhouette. Linebreaker has a new crest logo and Block L app icon.
-- Daily and weekly objectives no longer include T-spins. Existing T-spin objectives are replaced, and the T-spin Triple achievement stays.
-
-- Ready steps glow in Daily and Weekly Missions, and the selected objective has a larger Claim button. New voxel icons distinguish clear types, speed, combos, XP and more.
-- The Player Rank XP bar has a metallic finish in the current rank’s colour.
-- Select Mode uses side-by-side Normal and Fun cards. Normal shows its score multiplier above Start and Cancel.
-
-- Run results now scroll with their wallpaper. Scrollable panels fade only where there is more to see, and long lists offer a scroll-to-top shortcut clear of the scrollbar.
-- The Daily Gift appears over the top of the logo frame. Crate rewards appear in sequence, and visiting the Crates tab clears the new-crate indicator.
-- Weekly mission claims survive a quick objective change. Mission and achievement requirements use clearer wording, and collected milestone chests show a check mark under the reward.
-- Season Pass uses the shared back button. Inventory hides unavailable actions, and Stats improves ranked rows, podium scores, and crate cards.
+- Daily and Weekly Missions use new icons and clearer objective wording. Ready steps glow, the Claim button is larger, and weekly rewards can be claimed after switching objectives. Collected milestone chests show a check mark below the reward, and single rewards are centered. T-spin objectives have been replaced, and the T-spin Triple achievement is still available.
+- Claim achievement rewards directly in their rows. A brief message confirms each claim, and earned crates go to Inventory. Undiscovered collectibles share a silhouette until you find them. Inventory hides actions you can’t use yet.
+- The menu has a new crest, a Block L app icon, and a rank-colored metallic XP bar. The Daily Gift appears at the top of the logo frame. Crate rewards reveal one at a time, and opening the Crates tab clears the new-crate highlight even if you save the crate for later.
+- Select Mode shows Normal and Fun side by side, with the Normal score multiplier above Start. Stats has clearer ranked rows and podium scores, plus larger crate artwork. Season Pass uses the same Back button as other screens.
+- Headers stay fully visible on small phones. The dark bands are gone, and list items fade at the bottom only while there’s more to scroll. The jump-to-top button stays clear of controls on long lists, and the run summary wallpaper scrolls with the results.
 
 ## [1.4.3] [2026-11-24] Clearer Missions, Daily Gifts, and run results
 
