@@ -1,5 +1,9 @@
 ## [1.4.4]
 
+- Ready steps glow in Daily and Weekly Missions, and the selected objective has a larger Claim button. New voxel icons distinguish clear types, speed, combos, XP and more.
+- The Player Rank XP bar has a metallic finish in the current rank’s colour.
+- Select Mode uses side-by-side Normal and Fun cards. Normal shows its score multiplier above Start and Cancel.
+
 - Run results now scroll with their wallpaper. Scrollable panels fade only where there is more to see, and long lists offer a scroll-to-top shortcut clear of the scrollbar.
 - The Daily Gift appears over the top of the logo frame. Crate rewards appear in sequence, and visiting the Crates tab clears the new-crate indicator.
 - Weekly mission claims survive a quick objective change. Mission and achievement requirements use clearer wording, and collected milestone chests show a check mark under the reward.

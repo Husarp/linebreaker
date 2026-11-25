@@ -24,6 +24,8 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
   const steps = () => [...document.querySelectorAll('.mq-focus-step')];
   const active = () => steps().find(step => step.getAttribute('aria-pressed') === 'true');
   expect(card().dataset.missionSlot).toBe('0');
+  expect(card().dataset.state).toBe('Ready to claim');
+  expect(active().dataset.state).toBe('Ready to claim');
   expect(card().querySelector('img').getAttribute('src')).toBe(game.w.LBMissionArt.forMetric(mission.metric));
   expect(card().querySelector('small').textContent).toBe(`+${mission.pts} SP`);
   expect(card().querySelector('strong').textContent.split(' / ')[0]).toBe(card().querySelector('strong').textContent.split(' / ')[1]);
@@ -49,6 +51,7 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
   expect(api.save.missions[tab][list][0].ptsClaimed).toBe(true);
   expect(card().querySelector('.mq-pts-claim-btn')).toBeNull();
   expect(card().dataset.missionSlot).toBe('0');
+  expect(card().dataset.state).toBe('Claimed');
   expect(card().querySelector('.mq-focus-readout').textContent).toContain('Claimed');
   expect(active().dataset.step).toBe(index);
   expect(active().querySelector('span').textContent).toBe('Done');

@@ -775,10 +775,13 @@
 }
 #menu-overlay #menu-xp-detail { justify-self: end; text-align: end; font: inherit; }
 .lb-xp-fill {
+    --xp-rank-tone: var(--lb-rank-tone, var(--lb-meter));
     display: block;
     width: 0;
     height: 100%;
-    background: var(--lb-meter);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--xp-rank-tone), white 56%),
+        var(--xp-rank-tone) 35%, color-mix(in srgb, var(--xp-rank-tone), #352719 46%) 50%,
+        color-mix(in srgb, var(--xp-rank-tone), white 17%) 71%, var(--xp-rank-tone));
     clip-path: polygon(0 0, max(0px, calc(100% - 4px)) 0, 100% 50%, max(0px, calc(100% - 4px)) 100%, 0 100%);
     transition: width .2s ease;
 }

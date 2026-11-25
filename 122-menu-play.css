@@ -72,18 +72,6 @@
     background: var(--bb-panel) !important;
     opacity: 1;
 }
-@media (min-width: 800px) and (orientation: landscape) {
-    #mode-select-overlay .lb69-layout {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 380px) minmax(0, 1fr);
-    }
-    .lb69-layout > .lb69-panel { grid-column: 2; }
-    #play-score-panel { grid-column: 3; justify-self: start; width: 174px; }
-}
-@media (max-width: 799px), (orientation: portrait) {
-    #mode-select-overlay .lb69-layout { grid-template-columns: minmax(0, 380px); }
-    #play-score-panel { justify-self: center; width: 174px; }
-}
-
 #start-wordmark.lb122-logo {
     display: block;
     width: min(78vw, 640px);

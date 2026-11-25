@@ -5,6 +5,8 @@
     --mq-iron-edge: #647370;
     --mq-iron-ink: #f5eee1;
     --mq-iron-muted: #d6ded5;
+    --mq-ready-rim: #edc277;
+    --mq-ready-ink: var(--mq-ready-rim);
     z-index: 1004;
     flex-direction: column;
     align-items: stretch;
@@ -272,6 +274,25 @@
     --lb-control-face: var(--lb-panel);
     --lb-control-ink: var(--lb-ink);
     outline: 1px solid var(--lb-label);
+}
+[data-lb-ui-theme='light'] #missions-overlay { --mq-ready-ink: #735017; }
+.lb-game-root #missions-overlay .mq-focus-step[data-state='Ready to claim'] {
+    box-shadow: 0 0 9px #edc27760, inset 0 0 9px #edc27733 !important;
+}
+.lb-game-root #missions-overlay .mq-focus-step[data-state='Ready to claim'][aria-pressed='false'] {
+    --lb-control-edge: var(--mq-ready-rim);
+    --lb-control-ink: var(--mq-ready-ink);
+}
+.lb-game-root #missions-overlay .mq-focus-step[data-state='Ready to claim'][aria-pressed='false']:not(:focus-visible) {
+    outline: 1px solid var(--mq-ready-rim);
+}
+.lb-game-root #missions-overlay .mq-focus-step[data-state='Ready to claim']:focus-visible {
+    outline: var(--focus-width) solid var(--lb-focus);
+}
+.mq-focus-card[data-state='Ready to claim'] .mq-focus-readout span { color: var(--mq-ready-ink); }
+#missions-overlay .mq-focus-reward .mq-pts-claim-btn {
+    min-width: 128px;
+    text-transform: uppercase;
 }
 .mq-focus-step > span { white-space: nowrap; }
 .mq-focus-step img { width: 26px; height: 26px; object-fit: contain; }

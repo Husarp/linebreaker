@@ -7723,8 +7723,7 @@
     function renderMenuRank(info, percent, totalXP) {
         const name = document.getElementById('badge-rank-name');
         name.textContent = info.isCelestite ? 'Celestite' : _rewardRankIdentity(info.level).name;
-        name.style.setProperty('--lb-rank-tone', info.rank.c);
-        document.getElementById('level-badge-container').style.setProperty('--lb-rank-tone', info.rank.c);
+        document.getElementById('btn-player-rank').style.setProperty('--lb-rank-tone', info.rank.c);
         document.getElementById('badge-level-num').textContent = `Level ${info.level.toLocaleString()}`;
         document.getElementById('menu-xp-detail').textContent = info.isCelestite
             ? `${Math.floor(totalXP).toLocaleString()} total XP`
@@ -10387,7 +10386,7 @@
                 ${step.art}<span>${caption}</span></button>`;
         }).join('');
         body.innerHTML = `<div class="mq-focus-deck">
-            <article class="mq-focus-card lb-block-card" data-mission-slot="${slot}">
+            <article class="mq-focus-card lb-block-card" data-state="${state}" data-mission-slot="${slot}">
                 ${art}
                 <div class="mq-focus-copy"><h3>${escapeHtml(title)}</h3><p>${hidden ? 'Complete to reveal…' : escapeHtml(focused.desc)}</p></div>
                 <div class="mq-focus-foot">
@@ -11069,7 +11068,7 @@
                 row.disabled = true;
                 row.className = 'lb69-modifier lb69-locked-row lb-block-btn lb-block-btn--locked';
                 row.dataset.playModifier = key;
-                row.innerHTML = `<strong>${name}</strong><span class="lb69-lock lb-unlock-requirement">${playIcon('lock')}<span>${rankUnlockText(`Unlocks at ${rank}`)}</span></span>`;
+                row.innerHTML = `${playIcon(icon)}<strong>${name}</strong><span class="lb69-lock lb-unlock-requirement">${playIcon('lock')}<span>${rankUnlockText(`Unlocks at ${rank}`)}</span></span>`;
                 return row;
             }
             const row = document.createElement('label');

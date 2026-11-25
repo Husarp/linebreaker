@@ -32,7 +32,7 @@ it('keeps locked modifiers off and unlocks each at its previous rank', async () 
         expect(row.disabled).toBe(true);
         expect(row.textContent).toContain(`Unlocks at ${rank}`);
         expect(row.querySelector('.lb-rank-unlock-name').style.getPropertyValue('--rank-unlock-color')).toBe(colour);
-        expect(row.querySelector('use').getAttribute('href')).toBe('#play-icon-lock');
+        expect(row.querySelector('.lb69-lock use').getAttribute('href')).toBe('#play-icon-lock');
         row.click();
         expect(savedSettings()[key]).toBe(false);
     }
@@ -99,7 +99,8 @@ it('keeps Start and Cancel between the mode cards and the options in both modes'
         mode(name).click();
         expect([...get('mode-select-overlay').querySelectorAll('.lb69-mode[aria-pressed="true"]')]).toEqual([mode(name)]);
         expect(get('play-score-panel').hidden).toBe(name === 'fun');
-        expect(follows(mode('fun'), get('play-start'))).toBe(true);
+        expect(follows(mode('fun'), get('play-score-panel'))).toBe(true);
+        expect(follows(get('play-score-panel'), get('play-start'))).toBe(true);
         expect(follows(get('play-start'), get('play-back'))).toBe(true);
         expect(follows(get('play-back'), get('mode-options-panel'))).toBe(true);
         expect(follows(get('mode-options-panel'), get('fun-mode-config'))).toBe(true);

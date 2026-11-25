@@ -201,6 +201,15 @@ it.each([
   expect(badgeText()).toEqual(['Bronze', 'Level 1']);
 });
 
+it('updates the XP bar tone at every rank from Bronze through Celestite', () => {
+  const card = game.w.document.getElementById('btn-player-rank');
+  for (const xp of [500, 11_000, 31_000, 66_000, 121_000, 201_000, 311_000, 456_000, 641_000, 500]) {
+    const { rank } = game.api.getLevelInfo(xp);
+    readBadgeCut(xp);
+    expect(card.style.getPropertyValue('--lb-rank-tone'), rank.name).toBe(rank.c);
+  }
+});
+
 it.each([undefined, NaN, Infinity])('treats invalid XP %s as a fresh badge instead of Celestite', xp => {
   game.api.setSave({...game.api.save, totalXP: xp});
   game.api.drawRankBadge();
