@@ -1,3 +1,10 @@
+## [1.4.4]
+
+- Run results now scroll with their wallpaper. Scrollable panels fade only where there is more to see, and long lists offer a scroll-to-top shortcut clear of the scrollbar.
+- The Daily Gift appears over the top of the logo frame. Crate rewards appear in sequence, and visiting the Crates tab clears the new-crate indicator.
+- Weekly mission claims survive a quick objective change. Mission and achievement requirements use clearer wording, and collected milestone chests show a check mark under the reward.
+- Season Pass uses the shared back button. Inventory hides unavailable actions, and Stats improves ranked rows, podium scores, and crate cards.
+
 ## [1.4.3] [2026-11-24] Clearer Missions, Daily Gifts, and run results
 
 - **Missions and Daily Gift:** Daily and Weekly Missions show one objective at a time. Tap a step to see its progress or claim its reward. Each step shows progress, Ready, Done, or Hidden. The Milestones info button is beside its title. Claim your Daily Gift below the logo to send the crate to Inventory, where you can check when the next gift is due. Stats now spans the main menu. The Bonus Box has been removed. Any crates you already earned stay in Inventory.

@@ -91,11 +91,9 @@
 }
 
 @supports (animation-timeline: scroll(self)) {
-    #stats-overlay:not(.anim-in-right, .anim-out-right), #stats-overlay .lb-stats-calendar-scroll {
-        mask-image: linear-gradient(var(--lb101-fade-direction, to bottom), transparent, #000 var(--lb101-fade-start), #000 calc(100% - var(--lb101-fade-end)), transparent);
+    #stats-overlay .lb-stats-calendar-scroll {
+        mask-image: linear-gradient(to right, transparent, #000 var(--lb101-fade-start), #000 calc(100% - var(--lb101-fade-end)), transparent);
         animation: lb101-scroll-fade linear both;
-        animation-timeline: scroll(self);
+        animation-timeline: scroll(self inline);
     }
-
-    #stats-overlay .lb-stats-calendar-scroll { --lb101-fade-direction: to right; animation-timeline: scroll(self inline); }
 }

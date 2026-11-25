@@ -405,10 +405,11 @@
         out.pendingMilestoneBoxes = list(data.pendingMilestoneBoxes).filter(n => typeof n === 'number' && Number.isFinite(n) && n > 0).map(n => Math.floor(number(n, 0, 100000)));
         out.storedCrates = list(data.storedCrates).flatMap(crate => {
             if (!['common', 'rare', 'epic', 'legendary', 'mythic'].includes(crate?.rarity)) return [];
-            const { rarity, source } = crate;
-            if (source === 'legacy') return [{ rarity, source, rewards: list(crate.rewards).slice(0, 50).map(reward).filter(Boolean) }];
-            if (source === 'mission') return [{ rarity, source, amount: Math.floor(number(crate.amount, 0, 1000)) }];
-            return [{ rarity, ...(['daily', 'level', 'rank', 'achievement', 'bonus'].includes(source) ? { source } : {}) }];
+            const { rarity, source, seen } = crate;
+            const stock = { rarity, ...(seen === true ? { seen } : {}) };
+            if (source === 'legacy') return [{ ...stock, source, rewards: list(crate.rewards).slice(0, 50).map(reward).filter(Boolean) }];
+            if (source === 'mission') return [{ ...stock, source, amount: Math.floor(number(crate.amount, 0, 1000)) }];
+            return [{ ...stock, ...(['daily', 'level', 'rank', 'achievement', 'bonus'].includes(source) ? { source } : {}) }];
         });
         return out;
     }

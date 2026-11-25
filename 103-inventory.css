@@ -4,38 +4,6 @@
     overflow-clip-margin: 4px;
 }
 
-@supports (animation-timeline: scroll(nearest block)) and (animation-range: 0px 16px) {
-    #inventory-overlay > .lb-inventory-content { mask-image: none; animation: none; }
-    #inventory-overlay > .lb-inventory-content::before,
-    #inventory-overlay > .lb-inventory-content::after {
-        content: '';
-        display: block;
-        position: sticky;
-        z-index: 3;
-        height: 16px;
-        margin-inline: calc(-1 * clamp(10px, 2vw, 20px));
-        pointer-events: none;
-        opacity: 0;
-        animation: lb-inventory-fade linear both;
-        animation-timeline: scroll(nearest block);
-    }
-    #inventory-overlay > .lb-inventory-content::before {
-        top: 0;
-        margin-block: -12px -4px;
-        background: linear-gradient(to bottom, var(--bb-page), transparent);
-        animation-range: 0px 16px;
-    }
-    #inventory-overlay > .lb-inventory-content::after {
-        bottom: 0;
-        margin-block-start: -16px;
-        background: linear-gradient(to top, var(--bb-page), transparent);
-        animation-direction: reverse;
-        animation-range: calc(100% - 16px) 100%;
-    }
-}
-
-@keyframes lb-inventory-fade { from { opacity: 0; } to { opacity: 1; } }
-
 #inventory-overlay .lb-inventory-equip-target {
     position: absolute;
     z-index: 1;

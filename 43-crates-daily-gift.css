@@ -1,7 +1,7 @@
 .lb-game-root #menu-overlay #daily-gift-notice:not([hidden]) {
     position: absolute;
     z-index: 3;
-    inset: calc(100% + var(--lb-border)) calc(-1 * var(--lb-border)) auto;
+    inset: calc(-1 * var(--lb-border)) calc(-1 * var(--lb-border)) auto;
     display: grid;
     grid-template-columns: 40px minmax(0, 1fr) auto;
     align-items: center;
@@ -11,14 +11,6 @@
     border-color: var(--lb-label) !important;
     border-inline-start-width: 3px !important;
     box-shadow: 0 5px 14px #0b110d66 !important;
-}
-@container lb-menu (height >= 760px) {
-    .lb-game-root #menu-overlay #daily-gift-notice:not([hidden]) {
-        grid-row: 2 / 3;
-        inset-block: 0;
-        block-size: max-content;
-        margin-block: auto;
-    }
 }
 #daily-gift-notice > .lb-crate-art { width: 40px; height: 40px; }
 #daily-gift-notice[hidden] { display: none !important; }

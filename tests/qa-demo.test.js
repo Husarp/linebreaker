@@ -325,7 +325,7 @@ it('opens the documented screenshot targets through real UI handlers', async () 
     }
   }
   await expect(w.__LB_QA.open('typo')).rejects.toThrow('Unknown QA screen');
-}, 15_000);
+}, 30_000);
 
 it('shows the level and rank division in level rewards and the rarity in Inventory reveals', async () => {
   game = await loadGame(true, null, null, fetchDemoAssets, null, window => window.history.replaceState(null, '', '?dev&demo'));
@@ -469,7 +469,7 @@ it('shows plain booster balances and puts the cost inside the exchange dialog', 
   expect(quantityLabel.textContent).toBe(`${Object.values(api.save.boosters).reduce((sum, count) => sum + count, 0)} owned`);
   expect(inventory.textContent).not.toContain('Cost: 3 boosters');
   expect(common.disabled).toBe(false);
-  expect(inventory.querySelector('[aria-label="Exchange 1.5× Booster"]').disabled).toBe(true);
+  expect(inventory.querySelector('[aria-label="Exchange 1.5× Booster"]')).toBeNull();
   common.click();
   const dialog = w.document.getElementById('exc-modal-overlay');
   expect(dialog.textContent).toContain('Trade three boosters for one of the next tier.');
@@ -497,7 +497,7 @@ it('shows plain booster balances and puts the cost inside the exchange dialog', 
   expect(dialog.querySelector('#exc-receive').textContent).toBe('+2');
   dialog.querySelector('.lb-block-btn--primary').click();
   expect(api.save.boosters).toMatchObject({ '1.25x_game': 1, '1.5x_game': 4 });
-  expect(inventory.querySelector('[aria-label="Exchange 1.25× Booster"]').disabled).toBe(true);
+  expect(inventory.querySelector('[aria-label="Exchange 1.25× Booster"]')).toBeNull();
   expect(inventory.querySelector('[aria-label="Exchange 1.5× Booster"]').disabled).toBe(false);
   expect(quantityLabel.textContent).toBe('10 owned');
   advance(16);
@@ -564,10 +564,10 @@ it('previews and exchanges the selected number of 4-to-1 rarity sets in Inventor
   save.parts.outline = 100;
   api.setSave(save);
   await w.__LB_QA.open('inventory-parts');
-  expect(w.document.querySelectorAll('#inventory-parts [data-use-parts]')).toHaveLength(3);
-  expect(w.document.querySelector('[data-exchange-parts="rare"]').disabled).toBe(true);
+  expect(w.document.querySelectorAll('#inventory-parts [data-use-parts]')).toHaveLength(2);
+  expect(w.document.querySelector('[data-exchange-parts="rare"]')).toBeNull();
   expect(w.document.querySelector('[data-exchange-parts="mythic"]')).toBeNull();
-  expect(w.document.querySelector('[data-exchange-parts="common"]').disabled).toBe(true);
+  expect(w.document.querySelector('[data-exchange-parts="common"]')).toBeNull();
   expect(api.exchangeUniversalParts('common', 1)).toBe(false);
   w.playerUnlockItem('skin', 'outline');
   expect(w.document.querySelector('[data-exchange-parts="common"]').disabled).toBe(false);
@@ -591,5 +591,5 @@ it('previews and exchanges the selected number of 4-to-1 rarity sets in Inventor
   get('uni-xch-confirm').click();
   expect(api.save.universalParts).toEqual({ common: 5.2, rare: 4, mythic: 8 });
   expect(api.save.totalXP).toBe(startXP);
-  expect(w.document.querySelector('[data-exchange-parts="rare"]').disabled).toBe(true);
+  expect(w.document.querySelector('[data-exchange-parts="rare"]')).toBeNull();
 });

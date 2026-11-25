@@ -2947,17 +2947,76 @@
     scrollTopButton.setAttribute('aria-label', 'Scroll to top');
     scrollTopButton.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 20V5m-6 6 6-6 6 6"/></svg>';
     scrollTopButton.hidden = true;
+    const scrollPaneSelector = '.lb-scroll-fade';
     let activeScroller;
     let scrollToTopTarget;
-    document.addEventListener('scroll', ({ target }) => {
-        if (!(target instanceof HTMLElement) || !target.matches('.lb-scroll-fade')) return;
-        if (target.scrollTop > 120 && target !== activeScroller) {
-            activeScroller = target;
-            const resultsActions = target.closest('.go-dialog')?.querySelector('.go-view-actions');
-            (resultsActions || target.closest('dialog, .overlay, [id$="-overlay"]') || document.body).append(scrollTopButton);
+    function updateScrollFade(pane) {
+        const { clientHeight, scrollHeight, scrollTop } = pane;
+        const remaining = scrollHeight - clientHeight - Math.max(0, scrollTop);
+        const moreAbove = clientHeight > 0 && scrollTop > 1;
+        pane.toggleAttribute('data-fade-above', moreAbove);
+        pane.toggleAttribute('data-fade-below', clientHeight > 0 && remaining > 1);
+        const header = pane.firstElementChild;
+        if (moreAbove && header?.hasAttribute('data-scroll-fade-header')) {
+            const height = getComputedStyle(header).position === 'sticky' ? header.offsetHeight : 0;
+            pane.style.setProperty('--lb-fade-start', `${height}px`);
+        } else if (pane.style.getPropertyValue('--lb-fade-start')) {
+            pane.style.removeProperty('--lb-fade-start');
         }
-        if (target === activeScroller) scrollTopButton.hidden = target.scrollTop <= 120 && target !== scrollToTopTarget;
+    }
+    function updateScrollTopButton() {
+        const target = activeScroller;
+        if (!target) return;
+        const { clientHeight, scrollHeight, scrollTop } = target;
+        const visible = clientHeight > 0 && scrollHeight > clientHeight * 2.5
+            && (scrollTop > 120 || target === scrollToTopTarget)
+            && !target.closest('[hidden], [inert], .hidden');
+        if (scrollTopButton.hidden === visible) scrollTopButton.hidden = !visible;
+        if (visible) {
+            const bounds = target.getBoundingClientRect();
+            scrollTopButton.style.right = `${Math.max(0, window.innerWidth - bounds.right) + 24}px`;
+            scrollTopButton.style.bottom = `${Math.max(0, window.innerHeight - bounds.bottom) + 12}px`;
+        }
+    }
+    const observedScrollPanes = new Set();
+    function refreshScrollPanes() {
+        for (const pane of observedScrollPanes) {
+            if (!pane.isConnected) {
+                scrollPaneResize?.unobserve(pane);
+                observedScrollPanes.delete(pane);
+            }
+        }
+        document.querySelectorAll(scrollPaneSelector).forEach(pane => {
+            if (scrollPaneResize && !observedScrollPanes.has(pane)) {
+                scrollPaneResize.observe(pane);
+                observedScrollPanes.add(pane);
+            }
+            updateScrollFade(pane);
+        });
+        updateScrollTopButton();
+    }
+    const scrollPaneResize = window.ResizeObserver && new ResizeObserver(refreshScrollPanes);
+    let scrollRefreshFrame = 0;
+    new MutationObserver(records => {
+        if (scrollRefreshFrame || !records.some(({ target }) =>
+            target.closest(scrollPaneSelector) || target.querySelector(scrollPaneSelector))) return;
+        scrollRefreshFrame = requestAnimationFrame(() => {
+            scrollRefreshFrame = 0;
+            refreshScrollPanes();
+        });
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'inert', 'open'] });
+    document.addEventListener('scroll', ({ target }) => {
+        if (!(target instanceof HTMLElement) || !target.matches(scrollPaneSelector)) return;
+        updateScrollFade(target);
+        if (target !== activeScroller) {
+            activeScroller = target;
+            const owner = target.closest('dialog, .overlay, [id$="-overlay"]') || document.body;
+            owner.append(scrollTopButton);
+        }
+        updateScrollTopButton();
     }, true);
+    window.addEventListener('resize', refreshScrollPanes);
+    refreshScrollPanes();
     scrollTopButton.addEventListener('click', () => {
         if (!activeScroller || scrollToTopTarget === activeScroller) return;
         const target = activeScroller;
@@ -2972,7 +3031,8 @@
         }, 270);
     });
 
-    function _claimAfterPaint(button, claim) {
+    function _claimAfterPaint(button, claim, stillCurrent = () =>
+        button.isConnected && !button.closest('[hidden], .hidden, .anim-out-left, .anim-out-right')) {
         if (pendingClaim || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
         pendingClaim = true;
         button.setAttribute('aria-busy', 'true');
@@ -2983,7 +3043,7 @@
                 cancelAnimationFrame(frame);
                 clearTimeout(fallback);
                 try {
-                    if (profile === saveData && !_gameInProgress && button.isConnected && !button.closest('[hidden], .hidden, .anim-out-left, .anim-out-right')) claim();
+                    if (profile === saveData && !_gameInProgress && stillCurrent()) claim();
                     resolve();
                 } catch (error) {
                     reject(error);
@@ -3726,7 +3786,7 @@
         const total = (_devMode ? 17 : 8) + Object.keys(THEMES).length + Object.keys(GRID_STYLES).length + Object.keys(BLOCK_PALETTES).length + 6;
         stat('items-collected', `${collected} / ${total}`);
         document.getElementById('stat-crates-collected').innerHTML = LBCrates.rarities.map(rarity => `
-            <div><dt><img src="assets/ui/crates/${rarity}.png" alt="" width="22" height="22"><span>${LBCrates.crateLabel(rarity)}</span></dt>
+            <div><dt>${LBCrates.crateLabel(rarity)}<img src="assets/ui/crates/${rarity}.png" alt="" width="64" height="64"></dt>
                 <dd>${(stats.cratesCollected?.[rarity] ?? 0).toLocaleString()}</dd></div>`).join('');
         _renderStatsWeek(stats.playHistory || {});
         _renderActivityCalendar(document.getElementById('stat-activity-calendar').dataset.calYear || 'recent');
@@ -4149,6 +4209,14 @@
         document.getElementById('inventory-quantity').hidden = !['crates', 'boosters', 'parts'].includes(tab);
         if (_prevInvTab !== tab) _invOv.querySelector('.lb-inventory-content').scrollTop = 0;
         if (['crates', 'boosters', 'parts', 'other'].includes(tab)) _populateInventoryOther();
+        if (tab === 'crates' && !_invOv.classList.contains('hidden')) {
+            const unseen = saveData.storedCrates?.filter(crate => !crate.seen);
+            if (unseen?.length) {
+                unseen.forEach(crate => { crate.seen = true; });
+                saveDataToFile();
+                _checkGlowNotifications();
+            }
+        }
         if (tab === 'blocks' || tab === 'colors' || tab === 'fonts') _populateVisualCustomize();
         clearInterval(inventoryPreviewTimer);
         if (tab === 'blocks' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
@@ -4599,6 +4667,8 @@
         const uniRows = LBCrates.rarities.filter(rarity => _universalBalance(rarity) > 0).map(rarity => {
             const count = _universalBalance(rarity);
             const nextRarity = _nextPartRarity(rarity);
+            const canUse = count >= 1 && eligibleItems.some(({ key }) => _canUseUniversalPart(rarity, key));
+            const canExchange = nextRarity && count >= PART_EXCHANGE_RATE && _ownsRarity(rarity);
             const name = LBCrates.universalPartName(rarity, 2);
             return `<div class="lb-block-card lb-exchange-row lb-inventory-parts" data-rarity="${rarity}" data-empty="${count === 0}">
             <div class="lb-exchange-row-art">${_exchangePartsIcon(rarity)}</div>
@@ -4607,8 +4677,8 @@
                 <span class="lb-collection-quantity" data-stock-format="universal" data-stock-value="${count}">${count.toLocaleString('en-US')} owned</span>
             </div>
             <div class="lb-parts-actions">
-                <button type="button" class="lb-block-btn" data-use-parts="${rarity}" aria-label="Use ${name}" ${count < 1 || !eligibleItems.some(({ key }) => _canUseUniversalPart(rarity, key)) ? 'disabled' : ''}>Use</button>
-                ${nextRarity ? `<button type="button" class="lb-block-btn" data-exchange-parts="${rarity}" aria-label="Exchange ${name} up to ${nextRarity}" ${count < PART_EXCHANGE_RATE || !_ownsRarity(rarity) ? 'disabled' : ''}>Exchange Up</button>` : ''}
+                ${canUse ? `<button type="button" class="lb-block-btn" data-use-parts="${rarity}" aria-label="Use ${name}">Use</button>` : ''}
+                ${canExchange ? `<button type="button" class="lb-block-btn" data-exchange-parts="${rarity}" aria-label="Exchange ${name} up to ${nextRarity}">Exchange Up</button>` : ''}
             </div>
         </div>`;
         }).join('');
@@ -4622,7 +4692,7 @@
                 <div class="lb-inventory-booster-stock">${LBArtPack.boosterIcon(meta.rarity)}</div>
                 <div class="lb-inventory-booster-copy"><strong>${meta.label}</strong><span class="lb-exchange-rarity">${meta.rarity}</span></div>
                 <span class="lb-collection-quantity lb-ledger-tag" data-stock-format="booster" data-stock-value="${count}">×${count}</span>
-                ${nextKey ? `<button type="button" class="lb-block-btn lb-block-btn--primary" aria-label="Exchange ${meta.label}" data-exchange-booster="${i}" ${count < 3 ? 'disabled' : ''}>Exchange</button>` : ''}
+                ${nextKey && count >= 3 ? `<button type="button" class="lb-block-btn lb-block-btn--primary" aria-label="Exchange ${meta.label}" data-exchange-booster="${i}">Exchange</button>` : ''}
             </div>`;
         }).join('');
 
@@ -4768,7 +4838,7 @@
             btn.toggleAttribute('data-ready', hasReady);
         });
         // Inventory button glow in main menu
-        const invReady = readyItems.length > 0 || Boolean(saveData.storedCrates?.length);
+        const invReady = readyItems.length > 0 || saveData.storedCrates?.some(crate => !crate.seen);
         document.getElementById('btn-inventory').toggleAttribute('data-ready', invReady);
         // Achievements button glow when there are pending XP claims
         _checkAchGlow();
@@ -5498,13 +5568,16 @@
         container.appendChild(podiumPanel);
         if (lb.length <= 3) return;
         const ranked = _statsPanel('Ranked runs', 'lb-metric-gamepad', 'collection', `${lb.length} entries`);
+        const body = document.createElement('div');
+        body.className = 'lb-stats-ranked-rows';
+        ranked.append(body);
         container.appendChild(ranked);
 
         // --- Regular rows (4th+) with Load More ---
         let _lbShown = 50;
         function _renderLbRows(upTo) {
             // Remove existing rows and load-more button
-            ranked.querySelectorAll('.lb-row, .lb-load-more').forEach(el => el.remove());
+            body.replaceChildren();
             const max = Math.min(upTo, lb.length);
             for (let i = 3; i < max; i++) {
                 const e = lb[i];
@@ -5515,7 +5588,7 @@
                     : '';
                 div.innerHTML = `<span class="lb-rank">#${i+1}</span><span class="lb-score">${escapeHtml(e.score.toLocaleString())} <span class="lb-pts">pts</span></span><span class="lb-details-row">${details}${board ? `<span class="lb-detail">${escapeHtml(board)}</span>` : ''}</span><span class="lb-date">${escapeHtml(LBSave.displayDate(e.date, e.clock))}</span>`;
                 _bindScoreInfo(div, e, `#${i + 1}`, { board });
-                ranked.appendChild(div);
+                body.appendChild(div);
             }
             // Load More button
             if (max < lb.length) {
@@ -5526,7 +5599,7 @@
                     _lbShown += 50;
                     _renderLbRows(_lbShown);
                 });
-                ranked.appendChild(moreBtn);
+                body.appendChild(moreBtn);
             }
         }
         _renderLbRows(_lbShown);
@@ -5743,14 +5816,14 @@
         games: [2000, 4000, 'Play {n} games'],
         total_blocks: [250000, 500000, 'Place {n} pieces total'],
         total_lines: [75000, 150000, 'Clear {n} lines total'],
-        quad_count: [500, 1000, 'Clear 4 lines at once {n} times total'],
+        quad_count: [500, 1000, 'Get {n} quad clears total'],
         booster_user: [48, 96, 'Use {n} score boosters'],
-        daily_rare: [50, 80, 'Find {n} rare+ items in Daily Gift crates'],
-        surgeon: [1000, 2000, 'Clear {n} single or double lines'],
-        music_listener: [200, 400, 'Listen to {n} music tracks'],
+        daily_rare: [50, 80, 'Find {n} items of Rare rarity or higher in Daily Gift crates'],
+        surgeon: [1000, 2000, 'Clear {n} lines with single or double clears'],
+        music_listener: [200, 400, 'Play {n} music tracks, including repeats'],
         fun_squared: [200, 400, 'Play {n} Fun games clearing at least 1 line each'],
-        collector: [150, 350, 'Earn Gold and find {n} rare+ items in Daily Gift crates', 'stats.rareItemsFromDailyBox'],
-        one_at_a_time: [1000, 2000, 'Clear {n} single lines'],
+        collector: [150, 350, 'Reach Gold and find {n} items of Rare rarity or higher in Daily Gift crates', 'stats.rareItemsFromDailyBox'],
+        one_at_a_time: [1000, 2000, 'Get {n} single-line clears'],
         spinner: [100000, 250000, 'Rotate {n} times'],
         mq_easy_quests: [80, 120, 'Complete {n} Easy quests (daily or weekly)'],
         mq_normal_quests: [80, 120, 'Complete {n} Normal quests (daily or weekly)'],
@@ -5787,11 +5860,11 @@
             id: 'speed', cat: 'basic', name: 'Throttle', type: 'tiered',
             counter: { path:'stats.bestMaxSpeed', label:'Highest Run Level (Normal)' },
             tiers: [
-                { rarity:'common',    name:'First Gear',  desc:'Reach level 3 in Normal Mode',  check: g => g.maxSpeed >= 3  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:3  } },
-                { rarity:'rare',      name:'No Brakes',   desc:'Reach level 5 in Normal Mode',  check: g => g.maxSpeed >= 5  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:5  } },
-                { rarity:'epic',      name:'Overdrive',   desc:'Reach level 8 in Normal Mode',  check: g => g.maxSpeed >= 8  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:8  } },
-                { rarity:'legendary', name:'Supersonic',  desc:'Reach level 12 in Normal Mode', check: g => g.maxSpeed >= 12 && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:12 } },
-                { rarity:'mythic',    name:'Turbo',       desc:'Reach level 15 in Normal Mode', check: g => g.maxSpeed >= 15 && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:15 } },
+                { rarity:'common',    name:'First Gear',  desc:'Reach speed level 3 in Normal Mode',  check: g => g.maxSpeed >= 3  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:3  } },
+                { rarity:'rare',      name:'No Brakes',   desc:'Reach speed level 5 in Normal Mode',  check: g => g.maxSpeed >= 5  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:5  } },
+                { rarity:'epic',      name:'Overdrive',   desc:'Reach speed level 8 in Normal Mode',  check: g => g.maxSpeed >= 8  && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:8  } },
+                { rarity:'legendary', name:'Supersonic',  desc:'Reach speed level 12 in Normal Mode', check: g => g.maxSpeed >= 12 && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:12 } },
+                { rarity:'mythic',    name:'Turbo',       desc:'Reach speed level 15 in Normal Mode', check: g => g.maxSpeed >= 15 && g.mode === 'normal', progressDisplay:{ path:'stats.bestMaxSpeed', target:15 } },
             ],
         },
         // ── SINGLE ────────────────────────────────────────────────
@@ -5883,20 +5956,20 @@
             id: 'quad_count', cat: 'basic', name: 'Four at Once', type: 'tiered',
             counter: { path:'stats.totalQuads', label:'Total Quads', unit:'clears' },
             tiers: [
-                { rarity:'common',    name:'Four and Done',    desc:'Clear 4 lines at once 10 times total',  progress:{ path:'stats.totalQuads', target:10  } },
-                { rarity:'rare',      name:'Clear Obsessed',   desc:'Clear 4 lines at once 50 times total',  progress:{ path:'stats.totalQuads', target:50  } },
-                { rarity:'epic',      name:'Quad Century',     desc:'Clear 4 lines at once 100 times total', progress:{ path:'stats.totalQuads', target:100 } },
-                { rarity:'legendary', name:'Quarter K',        desc:'Clear 4 lines at once 250 times total', progress:{ path:'stats.totalQuads', target:250 } },
+                { rarity:'common',    name:'Four and Done',    desc:'Get 10 quad clears total',  progress:{ path:'stats.totalQuads', target:10  } },
+                { rarity:'rare',      name:'Clear Obsessed',   desc:'Get 50 quad clears total',  progress:{ path:'stats.totalQuads', target:50  } },
+                { rarity:'epic',      name:'Quad Century',     desc:'Get 100 quad clears total', progress:{ path:'stats.totalQuads', target:100 } },
+                { rarity:'legendary', name:'Quarter K',        desc:'Get 250 quad clears total', progress:{ path:'stats.totalQuads', target:250 } },
             ],
         },
         {
             id: 'combo_master', cat: 'basic', name: 'Combo', type: 'tiered',
             counter: { path:'stats.maxCombo', label:'Best Combo', fmt:'combo' },
             tiers: [
-                { rarity:'common',    name:'First Hits',        desc:'Reach combo ×5',  progress:{ path:'stats.maxCombo', target:5  } },
-                { rarity:'rare',      name:'Just Warming Up',   desc:'Reach combo ×7',  progress:{ path:'stats.maxCombo', target:7  } },
-                { rarity:'epic',      name:'Not Stoping Now',   desc:'Reach combo ×9',  progress:{ path:'stats.maxCombo', target:9  } },
-                { rarity:'legendary', name:'Infinite Chain',    desc:'Reach combo ×11', progress:{ path:'stats.maxCombo', target:11 } },
+                { rarity:'common',    name:'First Hits',        desc:'Get a combo of 5',  progress:{ path:'stats.maxCombo', target:5  } },
+                { rarity:'rare',      name:'Just Warming Up',   desc:'Get a combo of 7',  progress:{ path:'stats.maxCombo', target:7  } },
+                { rarity:'epic',      name:'Not Stopping Now',   desc:'Get a combo of 9',  progress:{ path:'stats.maxCombo', target:9  } },
+                { rarity:'legendary', name:'Infinite Chain',    desc:'Get a combo of 11', progress:{ path:'stats.maxCombo', target:11 } },
             ],
         },
         {
@@ -5922,10 +5995,10 @@
             id: 'fun_score', cat: 'basic', name: 'Fun Run', type: 'tiered',
             counter: { path:'stats.bestFunScore', label:'Fun Mode Best' },
             tiers: [
-                { rarity:'common',    name:'Just for Fun',      desc:'Reach 500 score in Fun Mode',   check: g => g.mode === 'fun' && g.score >= 500,  progressDisplay:{ path:'stats.bestFunScore', target:500  } },
-                { rarity:'rare',      name:'Vibing',            desc:'Reach 1,000 score in Fun Mode', check: g => g.mode === 'fun' && g.score >= 1000, progressDisplay:{ path:'stats.bestFunScore', target:1000 } },
-                { rarity:'epic',      name:'Committed Casual',  desc:'Reach 2,000 score in Fun Mode', check: g => g.mode === 'fun' && g.score >= 2000, progressDisplay:{ path:'stats.bestFunScore', target:2000 } },
-                { rarity:'legendary', name:'Fun Overdose',      desc:'Reach 5,000 score in Fun Mode', check: g => g.mode === 'fun' && g.score >= 5000, progressDisplay:{ path:'stats.bestFunScore', target:5000 } },
+                { rarity:'common',    name:'Just for Fun',      desc:'Score 500 points in Fun Mode',   check: g => g.mode === 'fun' && g.score >= 500,  progressDisplay:{ path:'stats.bestFunScore', target:500  } },
+                { rarity:'rare',      name:'Vibing',            desc:'Score 1,000 points in Fun Mode', check: g => g.mode === 'fun' && g.score >= 1000, progressDisplay:{ path:'stats.bestFunScore', target:1000 } },
+                { rarity:'epic',      name:'Committed Casual',  desc:'Score 2,000 points in Fun Mode', check: g => g.mode === 'fun' && g.score >= 2000, progressDisplay:{ path:'stats.bestFunScore', target:2000 } },
+                { rarity:'legendary', name:'Fun Overdose',      desc:'Score 5,000 points in Fun Mode', check: g => g.mode === 'fun' && g.score >= 5000, progressDisplay:{ path:'stats.bestFunScore', target:5000 } },
             ],
         },
         {
@@ -5940,7 +6013,7 @@
         // ── NEW VISIBLE SINGLE ────────────────────────────────────────────────
         {
             id: 'board_clear', cat: 'basic', name: 'Clean Sweep', type: 'single',
-            rarity: 'epic', desc: 'Clear the entire board — not a single block remains.',
+            rarity: 'epic', desc: 'Clear every block from the board at once.',
             check: g => g.boardCleared,
         },
         {
@@ -5958,16 +6031,16 @@
             id: 'daily_rare', cat: 'basic', name: 'Jackpot', type: 'tiered',
             counter: { path:'stats.rareItemsFromDailyBox', label:'Total Rare Items' },
             tiers: [
-                { rarity:'common', name:'Lucky',   desc:'Get 10 rare+ items from any reward box', progress:{ path:'stats.rareItemsFromDailyBox', target:10 } },
-                { rarity:'rare',   name:'Gambler', desc:'Get 20 rare+ items from any reward box', progress:{ path:'stats.rareItemsFromDailyBox', target:20 } },
-                { rarity:'epic',   name:'Blessed', desc:'Get 30 rare+ items from any reward box', progress:{ path:'stats.rareItemsFromDailyBox', target:30 } },
+                { rarity:'common', name:'Lucky',   desc:'Find 10 items of Rare rarity or higher in Daily Gift crates', progress:{ path:'stats.rareItemsFromDailyBox', target:10 } },
+                { rarity:'rare',   name:'Gambler', desc:'Find 20 items of Rare rarity or higher in Daily Gift crates', progress:{ path:'stats.rareItemsFromDailyBox', target:20 } },
+                { rarity:'epic',   name:'Blessed', desc:'Find 30 items of Rare rarity or higher in Daily Gift crates', progress:{ path:'stats.rareItemsFromDailyBox', target:30 } },
             ],
         },
         // ── NEW HIDDEN ────────────────────────────────────────────────────────
         {
             id: 'sec_booster_waste', cat: 'secret', name: 'That Was Dumb', type: 'single',
             rarity: 'common', clue: 'Sometimes the math just... doesn\'t work out.',
-            desc: 'Use the 2x XP booster on a score under 100. Just to flex.',
+            desc: 'Use a 2x Score Booster on a run that scored under 100 points.',
             check: () => false, // Unlocked directly in useScoreBooster
         },
         {
@@ -6003,7 +6076,7 @@
         {
             id: 'sec_all_drop', cat: 'secret', name: 'No Hesitation', type: 'single',
             rarity: 'epic', clue: 'Commitment at maximum velocity.',
-            desc: 'Reach 1,000+ score hard-dropping every single piece.',
+            desc: 'Score at least 1,000 points and hard-drop every piece in the run.',
             check: g => g.score >= 1000 && g.allHardDrop,
         },
         {
@@ -6021,7 +6094,7 @@
     {
         id: 'sec_exact_level', cat: 'secret', name: 'Zero Overflow', type: 'single',
         rarity: 'rare', clue: 'Zero to spare. Zero in excess.',
-        desc: 'Earn enough XP to hit a level boundary exactly — zero XP overflow.',
+        desc: 'Earn exactly the XP needed to reach your next player level.',
         check: () => false, // checked directly in gameOver
     },
     {
@@ -6034,9 +6107,9 @@
         id: 'surgeon', cat: 'basic', name: 'Precision Cutter', type: 'tiered',
         counter: { path:'stats.surgeonLines', label:'Total Lines (1–2)', unit:'lines' },
         tiers: [
-            { rarity:'common', name:'Precise',    desc:'Clear 100 single or double lines', progress:{ path:'stats.surgeonLines', target:100 } },
-            { rarity:'rare',   name:'Careful',    desc:'Clear 250 single or double lines', progress:{ path:'stats.surgeonLines', target:250 } },
-            { rarity:'epic',   name:'Specialist', desc:'Clear 500 single or double lines', progress:{ path:'stats.surgeonLines', target:500 } },
+            { rarity:'common', name:'Precise',    desc:'Clear 100 lines with single or double clears', progress:{ path:'stats.surgeonLines', target:100 } },
+            { rarity:'rare',   name:'Careful',    desc:'Clear 250 lines with single or double clears', progress:{ path:'stats.surgeonLines', target:250 } },
+            { rarity:'epic',   name:'Specialist', desc:'Clear 500 lines with single or double clears', progress:{ path:'stats.surgeonLines', target:500 } },
         ],
     },
     // ── NEW ACHIEVEMENTS (batch 2) ────────────────────────────────────────
@@ -6072,21 +6145,21 @@
         id: 'music_listener', cat: 'basic', name: 'In the Zone', type: 'tiered',
         counter: { path:'_computed.musicTracksListened', label:'Tracks Listened' },
         tiers: [
-            { rarity:'common', name:'Background Music', desc:'Listen to 25 music tracks',  progress:{ path:'_computed.musicTracksListened', target:25  } },
-            { rarity:'rare',   name:'Listener',         desc:'Listen to 50 music tracks',  progress:{ path:'_computed.musicTracksListened', target:50  } },
-            { rarity:'epic',   name:'Tuned In',         desc:'Listen to 100 music tracks', progress:{ path:'_computed.musicTracksListened', target:100 } },
+            { rarity:'common', name:'Background Music', desc:'Play 25 music tracks, including repeats',  progress:{ path:'_computed.musicTracksListened', target:25  } },
+            { rarity:'rare',   name:'Listener',         desc:'Play 50 music tracks, including repeats',  progress:{ path:'_computed.musicTracksListened', target:50  } },
+            { rarity:'epic',   name:'Tuned In',         desc:'Play 100 music tracks, including repeats', progress:{ path:'_computed.musicTracksListened', target:100 } },
         ],
     },
     {
         id: 'third_charm', cat: 'secret', name: "Third Time's the Charm", type: 'single',
         rarity: 'epic', clue: "Third time's the charm.",
-        desc: 'Come close to your record at least twice (not necessarily consecutively), then beat it.',
+        desc: 'Finish just below your best score twice (within 10%), then beat that record.',
         check: () => false,
     },
     {
         id: 'risky_break', cat: 'secret', name: 'No Risk, No Break', type: 'single',
         rarity: 'common', clue: 'Living on the edge.',
-        desc: 'Pause the game at run level 3 or higher.',
+        desc: 'Pause at speed level 3 or higher.',
         check: () => false,
     },
     {
@@ -6175,7 +6248,7 @@
     {
         id: 'abort_mission', cat: 'secret', name: 'Mission Failed', type: 'single',
         rarity: 'rare', clue: 'Mission failed.',
-        desc: 'Leave 20+ games.',
+        desc: 'Quit at least 20 games before they end.',
         check: () => false,
         progressDisplay: { path:'stats.gamesAborted', target:20 },
     },
@@ -6188,7 +6261,7 @@
     {
         id: 'gift_ignore', cat: 'secret', name: 'Ungrateful', type: 'single',
         rarity: 'common', clue: 'Ungrateful.',
-        desc: 'Have 10+ unclaimed mission XP rewards or milestone boxes combined (resets with missions).',
+        desc: 'Have at least 10 unclaimed mission rewards and milestone crates combined.',
         check: () => false,
     },
     {
@@ -6234,22 +6307,22 @@
     {
         id: 'double_satisfaction', cat: 'secret', name: 'Double the Satisfaction', type: 'single',
         rarity: 'rare', clue: 'Four and four. Back to back.',
-        desc: 'Clear 4 lines twice in a row.',
+        desc: 'Get two quad clears in a row.',
         check: () => false,
     },
     {
         id: 'one_at_a_time', cat: 'basic', name: 'Single Minded', type: 'tiered',
         counter: { path:'stats.singleLineClears', label:'Single Line Clears' },
         tiers: [
-            { rarity:'common',    name:'Patient',    desc:'Clear 50 single lines',    progress:{ path:'stats.singleLineClears', target:50  } },
-            { rarity:'rare',      name:'Methodical', desc:'Clear 200 single lines',   progress:{ path:'stats.singleLineClears', target:200 } },
-            { rarity:'epic',      name:'One by One', desc:'Clear 500 single lines',   progress:{ path:'stats.singleLineClears', target:500 } },
+            { rarity:'common',    name:'Patient',    desc:'Get 50 single-line clears',    progress:{ path:'stats.singleLineClears', target:50  } },
+            { rarity:'rare',      name:'Methodical', desc:'Get 200 single-line clears',   progress:{ path:'stats.singleLineClears', target:200 } },
+            { rarity:'epic',      name:'One by One', desc:'Get 500 single-line clears',   progress:{ path:'stats.singleLineClears', target:500 } },
         ],
     },
     {
         id: 'surgeons_streak', cat: 'secret', name: 'Crescendo', type: 'single',
         rarity: 'legendary', clue: '1, 2, 3, 4. Precision in sequence.',
-        desc: 'Clear 1 line, then 2, then 3, then 4 in exactly that order — consecutive clears with no other clears between.',
+        desc: 'Get a single, double, triple, and quad clear in that order, with no other clears in between.',
         check: () => false,
     },
     {
@@ -6296,7 +6369,7 @@
     {
         id: 'too_fast', cat: 'secret', name: 'Difficulty Spike', type: 'single',
         rarity: 'rare', clue: 'So close to the next gear.',
-        desc: 'Game over on the first line after reaching run level 3 or higher.',
+        desc: 'Top out at speed level 3 or higher with a line total ending in 1 (such as 21 or 31).',
         check: () => false,
     },
     {
@@ -6356,25 +6429,25 @@
     {
         id: 'mq_daily_perfect', cat: 'secret', name: 'Perfect Day', type: 'single',
         rarity: 'mythic', clue: 'All 5 quests AND the secret — flawless.',
-        desc: 'Complete all 5 daily quests AND the secret quest in one day.',
+        desc: 'Complete every daily quest, including the secret quest, in one day.',
         check: () => false,
     },
     {
         id: 'mq_no_easy_epic', cat: 'secret', name: 'No Easy Day', type: 'single',
         rarity: 'epic', clue: 'The easy path is not for you.',
-        desc: 'Have at least 4 Normal-or-harder daily quests rolled in one day.',
+        desc: 'Get at least 4 Normal or Hard daily objectives on the same day.',
         check: () => false,
     },
     {
         id: 'mq_no_easy_legendary', cat: 'secret', name: 'No Easy Day', type: 'single',
         rarity: 'legendary', clue: 'Only the hardest.',
-        desc: 'Have at least 3 Hard daily quests rolled in one day.',
+        desc: 'Get at least 3 Hard daily objectives on the same day.',
         check: () => false,
     },
     {
         id: 'mq_hard_they_said', cat: 'secret', name: 'Hard They Said', type: 'single',
         rarity: 'epic', clue: 'You proved a point.',
-        desc: 'Complete only the Hard weekly mission — leave all others unfinished.',
+        desc: 'Complete at least one Hard weekly objective and no Easy or Normal weekly objectives.',
         check: () => false,
     },
     {
@@ -9657,78 +9730,78 @@
     // ===== MISSIONS SYSTEM =====
     const FALLBACK_DAILY_QUESTS = [
         // EASY (pts: 2)
-        { id: 'blocks_175',     tier: 'easy',   title: 'Block Layer',       desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 175,  pts: 2 },
-        { id: 'blocks_200',     tier: 'easy',   title: 'Block Flood',       desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 200,  pts: 2 },
+        { id: 'blocks_175',     tier: 'easy',   title: 'Block Layer',       desc: 'Place {n} pieces in one game',                     metric: 'blocksPlaced',   target: 175,  pts: 2 },
+        { id: 'blocks_200',     tier: 'easy',   title: 'Block Flood',       desc: 'Place {n} pieces in one game',                     metric: 'blocksPlaced',   target: 200,  pts: 2 },
         { id: 'lines_15',       tier: 'easy',   title: 'Line Breaker',      desc: 'Clear {n} lines in one game',                      metric: 'linesCleared',   target: 15,   pts: 2 },
         { id: 'lines_20e',      tier: 'easy',   title: 'Line Grinder',      desc: 'Clear {n} lines in one game',                      metric: 'linesCleared',   target: 20,   pts: 2 },
         { id: 'score_250',      tier: 'easy',   title: 'First Points',      desc: 'Score {n} points in one game',                     metric: 'score',          target: 250,  pts: 2 },
         { id: 'score_300',      tier: 'easy',   title: 'Score Rookie',      desc: 'Score {n} points in one game',                     metric: 'score',          target: 300,  pts: 2 },
         { id: 'survive_90',     tier: 'easy',   title: 'Time Keeper',       desc: 'Survive for {n} in one game',                      metric: 'gameTime',       target: 90,   pts: 2 },
         { id: 'survive_120',    tier: 'easy',   title: 'Two Minutes',       desc: 'Survive for {n} in one game',                      metric: 'gameTime',       target: 120,  pts: 2 },
-        { id: 'reach_speed2',   tier: 'easy',   title: 'Pick Up the Pace',  desc: 'Reach level {n} in a run',                          metric: 'maxSpeed',       target: 2,    pts: 2 },
+        { id: 'reach_speed2',   tier: 'easy',   title: 'Pick Up the Pace',  desc: 'Reach speed level {n}',                          metric: 'maxSpeed',       target: 2,    pts: 2 },
         { id: 'hard_drops_5',   tier: 'easy',   title: 'Drop It',           desc: 'Hard-drop {n} times in one game',                  metric: 'hardDrops',      target: 5,    pts: 2 },
-        { id: 'bottom2_30',     tier: 'easy',   title: 'Floor Lover',       desc: 'Place {n} blocks in the bottom 2 rows',      metric: 'bottomTwoRows',  target: 30,   pts: 2, cumulative: true },
+        { id: 'bottom2_30',     tier: 'easy',   title: 'Floor Lover',       desc: 'Place {n} individual blocks in the bottom 2 rows',      metric: 'bottomTwoRows',  target: 30,   pts: 2, cumulative: true },
         { id: 'games_7',        tier: 'easy',   title: 'Show Up',           desc: 'Complete {n} games',                         metric: 'gamesPlayed',    target: 7,    pts: 2, cumulative: true },
         { id: 'rotations_300',  tier: 'easy',   title: 'Spin Cycle',        desc: 'Rotate pieces {n} times',                    metric: 'rotations',      target: 300,  pts: 2, cumulative: true },
-        { id: 'doubles_3',      tier: 'easy',   title: 'Double Trouble',    desc: 'Clear {n} doubles',         metric: 'doubles',        target: 3,    pts: 2, cumulative: true },
-        { id: 'triples_2',      tier: 'easy',   title: 'Triple Threat',     desc: 'Clear {n} triples',         metric: 'triples',        target: 2,    pts: 2, cumulative: true },
-        { id: 'raw_xp_easy',    tier: 'easy',   title: 'XP Warm-Up',        desc: 'Earn {n} raw XP in games',                         metric: 'rawXP',          target: 150,  pts: 2, cumulative: true },
-        { id: 'total_xp_easy',  tier: 'easy',   title: 'XP Kickstart',      desc: 'Earn {n} total XP in games (with multipliers)',    metric: 'totalXP',        target: 200,  pts: 2, cumulative: true },
+        { id: 'doubles_3',      tier: 'easy',   title: 'Double Trouble',    desc: 'Get {n} double clears',         metric: 'doubles',        target: 3,    pts: 2, cumulative: true },
+        { id: 'triples_2',      tier: 'easy',   title: 'Triple Threat',     desc: 'Get {n} triple clears',         metric: 'triples',        target: 2,    pts: 2, cumulative: true },
+        { id: 'raw_xp_easy',    tier: 'easy',   title: 'XP Warm-Up',        desc: 'Earn {n} XP from games before multipliers',                         metric: 'rawXP',          target: 150,  pts: 2, cumulative: true },
+        { id: 'total_xp_easy',  tier: 'easy',   title: 'XP Kickstart',      desc: 'Earn {n} XP from games including multipliers',    metric: 'totalXP',        target: 200,  pts: 2, cumulative: true },
         // NORMAL (pts: 3)
-        { id: 'blocks_300',     tier: 'normal', title: 'Block Builder',     desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 300,  pts: 3 },
-        { id: 'blocks_350',     tier: 'normal', title: 'Production Run',    desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 350,  pts: 3 },
+        { id: 'blocks_300',     tier: 'normal', title: 'Block Builder',     desc: 'Place {n} pieces in one game',                     metric: 'blocksPlaced',   target: 300,  pts: 3 },
+        { id: 'blocks_350',     tier: 'normal', title: 'Production Run',    desc: 'Place {n} pieces in one game',                     metric: 'blocksPlaced',   target: 350,  pts: 3 },
         { id: 'lines_25',       tier: 'normal', title: 'Half Dozen',        desc: 'Clear {n} lines in one game',                      metric: 'linesCleared',   target: 25,   pts: 3 },
         { id: 'lines_30',       tier: 'normal', title: 'Line Destroyer',    desc: 'Clear {n} lines in one game',                      metric: 'linesCleared',   target: 30,   pts: 3 },
         { id: 'score_500',      tier: 'normal', title: 'Score Hunter',      desc: 'Score {n} points in one game',                     metric: 'score',          target: 500,  pts: 3 },
         { id: 'score_600',      tier: 'normal', title: 'Score Seeker',      desc: 'Score {n} points in one game',                     metric: 'score',          target: 600,  pts: 3 },
         { id: 'hard_drops_200', tier: 'normal', title: 'Free Fall',         desc: 'Hard-drop {n} times',                        metric: 'hardDrops',      target: 200,  pts: 3, cumulative: true },
         { id: 'survive_180',    tier: 'normal', title: 'Endurance',         desc: 'Survive for {n} in one game',                      metric: 'gameTime',       target: 180,  pts: 3 },
-        { id: 'reach_speed3',   tier: 'normal', title: 'Ramping Up',        desc: 'Reach level {n} in a run',                          metric: 'maxSpeed',       target: 3,    pts: 3 },
-        { id: 'quad_1',         tier: 'easy',   title: 'Quad Attempt',      desc: 'Clear 4 lines at once in one game',                metric: 'quads',          target: 1,    pts: 2 },
+        { id: 'reach_speed3',   tier: 'normal', title: 'Ramping Up',        desc: 'Reach speed level {n}',                          metric: 'maxSpeed',       target: 3,    pts: 3 },
+        { id: 'quad_1',         tier: 'easy',   title: 'Quad Attempt',      desc: 'Get a quad clear in one game',                metric: 'quads',          target: 1,    pts: 2 },
         { id: 'combo_5',        tier: 'normal', title: 'Chain Reaction',    desc: 'Get a {n}-combo in one game',                      metric: 'maxCombo',       target: 5,    pts: 3 },
-        { id: 'bottom2_50',     tier: 'normal', title: 'Ground Level',      desc: 'Place {n} blocks in the bottom 2 rows',      metric: 'bottomTwoRows',  target: 50,   pts: 3, cumulative: true },
+        { id: 'bottom2_50',     tier: 'normal', title: 'Ground Level',      desc: 'Place {n} individual blocks in the bottom 2 rows',      metric: 'bottomTwoRows',  target: 50,   pts: 3, cumulative: true },
         { id: 'games_10',       tier: 'normal', title: 'Grinder',           desc: 'Complete {n} games',                         metric: 'gamesPlayed',    target: 10,   pts: 3, cumulative: true },
-        { id: 'doubles_5',      tier: 'normal', title: 'Double Trouble',    desc: 'Clear {n} doubles',         metric: 'doubles',        target: 5,    pts: 3, cumulative: true },
-        { id: 'triples_4',      tier: 'normal', title: 'Triple Threat',     desc: 'Clear {n} triples',         metric: 'triples',        target: 4,    pts: 3, cumulative: true },
+        { id: 'doubles_5',      tier: 'normal', title: 'Double Trouble',    desc: 'Get {n} double clears',         metric: 'doubles',        target: 5,    pts: 3, cumulative: true },
+        { id: 'triples_4',      tier: 'normal', title: 'Triple Threat',     desc: 'Get {n} triple clears',         metric: 'triples',        target: 4,    pts: 3, cumulative: true },
         { id: 'rotations_450',  tier: 'normal', title: 'Spin Cycle',        desc: 'Rotate pieces {n} times',                    metric: 'rotations',      target: 450,  pts: 3, cumulative: true },
-        { id: 't_spin_1',       tier: 'normal', title: 'T-Spinner',         desc: 'T-spin clears in one game: {n}',                   metric: 'tSpins',         target: 1,    pts: 3 },
-        { id: 'raw_xp_normal',  tier: 'normal', title: 'XP Builder',        desc: 'Earn {n} raw XP in games',                         metric: 'rawXP',          target: 350,  pts: 3, cumulative: true },
-        { id: 'total_xp_normal', tier: 'normal', title: 'XP Momentum',      desc: 'Earn {n} total XP in games (with multipliers)',    metric: 'totalXP',        target: 450,  pts: 3, cumulative: true },
+        { id: 't_spin_1',       tier: 'normal', title: 'T-Spinner',         desc: 'Get {n} T-spin clear{s} in one game',                   metric: 'tSpins',         target: 1,    pts: 3 },
+        { id: 'raw_xp_normal',  tier: 'normal', title: 'XP Builder',        desc: 'Earn {n} XP from games before multipliers',                         metric: 'rawXP',          target: 350,  pts: 3, cumulative: true },
+        { id: 'total_xp_normal', tier: 'normal', title: 'XP Momentum',      desc: 'Earn {n} XP from games including multipliers',    metric: 'totalXP',        target: 450,  pts: 3, cumulative: true },
         // HARD (pts: 5)
-        { id: 'blocks_450',     tier: 'hard',   title: 'Stack Veteran',     desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 450,  pts: 5 },
-        { id: 'blocks_500',     tier: 'hard',   title: 'Block Storm',       desc: 'Place {n} blocks in one game',                     metric: 'blocksPlaced',   target: 500,  pts: 5 },
+        { id: 'blocks_450',     tier: 'hard',   title: 'Stack Veteran',     desc: 'Place {n} pieces in one game',                     metric: 'blocksPlaced',   target: 450,  pts: 5 },
+        { id: 'blocks_500',     tier: 'hard',   title: 'Block Storm',       desc: 'Place {n} pieces in one game',                     metric: 'blocksPlaced',   target: 500,  pts: 5 },
         { id: 'lines_35',       tier: 'hard',   title: 'Marathon',          desc: 'Clear {n} lines in one game',                      metric: 'linesCleared',   target: 35,   pts: 5 },
         { id: 'lines_40',       tier: 'hard',   title: 'Line Executioner',  desc: 'Clear {n} lines in one game',                      metric: 'linesCleared',   target: 40,   pts: 5 },
         { id: 'score_900',      tier: 'hard',   title: 'High Scorer',       desc: 'Score {n} points in one game',                     metric: 'score',          target: 900,  pts: 5 },
         { id: 'score_1000',     tier: 'hard',   title: 'Elite Score',       desc: 'Score {n} points in one game',                     metric: 'score',          target: 1000, pts: 5 },
         { id: 'hard_drops_350', tier: 'hard',   title: 'Gravity Master',    desc: 'Hard-drop {n} times',                        metric: 'hardDrops',      target: 350,  pts: 5, cumulative: true },
         { id: 'survive_300',    tier: 'hard',   title: 'Endurance Run',     desc: 'Survive for {n} in one game',                      metric: 'gameTime',       target: 300,  pts: 5 },
-        { id: 'reach_speed4',   tier: 'hard',   title: 'Fourth Gear',       desc: 'Reach level {n} in a run',                          metric: 'maxSpeed',       target: 4,    pts: 5 },
+        { id: 'reach_speed4',   tier: 'hard',   title: 'Fourth Gear',       desc: 'Reach speed level {n}',                          metric: 'maxSpeed',       target: 4,    pts: 5 },
         { id: 'quad_2',         tier: 'normal', title: 'Double Quad',       desc: 'Get {n} quad clears in one game', metric: 'quads',          target: 2,    pts: 3 },
         { id: 'quad_3',         tier: 'hard',   title: 'Triple Quad',       desc: 'Get {n} quad clears in one game', metric: 'quads',          target: 3,    pts: 5 },
         { id: 'combo_6',        tier: 'hard',   title: 'Combo God',         desc: 'Get a {n}-combo in one game',                      metric: 'maxCombo',       target: 6,    pts: 5 },
-        { id: 'bottom2_80',     tier: 'hard',   title: 'Ground Pounder',    desc: 'Place {n} blocks in the bottom 2 rows',      metric: 'bottomTwoRows',  target: 80,   pts: 5, cumulative: true },
+        { id: 'bottom2_80',     tier: 'hard',   title: 'Ground Pounder',    desc: 'Place {n} individual blocks in the bottom 2 rows',      metric: 'bottomTwoRows',  target: 80,   pts: 5, cumulative: true },
         { id: 'games_15',       tier: 'hard',   title: 'No Life',           desc: 'Complete {n} games',                         metric: 'gamesPlayed',    target: 15,   pts: 5, cumulative: true },
-        { id: 'doubles_8',      tier: 'hard',   title: 'Double Mania',      desc: 'Clear {n} doubles',         metric: 'doubles',        target: 8,    pts: 5, cumulative: true },
-        { id: 'triples_6',      tier: 'hard',   title: 'Triple Threat',     desc: 'Clear {n} triples',         metric: 'triples',        target: 6,    pts: 5, cumulative: true },
+        { id: 'doubles_8',      tier: 'hard',   title: 'Double Mania',      desc: 'Get {n} double clears',         metric: 'doubles',        target: 8,    pts: 5, cumulative: true },
+        { id: 'triples_6',      tier: 'hard',   title: 'Triple Threat',     desc: 'Get {n} triple clears',         metric: 'triples',        target: 6,    pts: 5, cumulative: true },
         { id: 'rotations_700',  tier: 'hard',   title: 'Spin Master',       desc: 'Rotate pieces {n} times',                    metric: 'rotations',      target: 700,  pts: 5, cumulative: true },
-        { id: 't_spin_2',       tier: 'hard',   title: 'T-Spin Expert',     desc: 'T-spin clears in one game: {n}',                   metric: 'tSpins',         target: 1,    pts: 5 },
-        { id: 'raw_xp_hard',    tier: 'hard',   title: 'XP Grinder',        desc: 'Earn {n} raw XP in games',                         metric: 'rawXP',          target: 600,  pts: 5, cumulative: true },
-        { id: 'total_xp_hard',  tier: 'hard',   title: 'XP Surge',          desc: 'Earn {n} total XP in games (with multipliers)',    metric: 'totalXP',        target: 800,  pts: 5, cumulative: true },
+        { id: 't_spin_2',       tier: 'hard',   title: 'T-Spin Expert',     desc: 'Get {n} T-spin clear{s} in one game',                   metric: 'tSpins',         target: 1,    pts: 5 },
+        { id: 'raw_xp_hard',    tier: 'hard',   title: 'XP Grinder',        desc: 'Earn {n} XP from games before multipliers',                         metric: 'rawXP',          target: 600,  pts: 5, cumulative: true },
+        { id: 'total_xp_hard',  tier: 'hard',   title: 'XP Surge',          desc: 'Earn {n} XP from games including multipliers',    metric: 'totalXP',        target: 800,  pts: 5, cumulative: true },
         // SECRET pool (pts: 5) — title/desc hidden until completed; displayTier assigned on generation
         { id: 'hat_trick',        tier: 'secret', title: 'Hat Trick',         desc: 'Clear lines on 3 consecutive placements',                    metric: 'hatTrick',       target: 1,  pts: 5 },
-        { id: 'narrow_escape',    tier: 'secret', title: 'Narrow Escape',     desc: 'Survive 20 seconds with blocks in the top 4 rows',           metric: 'narrowEscape',   target: 1,  pts: 5 },
+        { id: 'narrow_escape',    tier: 'secret', title: 'Narrow Escape',     desc: 'Keep blocks in the top 2 visible rows for 20 seconds without topping out',           metric: 'narrowEscape',   target: 1,  pts: 5 },
         { id: 'i_floor',          tier: 'secret', title: 'Floor Liner',       desc: 'Land an I-piece flat on the bottom row',                     metric: 'iFloor',         target: 1,  pts: 5 },
-        { id: 'bottom_builder',   tier: 'secret', title: 'Deep Diver',        desc: 'Place 15 blocks in the bottom quarter of the board',         metric: 'bottomQuarter',  target: 15, pts: 5 },
-        { id: 'speed_run',        tier: 'secret', title: 'Against the Clock', desc: 'Reach level 5 in under 3 minutes',                           metric: 'speedRun',       target: 1,  pts: 5 },
+        { id: 'bottom_builder',   tier: 'secret', title: 'Deep Diver',        desc: 'Place {n} individual blocks in the bottom quarter of the board',         metric: 'bottomQuarter',  target: 15, pts: 5 },
+        { id: 'speed_run',        tier: 'secret', title: 'Against the Clock', desc: 'Reach speed level 5 in under 3 minutes',                           metric: 'speedRun',       target: 1,  pts: 5 },
         { id: 'perfect_clear',    tier: 'secret', title: 'Perfect Clear',     desc: 'Clear the entire board in one game',                         metric: 'perfectClear',   target: 1,  pts: 5 },
         { id: 'no_soft',          tier: 'secret', title: 'Hard Only',         desc: 'Finish a game without using soft-drop',                      metric: 'noSoftDrop',     target: 1,  pts: 5 },
-        { id: 'comeback_kid',     tier: 'secret', title: 'Comeback Kid',      desc: 'Have blocks reach the top 2 rows, then survive 60 more seconds', metric: 'comebackKid', target: 1, pts: 5 },
-        { id: 'monochrome',       tier: 'secret', title: 'Monochrome',        desc: 'Place 20 blocks of the same piece type in one game',         metric: 'monochrome',     target: 1,  pts: 5 },
-        { id: 'speed_queen',      tier: 'secret', title: 'Quick Climb',       desc: 'Reach level 4 within the first 2 minutes',                   metric: 'speedQueen',     target: 1,  pts: 5 },
-        { id: 'minimalist',       tier: 'secret', title: 'Minimalist',        desc: 'Clear 8 lines using only singles — no doubles or better',     metric: 'minimalist',     target: 1,  pts: 5 },
+        { id: 'comeback_kid',     tier: 'secret', title: 'Comeback Kid',      desc: 'Let the stack reach the top visible row, then keep playing for 60 seconds', metric: 'comebackKid', target: 1, pts: 5 },
+        { id: 'monochrome',       tier: 'secret', title: 'Monochrome',        desc: 'Place 20 pieces of the same shape in one game',         metric: 'monochrome',     target: 1,  pts: 5 },
+        { id: 'speed_queen',      tier: 'secret', title: 'Quick Climb',       desc: 'Reach speed level 4 within the first 2 minutes',                   metric: 'speedQueen',     target: 1,  pts: 5 },
+        { id: 'minimalist',       tier: 'secret', title: 'Minimalist',        desc: 'Clear 8 lines one at a time',     metric: 'minimalist',     target: 1,  pts: 5 },
         { id: 'quad_streak',      tier: 'secret', title: 'Quad Streak',       desc: 'Get 2 quad clears in a row',               metric: 'quadStreak',     target: 1,  pts: 5 },
-        { id: 'flat_earth',       tier: 'secret', title: 'Flat Earther',      desc: 'Keep your max stack height under 5 for 60 seconds',          metric: 'flatEarth',      target: 1,  pts: 5 },
+        { id: 'flat_earth',       tier: 'secret', title: 'Flat Earther',      desc: 'Keep every stack at 5 blocks high or less for 60 seconds',          metric: 'flatEarth',      target: 1,  pts: 5 },
         { id: 'nice_bonus',       tier: 'secret', title: 'Nice Bonus',        desc: 'Complete all other daily quests in one run',                  metric: 'niceBonus',      target: 1,  pts: 5 },
         { id: 'double_completion',tier: 'secret', title: 'Double Completion', desc: 'Complete any 2 missions (daily or weekly) in one run',        metric: 'doubleCompletion', target: 1, pts: 5 },
     ];
@@ -9736,42 +9809,42 @@
     const FALLBACK_WEEKLY_MISSIONS = [
         // EASY (pts: 10)
         { id: 'w_lines_100',    tier: 'easy',   title: 'Line Week',         desc: 'Clear {n} lines total',                  metric: 'linesCleared',      target: 100,  pts: 10, cumulative: true  },
-        { id: 'w_blocks_800',   tier: 'easy',   title: 'Block Flood',       desc: 'Place {n} blocks total',                 metric: 'blocksPlaced',      target: 800,  pts: 10, cumulative: true  },
+        { id: 'w_blocks_800',   tier: 'easy',   title: 'Block Flood',       desc: 'Place {n} pieces total',                 metric: 'blocksPlaced',      target: 800,  pts: 10, cumulative: true  },
         { id: 'w_games_35',     tier: 'easy',   title: 'Warm-Up',           desc: 'Complete {n} games',                     metric: 'gamesPlayed',       target: 35,   pts: 10, cumulative: true  },
         { id: 'w_quads_5',      tier: 'easy',   title: 'Four-Line Habit',   desc: 'Get {n} quad clears',  metric: 'quads',             target: 5,    pts: 10, cumulative: true  },
         { id: 'w_survive_1200', tier: 'easy',   title: 'Short Session',     desc: 'Play for {n} total',                     metric: 'gameTime',          target: 1200, pts: 10, cumulative: true  },
-        { id: 'w_speed2_5',     tier: 'easy',   title: 'Getting Faster',    desc: 'Reach level 2 in {n} separate games',    metric: 'gamesReachedSpeed2',target: 5,    pts: 10, cumulative: true  },
+        { id: 'w_speed2_5',     tier: 'easy',   title: 'Getting Faster',    desc: 'Reach speed level 2 in {n} games',    metric: 'gamesReachedSpeed2',target: 5,    pts: 10, cumulative: true  },
         { id: 'w_score_1500',   tier: 'easy',   title: 'Score Sprint',      desc: 'Score {n} points total',                 metric: 'score',             target: 1500, pts: 10, cumulative: true  },
-        { id: 'w_raw_xp_easy',    tier: 'easy',   title: 'Weekly XP Warm-Up', desc: 'Earn {n} raw XP in games',                      metric: 'rawXP',    target: 1250, pts: 10, cumulative: true },
-        { id: 'w_total_xp_easy',  tier: 'easy',   title: 'Weekly XP Kickstart', desc: 'Earn {n} total XP in games (with multipliers)', metric: 'totalXP',  target: 1750, pts: 10, cumulative: true },
+        { id: 'w_raw_xp_easy',    tier: 'easy',   title: 'Weekly XP Warm-Up', desc: 'Earn {n} XP from games before multipliers',                      metric: 'rawXP',    target: 1250, pts: 10, cumulative: true },
+        { id: 'w_total_xp_easy',  tier: 'easy',   title: 'Weekly XP Kickstart', desc: 'Earn {n} XP from games including multipliers', metric: 'totalXP',  target: 1750, pts: 10, cumulative: true },
         // NORMAL (pts: 15)
         { id: 'w_lines_150',    tier: 'normal', title: 'Line Machine',      desc: 'Clear {n} lines total',                  metric: 'linesCleared',      target: 150,  pts: 15, cumulative: true  },
-        { id: 'w_blocks_1400',  tier: 'normal', title: 'Block Mountain',    desc: 'Place {n} blocks total',                 metric: 'blocksPlaced',      target: 1400, pts: 15, cumulative: true  },
+        { id: 'w_blocks_1400',  tier: 'normal', title: 'Block Mountain',    desc: 'Place {n} pieces total',                 metric: 'blocksPlaced',      target: 1400, pts: 15, cumulative: true  },
         { id: 'w_score_3000',   tier: 'normal', title: 'Weekly Scorer',     desc: 'Score {n} points total',                 metric: 'score',             target: 3000, pts: 15, cumulative: true  },
         { id: 'w_games_50',     tier: 'normal', title: 'Grinder',           desc: 'Complete {n} games',                     metric: 'gamesPlayed',       target: 50,   pts: 15, cumulative: true  },
         { id: 'w_quads_10',     tier: 'normal', title: 'Quad Collector',    desc: 'Get {n} quad clears',  metric: 'quads',             target: 10,   pts: 15, cumulative: true  },
-        { id: 'w_tspin_3',      tier: 'normal', title: 'Spin Doctor',       desc: 'Perform {n} T-spins',                    metric: 'tSpins',            target: 2,    pts: 15, cumulative: true  },
-        { id: 'w_combo4_4',     tier: 'normal', title: 'Weekly Combo',      desc: 'Get a 4+ combo in {n} separate games',   metric: 'gamesWithCombo4',   target: 4,    pts: 15, cumulative: true  },
-        { id: 'w_speed3_5',     tier: 'normal', title: 'Third Gear',        desc: 'Reach level 3 in {n} separate games',    metric: 'gamesReachedSpeed3',target: 5,    pts: 15, cumulative: true  },
-        { id: 'w_raw_xp_normal',  tier: 'normal', title: 'Weekly XP Builder',  desc: 'Earn {n} raw XP in games',                      metric: 'rawXP',    target: 2500, pts: 15, cumulative: true },
-        { id: 'w_total_xp_normal', tier: 'normal', title: 'Weekly XP Momentum', desc: 'Earn {n} total XP in games (with multipliers)', metric: 'totalXP', target: 3500, pts: 15, cumulative: true },
+        { id: 'w_tspin_3',      tier: 'normal', title: 'Spin Doctor',       desc: 'Get {n} T-spin clear{s}',                    metric: 'tSpins',            target: 2,    pts: 15, cumulative: true  },
+        { id: 'w_combo4_4',     tier: 'normal', title: 'Weekly Combo',      desc: 'Get a combo of 4 or more in {n} games',   metric: 'gamesWithCombo4',   target: 4,    pts: 15, cumulative: true  },
+        { id: 'w_speed3_5',     tier: 'normal', title: 'Third Gear',        desc: 'Reach speed level 3 in {n} games',    metric: 'gamesReachedSpeed3',target: 5,    pts: 15, cumulative: true  },
+        { id: 'w_raw_xp_normal',  tier: 'normal', title: 'Weekly XP Builder',  desc: 'Earn {n} XP from games before multipliers',                      metric: 'rawXP',    target: 2500, pts: 15, cumulative: true },
+        { id: 'w_total_xp_normal', tier: 'normal', title: 'Weekly XP Momentum', desc: 'Earn {n} XP from games including multipliers', metric: 'totalXP', target: 3500, pts: 15, cumulative: true },
         // HARD (pts: 25)
         { id: 'w_lines_250',    tier: 'hard',   title: 'Line God',          desc: 'Clear {n} lines total',                  metric: 'linesCleared',      target: 250,  pts: 25, cumulative: true  },
-        { id: 'w_blocks_2000',  tier: 'hard',   title: 'Unstoppable Force', desc: 'Place {n} blocks total',                 metric: 'blocksPlaced',      target: 2000, pts: 25, cumulative: true  },
+        { id: 'w_blocks_2000',  tier: 'hard',   title: 'Unstoppable Force', desc: 'Place {n} pieces total',                 metric: 'blocksPlaced',      target: 2000, pts: 25, cumulative: true  },
         { id: 'w_score_4500',   tier: 'hard',   title: 'Score Legend',      desc: 'Score {n} points total',                 metric: 'score',             target: 4500, pts: 25, cumulative: true  },
         { id: 'w_games_75',     tier: 'hard',   title: 'No Life',           desc: 'Complete {n} games',                     metric: 'gamesPlayed',       target: 75,   pts: 25, cumulative: true  },
         { id: 'w_quads_15',     tier: 'hard',   title: 'Quad Legend',       desc: 'Get {n} quad clears',  metric: 'quads',             target: 15,   pts: 25, cumulative: true  },
-        { id: 'w_tspin_5',      tier: 'hard',   title: 'T-Spin Streak',     desc: 'Perform {n} T-spins',                    metric: 'tSpins',            target: 3,    pts: 25, cumulative: true  },
+        { id: 'w_tspin_5',      tier: 'hard',   title: 'T-Spin Streak',     desc: 'Get {n} T-spin clear{s}',                    metric: 'tSpins',            target: 3,    pts: 25, cumulative: true  },
         { id: 'w_survive_2400', tier: 'hard',   title: 'Weekly Warrior',    desc: 'Play for {n} total',                     metric: 'gameTime',          target: 2400, pts: 25, cumulative: true  },
-        { id: 'w_speed4_5',     tier: 'hard',   title: 'Higher Gear',       desc: 'Reach level 4 in {n} separate games',    metric: 'gamesReachedSpeed4',target: 5,    pts: 25, cumulative: true  },
-        { id: 'w_combo4_5',     tier: 'hard',   title: 'Weekly Combo',      desc: 'Get a 4+ combo in {n} separate games',   metric: 'gamesWithCombo4',   target: 5,    pts: 25, cumulative: true  },
-        { id: 'w_raw_xp_hard',    tier: 'hard',   title: 'Weekly XP Grinder',  desc: 'Earn {n} raw XP in games',                      metric: 'rawXP',    target: 4000, pts: 25, cumulative: true },
-        { id: 'w_total_xp_hard',  tier: 'hard',   title: 'Weekly XP Surge',    desc: 'Earn {n} total XP in games (with multipliers)', metric: 'totalXP',  target: 5500, pts: 25, cumulative: true },
+        { id: 'w_speed4_5',     tier: 'hard',   title: 'Higher Gear',       desc: 'Reach speed level 4 in {n} games',    metric: 'gamesReachedSpeed4',target: 5,    pts: 25, cumulative: true  },
+        { id: 'w_combo4_5',     tier: 'hard',   title: 'Weekly Combo',      desc: 'Get a combo of 4 or more in {n} games',   metric: 'gamesWithCombo4',   target: 5,    pts: 25, cumulative: true  },
+        { id: 'w_raw_xp_hard',    tier: 'hard',   title: 'Weekly XP Grinder',  desc: 'Earn {n} XP from games before multipliers',                      metric: 'rawXP',    target: 4000, pts: 25, cumulative: true },
+        { id: 'w_total_xp_hard',  tier: 'hard',   title: 'Weekly XP Surge',    desc: 'Earn {n} XP from games including multipliers', metric: 'totalXP',  target: 5500, pts: 25, cumulative: true },
     ];
     const DAILY_MODE_QUESTS = [
-        { id: 'ghost_lines', tier: 'easy', title: 'Ghost Guide', desc: 'Clear {n} lines with Ghost Piece on in Normal', metric: 'ghostLines', target: 5, pts: 2, minLevel: 11 },
-        { id: 'mirror_lines', tier: 'easy', title: 'Mirror Match', desc: 'Clear {n} lines with Mirror on in Normal', metric: 'mirrorLines', target: 5, pts: 2, minLevel: 11 },
-        { id: 'fun_run', tier: 'easy', title: 'Just for Fun', desc: 'Finish a Fun run with at least 1 line cleared', metric: 'funRuns', target: 1, pts: 2, minLevel: FUN_MODE_UNLOCK_LEVEL },
+        { id: 'ghost_lines', tier: 'easy', title: 'Ghost Guide', desc: 'Clear {n} lines in Normal Mode with Ghost Piece on', metric: 'ghostLines', target: 5, pts: 2, minLevel: 11 },
+        { id: 'mirror_lines', tier: 'easy', title: 'Mirror Match', desc: 'Clear {n} lines in Normal Mode with Mirror on', metric: 'mirrorLines', target: 5, pts: 2, minLevel: 11 },
+        { id: 'fun_run', tier: 'easy', title: 'Just for Fun', desc: 'Finish a game in Fun Mode and clear at least 1 line', metric: 'funRuns', target: 1, pts: 2, minLevel: FUN_MODE_UNLOCK_LEVEL },
     ];
     let DAILY_QUEST_POOL = FALLBACK_DAILY_QUESTS;
     let WEEKLY_MISSION_POOL = FALLBACK_WEEKLY_MISSIONS;
@@ -9805,7 +9878,7 @@
             return {
                 ...def, ...state, title: def.title, target, tier: promoted ? state.tier : def.tier,
                 pts: promoted ? (state.tier === 'normal' ? 15 : 25) : def.pts,
-                desc: def.tier === 'secret' ? def.desc : _makeMissionDesc(def.metric, def.desc, target),
+                desc: _makeMissionDesc(def.metric, def.desc, target),
             };
         };
         const daily = new Map([...DAILY_QUEST_POOL, ...DAILY_MODE_QUESTS].map(def => [def.id, def]));
@@ -9868,7 +9941,7 @@
     }
     function _makeMissionDesc(metric, template, target) {
         const val = metric === 'gameTime' ? _fmtMissionTime(target) : target;
-        return template.replace('{n}', val);
+        return template.replace('{n}', val).replace('{s}', target === 1 ? '' : 's');
     }
     function _missionTarget(q, mult) {
         const rankMult = ['maxSpeed', 'maxCombo', 'funRuns'].includes(q.metric) ? 1 : mult;
@@ -9932,7 +10005,7 @@
                 const displayTier = Math.random() < 0.5 ? 'normal' : 'hard';
                 // Secret quest targets are mostly 1 (binary), apply variation only to non-binary
                 const scaledTarget = sq.target > 1 ? _missionTarget(sq, mult) : sq.target;
-                secret = { ...sq, target: scaledTarget, progress: 0, completed: false, ptsClaimed: false, displayTier };
+                secret = { ...sq, target: scaledTarget, progress: 0, completed: false, ptsClaimed: false, displayTier, desc: _makeMissionDesc(sq.metric, sq.desc, scaledTarget) };
             }
         }
         return { quests, secret };
@@ -10358,12 +10431,13 @@
             const rarity = reached || (!isWeekly && pts === lastThreshold) ? LBCrates.missionRarity(pts, isWeekly) : 'common';
             const crate = _missionCrateMarker(rarity, !reached);
             const label = `${pts} points: ${reached ? `${rarity} crate` : 'locked crate'}`;
-            const content = `${crate}<span aria-hidden="true">${pts}</span>`;
+            const caption = isClaimed ? '<span class="mq-ms-claimed" aria-hidden="true">✓</span>' : `<span aria-hidden="true">${pts}</span>`;
+            const content = `${crate}${caption}`;
             const position = `style="--mq-stop:${100 * (pts - start) / range}%"`;
             if (reached && !isClaimed) {
                 return `<button type="button" class="lb-block-btn lb-block-btn--ghost mq-ms-claim-btn" ${position} onclick="window._claimMissionMilestone(${pts},${!!isWeekly},false,this)" aria-label="Claim ${label}" data-control-tip="Claim ${label}">${content}</button>`;
             }
-            return `<span class="mq-ms-marker" role="img" ${position} aria-label="${label}${isClaimed ? ', claimed' : ''}" title="${label}${isClaimed ? ' (claimed)' : ''}">${content}${isClaimed ? '<span class="mq-ms-claimed" aria-hidden="true">✓</span>' : ''}</span>`;
+            return `<span class="mq-ms-marker" role="img" ${position} aria-label="${label}${isClaimed ? ', claimed' : ''}" title="${label}${isClaimed ? ' (claimed)' : ''}">${content}</span>`;
         });
         if (pending > 0) {
             const content = `<img class="mq-ms-crate" src="${LBArtPack.universalPart('common')}" alt=""><span class="mq-ms-amount" aria-hidden="true">+${pending.toLocaleString()}</span>`;
@@ -10665,7 +10739,13 @@
 
     window._claimQuestPts = (questId, isWeekly, color, button, silent = false) => {
         const claim = () => _claimQuestPts(questId, isWeekly, color, button, silent);
-        return button && !silent ? _claimAfterPaint(button, claim) : claim();
+        if (!button || silent) return claim();
+        if (!button.closest('.mq-focus-card')) return _claimAfterPaint(button, claim);
+        if (!button.isConnected || button.closest('[hidden], [inert], .hidden')) return;
+        const period = isWeekly ? 'weekly' : 'daily';
+        const missionPeriod = saveData.missions?.[period];
+        // The focus deck replaces its buttons when the player selects another objective.
+        return _claimAfterPaint(button, claim, () => saveData.missions?.[period] === missionPeriod);
     };
 
     function _claimQuestPts(questId, isWeekly, color, btnEl, silent) {
@@ -10706,14 +10786,18 @@
         }
         m.stats.totalPts = (m.stats.totalPts || 0) + pts;
         // Capture button position BEFORE re-render destroys it
-        const _fromRect = btnEl ? btnEl.getBoundingClientRect() : null;
+        const _fromRect = btnEl?.isConnected ? btnEl.getBoundingClientRect() : null;
         const restoreFocus = btnEl && btnEl === document.activeElement;
         saveDataToFile();
         if (silent) return;
-        renderMissionsOverlay(isWeekly ? 'weekly' : 'daily');
-        if (restoreFocus) document.querySelector('.mq-focus-step[aria-pressed="true"]')?.focus({ preventScroll: true });
-        _checkGlowNotifications();
-        if (_fromRect) _flyPtsToBar(pts, _fromRect, color || 'var(--lb-label)');
+        const overlay = document.getElementById('missions-overlay');
+        if (overlay.classList.contains('hidden') || overlay.hasAttribute('inert')) {
+            _checkGlowNotifications();
+            return;
+        }
+        renderMissionsOverlay();
+        if (restoreFocus) overlay.querySelector('.mq-focus-step[aria-pressed="true"]')?.focus({ preventScroll: true });
+        if (_fromRect && overlay._mTab === (isWeekly ? 'weekly' : 'daily')) _flyPtsToBar(pts, _fromRect, color || 'var(--lb-label)');
     }
 
     function _flyPtsToBar(pts, fromEl, color) {
@@ -10790,7 +10874,7 @@
         const actionPlaylist = _getPlaylist('action');
         const allNames = [..._trackPool.keys()].sort((a, b) => a.localeCompare(b));
         const trackToggle = (on, ctx, name) => `<button type="button" class="lb-block-btn lb-block-btn--icon lb-playlist-check" data-playlist="${ctx === 'menu' ? 'menu' : 'game'}" aria-label="${ctx === 'menu' ? 'Menu' : 'Game'} playlist: ${escapeHtml(name)}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}',${escapeHtml(JSON.stringify(name))},${!on})"><span>${svgCheck}</span></button>`;
-        const header = `<div class="lb-playlist-grid lb-playlist-columns" aria-hidden="true">
+        const header = `<div class="lb-playlist-grid lb-playlist-columns" data-scroll-fade-header aria-hidden="true">
             <span>Menu</span><span>Game</span><span>Track name</span>
         </div>`;
         const rows = allNames.map(name => {

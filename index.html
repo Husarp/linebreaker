@@ -463,7 +463,6 @@
     <header class="lb-header lb-block-topbar mq-header" data-lb-topbar>
         <div class="lb-topbar-crumb">
             <button type="button" class="btn-back lb-block-back" id="mq-menu" aria-label="Menu" onclick="window.closeMissions()"><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
-            <button type="button" class="btn-back lb-block-back" id="mq-back" aria-label="Back to missions" hidden><svg aria-hidden="true"><use href="#lb-topbar-arrow"/></svg></button>
             <span class="lb-topbar-kicker" aria-hidden="true">Objectives</span>
             <h1 class="lb-topbar-title">Missions</h1>
         </div>
@@ -507,7 +506,7 @@
             </section>
         </div>
     </div>
-    <section id="season-pass-overlay" class="sp-pass lb-scroll-fade" aria-labelledby="sp-title" hidden></section>
+    <section id="season-pass-overlay" class="sp-pass" aria-labelledby="sp-title" hidden></section>
 </div>
 
 <!-- MISSIONS CONFIRM DIALOG -->
@@ -989,7 +988,7 @@
     </header>
     <div class="lb-help-layout">
         <button type="button" class="lb-block-btn lb-ledger-row lb-help-topic-key" aria-expanded="false" aria-controls="help-topic-list"><span>Topics</span><span class="lb-ledger-chevron" aria-hidden="true"></span></button>
-        <nav id="help-topic-list" class="lb-help-nav" aria-label="Help topics" hidden></nav>
+        <nav id="help-topic-list" class="lb-help-nav lb-scroll-fade" aria-label="Help topics" hidden></nav>
         <div class="lb-help-content lb-scroll-fade" tabindex="0"></div>
     </div>
 </div>
@@ -1185,8 +1184,8 @@
             <h1 class="lb-topbar-title" id="credits-title">Credits &amp; About</h1>
         </div>
     </header>
-    <div class="lb80-credits">
-        <div class="lb-block-panel lb80-credits-edition">
+    <div class="lb80-credits lb-scroll-fade">
+        <div class="lb-block-panel lb80-credits-edition" data-scroll-fade-header>
             <strong>LINEBREAKER</strong>
             <span>RPG Edition</span>
             <span class="lb80-credits-version" data-update-version>Version 1.4.3</span>

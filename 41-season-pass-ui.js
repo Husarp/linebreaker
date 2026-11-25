@@ -22,7 +22,6 @@
 
     function mount({ getSave, save, partName, boosterName, grantCrate, grantSkin, claimAfterPaint, onNavigate, onReady }) {
         const screen = document.getElementById('season-pass-overlay');
-        const back = document.getElementById('mq-back');
         const seasonDay = document.getElementById('sp-day');
         document.getElementById('missions-overlay').after(screen);
         screen.className = 'overlay sp-pass';
@@ -31,6 +30,7 @@
         screen.innerHTML = `
             <header class="lb-header lb-block-topbar mq-header" data-lb-topbar>
                 <div class="lb-topbar-crumb">
+                    <button type="button" id="mq-back" class="btn-back lb-block-back" aria-label="Back to Missions">${icon('lb-topbar-arrow')}</button>
                     <span class="lb-topbar-kicker" aria-hidden="true">Rewards</span>
                     <h1 class="lb-topbar-title" id="sp-screen-title">Season Pass</h1>
                 </div>
@@ -50,13 +50,15 @@
                 <p id="sp-notice" class="sp-notice" role="status" hidden></p>
                 <div class="sp-track-header">
                     <div><h2 class="lb-block-kicker" id="sp-track-title">Reward track</h2><p id="sp-track-rules" class="sp-sr-only">Earn Season Points from missions and quests to unlock stages.</p></div>
-                    <span class="lb-block-kicker" id="sp-stage-range" aria-hidden="true"></span>
+                    <div class="sp-track-tools">
+                        <span class="lb-block-kicker" id="sp-stage-range" aria-hidden="true"></span>
+                        <button type="button" class="sp-jump lb-block-btn lb-block-btn--icon" hidden>${icon('lb-topbar-arrow')}</button>
+                    </div>
                 </div>
                 <div class="sp-track-wrap">
                     <div id="sp-loading" role="status"></div>
                     <button type="button" class="sp-retry lb-block-btn" hidden>Retry</button>
                     <div class="sp-track lb-scroll-fade" role="region" aria-labelledby="sp-track-title" aria-describedby="sp-track-rules" tabindex="0" hidden><ol role="list"></ol></div>
-                    <button type="button" class="sp-jump lb-block-btn lb-block-btn--icon" hidden>${icon('lb-topbar-arrow')}</button>
                 </div>
                 <div class="sp-season-details">
                     <div><p id="sp-days"></p><p id="sp-dates"></p></div>
@@ -65,9 +67,9 @@
                 <p id="sp-announcement" class="sp-sr-only" role="status"></p>
             </div>`;
         const find = selector => screen.querySelector(selector);
-        find('.lb-topbar-crumb').prepend(back);
+        const back = find('.lb-block-back');
         find('[data-lb-topbar]').append(seasonDay);
-        back.hidden = seasonDay.hidden = false;
+        seasonDay.hidden = false;
         const track = find('.sp-track');
         const cards = find('ol');
         const range = find('#sp-stage-range');

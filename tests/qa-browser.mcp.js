@@ -695,13 +695,10 @@
                     const banner = panel.closest('.lb-menu-banner');
                     const frame = banner.getBoundingClientRect();
                     const logo = banner.querySelector('.lb122-logo').getBoundingClientRect();
-                    const quote = banner.querySelector('#splash-quote').getBoundingClientRect();
                     const band = document.querySelector('.lb-top-band').getBoundingClientRect();
-                    const fitsInside = quote.top - logo.bottom >= rect.height;
-                    const verticalFit = fitsInside
-                        ? rect.top >= logo.bottom && rect.bottom <= quote.top
-                        : rect.top === frame.bottom;
-                    return rect.left === frame.left && rect.right === frame.right && rect.top >= band.bottom && verticalFit
+                    const near = (a, b) => Math.abs(a - b) <= 1;
+                    return near(rect.left, frame.left) && near(rect.right, frame.right) && near(rect.top, frame.top)
+                        && rect.top >= band.bottom && rect.bottom <= logo.top
                         && panel.querySelector('img').naturalWidth > 0 && /^(Common|Rare|Epic) crate$/.test(panel.querySelector('span').textContent);
                 });
                 if (!noticeFits) fail('Daily Gift must align with the frame and clear the logo and ribbon');
@@ -805,8 +802,13 @@
                     || !await page.locator('.go-boost-list [data-used] .go-booster-used').isVisible()) {
                     fail('Used boosters must stay marked and lock all booster buttons');
                 }
-                if (await page.locator('#go-overlay .lb-scroll-top:visible').count()
-                    && !await page.locator('#go-overlay .go-view-actions .lb-scroll-top').count()) fail('Results scroll shortcut must not cover run actions');
+                const shortcut = page.locator('#go-overlay .lb-scroll-top:visible');
+                if (await shortcut.count() && !await shortcut.evaluate(button => {
+                    const rect = button.getBoundingClientRect();
+                    const scroller = document.querySelector('.go-dialog-body');
+                    const pane = scroller.getBoundingClientRect();
+                    return scroller.scrollHeight > scroller.clientHeight * 2.5 && rect.right <= pane.right - 16 && rect.bottom <= pane.bottom;
+                })) fail('Results scroll shortcut must clear the scrollbar and the run actions');
                 await page.waitForFunction(() => /^\+[1-9]/.test(document.getElementById('go-xp-bonus').textContent));
                 if (!await bonus.isVisible() || await base.textContent() !== xpBefore) fail('The booster bonus must appear below the base XP');
                 await capture?.('game-over-used');

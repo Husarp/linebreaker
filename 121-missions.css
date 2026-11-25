@@ -123,11 +123,12 @@
     left: var(--mq-stop);
     translate: -50% 0;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     justify-items: center;
     align-content: start;
     box-sizing: border-box;
     inline-size: 44px;
-    block-size: 44px;
+    min-block-size: 44px;
     gap: 0;
     padding: 0 !important;
     color: var(--lb-muted);
@@ -140,7 +141,7 @@
     border: 0 !important;
     box-shadow: none !important;
 }
-.mq-ms-crate { inline-size: var(--lb-space-2xl); block-size: var(--lb-space-2xl); object-fit: contain; }
+.mq-ms-crate { justify-self: center; inline-size: var(--lb-space-2xl); block-size: var(--lb-space-2xl); object-fit: contain; }
 .mq-ms-crate--locked { filter: grayscale(1); }
 .mq-ms-claim-btn .mq-ms-crate { transform: scale(1.18); }
 @media (prefers-reduced-motion: no-preference) {
@@ -148,7 +149,7 @@
 }
 @keyframes mq-chest-ready { to { transform: scale(1.32); } }
 .mq-ms-amount { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.mq-ms-claimed { position: absolute; top: 0; inset-inline-end: 0; color: var(--lb-label); }
+.mq-ms-claimed { color: var(--lb-label); }
 
 .mq-list-head {
     display: flex;

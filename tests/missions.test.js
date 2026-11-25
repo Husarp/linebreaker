@@ -55,6 +55,33 @@ it.each([['daily', 'quests', 'pointsToday'], ['weekly', 'missions', 'points']])(
   expect(document.activeElement).toBe(active());
 });
 
+it('credits a saved weekly objective once when the player changes cards during claim feedback', async () => {
+  api.refreshMissions();
+  const save = game.w.LBSave.serializeSave(api.save);
+  const objective = save.missions.weekly.missions[0];
+  Object.assign(objective, { progress: objective.target, completed: true, ptsClaimed: false });
+  api.applyLoadedData(save);
+  const { points, missions } = api.save.missions.weekly;
+  const reward = missions.find(mission => mission.id === objective.id).pts;
+  await game.w.openMissions('weekly');
+
+  const { document } = game.w;
+  const claim = document.querySelector('.mq-pts-claim-btn');
+  game.w.Function(claim.getAttribute('onclick')).call(claim);
+  const otherStep = document.querySelector('.mq-focus-step[aria-pressed="false"]');
+  const selected = otherStep.dataset.step;
+  otherStep.click();
+  expect(claim.isConnected).toBe(false);
+  expect(api.save.missions.weekly.points).toBe(points);
+
+  game.advance(1000);
+  expect(api.save.missions.weekly.points).toBe(points + reward);
+  expect(api.save.missions.weekly.missions.find(mission => mission.id === objective.id).ptsClaimed).toBe(true);
+  expect(document.querySelector('.mq-focus-step[aria-pressed="true"]').dataset.step).toBe(selected);
+  game.w._claimQuestPts(objective.id, true);
+  expect(api.save.missions.weekly.points).toBe(points + reward);
+});
+
 it.each([['daily', 'quests'], ['weekly', 'missions']])('focuses the first unfinished %s objective when none can be claimed', async (tab, list) => {
   api.refreshMissions();
   const save = api.save;
@@ -108,7 +135,9 @@ it.each([
   const future = selector(locked, '[role="img"]');
   expect(claim.querySelector('img').getAttribute('src')).toBe(`assets/ui/crates/${LBCrates.missionRarity(ready, tab === 'weekly')}.png`);
   expect(done.querySelector('img').getAttribute('src')).toBe(`assets/ui/crates/${LBCrates.missionRarity(claimed, tab === 'weekly')}.png`);
-  expect(done.querySelector('.mq-ms-claimed')).not.toBeNull();
+  expect([...done.children].map(child => child.tagName)).toEqual(['IMG', 'SPAN']);
+  expect(done.lastElementChild).toMatchObject({ className: 'mq-ms-claimed', textContent: '✓' });
+  expect(claim.lastElementChild.textContent).toBe(String(ready));
   expect(future.getAttribute('aria-label')).toBe(`${locked} points: locked crate`);
   expect(future.querySelector('.mq-ms-crate--locked').getAttribute('src')).toBe(`assets/ui/crates/${tab === 'daily' ? 'rare' : 'common'}.png`);
   expect(selector(locked, 'button')).toBeNull();

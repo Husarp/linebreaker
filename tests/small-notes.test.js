@@ -117,3 +117,57 @@ it('opens beside the HUD on a wide landscape screen and remains collapsible', ()
   toggle.click();
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
 });
+
+it('clears the Inventory tile on visiting Crates and restores it for the next delivery', async () => {
+  api.applyLoadedData({ storedCrates: [{ rarity: 'common' }] });
+  game.advance(100);
+  const tile = document.getElementById('btn-inventory');
+  expect(tile.hasAttribute('data-ready')).toBe(true);
+  await window.openInventory('parts');
+  expect(tile.hasAttribute('data-ready')).toBe(true);
+  window.inventoryTab('crates');
+  expect(tile.hasAttribute('data-ready')).toBe(false);
+  expect(api.save.storedCrates).toEqual([{ rarity: 'common', seen: true }]);
+
+  const saved = window.LBSave.serializeSave(api.save);
+  api.applyLoadedData(saved);
+  game.advance(100);
+  expect(tile.hasAttribute('data-ready')).toBe(false);
+  expect(api.save.storedCrates).toEqual([{ rarity: 'common', seen: true }]);
+
+  window.LBCrates.grantCrate(saved, 'rare');
+  api.applyLoadedData(saved);
+  game.advance(100);
+  expect(tile.hasAttribute('data-ready')).toBe(true);
+  await window.openInventory('crates');
+  expect(tile.hasAttribute('data-ready')).toBe(false);
+  expect(api.save.storedCrates).toEqual([{ rarity: 'common', seen: true }, { rarity: 'rare', seen: true }]);
+});
+
+it('offers scroll to top only for a long list and offsets it from the actual scrolling pane', async () => {
+  await window.openStats();
+  const pane = document.getElementById('general-stats-container');
+  const scrolled = () => pane.dispatchEvent(new window.Event('scroll'));
+  window.innerWidth = 390;
+  window.innerHeight = 844;
+  let height = 1250;
+  Object.defineProperties(pane, {
+    clientHeight: { value: 500 },
+    scrollHeight: { get: () => height },
+  });
+  pane.getBoundingClientRect = () => ({ right: 350, bottom: 760 });
+  pane.scrollTop = 240;
+  scrolled();
+  const button = document.querySelector('.lb-scroll-top');
+  expect(button.hidden).toBe(true);
+  height++;
+  scrolled();
+  expect(button.hidden).toBe(false);
+  expect(button.style.right).toBe('64px');
+  expect(button.style.bottom).toBe('96px');
+  button.click();
+  game.advance(16);
+  game.advance(300);
+  expect(pane.scrollTop).toBe(0);
+  expect(button.hidden).toBe(true);
+});

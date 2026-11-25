@@ -6,8 +6,9 @@
     const DAILY_GIFT_MAX_RARITY = 'epic';
     const CRATE_AJAR_MS = 120;
     const CRATE_OPEN_MS = 280;
-    const REWARD_FLIGHT_MS = 450;
-    const REWARD_POP_MS = 110;
+    const REWARD_FLIGHT_MS = 360;
+    const REWARD_POP_MS = 90;
+    const REWARD_STAGGER_MS = 150;
     const crateFrames = ['closed', 'ajar', 'open'];
     const crateSparkles = { epic: 6, legendary: 9, mythic: 14 };
     const contents = [
@@ -383,6 +384,7 @@
         const reveal = result => {
             clearAnimation();
             if (!result.childElementCount) result.append(element('p', '', 'No matching item parts to collect from this crate.'));
+            result.classList.add('lb-scroll-fade');
             rewards.prepend(result);
             rewards.hidden = false;
             const cards = [...result.querySelectorAll('.lb-reward-card')];
@@ -412,8 +414,7 @@
                     return;
                 }
                 const mouth = art.querySelector('.lb43-crate-mouth');
-                const stagger = Math.min(80, 720 / Math.max(1, cards.length - 1));
-                cards.forEach((card, index) => wait(index * stagger, () => {
+                cards.forEach((card, index) => wait(index * REWARD_STAGGER_MS, () => {
                     const flight = flyReward(overlay, card, mouth.getBoundingClientRect());
                     wait(REWARD_FLIGHT_MS + REWARD_POP_MS, () => {
                         flight.remove();

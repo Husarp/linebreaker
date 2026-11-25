@@ -77,9 +77,11 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--lb-space-sm);
+    min-block-size: calc(44px + 6px + var(--lb-border));
     padding-block-end: 6px;
     border-block-end: var(--lb-border) dashed var(--lb-rule);
 }
+.sp-track-tools { display: flex; align-items: center; gap: var(--lb-space-xs); }
 .sp-notice { padding: var(--lb-space-md); color: var(--lb-danger); }
 #sp-loading:empty { display: none; }
 
@@ -104,18 +106,12 @@
     --lb-control-face: var(--lb-key);
     --lb-control-edge: var(--lb-control-line);
     --lb-button-shadow: var(--lb-key-shadow);
-    position: absolute;
-    z-index: 2;
-    inset-inline-start: 0;
     display: grid;
     place-items: center;
     inline-size: 44px;
     block-size: 44px;
     padding: 0;
-    border-radius: 50% !important;
 }
-.sp-jump[data-direction='up'] { inset-block-start: var(--lb-space-xs); }
-.sp-jump[data-direction='down'] { inset-block-end: var(--lb-space-xs); }
 .sp-jump[data-direction='up'] svg { rotate: 90deg; }
 .sp-jump[data-direction='down'] svg { rotate: -90deg; }
 .sp-track ol {

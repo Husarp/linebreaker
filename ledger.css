@@ -561,11 +561,19 @@
 
 .lb-game-root, .lb-game-root * { scrollbar-color: var(--bb-scroll-thumb) transparent; }
 .lb-game-root .lb-scroll-fade { scrollbar-gutter: stable; }
+
+.lb-scroll-fade[data-fade-above] { --lb-fade-top: 16px; }
+.lb-scroll-fade[data-fade-below] { --lb-fade-bottom: 16px; }
+.lb-scroll-fade:is([data-fade-above], [data-fade-below]) {
+    --lb-fade-gradient: linear-gradient(to bottom, #000 var(--lb-fade-start, 0px),
+        transparent var(--lb-fade-start, 0px), #000 calc(var(--lb-fade-start, 0px) + var(--lb-fade-top, 0px)),
+        #000 calc(100% - var(--lb-fade-bottom, 0px)), transparent);
+    -webkit-mask-image: var(--lb-fade-gradient);
+    mask-image: var(--lb-fade-gradient);
+}
 .lb-game-root .lb-block-btn.lb-scroll-top:not([hidden]) {
     position: fixed;
     z-index: 1003;
-    inset-inline-end: max(16px, var(--lb-safe-right));
-    inset-block-end: max(16px, var(--lb-safe-bottom));
     inline-size: 44px;
     block-size: 44px;
     border-radius: var(--lb-radius);
@@ -704,7 +712,7 @@
 }
 @container lb-menu (height >= 760px) {
     #menu-overlay .lb-menu-banner {
-        grid-template-rows: auto minmax(var(--lb-gift-notice-height), 1fr) auto;
+        grid-template-rows: auto 1fr auto;
         padding-block-end: 22px;
     }
     #menu-overlay #splash-quote {
@@ -720,7 +728,6 @@
     gap: var(--lb-space-md);
     min-height: 103px;
     padding: 9px 14px 9px var(--lb-space-sm);
-    border-inline-start: 4px solid var(--lb-meter) !important;
     text-align: start;
     overflow: visible;
 }
@@ -974,6 +981,9 @@
     }
     #menu-overlay :is(.lb-menu-nav, .lb-menu-utilities) { align-self: start; }
 }
+#menu-overlay .lb-menu-banner:has(#daily-gift-notice:not([hidden])) {
+    padding-block-start: calc(var(--lb-gift-notice-height) + var(--lb-space-xs));
+}
 @media (prefers-reduced-motion: reduce) {
     .lb-xp-fill, #ls-bar { transition: none; }
 }
@@ -986,12 +996,11 @@
 }
 .lb-game-root #go-overlay {
     justify-content: flex-start;
-    padding: calc(var(--lb-band-height) + 20px) max(18px, var(--lb-safe-right))
-        max(var(--lb-space-md), var(--lb-safe-bottom)) max(18px, var(--lb-safe-left));
+    --go-start: max(18px, var(--lb-safe-left), (100% - 448px) / 2);
+    --go-end: max(18px, var(--lb-safe-right), (100% - 448px) / 2);
     --go-horizon-height: 250px;
-    background: linear-gradient(transparent 5%, var(--lb-page) 98%) top / 100% var(--go-horizon-height) no-repeat,
-        var(--lb-go-scene, none) var(--lb-go-scene-position, center top) / max(100%, 520px) var(--go-horizon-height) no-repeat,
-        var(--lb-paper) !important;
+    padding: var(--lb-band-height) 0 max(var(--lb-space-md), var(--lb-safe-bottom));
+    background: var(--lb-paper) !important;
     overflow: hidden;
 }
 #go-overlay[data-scene="a"] {
@@ -1006,13 +1015,8 @@
     display: grid;
     grid-template-rows: minmax(0, max-content) auto;
     gap: var(--lb-space-lg);
-    width: min(100%, 448px);
+    width: 100%;
     max-height: 100%;
-}
-#go-overlay .go-view-actions > .lb-scroll-top:not([hidden]) {
-    position: static;
-    flex: 0 0 44px;
-    align-self: center;
 }
 #go-overlay .go-boost-list button[data-used] {
     --lb-control-edge: var(--lb-meter);
@@ -1024,7 +1028,14 @@
     color: var(--lb-label);
     font: 400 var(--lb-type-micro)/1.2 var(--lb-font-pixel);
 }
-#go-overlay .go-dialog-body { overflow: hidden auto; text-align: start; scrollbar-gutter: auto; }
+#go-overlay .go-dialog-body {
+    overflow: hidden auto;
+    padding: 20px var(--go-end) 0 var(--go-start);
+    text-align: start;
+    scrollbar-gutter: auto;
+    background: linear-gradient(transparent, var(--lb-page)) top / 100% var(--go-horizon-height) no-repeat local,
+        var(--lb-go-scene, none) var(--lb-go-scene-position, center top) / max(100%, 520px) var(--go-horizon-height) no-repeat local;
+}
 #go-overlay .go-dialog-body > :not(:first-child) { margin-block-start: var(--lb-space-lg); }
 #go-overlay .go-dialog-body:focus-visible { outline: 2px solid var(--lb-focus); outline-offset: -2px; }
 #go-overlay > .go-dialog:last-child { margin: 0; }
@@ -1142,7 +1153,8 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--lb-space-sm);
-    width: 100%;
+    width: auto;
+    margin-inline: var(--go-start) var(--go-end);
     padding-bottom: 2px;
 }
 #go-overlay .go-actions .lb-block-btn { --lb-control-face: var(--lb-key); --lb-control-ink: var(--lb-ink); --lb-control-edge: var(--lb-rule); }
@@ -1158,8 +1170,7 @@
 #go-overlay .go-view-actions { display: flex; gap: var(--lb-space-sm); min-width: 0; }
 #go-overlay .result-view-board { flex: 1; min-width: 0; }
 #go-overlay .go-actions:not(:has(.result-pin[hidden])) .go-view-actions { grid-column: 1 / -1; }
-#go-overlay .go-view-actions:has(.lb-scroll-top:not([hidden])) { grid-column: 1 / -1; }
-#go-overlay .go-actions .lb-block-btn:not(.lb-scroll-top) { min-width: 0; }
+#go-overlay .go-actions .lb-block-btn { min-width: 0; }
 @media (max-width: 360px) {
     .lb-game-root #go-overlay .go-actions :is(.result-menu, .result-pin, .result-view-board) { gap: var(--lb-space-xs); padding-inline: var(--lb-space-sm) !important; }
     #go-overlay #go-score { font-size: clamp(1.75rem, 10.2vw, 2.5rem); }
@@ -1285,6 +1296,11 @@
     padding: 6px;
     align-content: center;
     text-align: center;
+}
+.lb-reward-overlay .lb43-crate-result .lb64-rewards > .lb-block-reward:only-child {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc(50% - 4px);
 }
 .lb-reward-overlay .lb64-rewards .lb-reward-rarity {
     color: color-mix(in srgb, var(--bb-frame-edge, var(--lb-muted)), var(--lb-ink) var(--lb-tier-ink-mix));
@@ -1539,6 +1555,22 @@ svg.lb-ledger-chevron {
 #stats-overlay .lb-stats-section :is(.lb-rank, .lb-pin-icon, .lb-stats-current .lb-date) { color: var(--lb-stat-ink); }
 #stats-overlay .lb-stats-podium-original { border: var(--lb-border) solid var(--lb-rule); border-radius: var(--lb-radius); }
 #stats-overlay .lb-stats-podium-original .lb-stats-podium { gap: var(--lb-space-xs); padding-block: var(--lb-space-sm); }
+#stats-overlay .lb-stats-podium-original button.lb-stats-podium-place {
+    display: grid;
+    justify-items: stretch;
+    background: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+#stats-overlay .lb-stats-ranked-rows { display: grid; gap: var(--lb-space-xs); }
+#stats-overlay .lb-stats-ranked-rows .lb-row {
+    display: grid;
+    min-width: 0;
+    row-gap: var(--lb-space-xs);
+    box-shadow: none;
+    border-radius: var(--lb-radius);
+}
 #stats-overlay .lb-stats-podium-original .lb-stats-podium-step {
     background: color-mix(in srgb, var(--tone) 27%, var(--lb-stat-base));
     border: var(--lb-border) solid var(--tone);
@@ -1548,6 +1580,22 @@ svg.lb-ledger-chevron {
 #stats-overlay .lb-stats-podium-original .lb-stats-podium-score { color: var(--lb-ink); font: 400 var(--lb-type-small)/1.3 var(--lb-font-pixel); }
 #stats-overlay .lb-stats-podium-original .lb-pts { color: var(--lb-muted); font: var(--lb-type-small)/1.3 var(--lb-font-body); opacity: 1; }
 #stats-overlay .lb-stats-calendar-scroll { scrollbar-color: var(--lb-label) transparent; }
+#stats-overlay #stat-crates-collected > div {
+    --crate-art-width: min(45%, 68px);
+    position: relative;
+    display: grid;
+    align-content: center;
+    min-height: 68px;
+    padding: 0 var(--crate-art-width) 0 var(--lb-space-sm);
+}
+#stat-crates-collected dd { margin: 0; }
+#stat-crates-collected img {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: var(--crate-art-width);
+    height: 100%;
+    object-fit: contain;
+}
 
 #playlist-overlay { --lb-playlist-key: 44px; }
 #playlist-overlay > .lb148-playlist {
@@ -1868,8 +1916,7 @@ svg.lb-ledger-chevron {
     position: absolute;
     inset: var(--lb-band-height) 0 0;
     z-index: -1;
-    background: linear-gradient(0deg, #171b17e0, transparent 65%),
-        linear-gradient(90deg, #17201df5, #1c242181 47%, transparent 90%),
+    background: linear-gradient(90deg, #17201df5, #1c242181 47%, transparent 90%),
         var(--lb-header-art) center 52% / cover #27312c;
 }
 .lb-game-root :is(#missions-overlay, #achievements-overlay) > [data-lb-topbar] .lb-topbar-title {
