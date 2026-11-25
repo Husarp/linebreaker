@@ -571,6 +571,12 @@
     -webkit-mask-image: var(--lb-fade-gradient);
     mask-image: var(--lb-fade-gradient);
 }
+/* Keep the scrollport and its scrollbar above the button's reserved strip. */
+.lb-game-root .lb-scroll-fade[data-scroll-top-space] {
+    border-block-end: 60px solid transparent;
+    mask-origin: padding-box;
+    mask-clip: padding-box;
+}
 .lb-game-root .lb-block-btn.lb-scroll-top:not([hidden]) {
     position: fixed;
     z-index: 1003;

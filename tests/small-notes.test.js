@@ -144,7 +144,7 @@ it('clears the Inventory tile on visiting Crates and restores it for the next de
   expect(api.save.storedCrates).toEqual([{ rarity: 'common', seen: true }, { rarity: 'rare', seen: true }]);
 });
 
-it('offers scroll to top only for a long list and offsets it from the actual scrolling pane', async () => {
+it('offers scroll to top only for a long list and reserves a strip below the scrollport', async () => {
   await window.openStats();
   const pane = document.getElementById('general-stats-container');
   const scrolled = () => pane.dispatchEvent(new window.Event('scroll'));
@@ -152,22 +152,32 @@ it('offers scroll to top only for a long list and offsets it from the actual scr
   window.innerHeight = 844;
   let height = 1250;
   Object.defineProperties(pane, {
-    clientHeight: { value: 500 },
+    clientHeight: { get: () => pane.hasAttribute('data-scroll-top-space') ? 440 : 500 },
     scrollHeight: { get: () => height },
   });
   pane.getBoundingClientRect = () => ({ right: 350, bottom: 760 });
+  pane.style.borderBottomWidth = '60px';
   pane.scrollTop = 240;
   scrolled();
   const button = document.querySelector('.lb-scroll-top');
   expect(button.hidden).toBe(true);
+  expect(pane.hasAttribute('data-scroll-top-space')).toBe(false);
   height++;
   scrolled();
   expect(button.hidden).toBe(false);
   expect(button.style.right).toBe('64px');
-  expect(button.style.bottom).toBe('96px');
+  expect(button.style.bottom).toBe('92px');
+  expect(pane.hasAttribute('data-scroll-top-space')).toBe(true);
+  height--;
+  scrolled();
+  expect(button.hidden).toBe(true);
+  expect(pane.hasAttribute('data-scroll-top-space')).toBe(false);
+  height++;
+  scrolled();
   button.click();
   game.advance(16);
   game.advance(300);
   expect(pane.scrollTop).toBe(0);
   expect(button.hidden).toBe(true);
+  expect(pane.hasAttribute('data-scroll-top-space')).toBe(false);
 });

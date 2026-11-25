@@ -2968,14 +2968,18 @@
         const target = activeScroller;
         if (!target) return;
         const { clientHeight, scrollHeight, scrollTop } = target;
-        const visible = clientHeight > 0 && scrollHeight > clientHeight * 2.5
+        // Measure against the viewport the list would have without the button's strip.
+        const reserved = target.hasAttribute('data-scroll-top-space')
+            ? parseFloat(getComputedStyle(target).borderBottomWidth) : 0;
+        const visible = target.isConnected && clientHeight > 0 && scrollHeight > (clientHeight + reserved) * 2.5
             && (scrollTop > 120 || target === scrollToTopTarget)
             && !target.closest('[hidden], [inert], .hidden');
+        target.toggleAttribute('data-scroll-top-space', visible);
         if (scrollTopButton.hidden === visible) scrollTopButton.hidden = !visible;
         if (visible) {
             const bounds = target.getBoundingClientRect();
             scrollTopButton.style.right = `${Math.max(0, window.innerWidth - bounds.right) + 24}px`;
-            scrollTopButton.style.bottom = `${Math.max(0, window.innerHeight - bounds.bottom) + 12}px`;
+            scrollTopButton.style.bottom = `${Math.max(0, window.innerHeight - bounds.bottom) + 8}px`;
         }
     }
     const observedScrollPanes = new Set();
@@ -3009,6 +3013,7 @@
         if (!(target instanceof HTMLElement) || !target.matches(scrollPaneSelector)) return;
         updateScrollFade(target);
         if (target !== activeScroller) {
+            activeScroller?.removeAttribute('data-scroll-top-space');
             activeScroller = target;
             const owner = target.closest('dialog, .overlay, [id$="-overlay"]') || document.body;
             owner.append(scrollTopButton);
@@ -3026,7 +3031,7 @@
             if (value === 0) {
                 scrollToTopTarget = null;
                 valueAnimations.delete(scrollTopButton);
-                if (target === activeScroller) scrollTopButton.hidden = true;
+                if (target === activeScroller) updateScrollTopButton();
             }
         }, 270);
     });
