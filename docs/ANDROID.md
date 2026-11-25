@@ -7,8 +7,8 @@ activity is visible. Hardware Back closes an overlay using the game's existing
 controls, pauses gameplay, and asks before exiting the main menu. Backgrounding
 also pauses gameplay. App is wired for navigation/lifecycle; Haptics and Filesystem are wired for gameplay and saves; Preferences remains unused.
 
-The cyan T mino launcher icons and splash images are **placeholders**, manually
-generated in android/app/src/main/res. Replace them before release.
+The launcher uses the Block L artwork and the native splash shows the Linebreaker crest.
+The launcher layers and density-specific splash images live in `android/app/src/main/res`.
 
 ## Development
 

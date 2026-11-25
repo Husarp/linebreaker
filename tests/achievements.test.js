@@ -16,7 +16,7 @@ describe('achievement screen', () => {
   const sections = () => [...query('#ach-list').querySelectorAll('.ach-group')];
   const sectionNamed = name => sections().find(section => section.firstElementChild.firstElementChild.textContent === name);
   const sectionCount = name => sectionNamed(name).querySelector('.ach-count-label').textContent;
-  const badges = name => [...sectionNamed(name).lastElementChild.children];
+  const badges = name => [...sectionNamed(name).querySelectorAll('.ach-card')];
   const hover = badge => {
     badge.dispatchEvent(new game.w.MouseEvent('mouseenter'));
     return query('#ach-tip').textContent;
@@ -276,90 +276,75 @@ describe('achievement screen', () => {
     expect(datedMirror).toContain('01.02.2026');
   });
 
-  it('displays pending rewards in any filter and grants legacy XP only on individual claims', () => {
+  it('claims from achievement rows and still grants XP from older saves', () => {
     const claims = [
       { id: 'score', name: 'On the Board', rarity: 'common', xp: 500 },
-      { id: 'games', name: 'Newbie', rarity: 'common', xp: 500 },
       { id: 'sec_symmetric_board', name: 'Mirror Universe', rarity: 'rare', xp: 1000 },
+      { id: 'daily_streak', name: 'Daily Streak', rarity: 'common', xp: 200 },
     ];
     game.api.setup({ save: { pendingAchievementClaims: claims } });
     game.w.openAchievements('unlocked');
-    expect(query('#ach-list').textContent).toContain('Nothing here yet.');
-    expect(query('.ach-content').firstElementChild).toBe(query('#ach-claims'));
-    expect(query('#ach-claims').textContent).toContain('PENDING REWARDS');
-    const rareReward = query('.ach-pending-row[data-rarity="rare"]');
-    expect(rareReward.querySelector('.lb-ledger-rarity-label').textContent).toBe('RARE');
-    expect(rareReward.querySelector('strong').textContent).toBe('Mirror Universe');
-    expect(rareReward.querySelector('img.ach-claim-icon').getAttribute('src')).toBe('assets/ui/achievements/ach-stack.webp');
-    for (const reward of query('#ach-claims').querySelectorAll('.ach-pending-row')) {
-      expect(reward.textContent).not.toMatch(/\bXP\b/);
-    }
-    expect(rareReward.querySelector('button').getAttribute('aria-label')).toBe('Claim Mirror Universe');
-    expect(game.api.save.totalXP).toBe(0);
-    const claim = query('.ach-pending-row .lb-ledger-claim');
+    const score = query('[data-ach-id="score"]');
+    const claim = score.parentElement.querySelector('.ach-row-claim');
+    expect(score.querySelector('.ach-register-pips, .ach-card-state, button')).toBeNull();
+    expect(claim.textContent).toBe('Claim');
+    expect(claim.getAttribute('aria-label')).toBe('Claim High Score');
+    expect(query('#ach-claims, .ach-pending-toggle')).toBeNull();
     claim.click();
     claim.click();
     expect(claim.getAttribute('aria-busy')).toBe('true');
-    game.advance(16);
-    expect(game.api.save.totalXP).toBe(0);
-    game.advance(16);
+    game.advance(100);
     expect(game.api.save.totalXP).toBe(500);
-    expect(game.api.save.pendingAchievementClaims.map(claim => claim.id)).toEqual(['games', 'sec_symmetric_board']);
+    expect(query('#ach-claim-toast').textContent).toBe('Added 500 XP');
+
     filter('locked');
-    expect(query('.ach-pending-head button')).toBeNull();
-    query('.ach-pending-row .lb-ledger-claim').click();
+    expect(query('#ach-list .ach-row-claim')).toBeNull();
+    filter('unlocked');
+    query('[data-ach-id="daily_streak"]').parentElement.querySelector('.ach-row-claim').click();
     game.advance(100);
-    expect(game.api.save.totalXP).toBe(1000);
-    query('.ach-pending-row .lb-ledger-claim').click();
-    game.advance(100);
-    expect(game.api.save.totalXP).toBe(2000);
-    expect(game.api.save.pendingAchievementClaims).toEqual([]);
-    expect(query('#ach-list').textContent).not.toContain('PENDING REWARDS');
-    expect(query('[data-achtab][aria-pressed="true"]').dataset.achtab).toBe('locked');
+    expect(game.api.save.totalXP).toBe(700);
+    expect(query('#ach-list [data-ach-id="daily_streak"]')).toBeNull();
+    expect(game.api.save.pendingAchievementClaims.map(claim => claim.id)).toEqual(['sec_symmetric_board']);
   });
 
-  it('caps pending rewards, backfills after claiming, and keeps the disclosure in place', () => {
-    const claims = ['score', 'games', 'speed', 'total_lines', 'survival', 'combo_master', 'total_blocks', 'sec_nice']
-      .map((id, index) => ({ id, name: `Reward ${index + 1}`, rarity: 'common', xp: 200 }));
-    game.api.setup({ save: { pendingAchievementClaims: claims } });
+  it('queues crate toasts, then restores the row progress and keyboard focus', () => {
+    const claims = [
+      { id: 'games', tierNum: 3, rarity: 'epic', crateRarity: 'rare' },
+      { id: 'games', tierNum: 4, rarity: 'legendary', crateRarity: 'legendary', crateCount: 2 },
+    ];
+    game.api.setup({ save: {
+      stats: { gamesPlayed: 2150 },
+      achievements: { games: { tier: 4 } },
+      pendingAchievementClaims: claims,
+    } });
     game.w.openAchievements();
-    const toggle = () => query('.ach-pending-toggle');
-    const rows = () => [...query('#ach-claims').querySelectorAll('.ach-pending-row')];
-    const names = () => rows().map(row => row.querySelector('strong').textContent);
-
-    expect(names()).toEqual(['Reward 1', 'Reward 2', 'Reward 3']);
-    expect(toggle().textContent).toBe('Show all (8)');
-    expect(toggle().getAttribute('aria-expanded')).toBe('false');
-    expect(query(`#${toggle().getAttribute('aria-controls')}`).hidden).toBe(true);
-    rows()[0].querySelector('button').click();
+    const card = () => query('[data-ach-id="games"]');
+    const button = () => card().parentElement.querySelector('.ach-row-claim');
+    const toast = () => query('#ach-claim-toast');
+    expect(card().querySelector('progress').value).toBe(1);
+    expect(card().querySelector('.ach-register-pips, .ach-card-state')).toBeNull();
+    expect(button().getAttribute('aria-label')).toBe('Claim Games Played · Gold');
+    button().focus();
+    button().click();
     game.advance(100);
-    expect(names()).toEqual(['Reward 2', 'Reward 3', 'Reward 4']);
-    expect(toggle().textContent).toBe('Show all (7)');
-
-    toggle().click();
-    expect(rows()).toHaveLength(7);
-    expect(toggle().textContent).toBe('Show less');
-    expect(toggle().getAttribute('aria-expanded')).toBe('true');
-    expect(query(`#${toggle().getAttribute('aria-controls')}`).hidden).toBe(false);
-    expect(rows().at(-1).compareDocumentPosition(toggle()) & game.w.Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const claim = rows()[4].querySelector('button');
-    claim.focus();
-    claim.click();
+    expect(toast().textContent.replace(/\s+/g, ' ')).toBe('Added 1× Rare crate to your Inventory');
+    expect(toast().firstElementChild.getAttribute('src')).toBe('assets/ui/crates/rare.png');
+    expect(query('#lb43-crate-banner').textContent).toBe('');
+    expect(game.w.document.activeElement).toBe(button());
+    expect(button().getAttribute('aria-label')).toBe('Claim Games Played · Platinum');
+    button().click();
     game.advance(100);
-    expect(rows()).toHaveLength(6);
-    expect(toggle().getAttribute('aria-expanded')).toBe('true');
-    expect(game.w.document.activeElement.getAttribute('aria-label')).toBe('Claim Reward 7');
-    expect(game.api.save.totalXP).toBe(400);
-
-    toggle().click();
-    expect(names()).toEqual(['Reward 2', 'Reward 3', 'Reward 4']);
-    expect(toggle().textContent).toBe('Show all (6)');
-    for (let remaining = 6; remaining > 3; remaining--) {
-      rows()[0].querySelector('button').click();
-      game.advance(100);
-    }
-    expect(names()).toEqual(['Reward 5', 'Reward 7', 'Reward 8']);
-    expect(toggle()).toBeNull();
+    expect(button()).toBeNull();
+    expect(game.w.document.activeElement).toBe(card());
+    expect(card().querySelectorAll('.ach-register-pips svg')).toHaveLength(5);
+    expect(card().querySelector('.ach-card-state small').textContent).toBe('2,150 / 4,000');
+    expect(toast().textContent).toContain('Rare crate');
+    game.advance(1900);
+    expect(toast().textContent.replace(/\s+/g, ' ')).toBe('Added 2× Legendary crate to your Inventory');
+    expect(toast().firstElementChild.getAttribute('src')).toBe('assets/ui/crates/legendary.png');
+    game.advance(2000);
+    expect(toast().textContent).toBe('');
+    expect(game.api.save.storedCrates.map(crate => crate.rarity)).toEqual(['rare', 'legendary', 'legendary']);
   });
 
   it('queues escalating tier rewards, restores pending crates, and pays each tier once across reloads', () => {
@@ -382,9 +367,8 @@ describe('achievement screen', () => {
     query('[data-ach-id="games"]').click();
     expect([...query('#ach-tip').querySelectorAll('.ach-tip-reward')].map(line => line.textContent))
       .toEqual(['Reward: +200 XP', 'Reward: Rare crate', 'Reward: Legendary crate']);
-    expect(query('.ach-pending-row[data-rarity="rare"] small').textContent).toBe('Silver · Rare crate');
-    for (const [name, rarity] of [['Newbie', 'common'], ['Committed', 'rare'], ['No Life', 'legendary']]) {
-      const button = query(`.ach-pending-row[data-rarity="${rarity}"] button[aria-label="Claim ${name}"]`);
+    for (const tier of ['Bronze', 'Silver', 'Gold']) {
+      const button = query(`[aria-label="Claim Games Played · ${tier}"]`);
       button.click();
       button.click();
       game.advance(100);
@@ -416,12 +400,15 @@ describe('achievement screen', () => {
       { tierNum: 4, crateRarity: 'mythic' }, { tierNum: 5, crateRarity: 'mythic', crateCount: 2 },
     ]);
     w.openAchievements();
-    expect(query('[data-ach-id="games"]').querySelectorAll('.ach-register-pips [data-locked="false"]')).toHaveLength(5);
-    const claim = query('[aria-label="Claim Games Played Diamond"]');
+    query('[data-ach-id="games"]').click();
+    expect(query('#ach-tip').querySelectorAll('[data-locked="false"]')).toHaveLength(5);
+    query('[aria-label="Claim Games Played · Platinum"]').click();
+    game.advance(100);
+    const claim = query('[aria-label="Claim Games Played · Diamond"]');
     claim.click();
     claim.click();
     game.advance(100);
-    expect(api.save.storedCrates).toEqual(Array.from({ length: 2 }, () => ({ rarity: 'mythic', source: 'achievement' })));
+    expect(api.save.storedCrates).toEqual(Array.from({ length: 3 }, () => ({ rarity: 'mythic', source: 'achievement' })));
     api.checkAchievementsOnLoad();
     expect(api.save.pendingAchievementClaims.some(reward => reward.id === 'games' && reward.tierNum === 5)).toBe(false);
   });

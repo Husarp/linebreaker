@@ -264,7 +264,9 @@ it('marks equipped and locked inventory cards without adding owned tags', () => 
   expect(document.getElementById('skin-owned-count').innerText).toBe(`(2/${builtInSkinCount + manifest.length + 1})`);
   expect(row('season-prism')).toBeNull();
   const mystery = document.querySelector('#owned-skin-btns .lb-inventory-undiscovered');
-  expect(mystery.textContent).toBe('?');
+  expect(mystery.textContent).toBe('');
+  expect(mystery.querySelector('img').getAttribute('src')).toBe('assets/ui/undiscovered.webp');
+  expect(mystery.getAttribute('aria-label')).toBe('Undiscovered item');
   expect(mystery.querySelector('canvas, button, progress')).toBeNull();
   const rarities = ['common', 'rare', 'epic', 'legendary', 'mythic'];
   const ranks = [...document.querySelectorAll('#owned-skin-btns > [data-item-key]')]

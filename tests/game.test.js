@@ -36,6 +36,25 @@ it.each([[1,10],[2,30],[3,50],[4,70]])('clears %i rows with current combo scorin
   expect(a.state.lines).toBe(n); expect(a.state.score).toBe(score);
   expect(a.state.board).toEqual(empty()); expect(a.state.combo).toBe(n);
 });
+it('unlocks Clutch after a T-spin triple', () => {
+  const cells = empty();
+  for (const row of cells.slice(-3)) {
+    row.fill(1);
+    row[4] = 0;
+  }
+  cells[20][5] = 0;
+  a.setup({ type: 6, x: 3, y: 19 });
+  a.rotate(1);
+  a.setBoard(cells);
+  a.hardDrop();
+  game.advance(200);
+
+  expect(a.state.lines).toBe(3);
+  expect(a.clearTexts.map(text => text.txt)).toContain('T-SPIN!');
+  expect(a.save.stats.tSpinTriples).toBe(1);
+  expect(a.save.achievements.clutch.unlocked).toBe(true);
+  expect(a.save.pendingAchievementClaims.some(claim => claim.id === 'clutch')).toBe(true);
+});
 it('adds combo across successive clears', () => {
   for(let i=0;i<2;i++){const b=empty(); b[21].fill(1);a.setBoard(b);a.sweep();game.advance(200);}
   expect(a.state.score).toBe(30); expect(a.state.combo).toBe(2);

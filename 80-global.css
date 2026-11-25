@@ -14,7 +14,7 @@ html ::-webkit-scrollbar-corner { background: var(--bb-well); }
     scrollbar-color: var(--bb-scroll-thumb) var(--bb-well);
 }
 
-:is(.lb-pill, .lb-item-state, .lb-block-reward-amount, .lb-exchange-badge, .lb64-reward-tag, .lb-playlist-tag, .ach-pending-rarity, .play-active-modifiers li, .coin-display, .mq-change-overlay-label, .lb80-credits-version) {
+:is(.lb-pill, .lb-item-state, .lb-block-reward-amount, .lb-exchange-badge, .lb64-reward-tag, .lb-playlist-tag, .play-active-modifiers li, .coin-display, .mq-change-overlay-label, .lb80-credits-version) {
     border-radius: var(--bb-badge-radius);
 }
 
@@ -77,10 +77,7 @@ html ::-webkit-scrollbar-corner { background: var(--bb-well); }
     gap: 5px;
     padding: 16px 8px;
 }
-.lb80-credits-edition > strong {
-    color: var(--accent-bright);
-    font: 400 clamp(.85rem, 4vw, 1.35rem)/1.6 var(--bb-font-pixel);
-}
+.lb80-credits-edition .lb122-logo { width: min(100%, 12rem); }
 .lb80-credits-edition > span { color: var(--bb-muted); }
 .lb80-credits-version { padding: 1px 6px; border: 1px solid var(--bb-edge); }
 .lb80-credits-card { padding: 12px; }

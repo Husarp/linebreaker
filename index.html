@@ -38,7 +38,6 @@
     <link rel="stylesheet" href="68-inventory.css">
     <link rel="stylesheet" href="73-qa-fixes.css">
     <link rel="stylesheet" href="80-global.css">
-    <link rel="stylesheet" href="81-achievements.css">
     <link rel="stylesheet" href="82-exchange.css">
     <link rel="stylesheet" href="83-colors.css">
     <link rel="stylesheet" href="85-game-over.css">
@@ -72,12 +71,13 @@
 <body>
 <div class="lb-top-band" aria-hidden="true"></div>
 <div id="lb43-crate-banner" role="status" aria-atomic="true"></div>
+<div id="ach-claim-toast" role="status" aria-atomic="true"></div>
 
 <!-- LOADING SCREEN -->
 <div id="loading-screen">
     <div id="ls-inner">
         <div id="ls-title">
-            <img src="assets/ui/logo-title.png" srcset="assets/ui/logo-title@2x.png 2x" width="640" height="211" alt="Linebreaker">
+            <picture><source type="image/webp" srcset="assets/ui/logo-title.webp, assets/ui/logo-title@2x.webp 2x"><img src="assets/ui/logo-title.png" srcset="assets/ui/logo-title@2x.png 2x" width="640" height="262" alt="Linebreaker"></picture>
         </div>
         <div id="ls-bar-wrap"><div id="ls-bar"></div></div>
         <div id="ls-status" role="status">Loading…</div>
@@ -145,7 +145,7 @@
         <div class="lb-menu-primary">
             <div class="lb-menu-banner lb-block-card">
                 <div class="lb-menu-logo-lockup">
-                    <h1 id="main-title"><button type="button" id="lb122-logo-button"><img class="lb122-logo" src="assets/ui/logo-title.png" srcset="assets/ui/logo-title@2x.png 2x" width="640" height="211" alt="Linebreaker" draggable="false"></button></h1>
+                    <h1 id="main-title"><button type="button" id="lb122-logo-button"><picture><source type="image/webp" srcset="assets/ui/logo-title.webp, assets/ui/logo-title@2x.webp 2x"><img class="lb122-logo" src="assets/ui/logo-title.png" srcset="assets/ui/logo-title@2x.png 2x" width="640" height="262" alt="Linebreaker" draggable="false"></picture></button></h1>
                 </div>
                 <div id="splash-quote"></div>
                 <aside id="daily-gift-notice" class="lb-block-panel" aria-labelledby="daily-gift-title" hidden>
@@ -1046,7 +1046,7 @@
 
 <!-- START ANIMATION -->
 <div id="start-animation-overlay" class="overlay hidden" aria-hidden="true">
-    <img id="start-wordmark" class="lb122-logo" src="assets/ui/logo-title.png" srcset="assets/ui/logo-title@2x.png 2x" width="640" height="211" alt="">
+    <picture><source type="image/webp" srcset="assets/ui/logo-title.webp, assets/ui/logo-title@2x.webp 2x"><img id="start-wordmark" class="lb122-logo" src="assets/ui/logo-title.png" srcset="assets/ui/logo-title@2x.png 2x" width="640" height="262" alt=""></picture>
 </div>
 
 <!-- GRA -->
@@ -1115,7 +1115,6 @@
     <div class="lb-scroll-backdrop">
         <div class="lb-scroll-fade">
           <div class="ach-content">
-            <div id="ach-claims"></div>
             <section class="lb-collection-feature ach-register-summary">
                 <div>
                     <span class="lb-collection-label">Featured milestones</span>
@@ -1186,7 +1185,7 @@
     </header>
     <div class="lb80-credits lb-scroll-fade">
         <div class="lb-block-panel lb80-credits-edition" data-scroll-fade-header>
-            <strong>LINEBREAKER</strong>
+            <picture><source type="image/webp" srcset="assets/ui/logo-title.webp, assets/ui/logo-title@2x.webp 2x"><img class="lb122-logo" src="assets/ui/logo-title.png" srcset="assets/ui/logo-title@2x.png 2x" width="640" height="262" alt="Linebreaker"></picture>
             <span>RPG Edition</span>
             <span class="lb80-credits-version" data-update-version>Version 1.4.3</span>
         </div>

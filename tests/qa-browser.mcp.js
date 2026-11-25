@@ -487,39 +487,36 @@
                 if (!art) fail('Header must use the r35 art and crop below the shared band');
             }
             if (name === 'achievements') {
-                const singleColumn = await page.locator('.ach-records, .ach-pending-list:not([hidden])').evaluateAll(lists =>
+                const singleColumn = await page.locator('.ach-records').evaluateAll(lists =>
                     lists.length > 0 && lists.every(list => {
                         const rows = [...list.children].map(row => row.getBoundingClientRect());
                         return rows.every((row, index) => row.height > 0 && (!index ||
                             (Math.abs(row.left - rows[0].left) <= 1 && row.top >= rows[index - 1].bottom - 1)));
                     }));
                 if (!singleColumn) fail('Achievements must have one record per line');
-                const claims = await page.locator('.ach-pending').evaluate(section =>
-                    !section.querySelector('.ach-pending-head button')
-                    && section.parentElement === document.querySelector('.ach-content').firstElementChild
-                    && [...section.querySelectorAll('.ach-pending-row')].every(row => row.querySelector('button')?.textContent === 'Claim'
-                        && row.querySelector('img.ach-voxel')?.naturalWidth > 0)
-                    && section.textContent.includes('Legendary crate'));
-                if (!claims) fail('Pending tier rewards must have individual claims and no bulk claim');
-                const rewards = page.locator('.ach-pending-row');
-                const rewardToggle = page.locator('.ach-pending-toggle');
-                const rewardSummary = page.locator('.ach-register-summary');
-                const beforeClaim = await rewardSummary.evaluate(element => element.offsetTop);
-                const totalRewards = Number((await rewardToggle.textContent()).match(/\d+/)?.[0]);
-                if (await rewards.count() !== 3 || totalRewards < 8) fail('Pending rewards must be capped at three rows');
-                await rewardToggle.click();
-                if (await rewards.count() !== totalRewards || await rewardToggle.getAttribute('aria-expanded') !== 'true') {
-                    fail('Pending rewards must expand in place');
+                const music = page.locator('[data-ach-id="music_listener"]');
+                const readyRow = music.locator('..');
+                await music.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+                const claim = readyRow.getByRole('button', { name: /Claim In the Zone/ });
+                if (await page.locator('#ach-claims, .ach-pending-toggle').count() ||
+                    !await claim.isVisible() || await music.locator('.ach-register-pips, .ach-card-state').count()) {
+                    fail('Ready achievement tiers must replace the row counters with a Claim button');
                 }
-                if (!await rewards.last().evaluate(row => Boolean(row.compareDocumentPosition(document.querySelector('.ach-pending-toggle')) & Node.DOCUMENT_POSITION_FOLLOWING))) {
-                    fail('Expanded reward rows must precede the disclosure');
+                await capture?.('achievement-ready');
+                await claim.click();
+                const toast = page.locator('#ach-claim-toast');
+                await toast.filter({ hasText: /Added 1×\s+Rare crate to your Inventory/ }).waitFor({ state: 'visible' });
+                const bottomToast = await toast.evaluate(element => {
+                    const bounds = element.getBoundingClientRect();
+                    const art = element.querySelector('img');
+                    return innerHeight - bounds.bottom <= 20 && art?.naturalWidth > 0 && art.width <= 16;
+                });
+                if (!bottomToast || await page.locator('#lb43-crate-banner').textContent() ||
+                    !await music.locator('.ach-register-pips').count()) {
+                    fail('Claiming must restore progress and show one small bottom toast');
                 }
-                await rewardToggle.click();
-                await rewards.first().getByRole('button', { name: /Claim/ }).click();
-                await page.waitForFunction(total => document.querySelector('.ach-pending-toggle').textContent === `Show all (${total - 1})`, totalRewards);
-                if (await rewards.count() !== 3 || await rewardSummary.evaluate(element => element.offsetTop) !== beforeClaim) {
-                    fail('Claiming a collapsed reward must backfill without moving the register');
-                }
+                await capture?.('achievement-toast');
+                await toast.waitFor({ state: 'hidden', timeout: 3000 });
                 const tierRows = await page.locator('#ach-list [data-ach-id]').evaluateAll(rows => {
                     const games = rows.find(row => row.dataset.achId === 'games');
                     return new Set(rows.map(row => row.dataset.achId)).size === rows.length

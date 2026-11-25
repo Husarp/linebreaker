@@ -3234,9 +3234,9 @@
                     const cur = _inputVals[item.key] || 0;
                     const name = parts ? escapeHtml(_getLabel(item)) : 'undiscovered item';
                     return `<div class="lb-block-card lb-exchange-row">
-                        <div class="lb-exchange-row-art">${_exchangePartsIcon(itemRarity, true)}</div>
+                        <div class="lb-exchange-row-art">${parts ? _exchangePartsIcon(itemRarity, true) : undiscoveredItemArt}</div>
                         <div class="lb-exchange-row-detail">
-                            <strong${parts ? '' : ' aria-label="Undiscovered item"'}>${parts ? name : '?'}</strong>
+                            ${parts ? `<strong>${name}</strong>` : ''}
                             <div class="lb-exchange-row-meta lb-inventory-parts-allocation">
                                 <div class="lb-exchange-meter" aria-hidden="true">
                                     <div id="uni-bar-${item.key}" style="width:${pct}%"></div>
@@ -4365,8 +4365,9 @@
         </div>`;
     }
 
+    const undiscoveredItemArt = '<img class="lb-undiscovered-art" src="assets/ui/undiscovered.webp" alt="" width="64" height="64" draggable="false">';
     function _undiscoveredInventoryCard(className) {
-        return `<article class="lb-block-card ${className} lb-inventory-undiscovered" data-owned="false" data-equipped="false" data-ready="false" aria-label="Undiscovered item"><span aria-hidden="true">?</span></article>`;
+        return `<article class="lb-block-card ${className} lb-inventory-undiscovered" data-owned="false" data-equipped="false" data-ready="false" aria-label="Undiscovered item">${undiscoveredItemArt}</article>`;
     }
 
     function _colorInventoryCard({ key, label, owned, equipped = false, preview = '', detail = '', equip = '', unlock = '' }) {
@@ -6721,16 +6722,33 @@
             default:          return { outer: 'border-radius:50%;', inner: 'border-radius:50%;' };
         }
     }
-    function _spawnAchClaimFloat(x, y, label, color) {
-        const el = document.createElement('div');
-        el.style.cssText = `position:fixed;z-index:9999;pointer-events:none;left:${x}px;top:${y}px;transform:translate(-50%,0);font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:900;color:${color};text-shadow:0 0 12px ${color},0 0 24px ${color}60,0 2px 6px rgba(0,0,0,0.7);white-space:nowrap;opacity:1;transition:transform 0.8s cubic-bezier(.22,.68,0,1.1),opacity 0.8s ease;`;
-        el.textContent = label;
-        document.body.appendChild(el);
-        requestAnimationFrame(() => {
-            el.style.transform = 'translate(-50%,-60px)';
-            el.style.opacity = '0';
-        });
-        setTimeout(() => el.remove(), 900);
+    const achievementClaimToasts = [];
+    let achievementClaimToastTimer;
+    function queueAchievementClaimToast(claim) {
+        achievementClaimToasts.push(claim);
+        if (!achievementClaimToastTimer) showNextAchievementClaimToast();
+    }
+
+    function showNextAchievementClaimToast() {
+        const toast = document.getElementById('ach-claim-toast');
+        const claim = achievementClaimToasts.shift();
+        if (!claim) {
+            toast.replaceChildren();
+            return;
+        }
+        if (claim.crateRarity) {
+            const art = document.createElement('img');
+            art.src = `assets/ui/crates/${claim.crateRarity}.png`;
+            art.alt = '';
+            const count = claim.crateCount ?? 1;
+            toast.replaceChildren(`Added ${count}× `, art, ` ${LBCrates.crateLabel(claim.crateRarity)} to your Inventory`);
+        } else {
+            toast.textContent = `Added ${(claim.xp ?? 0).toLocaleString('en-US')} XP`;
+        }
+        achievementClaimToastTimer = setTimeout(() => {
+            achievementClaimToastTimer = undefined;
+            showNextAchievementClaimToast();
+        }, 2000);
     }
 
     function _isColoredSvg(s) { return s && /(fill|stroke)="#[0-9a-fA-F]/i.test(s); }
@@ -6841,8 +6859,6 @@
         const [name, shape] = achievementTiers[index];
         return `<svg class="ach-tier-shape ${extraClass}" data-tier="${name.toLowerCase()}" data-locked="${locked}" viewBox="0 0 16 16" role="img" aria-label="${name} ${locked ? 'locked' : 'earned'}">${shape}</svg>`;
     }
-    const visibleAchievementRewards = 3;
-    let achievementRewardsExpanded = false;
     function renderAchievementsOverlay(tab, opening = false) {
         tab = tab || 'all';
         checkProgressAchievements();
@@ -6864,9 +6880,7 @@
         const category = overlay.querySelector('#ach-category').value;
         const sort = overlay.querySelector('#ach-sort').value;
         const pending = saveData.pendingAchievementClaims || [];
-        const hasMoreRewards = pending.length > visibleAchievementRewards;
-        if (opening || !hasMoreRewards) achievementRewardsExpanded = false;
-        const renderKey = JSON.stringify([tab, showDates, category, sort, achievementRewardsExpanded, saveData.achievements, pending, achievementProgressPaths.map(_getProgressVal)]);
+        const renderKey = JSON.stringify([tab, showDates, category, sort, saveData.achievements, pending, achievementProgressPaths.map(_getProgressVal)]);
         if (container.renderKey === renderKey && pending.every((claim, index) => claim === container.renderClaims[index])) return;
         container.renderKey = renderKey;
         container.renderClaims = pending.slice();
@@ -6893,96 +6907,11 @@
 
         closeInfo();
         const tip = infoPanel('ach-tip');
-        const claimsContainer = overlay.querySelector('#ach-claims');
-        claimsContainer.replaceChildren();
-
-        if (pending.length > 0) {
-            const pendingSection = document.createElement('section');
-            pendingSection.className = 'ach-pending lb-block-panel';
-            pendingSection.setAttribute('aria-label', 'Pending rewards');
-            const pendingHeader = document.createElement('div');
-            pendingHeader.className = 'ach-pending-head lb-block-panel-head';
-            pendingHeader.innerHTML = '<h2 class="lb-block-section-title">PENDING REWARDS</h2>';
-            pendingSection.appendChild(pendingHeader);
-            const pendingGrid = document.createElement('div');
-            pendingGrid.className = 'ach-pending-list';
-            const extraRewards = document.createElement('div');
-            extraRewards.className = 'ach-pending-list';
-            extraRewards.id = 'ach-pending-extra';
-            extraRewards.hidden = !achievementRewardsExpanded;
-            const visibleClaims = achievementRewardsExpanded ? pending : pending.slice(0, visibleAchievementRewards);
-            visibleClaims.forEach((claim, index) => {
-                const rewardRarity = claim.crateRarity || claim.rarity;
-                const rarity = Object.hasOwn(RARITY_ACH, rewardRarity) ? rewardRarity : 'common';
-                const rc = RARITY_ACH[rarity];
-                const card = document.createElement('div');
-                card.className = 'ach-pending-row';
-                card.dataset.rarity = rarity;
-                const name = retiredStreakAchievements.has(claim.id) ? 'Legacy achievement' : claim.name;
-                const rewardLabel = achievementRewardLabel(claim);
-                const tierName = achievementTiers[claim.tierNum - 1]?.[0];
-                const nameHtml = `<div class="ach-row-copy"><strong>${escapeHtml(name)}</strong><small class="lb-ledger-rarity-label">${tierName ? `${tierName} · ` : ''}${claim.tierNum ? rewardLabel : rc.label}</small></div>`;
-                const claimBtn = document.createElement('button');
-                claimBtn.className = 'lb-block-btn lb-block-btn--primary lb-ledger-claim';
-                claimBtn.textContent = 'Claim';
-                claimBtn.setAttribute('aria-label', `Claim ${name}`);
-                claimBtn.addEventListener('click', () => _claimAfterPaint(claimBtn, () => {
-                    if (claimsContainer.hasAttribute('data-collapsing')) return;
-                    const idx = saveData.pendingAchievementClaims.indexOf(claim);
-                    if (idx < 0) return;
-                    saveData.pendingAchievementClaims.splice(idx, 1);
-                    if (claim.crateRarity) {
-                        for (let count = 0; count < (claim.crateCount ?? 1); count++) {
-                            LBCrates.grantCrate(saveData, claim.crateRarity, { source: 'achievement' });
-                        }
-                        _checkGlowNotifications();
-                    } else {
-                        _grantXP(claim.xp);
-                        gainedXPThisRound += claim.xp;
-                    }
-                    playSFX('unlock');
-                    const rect = claimBtn.getBoundingClientRect();
-                    _spawnAchClaimFloat(rect.left + rect.width / 2, rect.top, rewardLabel, rc.color);
-                    _checkAchGlow();
-                    saveDataToFile();
-                    drawRankBadge();
-                    const restoreFocus = document.activeElement === claimBtn;
-                    claimsContainer.setAttribute('data-collapsing', '');
-                    collapseRow(card, () => {
-                        claimsContainer.removeAttribute('data-collapsing');
-                        if (!card.isConnected) return;
-                        renderAchievementsOverlay(overlay._achTab);
-                        if (restoreFocus) {
-                            const claimButtons = claimsContainer.querySelectorAll('.ach-pending-row button');
-                            const nextFocus = claimButtons[Math.min(index, claimButtons.length - 1)] || overlay.querySelector('.lb-block-back');
-                            nextFocus.focus({ preventScroll: true });
-                        }
-                    });
-                }));
-                card.innerHTML = achievementRegisterArt(claim.id, 'ach-claim-icon') + nameHtml;
-                card.appendChild(claimBtn);
-                (index < visibleAchievementRewards ? pendingGrid : extraRewards).appendChild(card);
-            });
-            pendingSection.appendChild(pendingGrid);
-            if (hasMoreRewards) {
-                const toggleRow = document.createElement('div');
-                toggleRow.className = 'ach-pending-toggle-row';
-                const toggle = document.createElement('button');
-                toggle.type = 'button';
-                toggle.className = 'ach-pending-toggle lb-block-btn';
-                toggle.textContent = achievementRewardsExpanded ? 'Show less' : `Show all (${pending.length})`;
-                toggle.setAttribute('aria-expanded', String(achievementRewardsExpanded));
-                toggle.setAttribute('aria-controls', extraRewards.id);
-                toggle.addEventListener('click', () => {
-                    if (claimsContainer.hasAttribute('data-collapsing')) return;
-                    achievementRewardsExpanded = !achievementRewardsExpanded;
-                    renderAchievementsOverlay(overlay._achTab);
-                    claimsContainer.querySelector('.ach-pending-toggle').focus({ preventScroll: true });
-                });
-                toggleRow.appendChild(toggle);
-                pendingSection.append(extraRewards, toggleRow);
-            }
-            claimsContainer.appendChild(pendingSection);
+        const claimsById = new Map();
+        for (const claim of pending) {
+            let claims = claimsById.get(claim.id);
+            if (!claims) claimsById.set(claim.id, claims = []);
+            claims.push(claim);
         }
 
         const sectionCounts = new Map();
@@ -6991,7 +6920,10 @@
         for (const ach of ACHIEVEMENTS_DEF) {
             const entry = saveData.achievements?.[ach.id];
             const maxTier = ach.type === 'tiered' ? ach.tiers.length : 1;
-            const curTier = ach.type === 'tiered' ? Math.min(Math.max(0, entry?.tier || 0), maxTier) : Number(!!entry?.unlocked);
+            const claims = claimsById.get(ach.id);
+            claimsById.delete(ach.id);
+            const earned = ach.type === 'tiered' ? entry?.tier || 0 : Number(!!entry?.unlocked);
+            const curTier = Math.min(Math.max(0, earned, ...(claims || []).map(claim => claim.tierNum || 1)), maxTier);
             const counts = sectionCounts.get(ach.cat) || { total: 0, done: 0 };
             counts.total++;
             counts.done += Number(curTier > 0);
@@ -7002,7 +6934,16 @@
             }
             if (category !== 'all' && ach.cat !== category) continue;
             const kind = curTier ? 'unlocked' : 'locked';
-            if (tab === 'all' || tab === kind) renderItems.push({ ach, kind, curTier });
+            const claim = claims?.reduce((first, next) => (next.tierNum || 0) < (first.tierNum || 0) ? next : first);
+            if (tab === 'all' || tab === kind) renderItems.push({ ach, kind, curTier, claim });
+        }
+        // Some saves still hold a reward for an achievement that was removed from the register.
+        if (tab !== 'locked' && (category === 'all' || category === 'basic')) {
+            for (const [id, [claim]] of claimsById) {
+                const name = retiredStreakAchievements.has(id) ? 'Legacy achievement' : claim.name || 'Legacy achievement';
+                const ach = { id, cat: 'basic', name, rarity: claim.rarity };
+                renderItems.push({ ach, kind: 'unlocked', curTier: 1, claim, legacy: true });
+            }
         }
         const secretCounts = sectionCounts.get('secret') || { total: 0, done: 0 };
         const completion = publicTotal ? Math.round(publicDone / publicTotal * 100) : 0;
@@ -7066,7 +7007,7 @@
         }
 
         function buildCard(item) {
-            const { ach, kind, curTier } = item;
+            const { ach, kind, curTier, claim, legacy } = item;
             const isUnlocked = kind === 'unlocked';
             let rarity;
             if (ach.type === 'tiered') {
@@ -7094,10 +7035,57 @@
             const art = achievementRegisterArt(isSecretLocked ? null : ach.id, 'ach-card-icon');
             const pips = ach.type === 'tiered' ? `<span class="ach-register-pips">${ach.tiers.map((tier, index) =>
                 achievementTierShape(index, index >= curTier)).join('')}</span>` : '';
+            const status = progressText ? `<small>${escapeHtml(progressText)}</small>`
+                : (ach.type !== 'tiered' ? `<small role="img" aria-label="${state}">${state}</small>` : '');
+            const rowMeter = claim && ach.type === 'tiered'
+                ? '<progress class="lb-block-progress" max="1" value="1" aria-label="Tier ready to claim"></progress>' : meter;
+            const claimDetail = ach.tiers?.[(claim?.tierNum || 0) - 1]?.desc ?? detail;
             wrap.innerHTML = `${art}
-                <span class="ach-row-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small>${meter}</span>${pips}
-                <span class="ach-card-state">${progressText ? `<small>${escapeHtml(progressText)}</small>`
-                    : (ach.type !== 'tiered' ? `<small role="img" aria-label="${state}">${state}</small>` : '')}</span>`;
+                <span class="ach-row-copy"><strong>${escapeHtml(title)}</strong>${legacy ? '' : `<small>${escapeHtml(claimDetail)}</small>${rowMeter}`}</span>
+                ${claim ? '' : `${pips}<span class="ach-card-state">${status}</span>`}`;
+            const row = document.createElement('div');
+            row.className = 'ach-record';
+            row.appendChild(wrap);
+            if (claim) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'ach-row-claim lb-block-btn lb-block-btn--primary lb-ledger-claim';
+                button.textContent = 'Claim';
+                const tier = achievementTiers[claim.tierNum - 1]?.[0];
+                button.setAttribute('aria-label', `Claim ${title}${tier ? ` · ${tier}` : ''}`);
+                button.addEventListener('click', () => _claimAfterPaint(button, () => {
+                    const index = saveData.pendingAchievementClaims.indexOf(claim);
+                    if (index < 0) return;
+                    const restoreFocus = document.activeElement === button;
+                    saveData.pendingAchievementClaims.splice(index, 1);
+                    if (claim.crateRarity) {
+                        for (let count = 0; count < (claim.crateCount ?? 1); count++) {
+                            LBCrates.grantCrate(saveData, claim.crateRarity, { source: 'achievement' });
+                        }
+                        _checkGlowNotifications();
+                    } else {
+                        _grantXP(claim.xp);
+                        gainedXPThisRound += claim.xp;
+                    }
+                    playSFX('unlock');
+                    queueAchievementClaimToast(claim);
+                    _checkAchGlow();
+                    saveDataToFile();
+                    drawRankBadge();
+                    renderAchievementsOverlay(overlay._achTab);
+                    if (restoreFocus) {
+                        const card = [...container.querySelectorAll('[data-ach-id]')].find(card => card.dataset.achId === ach.id);
+                        const next = card?.parentElement.querySelector('.ach-row-claim') || card ||
+                            container.querySelector('.ach-row-claim') || overlay.querySelector('.lb-block-back');
+                        next.focus({ preventScroll: true });
+                    }
+                }));
+                row.appendChild(button);
+            }
+            if (legacy) {
+                wrap.disabled = true;
+                return row;
+            }
             const iconEl = wrap.querySelector('.ach-card-icon');
             bindInfoPreview(wrap, () => {
                 const dateLine = value => {
@@ -7135,7 +7123,7 @@
                     wrap.removeAttribute('aria-describedby');
                 } });
             }, { tap: true, toggle: true });
-            return wrap;
+            return row;
         }
 
         function renderSection(items, cat, counts) {
@@ -7873,7 +7861,7 @@
     let _mq_hatTrickDone = false;
     let _mq_dangerEntryTime = -1, _mq_narrowEscape = false;
     let _mq_iFloor = false, _mq_bottomQuarterBlocks = 0, _mq_speedRun = false;
-    let _rotationsThisGame = 0, _doublesThisGame = 0, _triplesThisGame = 0, _tSpinsThisGame = 0;
+    let _rotationsThisGame = 0, _doublesThisGame = 0, _triplesThisGame = 0;
     let _bottomTwoRowsThisGame = 0, _softDropUsedThisGame = false;
     let _mq_perfectClear = false, _mq_comebackKidEntryTime = -1, _mq_comebackKid = false;
     let _mq_monochrome = false, _mq_speedQueen = false;
@@ -8551,7 +8539,6 @@
                 const ftCenterY = (rows[0] + rows[rows.length-1]) / 2 * BLOCK;
                 const clearTexts = [];
                 if (_isTSpin) {
-                    _tSpinsThisGame++;
                     clearTexts.push(new FloatingText('T-SPIN!', '#ff44ff', 28));
                     if (lR === 3) { saveData.stats.tSpinTriples = (saveData.stats.tSpinTriples || 0) + 1; if (!saveData.achievements?.['clutch']?.unlocked) unlockAchievement('clutch'); }
                 }
@@ -9195,7 +9182,7 @@
         _rotatedThisGame = false; _pieceTypeCounts = {}; _sec7CountThisGame = 0; _sec7Last = []; const _ebH = new Date().getHours(); _earlyBirdThisGame = _ebH >= 5 && _ebH < 7;
         _waitedFourLineClearThisGame = false; _lastIPieceGameTime = -999;
         _hardDropsThisGame = 0; _pendingHardDrop = false; _piecesThisGame = 0; _piecesHardDroppedThisGame = 0;
-        _rotationsThisGame = 0; _doublesThisGame = 0; _triplesThisGame = 0; _tSpinsThisGame = 0;
+        _rotationsThisGame = 0; _doublesThisGame = 0; _triplesThisGame = 0;
         _bottomTwoRowsThisGame = 0; _softDropUsedThisGame = false;
         _quadrasThisGame = 0; _comboCount = 0; _maxComboThisGame = 0; _lastMoveWasRotation = false; _prevHighscore = _bestScore();
         _bigFontGameFlag = (settings.fontSize === '10' && settings.gameScale === '10');
@@ -9766,7 +9753,6 @@
         { id: 'doubles_5',      tier: 'normal', title: 'Double Trouble',    desc: 'Get {n} double clears',         metric: 'doubles',        target: 5,    pts: 3, cumulative: true },
         { id: 'triples_4',      tier: 'normal', title: 'Triple Threat',     desc: 'Get {n} triple clears',         metric: 'triples',        target: 4,    pts: 3, cumulative: true },
         { id: 'rotations_450',  tier: 'normal', title: 'Spin Cycle',        desc: 'Rotate pieces {n} times',                    metric: 'rotations',      target: 450,  pts: 3, cumulative: true },
-        { id: 't_spin_1',       tier: 'normal', title: 'T-Spinner',         desc: 'Get {n} T-spin clear{s} in one game',                   metric: 'tSpins',         target: 1,    pts: 3 },
         { id: 'raw_xp_normal',  tier: 'normal', title: 'XP Builder',        desc: 'Earn {n} XP from games before multipliers',                         metric: 'rawXP',          target: 350,  pts: 3, cumulative: true },
         { id: 'total_xp_normal', tier: 'normal', title: 'XP Momentum',      desc: 'Earn {n} XP from games including multipliers',    metric: 'totalXP',        target: 450,  pts: 3, cumulative: true },
         // HARD (pts: 5)
@@ -9787,7 +9773,6 @@
         { id: 'doubles_8',      tier: 'hard',   title: 'Double Mania',      desc: 'Get {n} double clears',         metric: 'doubles',        target: 8,    pts: 5, cumulative: true },
         { id: 'triples_6',      tier: 'hard',   title: 'Triple Threat',     desc: 'Get {n} triple clears',         metric: 'triples',        target: 6,    pts: 5, cumulative: true },
         { id: 'rotations_700',  tier: 'hard',   title: 'Spin Master',       desc: 'Rotate pieces {n} times',                    metric: 'rotations',      target: 700,  pts: 5, cumulative: true },
-        { id: 't_spin_2',       tier: 'hard',   title: 'T-Spin Expert',     desc: 'Get {n} T-spin clear{s} in one game',                   metric: 'tSpins',         target: 1,    pts: 5 },
         { id: 'raw_xp_hard',    tier: 'hard',   title: 'XP Grinder',        desc: 'Earn {n} XP from games before multipliers',                         metric: 'rawXP',          target: 600,  pts: 5, cumulative: true },
         { id: 'total_xp_hard',  tier: 'hard',   title: 'XP Surge',          desc: 'Earn {n} XP from games including multipliers',    metric: 'totalXP',        target: 800,  pts: 5, cumulative: true },
         // SECRET pool (pts: 5) — title/desc hidden until completed; displayTier assigned on generation
@@ -9825,7 +9810,6 @@
         { id: 'w_score_3000',   tier: 'normal', title: 'Weekly Scorer',     desc: 'Score {n} points total',                 metric: 'score',             target: 3000, pts: 15, cumulative: true  },
         { id: 'w_games_50',     tier: 'normal', title: 'Grinder',           desc: 'Complete {n} games',                     metric: 'gamesPlayed',       target: 50,   pts: 15, cumulative: true  },
         { id: 'w_quads_10',     tier: 'normal', title: 'Quad Collector',    desc: 'Get {n} quad clears',  metric: 'quads',             target: 10,   pts: 15, cumulative: true  },
-        { id: 'w_tspin_3',      tier: 'normal', title: 'Spin Doctor',       desc: 'Get {n} T-spin clear{s}',                    metric: 'tSpins',            target: 2,    pts: 15, cumulative: true  },
         { id: 'w_combo4_4',     tier: 'normal', title: 'Weekly Combo',      desc: 'Get a combo of 4 or more in {n} games',   metric: 'gamesWithCombo4',   target: 4,    pts: 15, cumulative: true  },
         { id: 'w_speed3_5',     tier: 'normal', title: 'Third Gear',        desc: 'Reach speed level 3 in {n} games',    metric: 'gamesReachedSpeed3',target: 5,    pts: 15, cumulative: true  },
         { id: 'w_raw_xp_normal',  tier: 'normal', title: 'Weekly XP Builder',  desc: 'Earn {n} XP from games before multipliers',                      metric: 'rawXP',    target: 2500, pts: 15, cumulative: true },
@@ -9836,7 +9820,6 @@
         { id: 'w_score_4500',   tier: 'hard',   title: 'Score Legend',      desc: 'Score {n} points total',                 metric: 'score',             target: 4500, pts: 25, cumulative: true  },
         { id: 'w_games_75',     tier: 'hard',   title: 'No Life',           desc: 'Complete {n} games',                     metric: 'gamesPlayed',       target: 75,   pts: 25, cumulative: true  },
         { id: 'w_quads_15',     tier: 'hard',   title: 'Quad Legend',       desc: 'Get {n} quad clears',  metric: 'quads',             target: 15,   pts: 25, cumulative: true  },
-        { id: 'w_tspin_5',      tier: 'hard',   title: 'T-Spin Streak',     desc: 'Get {n} T-spin clear{s}',                    metric: 'tSpins',            target: 3,    pts: 25, cumulative: true  },
         { id: 'w_survive_2400', tier: 'hard',   title: 'Weekly Warrior',    desc: 'Play for {n} total',                     metric: 'gameTime',          target: 2400, pts: 25, cumulative: true  },
         { id: 'w_speed4_5',     tier: 'hard',   title: 'Higher Gear',       desc: 'Reach speed level 4 in {n} games',    metric: 'gamesReachedSpeed4',target: 5,    pts: 25, cumulative: true  },
         { id: 'w_combo4_5',     tier: 'hard',   title: 'Weekly Combo',      desc: 'Get a combo of 4 or more in {n} games',   metric: 'gamesWithCombo4',   target: 5,    pts: 25, cumulative: true  },
@@ -9848,6 +9831,12 @@
         { id: 'mirror_lines', tier: 'easy', title: 'Mirror Match', desc: 'Clear {n} lines in Normal Mode with Mirror on', metric: 'mirrorLines', target: 5, pts: 2, minLevel: 11 },
         { id: 'fun_run', tier: 'easy', title: 'Just for Fun', desc: 'Finish a game in Fun Mode and clear at least 1 line', metric: 'funRuns', target: 1, pts: 2, minLevel: FUN_MODE_UNLOCK_LEVEL },
     ];
+    const retiredTSpinMissions = new Map([
+        ['t_spin_1', { tier: 'normal', pts: 3 }],
+        ['t_spin_2', { tier: 'hard', pts: 5 }],
+        ['w_tspin_3', { tier: 'normal', pts: 15 }],
+        ['w_tspin_5', { tier: 'hard', pts: 25 }],
+    ]);
     let DAILY_QUEST_POOL = FALLBACK_DAILY_QUESTS;
     let WEEKLY_MISSION_POOL = FALLBACK_WEEKLY_MISSIONS;
     async function _loadMissionCatalog() {
@@ -9863,7 +9852,10 @@
                 }, 3000); }),
             ]);
             if (!catalog) return;
-            const { daily, weekly } = catalog;
+            const withoutTSpins = pool => Array.isArray(pool)
+                ? pool.filter(def => def?.metric !== 'tSpins' && !retiredTSpinMissions.has(def?.id)) : pool;
+            const daily = withoutTSpins(catalog.daily);
+            const weekly = withoutTSpins(catalog.weekly);
             const validPool = (pool, tiers) => Array.isArray(pool) && tiers.every(tier => pool.some(def => def?.tier === tier)) &&
                 new Set(pool.map(def => def?.id)).size === pool.length && pool.every(def => ['id', 'title', 'desc', 'metric'].every(key => typeof def?.[key] === 'string') &&
                     tiers.includes(def.tier) && Number.isFinite(def.target) && def.target > 0 && Number.isFinite(def.pts));
@@ -9874,7 +9866,13 @@
     }
     function _restoreMissionDefinitions(missions) {
         const restore = (state, def, weekly = false) => {
-            if (!state || !def) return null;
+            if (!state) return null;
+            const retired = retiredTSpinMissions.get(state.id);
+            if (retired) {
+                const promoted = weekly && state.tier === 'hard' && retired.tier === 'normal';
+                return { ...state, ...retired, ...(promoted ? { tier: 'hard', pts: 25 } : {}) };
+            }
+            if (!def) return null;
             const promoted = weekly && ((def.tier === 'easy' && state.tier === 'normal') || (def.tier === 'normal' && state.tier === 'hard'));
             const target = state.target || def.target;
             return {
@@ -10044,6 +10042,24 @@
         }
         return missions;
     }
+    function _replaceRetiredTSpinMissions(period, isWeekly) {
+        const list = isWeekly ? period.missions : period.quests;
+        const pool = isWeekly ? WEEKLY_MISSION_POOL : DAILY_QUEST_POOL;
+        let replaced = false;
+        for (const [index, mission] of list.entries()) {
+            if (!retiredTSpinMissions.has(mission.id)) continue;
+            const [replacement] = _shuffleArr(_missionSwapPool(pool, list, index, isWeekly ? null : period.secret));
+            if (!replacement) continue;
+            // Credit completed objectives before replacing them, without using the player's swap.
+            if (mission.completed && !mission.ptsClaimed) window._claimQuestPts(mission.id, isWeekly, null, null, true);
+            const target = _missionTarget(replacement, _missionRankMult());
+            list[index] = { ...replacement, target, progress: 0, completed: false, ptsClaimed: false,
+                desc: _makeMissionDesc(replacement.metric, replacement.desc, target) };
+            replaced = true;
+        }
+        return replaced;
+    }
+
     function _checkMissionsRefresh() {
         if (!saveData.missions) saveData.missions = _defaultMissions();
         const m = saveData.missions;
@@ -10078,6 +10094,7 @@
             m.daily = { quests, secret, lastRefreshDate: today, swapDate: '', pointsToday: 0, claimedMilestones: [], completedToday: false, newVisit: true };
             changed = true;
         }
+        changed = _replaceRetiredTSpinMissions(m.daily, false) || changed;
         if (m.daily.quests.length === 5 && !m.daily.quests.some(quest => DAILY_MODE_QUESTS.some(mode => mode.id === quest.id))) {
             const extra = _extraDailyQuest(m.daily.secret ? [...m.daily.quests, m.daily.secret] : m.daily.quests);
             if (extra) {
@@ -10100,6 +10117,7 @@
             m.weekly = { missions, weekKey: thisWeek, isoWeekKey: true, swapDate: '', points: 0, claimedMilestones: [], dailyPtsLog: {}, newVisit: true, pendingUniversalParts: 0 };
             changed = true;
         }
+        changed = _replaceRetiredTSpinMissions(m.weekly, true) || changed;
         if (changed) saveDataToFile();
         if (recovered) customAlert('Unclaimed rewards from the last day/week were added.', 'REWARDS ADDED');
     }
@@ -10152,7 +10170,6 @@
             rotations: _rotationsThisGame,
             doubles: _doublesThisGame,
             triples: _triplesThisGame,
-            tSpins: _tSpinsThisGame,
             perfectClear: _boardClearedThisGame ? 1 : 0,
             noSoftDrop: (!_softDropUsedThisGame) ? 1 : 0,
             comebackKid: _mq_comebackKid ? 1 : 0,
@@ -11729,7 +11746,7 @@
         document.getElementById('btn-inventory').setAttribute('data-ready', '');
         const inventory = document.getElementById('inventory-overlay');
         if (!inventory.classList.contains('hidden') && inventory._invTab === 'crates') _populateInventoryOther();
-        if (source === 'daily') return;
+        if (source === 'daily' || source === 'achievement') return;
         const banner = document.getElementById('lb43-crate-banner');
         banner.textContent = `${LBCrates.crateLabel(rarity)} added to your inventory`;
         clearTimeout(crateBannerTimer);

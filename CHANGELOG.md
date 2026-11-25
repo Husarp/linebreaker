@@ -1,5 +1,9 @@
 ## [1.4.4]
 
+- Claim ready achievement tiers in their rows. A brief message confirms the reward, and crates go to Inventory.
+- Undiscovered collectibles share one silhouette. Linebreaker has a new crest logo and Block L app icon.
+- Daily and weekly objectives no longer include T-spins. Existing T-spin objectives are replaced, and the T-spin Triple achievement stays.
+
 - Ready steps glow in Daily and Weekly Missions, and the selected objective has a larger Claim button. New voxel icons distinguish clear types, speed, combos, XP and more.
 - The Player Rank XP bar has a metallic finish in the current rank’s colour.
 - Select Mode uses side-by-side Normal and Fun cards. Normal shows its score multiplier above Start and Cancel.

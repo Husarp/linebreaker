@@ -1,8 +1,0 @@
-.ach-pending {
-    padding-inline-end: 0;
-}
-
-.ach-pending-row {
-    grid-template-columns: 68px minmax(0, 1fr) auto;
-    padding-inline-end: 0;
-}

@@ -2,7 +2,7 @@
 
 Run `npm ci` and `npm run desktop:dev` from the repository. The shared `npm run build:web` step copies the static game, fonts, and desktop scripts into ignored `dist-web/`. Do not distribute third-party music without permission.
 
-The master app icon is `assets/ui/app-icon-1024.png`. Run `npx tauri icon assets/ui/app-icon-1024.png --output <staging-directory>` to regenerate the desktop and iOS sizes. Android uses the full artwork in legacy launcher icons and separate bokeh and lettering layers in adaptive icons. Don't overwrite either set with Tauri's default Android output.
+The master app icon is `assets/ui/app-icon-1024.png`. Run `npx tauri icon assets/ui/app-icon-1024.png --ios-color '#100d24' --output <staging-directory>` to regenerate the desktop and iOS sizes. Android uses the full Block L artwork in legacy launcher icons and separate foreground and background layers in adaptive icons. Don't overwrite either set with Tauri's default Android output.
 
 F11 toggles fullscreen. Desktop saves use the existing serialized queue and live in `%APPDATA%\com.husarp.linebreaker`, not in the installation folder. Writes sync and rename a temporary file and keep `save.bak`. If both copies are unreadable the app blocks writes; back up the directory before attempting recovery.
 

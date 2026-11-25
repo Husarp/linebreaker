@@ -270,6 +270,45 @@ it('ignores old Bonus Box progress and keeps crates already earned', async () =>
   expect(game.w.document.getElementById('missions-overlay').textContent).not.toContain('Bonus Box');
 });
 
+it('replaces saved T-spin objectives in place and preserves points and swap history', () => {
+  api.seed(34);
+  api.refreshMissions();
+  const save = api.save;
+  const { daily, weekly } = save.missions;
+  daily.swapDate = api.missionDateKey();
+  weekly.swapDate = daily.swapDate;
+  daily.pointsToday = 8;
+  daily.ptsTrackedForWeekly = 8;
+  weekly.points = 80;
+  const dailyRest = daily.quests.slice(2);
+  const weeklyRest = weekly.missions.slice(2);
+  daily.quests.splice(0, 2,
+    { id: 't_spin_1', target: 1, progress: 1, completed: true, ptsClaimed: false },
+    { id: 't_spin_2', target: 2, progress: 1, completed: false, ptsClaimed: false });
+  weekly.missions.splice(0, 2,
+    { id: 'w_tspin_3', tier: 'hard', target: 3, progress: 3, completed: true, ptsClaimed: false },
+    { id: 'w_tspin_5', target: 3, progress: 3, completed: true, ptsClaimed: true });
+
+  api.applyLoadedData(game.w.LBSave.serializeSave(save), false);
+  const migrated = api.save;
+  const newDaily = migrated.missions.daily;
+  const newWeekly = migrated.missions.weekly;
+  expect(newDaily).toMatchObject({ pointsToday: 11, swapDate: daily.swapDate });
+  expect(newWeekly).toMatchObject({ points: 108, swapDate: weekly.swapDate });
+  expect(newDaily.quests.slice(2)).toEqual(dailyRest);
+  expect(newWeekly.missions.slice(2)).toEqual(weeklyRest);
+  expect(newDaily.quests.slice(0, 2).map(mission => mission.tier)).toEqual(['normal', 'hard']);
+  expect(newWeekly.missions.slice(0, 2).map(mission => mission.tier)).toEqual(['hard', 'hard']);
+  for (const list of [newDaily.quests, newWeekly.missions]) {
+    expect(new Set(list.map(mission => mission.metric)).size).toBe(list.length);
+    expect(list.map(mission => mission.metric)).not.toContain('tSpins');
+    expect(list.slice(0, 2).every(mission => mission.progress === 0 && !mission.completed && !mission.ptsClaimed)).toBe(true);
+  }
+  api.applyLoadedData(game.w.LBSave.serializeSave(migrated), false);
+  expect(api.save.missions).toEqual(migrated.missions);
+  expect(api.save.season).toEqual(migrated.season);
+});
+
 it('rolls full daily and weekly sets without repeated objectives', () => {
   api.seed(34);
   const dailySeen = new Map(), weeklySeen = new Map();
@@ -283,15 +322,11 @@ it('rolls full daily and weekly sets without repeated objectives', () => {
       const metrics = missions.map(({metric}) => metric);
       expect(new Set(metrics).size).toBe(missions.length);
       expect(metrics.filter(metric => speedMetric.test(metric)).length).toBeLessThanOrEqual(1);
-      expect(metrics.filter(metric => metric === 'tSpins').length).toBeLessThanOrEqual(1);
+      expect(metrics).not.toContain('tSpins');
       for (const mission of missions) seen.set(mission.id, mission);
     }
   }
 
-  expect(dailySeen.get('t_spin_1').target).toBe(1);
-  expect(dailySeen.get('t_spin_2').target).toBe(1);
-  expect(weeklySeen.get('w_tspin_3').target).toBe(2);
-  expect(weeklySeen.get('w_tspin_5').target).toBe(3);
   for (const [seen, prefix] of [[dailySeen, ''], [weeklySeen, 'w_']]) {
     for (const metric of ['raw', 'total']) {
       const targets = ['easy', 'normal', 'hard'].map(tier => {
