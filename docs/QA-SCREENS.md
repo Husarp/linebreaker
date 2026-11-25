@@ -34,4 +34,6 @@ When the browser tool limits call duration, pass `batch: [start, end]` (zero-bas
 
 Pass `screens: ['game-over', 'stats', 'help']` for a focused run instead of the full sweep. Captures for these targets also include the top-out moment, used boosters, final board, recent activity, crate counts, and Help topic list respectively.
 
+For the header and scroll-edge regression, run `tests/scroll-edges.mcp.js` with the same Playwright callback. It checks 390×844, 360×640 with font size 10, and 1280×800. Pass `widths: [360]` to run only the small-phone layout. At 390×844 the optional `capture(name, clip)` callback receives the top and bottom crop bounds for the seven ticket 302 screens. Pass `verify: false` to capture the baseline from an earlier build.
+
 Run `node scripts/simulate-economy.mjs` to compare a seeded 30-day top-rank player's quest, gift, and Season Pass rewards with the 1.4.2 projection. It reports crates, item parts, and universal parts by rarity using the game's reward functions. It does not assume a rate of XP-based level-ups or one-time achievement rewards.

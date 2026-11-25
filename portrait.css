@@ -11,8 +11,10 @@
     .overlay button, .overlay select { min-height: 44px; }
     .overlay button:focus-visible, .btn-pause-pc:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
     .lb-fullscreen > :first-child {
-        position: sticky !important; top: 0 !important; z-index: 25 !important;
         flex-shrink: 0; gap: 8px !important; padding: 8px 16px !important;
+    }
+    .lb-fullscreen > :first-child:not([data-lb-topbar]) {
+        position: sticky !important; top: 0 !important; z-index: 25 !important;
     }
     .lb-fullscreen > :nth-child(2) { padding: 16px !important; }
     .lb-fullscreen :is(.settings-row, .xp-row) { flex-wrap: wrap; gap: 8px; }

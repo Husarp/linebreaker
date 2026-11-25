@@ -2953,16 +2953,7 @@
     function updateScrollFade(pane) {
         const { clientHeight, scrollHeight, scrollTop } = pane;
         const remaining = scrollHeight - clientHeight - Math.max(0, scrollTop);
-        const moreAbove = clientHeight > 0 && scrollTop > 1;
-        pane.toggleAttribute('data-fade-above', moreAbove);
         pane.toggleAttribute('data-fade-below', clientHeight > 0 && remaining > 1);
-        const header = pane.firstElementChild;
-        if (moreAbove && header?.hasAttribute('data-scroll-fade-header')) {
-            const height = getComputedStyle(header).position === 'sticky' ? header.offsetHeight : 0;
-            pane.style.setProperty('--lb-fade-start', `${height}px`);
-        } else if (pane.style.getPropertyValue('--lb-fade-start')) {
-            pane.style.removeProperty('--lb-fade-start');
-        }
     }
     function updateScrollTopButton() {
         const target = activeScroller;
@@ -2974,7 +2965,10 @@
         const visible = target.isConnected && clientHeight > 0 && scrollHeight > (clientHeight + reserved) * 2.5
             && (scrollTop > 120 || target === scrollToTopTarget)
             && !target.closest('[hidden], [inert], .hidden');
-        target.toggleAttribute('data-scroll-top-space', visible);
+        if (target.hasAttribute('data-scroll-top-space') !== visible) {
+            target.toggleAttribute('data-scroll-top-space', visible);
+            updateScrollFade(target);
+        }
         if (scrollTopButton.hidden === visible) scrollTopButton.hidden = !visible;
         if (visible) {
             const bounds = target.getBoundingClientRect();
@@ -3013,7 +3007,10 @@
         if (!(target instanceof HTMLElement) || !target.matches(scrollPaneSelector)) return;
         updateScrollFade(target);
         if (target !== activeScroller) {
-            activeScroller?.removeAttribute('data-scroll-top-space');
+            if (activeScroller?.hasAttribute('data-scroll-top-space')) {
+                activeScroller.removeAttribute('data-scroll-top-space');
+                updateScrollFade(activeScroller);
+            }
             activeScroller = target;
             const owner = target.closest('dialog, .overlay, [id$="-overlay"]') || document.body;
             owner.append(scrollTopButton);
@@ -5173,6 +5170,7 @@
             applyFontSize(value);
             const fsSl = document.getElementById('slider-fontsize'); if (fsSl) fsSl.value = value;
             const fsVEl = document.getElementById('fontsize-step-val'); if (fsVEl) fsVEl.innerText = value;
+            refreshScrollPanes();
             saveSettingsDebounced(); return;
         } else if (key === 'gameScale') {
             settings.gameScale = value;
@@ -10878,7 +10876,7 @@
         const actionPlaylist = _getPlaylist('action');
         const allNames = [..._trackPool.keys()].sort((a, b) => a.localeCompare(b));
         const trackToggle = (on, ctx, name) => `<button type="button" class="lb-block-btn lb-block-btn--icon lb-playlist-check" data-playlist="${ctx === 'menu' ? 'menu' : 'game'}" aria-label="${ctx === 'menu' ? 'Menu' : 'Game'} playlist: ${escapeHtml(name)}" aria-pressed="${on}" onclick="window.moveTrack('${ctx}',${escapeHtml(JSON.stringify(name))},${!on})"><span>${svgCheck}</span></button>`;
-        const header = `<div class="lb-playlist-grid lb-playlist-columns" data-scroll-fade-header aria-hidden="true">
+        const header = `<div class="lb-playlist-grid lb-playlist-columns" aria-hidden="true">
             <span>Menu</span><span>Game</span><span>Track name</span>
         </div>`;
         const rows = allNames.map(name => {

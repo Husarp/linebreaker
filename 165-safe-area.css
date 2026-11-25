@@ -18,7 +18,10 @@
 .overlay[data-lb-bar-screen] { padding-top: 0; }
 .overlay > [data-lb-topbar] {
     --lb-bar-pad: 8px;
-    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    flex: none;
+    block-size: auto;
     padding-top: calc(var(--lb-bar-pad) + var(--lb-band-height, var(--lb-safe-top))) !important;
     padding-inline: max(var(--space-3), var(--lb-safe-left)) max(var(--space-3), var(--lb-safe-right));
 }

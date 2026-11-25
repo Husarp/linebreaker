@@ -36,22 +36,20 @@
 }
 #missions-overlay [hidden] { display: none !important; }
 
-#missions-overlay > :is(#mq-mission-view, #season-pass-overlay) {
-    flex: 1 1 auto;
+#mq-mission-view {
     min-height: 0;
     overflow: hidden auto;
     overscroll-behavior: contain;
-    padding: var(--lb-space-lg) max(var(--mq-inset), var(--lb-safe-right)) max(var(--lb-space-xl), var(--lb-safe-bottom)) max(var(--mq-inset), var(--lb-safe-left));
+    padding: var(--lb-space-sm) max(var(--mq-inset), var(--lb-safe-right)) max(var(--lb-space-xl), var(--lb-safe-bottom)) max(var(--mq-inset), var(--lb-safe-left));
     scrollbar-gutter: auto;
     background: none;
     overflow-wrap: normal;
     word-break: normal;
 }
-#missions-overlay > #mq-mission-view {
-    padding-block-start: var(--lb-space-sm);
+#missions-overlay > .lb-scroll-backdrop {
     background: linear-gradient(#182124e8, #1d2225f5), url('assets/ui/tiles/missions-outpost.webp') center / cover, #1d2225;
 }
-[data-lb-ui-theme='light'] #missions-overlay > #mq-mission-view {
+[data-lb-ui-theme='light'] #missions-overlay > .lb-scroll-backdrop {
     background: linear-gradient(#ece1cbe8, #e9dfc9f5), url('assets/ui/tiles/missions-outpost.webp') center / cover, #e9dfc9;
 }
 .mq-shell {
@@ -298,7 +296,7 @@
 .mq-focus-step img { width: 26px; height: 26px; object-fit: contain; }
 
 @media (max-height: 850px) {
-    #missions-overlay > #mq-mission-view { padding-block: 4px max(4px, var(--lb-safe-bottom)); }
+    #mq-mission-view { padding-block: 4px max(4px, var(--lb-safe-bottom)); }
     #missions-overlay > .mq-header[data-lb-topbar] { --lb-bar-pad: 4px; padding-block-end: 5px; }
     .mq-shell { gap: 4px; }
     #missions-overlay .lb-block-btn.mq-season-card { min-height: 48px; padding-block: 3px !important; }

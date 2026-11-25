@@ -562,20 +562,25 @@
 .lb-game-root, .lb-game-root * { scrollbar-color: var(--bb-scroll-thumb) transparent; }
 .lb-game-root .lb-scroll-fade { scrollbar-gutter: stable; }
 
-.lb-scroll-fade[data-fade-above] { --lb-fade-top: 16px; }
-.lb-scroll-fade[data-fade-below] { --lb-fade-bottom: 16px; }
-.lb-scroll-fade:is([data-fade-above], [data-fade-below]) {
-    --lb-fade-gradient: linear-gradient(to bottom, #000 var(--lb-fade-start, 0px),
-        transparent var(--lb-fade-start, 0px), #000 calc(var(--lb-fade-start, 0px) + var(--lb-fade-top, 0px)),
-        #000 calc(100% - var(--lb-fade-bottom, 0px)), transparent);
+.lb-scroll-fade[data-fade-below] {
+    --lb-fade-gradient: linear-gradient(#000 max(50%, calc(100% - 40px)), transparent);
     -webkit-mask-image: var(--lb-fade-gradient);
     mask-image: var(--lb-fade-gradient);
+    mask-origin: padding-box;
+    mask-clip: padding-box;
+    scroll-padding-block-end: 40px;
+}
+
+/* Keep the backdrop visible through the list mask. */
+.lb-scroll-backdrop {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    flex: 1 1 0;
+    min-block-size: 0;
 }
 /* Keep the scrollport and its scrollbar above the button's reserved strip. */
 .lb-game-root .lb-scroll-fade[data-scroll-top-space] {
     border-block-end: 60px solid transparent;
-    mask-origin: padding-box;
-    mask-clip: padding-box;
 }
 .lb-game-root .lb-block-btn.lb-scroll-top:not([hidden]) {
     position: fixed;
@@ -1038,12 +1043,22 @@
     font: 400 var(--lb-type-micro)/1.2 var(--lb-font-pixel);
 }
 #go-overlay .go-dialog-body {
+    position: relative;
+    isolation: isolate;
     overflow: hidden auto;
     padding: 20px var(--go-end) 0 var(--go-start);
     text-align: start;
     scrollbar-gutter: auto;
-    background: linear-gradient(transparent, var(--lb-page)) top / 100% var(--go-horizon-height) no-repeat local,
-        var(--lb-go-scene, none) var(--lb-go-scene-position, center top) / max(100%, 520px) var(--go-horizon-height) no-repeat local;
+}
+#go-overlay .go-dialog-body::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    block-size: var(--go-horizon-height);
+    z-index: -1;
+    background: var(--lb-go-scene, none) var(--lb-go-scene-position, center top) / max(100%, 520px) 100% no-repeat;
+    mask-image: linear-gradient(#000, transparent);
+    pointer-events: none;
 }
 #go-overlay .go-dialog-body > :not(:first-child) { margin-block-start: var(--lb-space-lg); }
 #go-overlay .go-dialog-body:focus-visible { outline: 2px solid var(--lb-focus); outline-offset: -2px; }
@@ -1450,7 +1465,6 @@ svg.lb-ledger-chevron {
 }
 #inventory-overlay :is(.inv-row.lb-inventory-item, .lb-colors-card) { box-shadow: var(--lb-key-shadow) !important; }
 
-#achievements-overlay > .lb-scroll-fade { min-height: 0; }
 #achievements-overlay .ach-content {
     padding: var(--lb-space-md) max(var(--lb-space-md), var(--lb-safe-right)) max(var(--lb-space-xl), var(--lb-safe-bottom)) max(var(--lb-space-md), var(--lb-safe-left));
 }
@@ -2087,7 +2101,7 @@ svg.lb-ledger-chevron {
     --ach-meter: #675236;
     --ach-scene: #e9dec8ed;
 }
-#achievements-overlay > .lb-scroll-fade {
+#achievements-overlay > .lb-scroll-backdrop {
     background: linear-gradient(var(--ach-scene), var(--ach-scene)), url('assets/ui/tiles/stats-archive-calm.webp') center / cover;
 }
 #achievements-overlay .lb-collection-feature.ach-register-summary {

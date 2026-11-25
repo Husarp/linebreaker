@@ -469,41 +469,43 @@
         <p class="lb-topbar-meta" id="mq-list-meta"></p>
         <p class="lb-topbar-meta" id="sp-day" hidden></p>
     </header>
-    <div id="mq-mission-view" class="lb-scroll-fade">
-        <div class="mq-shell">
-            <div class="mq-board-controls">
-                <div class="lb-block-tabs lb-ledger-segments" role="group" aria-label="Mission period">
-                    <button type="button" class="lb-block-btn lb-block-tab" data-tab="daily" aria-pressed="true" aria-controls="missions-body">Daily<span class="mq-ready-dot" aria-hidden="true"></span></button>
-                    <button type="button" class="lb-block-btn lb-block-tab" data-tab="weekly" aria-pressed="false" aria-controls="missions-body">Weekly<span class="mq-ready-dot" aria-hidden="true"></span></button>
+    <div class="lb-scroll-backdrop">
+        <div id="mq-mission-view" class="lb-scroll-fade">
+            <div class="mq-shell">
+                <div class="mq-board-controls">
+                    <div class="lb-block-tabs lb-ledger-segments" role="group" aria-label="Mission period">
+                        <button type="button" class="lb-block-btn lb-block-tab" data-tab="daily" aria-pressed="true" aria-controls="missions-body">Daily<span class="mq-ready-dot" aria-hidden="true"></span></button>
+                        <button type="button" class="lb-block-btn lb-block-tab" data-tab="weekly" aria-pressed="false" aria-controls="missions-body">Weekly<span class="mq-ready-dot" aria-hidden="true"></span></button>
+                    </div>
                 </div>
-            </div>
-            <button type="button" class="lb-block-btn mq-season-card" id="btn-season-pass" data-tab="season" aria-controls="season-pass-overlay">
-                <span class="mq-season-copy"><span class="lb-menu-kicker" id="mq-season-date"></span><strong>Season Pass</strong><small id="mq-season-stage">View rewards</small></span>
-                <img width="65" height="65" alt="" hidden>
-                <span class="lb-ledger-chevron" aria-hidden="true"></span>
-            </button>
-            <section class="lb-block-card mq-board lb-r17-feature" aria-labelledby="mq-board-title" data-feature-art="mission-forest-outpost">
-                <div class="mq-list-head">
-                    <div>
-                        <div class="mq-board-heading">
-                            <h2 class="lb-block-section-title" id="mq-board-title">Mission milestones</h2>
-                            <button type="button" class="lb-info-btn" data-help-section="missions" aria-label="About missions" data-control-tip="About missions"></button>
+                <button type="button" class="lb-block-btn mq-season-card" id="btn-season-pass" data-tab="season" aria-controls="season-pass-overlay">
+                    <span class="mq-season-copy"><span class="lb-menu-kicker" id="mq-season-date"></span><strong>Season Pass</strong><small id="mq-season-stage">View rewards</small></span>
+                    <img width="65" height="65" alt="" hidden>
+                    <span class="lb-ledger-chevron" aria-hidden="true"></span>
+                </button>
+                <section class="lb-block-card mq-board lb-r17-feature" aria-labelledby="mq-board-title" data-feature-art="mission-forest-outpost">
+                    <div class="mq-list-head">
+                        <div>
+                            <div class="mq-board-heading">
+                                <h2 class="lb-block-section-title" id="mq-board-title">Mission milestones</h2>
+                                <button type="button" class="lb-info-btn" data-help-section="missions" aria-label="About missions" data-control-tip="About missions"></button>
+                            </div>
+                            <div id="mq-countdown"><svg aria-hidden="true"><use href="#lb-metric-clock"/></svg><span>Resets in <time></time></span></div>
                         </div>
-                        <div id="mq-countdown"><svg aria-hidden="true"><use href="#lb-metric-clock"/></svg><span>Resets in <time></time></span></div>
                     </div>
-                </div>
-                <div id="mq-milestones"></div>
-            </section>
-            <section aria-labelledby="mq-board-period">
-                <div class="mq-list-head mq-orders">
-                    <h2 class="lb-block-section-title" id="mq-board-period">Daily objectives</h2>
-                    <div class="mq-swap-control" role="group" aria-label="Mission swaps">
-                        <span id="mq-swaps-left">1 swap left today</span>
-                        <button type="button" id="mq-change-toggle" class="lb-block-btn" aria-pressed="false" aria-describedby="mq-swaps-left" onclick="event.stopPropagation();window._toggleChangeMode()">Swap</button>
+                    <div id="mq-milestones"></div>
+                </section>
+                <section aria-labelledby="mq-board-period">
+                    <div class="mq-list-head mq-orders">
+                        <h2 class="lb-block-section-title" id="mq-board-period">Daily objectives</h2>
+                        <div class="mq-swap-control" role="group" aria-label="Mission swaps">
+                            <span id="mq-swaps-left">1 swap left today</span>
+                            <button type="button" id="mq-change-toggle" class="lb-block-btn" aria-pressed="false" aria-describedby="mq-swaps-left" onclick="event.stopPropagation();window._toggleChangeMode()">Swap</button>
+                        </div>
                     </div>
-                </div>
-                <div id="missions-body"></div>
-            </section>
+                    <div id="missions-body"></div>
+                </section>
+            </div>
         </div>
     </div>
     <section id="season-pass-overlay" class="sp-pass" aria-labelledby="sp-title" hidden></section>
@@ -1110,46 +1112,48 @@
             <h1 class="lb-topbar-title">Achievements</h1>
         </div>
     </header>
-    <div class="lb-scroll-fade">
-      <div class="ach-content">
-        <div id="ach-claims"></div>
-        <section class="lb-collection-feature ach-register-summary">
-            <div>
-                <span class="lb-collection-label">Featured milestones</span>
-                <h2 id="ach-milestone-count"></h2>
-                <progress id="ach-milestone-progress" class="lb-block-progress" aria-label="Basic achievements unlocked"></progress>
+    <div class="lb-scroll-backdrop">
+        <div class="lb-scroll-fade">
+          <div class="ach-content">
+            <div id="ach-claims"></div>
+            <section class="lb-collection-feature ach-register-summary">
+                <div>
+                    <span class="lb-collection-label">Featured milestones</span>
+                    <h2 id="ach-milestone-count"></h2>
+                    <progress id="ach-milestone-progress" class="lb-block-progress" aria-label="Basic achievements unlocked"></progress>
+                </div>
+            </section>
+            <div class="ach-toolbar">
+                <div class="ach-status lb-block-tabs lb-ledger-segments" role="group" aria-label="Unlock status">
+                    <button class="lb-block-btn lb-block-tab" data-achtab="all" aria-pressed="true">All</button>
+                    <button class="lb-block-btn lb-block-tab" data-achtab="unlocked" aria-pressed="false">Unlocked</button>
+                    <button class="lb-block-btn lb-block-tab" data-achtab="locked" aria-pressed="false">In progress</button>
+                </div>
+                <div class="ach-select lb-dropdown" id="ach-category" data-label="Achievement category"><template>
+                    <option value="all">All categories</option>
+                </template></div>
+                <div class="ach-select lb-dropdown" id="ach-sort" data-label="Sort achievements"><template>
+                    <option value="default">Sort: Default</option>
+                    <option value="rarity">Rarity</option>
+                    <option value="progress">Progress</option>
+                    <option value="recent">Recently unlocked</option>
+                </template></div>
+                <label class="ach-dates" data-control-tip="Show unlock dates in achievement details">
+                    <span>Dates</span>
+                    <span class="toggle lb-block-switch">
+                        <input type="checkbox" role="switch" id="ach-dates-toggle">
+                        <span class="toggle-slider"></span>
+                    </span>
+                </label>
+                <div class="ach-summary" role="group" aria-label="Achievement completion">
+                    <span class="ach-count-label" id="ach-counter"></span>
+                    <span class="ach-count-label" id="ach-secret-counter"></span>
+                </div>
             </div>
-        </section>
-        <div class="ach-toolbar">
-            <div class="ach-status lb-block-tabs lb-ledger-segments" role="group" aria-label="Unlock status">
-                <button class="lb-block-btn lb-block-tab" data-achtab="all" aria-pressed="true">All</button>
-                <button class="lb-block-btn lb-block-tab" data-achtab="unlocked" aria-pressed="false">Unlocked</button>
-                <button class="lb-block-btn lb-block-tab" data-achtab="locked" aria-pressed="false">In progress</button>
-            </div>
-            <div class="ach-select lb-dropdown" id="ach-category" data-label="Achievement category"><template>
-                <option value="all">All categories</option>
-            </template></div>
-            <div class="ach-select lb-dropdown" id="ach-sort" data-label="Sort achievements"><template>
-                <option value="default">Sort: Default</option>
-                <option value="rarity">Rarity</option>
-                <option value="progress">Progress</option>
-                <option value="recent">Recently unlocked</option>
-            </template></div>
-            <label class="ach-dates" data-control-tip="Show unlock dates in achievement details">
-                <span>Dates</span>
-                <span class="toggle lb-block-switch">
-                    <input type="checkbox" role="switch" id="ach-dates-toggle">
-                    <span class="toggle-slider"></span>
-                </span>
-            </label>
-            <div class="ach-summary" role="group" aria-label="Achievement completion">
-                <span class="ach-count-label" id="ach-counter"></span>
-                <span class="ach-count-label" id="ach-secret-counter"></span>
-            </div>
+            <!-- Achievement list rendered by JS -->
+            <div id="ach-list"></div>
+          </div>
         </div>
-        <!-- Achievement list rendered by JS -->
-        <div id="ach-list"></div>
-      </div>
     </div>
 </div>
 

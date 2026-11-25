@@ -144,6 +144,35 @@ it('clears the Inventory tile on visiting Crates and restores it for the next de
   expect(api.save.storedCrates).toEqual([{ rarity: 'common', seen: true }, { rarity: 'rare', seen: true }]);
 });
 
+it('requests a bottom fade only while a visible pane has more content below', async () => {
+  await window.openStats();
+  const pane = document.getElementById('general-stats-container');
+  let height = 400;
+  let contentHeight = 400;
+  Object.defineProperties(pane, {
+    clientHeight: { get: () => height },
+    scrollHeight: { get: () => contentHeight },
+  });
+  const check = (top, fades) => {
+    pane.scrollTop = top;
+    pane.dispatchEvent(new window.Event('scroll'));
+    expect(pane.hasAttribute('data-fade-below')).toBe(fades);
+    expect(pane.hasAttribute('data-fade-above')).toBe(false);
+  };
+
+  check(0, false);
+  contentHeight = 800;
+  window.dispatchEvent(new window.Event('resize'));
+  expect(pane.hasAttribute('data-fade-below')).toBe(true);
+  check(-5, true);
+  check(200, true);
+  check(399.5, false);
+  check(410, false);
+  check(200, true);
+  height = 0;
+  check(200, false);
+});
+
 it('offers scroll to top only for a long list and reserves a strip below the scrollport', async () => {
   await window.openStats();
   const pane = document.getElementById('general-stats-container');
